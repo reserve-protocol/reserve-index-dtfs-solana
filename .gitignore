@@ -1,0 +1,26 @@
+.anchor
+.DS_Store
+target
+**/*.rs.bk
+node_modules
+test-ledger
+.yarn
+.vscode
+.idea
+
+# TypeScript build output
+**/*.js
+**/*.js.map
+**/*.d.ts
+
+# But don't ignore these JS files if you need them
+!.ammanrc.js
+!jest.config.js
+!.eslintrc.js
+!*.config.js
+!scripts/*.js
+
+# Ignore build/dist directories
+dist/
+build/
+lib/

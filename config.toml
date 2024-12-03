@@ -1,0 +1,9 @@
+[build]
+rustflags = [
+    "-A", "ambiguous_glob_reexports",
+]
+
+[clippy]
+rustflags = [
+    "-A", "ambiguous_glob_reexports",
+]

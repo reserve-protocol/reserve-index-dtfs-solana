@@ -14,8 +14,4 @@ declare_id!("Cr1UEkStzJPQ4wa9Lr6ryJWci83baMvrQLT3skd1eLmG");
 #[program]
 pub mod dtfs {
     use super::*;
-
-    pub fn init_example_account(ctx: Context<InitExampleAccount>) -> Result<()> {
-        example_ix::handler(ctx)
-    }
 }

@@ -1,4 +1,5 @@
 .anchor
+.amman/
 .DS_Store
 target
 **/*.rs.bk

@@ -25,7 +25,7 @@ import {
 } from "../utils/token-helper";
 import * as assert from "assert";
 
-describe("dtfs", () => {
+describe("Multisig Tests", () => {
   let connection: Connection;
   let program: Program<Dtfs>;
   let keys: any;

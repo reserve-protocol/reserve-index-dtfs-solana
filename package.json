@@ -8,7 +8,8 @@
     "@coral-xyz/anchor": "0.30.1",
     "@solana/web3.js": "1.95.5",
     "@sqds/sdk": "2.0.4",
-    "@solana/spl-token": "0.4.9"
+    "@solana/spl-token": "0.4.9",
+    "governance-idl-sdk": "0.0.4"
   },
   "devDependencies": {
     "@types/bn.js": "^5.1.0",

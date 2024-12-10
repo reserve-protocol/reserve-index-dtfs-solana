@@ -1,16 +1,14 @@
 use anchor_lang::prelude::*;
 
-/// PDA Seeds ["example", wallet]
+/// PDA Seeds ["ftoken_wrapper", ftoken pubkey]
 #[account]
 #[derive(Default)]
-pub struct ExampleAccount {
+pub struct FTokenWrapper {
     pub bump: u8,
-
-    pub example_field: u64,
 }
 
-impl ExampleAccount {
-    pub const SIZE: usize = 8 + 1 + 8;
+impl FTokenWrapper {
+    pub const SIZE: usize = 8 + 1;
 
-    pub const SEEDS: &'static [u8] = b"example";
+    pub const SEEDS: &'static [u8] = b"ftoken_wrapper";
 }

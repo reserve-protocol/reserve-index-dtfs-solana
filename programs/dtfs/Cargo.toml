@@ -21,3 +21,4 @@ dev = []
 [dependencies]
 anchor-lang = { version = "0.30.1", features = ["init-if-needed"] }
 anchor-spl = "0.30.1"
+spl-math = "0.3.0"

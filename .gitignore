@@ -8,6 +8,7 @@ test-ledger
 .yarn
 .vscode
 .idea
+.env
 
 # TypeScript build output
 **/*.js

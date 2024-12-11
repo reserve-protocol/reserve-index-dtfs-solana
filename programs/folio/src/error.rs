@@ -4,6 +4,12 @@ use anchor_lang::prelude::*;
 pub enum ErrorCode {
     #[msg("Unauthorized")]
     Unauthorized,
+
+    #[msg("Invalid program count")]
+    InvalidProgramCount,
+
+    #[msg("Program not in registrar")]
+    ProgramNotInRegistrar,
 }
 
 #[macro_export]

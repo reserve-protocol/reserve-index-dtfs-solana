@@ -6,13 +6,13 @@ skip-lint = false
 
 [programs.localnet]
 dtfs = "Cr1UEkStzJPQ4wa9Lr6ryJWci83baMvrQLT3skd1eLmG"
-ftoken_manager = "FESnpQMqnsixE1MU4xZMLiLQGErg7JdqjmtjgWsvQ55m"
+folio = "FESnpQMqnsixE1MU4xZMLiLQGErg7JdqjmtjgWsvQ55m"
 [programs.devnet]
 dtfs = "Cr1UEkStzJPQ4wa9Lr6ryJWci83baMvrQLT3skd1eLmG"
-ftoken_manager = "FESnpQMqnsixE1MU4xZMLiLQGErg7JdqjmtjgWsvQ55m"
+folio = "FESnpQMqnsixE1MU4xZMLiLQGErg7JdqjmtjgWsvQ55m"
 [programs.mainnet]
 dtfs = "Cr1UEkStzJPQ4wa9Lr6ryJWci83baMvrQLT3skd1eLmG"
-ftoken_manager = "FESnpQMqnsixE1MU4xZMLiLQGErg7JdqjmtjgWsvQ55m"
+folio = "FESnpQMqnsixE1MU4xZMLiLQGErg7JdqjmtjgWsvQ55m"
 
 [registry]
 url = "https://api.apr.dev"

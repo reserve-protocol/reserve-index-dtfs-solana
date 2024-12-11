@@ -29,18 +29,13 @@ impl ProgramRegistrar {
     }
 
     pub fn remove_from_registrar(&mut self, program_ids: Vec<Pubkey>) -> Result<()> {
-        let mut new_programs: Vec<Pubkey> = Vec::new();
+        let mut new_programs = self.accepted_programs.to_vec();
 
-        for program in self.accepted_programs {
-            if !program_ids.contains(&program) {
-                new_programs.push(program);
+        new_programs.iter_mut().for_each(|program| {
+            if program_ids.contains(program) {
+                *program = Pubkey::default();
             }
-        }
-
-        check_condition!(
-            new_programs.len() <= ProgramRegistrar::MAX_ACCEPTED_PROGRAMS,
-            InvalidProgramCount
-        );
+        });
 
         self.accepted_programs = new_programs.try_into().unwrap();
 

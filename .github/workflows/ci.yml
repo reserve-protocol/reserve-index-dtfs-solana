@@ -36,7 +36,8 @@ jobs:
       - name: Install Solana
         run: |
           sh -c "$(curl -sSfL https://release.solana.com/v${{ env.SOLANA_VERSION }}/install)"
-          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+          export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
+          echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
           solana --version
 
       - name: Install Anchor
@@ -48,12 +49,6 @@ jobs:
       - name: Rust Format Check
         run: cargo fmt --all -- --check
 
-      - name: Anchor Build
-        run: anchor build
-
-      - name: Cargo Test
-        run: cargo test
-
       - name: Clippy Check
         run: |
           cargo clippy -- \
@@ -61,7 +56,15 @@ jobs:
             -A unused_imports \
             -D warnings
 
-      # - name: Anchor Test
-      #   run: anchor test
+      - name: Anchor Build
+        run: |
+          export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
+          anchor build
 
-      
+      - name: Cargo Test
+        run: cargo test
+
+      - name: Anchor Test
+        run: |
+          export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
+          anchor test

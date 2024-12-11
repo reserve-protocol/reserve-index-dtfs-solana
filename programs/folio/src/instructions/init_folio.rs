@@ -20,7 +20,6 @@ pub struct InitFolio<'info> {
     pub token_program: Program<'info, Token2022>,
     pub associated_token_program: Program<'info, AssociatedToken>,
 
-    // cpi into other program to create owner record
     #[account(mut)]
     pub folio_owner: Signer<'info>,
 

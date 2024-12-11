@@ -31,7 +31,7 @@ const programs = [
   {
     label: "FToken Manager",
     programId: "FESnpQMqnsixE1MU4xZMLiLQGErg7JdqjmtjgWsvQ55m",
-    deployPath: path.join(localProgram, `ftoken_manager.so`),
+    deployPath: path.join(localProgram, `folio.so`),
   },
 ];
 

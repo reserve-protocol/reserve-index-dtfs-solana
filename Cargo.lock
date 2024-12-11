@@ -911,11 +911,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "dotenv"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
+
+[[package]]
 name = "dtfs"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
+ "folio",
  "spl-math",
 ]
 
@@ -992,11 +999,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
-name = "ftoken_manager"
+name = "folio"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
+ "dotenv",
+ "spl-math",
 ]
 
 [[package]]

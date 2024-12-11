@@ -1,0 +1,5 @@
+[target.'cfg(all())']
+rustflags = [
+    "-A", "ambiguous_glob_reexports",
+    "-A", "unused_imports"
+]

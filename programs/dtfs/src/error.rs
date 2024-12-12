@@ -4,6 +4,9 @@ use anchor_lang::prelude::*;
 pub enum ErrorCode {
     #[msg("Unauthorized")]
     Unauthorized,
+
+    #[msg("Invalid Bump")]
+    InvalidBump,
 }
 
 #[macro_export]

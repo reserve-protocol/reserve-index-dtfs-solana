@@ -9,7 +9,7 @@ pub mod instructions;
 pub mod state;
 pub mod utils;
 
-declare_id!("FESnpQMqnsixE1MU4xZMLiLQGErg7JdqjmtjgWsvQ55m");
+declare_id!("n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG");
 
 #[program]
 pub mod folio {

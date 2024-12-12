@@ -8,7 +8,7 @@ pub struct FTokenWrapper {
 }
 
 impl FTokenWrapper {
-    pub const SIZE: usize = FTokenWrapper::INIT_SPACE;
+    pub const SIZE: usize = 8 + FTokenWrapper::INIT_SPACE;
 
     pub const SEEDS: &'static [u8] = b"ftoken_wrapper";
 }
@@ -24,7 +24,7 @@ pub struct Actor {
 }
 
 impl Actor {
-    pub const SIZE: usize = Actor::INIT_SPACE;
+    pub const SIZE: usize = 8 + Actor::INIT_SPACE;
 
     pub const SEEDS: &'static [u8] = b"actor";
 }

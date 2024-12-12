@@ -1,3 +1,4 @@
+use crate::check_condition;
 use crate::error::ErrorCode;
 use crate::state::Actor;
 use anchor_lang::prelude::*;
@@ -9,33 +10,39 @@ pub struct InitFirstOwner<'info> {
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
 
+    /// CHECK: Folio owner
     #[account(mut)]
     pub folio_owner: Signer<'info>,
 
     // To ensure that the program is signed by the folio program
-    #[account(mut,
+    #[account(
         seeds = [FolioProgramSigner::SEEDS],
         bump = folio_program_signer.bump,
         seeds::program = FOLIO_ID,
         signer
     )]
-    pub folio_program_signer: Account<'info, FolioProgramSigner>,
+    pub folio_program_signer: Box<Account<'info, FolioProgramSigner>>,
 
     #[account(
         init,
         payer = folio_owner,
         space = Actor::SIZE,
-        seeds = [Actor::SEEDS, actor.key().as_ref()],
+        seeds = [Actor::SEEDS, folio_owner.key().as_ref()],
         bump
     )]
-    pub actor: Account<'info, Actor>,
+    pub actor: Box<Account<'info, Actor>>,
 
+    /// CHECK: Folio
     #[account(
-        seeds = [Folio::SEEDS],
-        bump = folio.bump,
-        seeds::program = FOLIO_ID
+        seeds = [Folio::SEEDS, folio_token_mint.key().as_ref()],
+        bump,
+        seeds::program = FOLIO_ID,
     )]
-    pub folio: Account<'info, Folio>,
+    pub folio: AccountInfo<'info>,
+
+    /// CHECK: Folio token mint
+    #[account()]
+    pub folio_token_mint: AccountInfo<'info>,
 }
 
 impl<'info> InitFirstOwner<'info> {

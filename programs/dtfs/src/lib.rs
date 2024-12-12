@@ -9,7 +9,7 @@ pub mod instructions;
 pub mod state;
 pub mod utils;
 
-declare_id!("Cr1UEkStzJPQ4wa9Lr6ryJWci83baMvrQLT3skd1eLmG");
+declare_id!("7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn");
 
 #[program]
 pub mod dtfs {

@@ -1,8 +1,10 @@
 import {
   createMint,
   createTransferCheckedInstruction,
+  getAssociatedTokenAddressSync,
   getOrCreateAssociatedTokenAccount,
   mintTo,
+  TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
 import {
   Connection,
@@ -103,6 +105,39 @@ export async function getAtaAddress(
       true
     )
   ).address;
+}
+
+export async function getOrCreateAtaAddress2022(
+  connection: Connection,
+  mint: PublicKey,
+  payer: Keypair,
+  owner: PublicKey
+) {
+  return (
+    await getOrCreateAssociatedTokenAccount(
+      connection,
+      payer,
+      mint,
+      owner,
+      true,
+      undefined,
+      undefined,
+      TOKEN_2022_PROGRAM_ID
+    )
+  ).address;
+}
+
+export async function getAtaAddress2022(
+  connection: Connection,
+  mint: PublicKey,
+  owner: PublicKey
+) {
+  return getAssociatedTokenAddressSync(
+    mint,
+    owner,
+    true,
+    TOKEN_2022_PROGRAM_ID
+  );
 }
 
 export async function getTokenBalance(

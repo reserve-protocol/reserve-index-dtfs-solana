@@ -25,12 +25,12 @@ const programs = [
   // Our programs
   {
     label: "DTFS",
-    programId: "Cr1UEkStzJPQ4wa9Lr6ryJWci83baMvrQLT3skd1eLmG",
+    programId: "7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn",
     deployPath: path.join(localProgram, `dtfs.so`),
   },
   {
-    label: "FToken Manager",
-    programId: "FESnpQMqnsixE1MU4xZMLiLQGErg7JdqjmtjgWsvQ55m",
+    label: "Folio",
+    programId: "n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG",
     deployPath: path.join(localProgram, `folio.so`),
   },
 ];

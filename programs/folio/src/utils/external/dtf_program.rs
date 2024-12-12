@@ -1,6 +1,6 @@
 use anchor_lang::{
     prelude::*,
-    solana_program::{self, keccak},
+    solana_program::{self, hash, keccak},
 };
 
 pub struct DtfProgram;
@@ -19,7 +19,7 @@ impl DtfProgram {
 
         let mut sighash = [0u8; 8];
 
-        sighash.copy_from_slice(&keccak::hash(preimage.as_bytes()).to_bytes()[..8]);
+        sighash.copy_from_slice(&hash::hash(preimage.as_bytes()).to_bytes()[..8]);
 
         sighash
     }
@@ -32,6 +32,7 @@ impl DtfProgram {
         folio_program_signer: AccountInfo<'info>,
         actor: AccountInfo<'info>,
         folio: AccountInfo<'info>,
+        folio_token_mint: AccountInfo<'info>,
         dtf_program: AccountInfo<'info>,
         signer_seeds: &[&[u8]],
     ) -> Result<()> {
@@ -43,12 +44,13 @@ impl DtfProgram {
         let ix = solana_program::instruction::Instruction {
             program_id: dtf_program.key(),
             accounts: vec![
-                AccountMeta::new(system_program.key(), false),
-                AccountMeta::new(rent.key(), false),
+                AccountMeta::new_readonly(system_program.key(), false),
+                AccountMeta::new_readonly(rent.key(), false),
                 AccountMeta::new(folio_owner.key(), true),
-                AccountMeta::new(folio_program_signer.key(), true),
+                AccountMeta::new_readonly(folio_program_signer.key(), true),
                 AccountMeta::new(actor.key(), false),
-                AccountMeta::new(folio.key(), false),
+                AccountMeta::new_readonly(folio.key(), false),
+                AccountMeta::new_readonly(folio_token_mint.key(), false),
             ],
             data,
         };
@@ -62,6 +64,7 @@ impl DtfProgram {
                 folio_program_signer.to_account_info(),
                 actor.to_account_info(),
                 folio.to_account_info(),
+                folio_token_mint.to_account_info(),
             ],
             &[signer_seeds],
         )?;

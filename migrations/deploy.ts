@@ -8,7 +8,7 @@ import {
 import { getConnectors } from "../utils/program-helper";
 
 async function testIx() {
-  const { program, keys } = await getConnectors();
+  const { programDtf: program, keys } = await getConnectors();
 
   const adminKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.admin));
 

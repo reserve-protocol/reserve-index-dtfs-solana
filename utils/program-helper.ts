@@ -15,21 +15,26 @@ import {
 import fs from "fs/promises";
 import path from "path";
 import { Dtfs } from "../target/types/dtfs";
-import idl from "../target/idl/dtfs.json";
+import idlDtfs from "../target/idl/dtfs.json";
+import { Folio } from "../target/types/folio";
+import idlFolio from "../target/idl/folio.json";
 
 export async function getConnectors() {
   let rpcUrl = "";
   let keysFileName = "";
   let dtfsProgramId = "";
+  let folioProgramId = "";
 
   switch (process.env.NODE_ENV) {
     case "devnet":
       dtfsProgramId = "Cr1UEkStzJPQ4wa9Lr6ryJWci83baMvrQLT3skd1eLmG";
+      folioProgramId = "n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG";
       rpcUrl = "https://api.devnet.solana.com";
       keysFileName = "keys-devnet.json";
       break;
     default:
-      dtfsProgramId = "Cr1UEkStzJPQ4wa9Lr6ryJWci83baMvrQLT3skd1eLmG";
+      dtfsProgramId = idlDtfs.address;
+      folioProgramId = idlFolio.address;
       rpcUrl = "http://127.0.0.1:8899";
       keysFileName = "keys-local.json";
   }
@@ -55,7 +60,8 @@ export async function getConnectors() {
   return {
     connection,
     keys,
-    program: new anchor.Program<Dtfs>(idl as Dtfs),
+    programDtf: new anchor.Program<Dtfs>(idlDtfs as Dtfs),
+    programFolio: new anchor.Program<Folio>(idlFolio as Folio),
     anchorProvider,
   };
 }
@@ -120,7 +126,7 @@ export async function cSendAndConfirmTxn(
 }
 
 export async function pSendAndConfirmTxn(
-  program: anchor.Program,
+  program: anchor.Program<any>,
   txn: TransactionInstruction[],
   additionalSigners: Signer[] = [],
   opts: SendOptions = { skipPreflight: false },

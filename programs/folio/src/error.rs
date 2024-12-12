@@ -10,6 +10,12 @@ pub enum ErrorCode {
 
     #[msg("Program not in registrar")]
     ProgramNotInRegistrar,
+
+    #[msg("Invalid bump")]
+    InvalidBump,
+
+    #[msg("Invalid PDA")]
+    InvalidPda,
 }
 
 #[macro_export]

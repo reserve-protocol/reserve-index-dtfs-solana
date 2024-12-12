@@ -5,14 +5,14 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-dtfs = "Cr1UEkStzJPQ4wa9Lr6ryJWci83baMvrQLT3skd1eLmG"
-folio = "FESnpQMqnsixE1MU4xZMLiLQGErg7JdqjmtjgWsvQ55m"
+dtfs = "7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn"
+folio = "n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG"
 [programs.devnet]
-dtfs = "Cr1UEkStzJPQ4wa9Lr6ryJWci83baMvrQLT3skd1eLmG"
-folio = "FESnpQMqnsixE1MU4xZMLiLQGErg7JdqjmtjgWsvQ55m"
+dtfs = "7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn"
+folio = "n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG"
 [programs.mainnet]
-dtfs = "Cr1UEkStzJPQ4wa9Lr6ryJWci83baMvrQLT3skd1eLmG"
-folio = "FESnpQMqnsixE1MU4xZMLiLQGErg7JdqjmtjgWsvQ55m"
+dtfs = "7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn"
+folio = "n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG"
 
 [registry]
 url = "https://api.apr.dev"

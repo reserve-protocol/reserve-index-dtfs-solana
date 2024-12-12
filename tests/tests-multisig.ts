@@ -43,7 +43,7 @@ describe("Multisig Tests", () => {
   let multisigVault: PublicKey;
 
   before(async () => {
-    ({ connection, program, keys } = await getConnectors());
+    ({ connection, programDtf: program, keys } = await getConnectors());
 
     payerKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.payer));
     adminKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.admin));

@@ -4,6 +4,9 @@ import idlDtfs from "../target/idl/dtfs.json";
 
 export const DTF_PROGRAM_ID = new PublicKey(idlDtfs.address);
 export const FOLIO_PROGRAM_ID = new PublicKey(idlFolio.address);
+export const BPF_LOADER_PROGRAM_ID = new PublicKey(
+  "BPFLoaderUpgradeab1e11111111111111111111111"
+);
 
 export function getFolioSignerPDA() {
   return PublicKey.findProgramAddressSync(
@@ -26,9 +29,23 @@ export function getFolioPDA(folioTokenMint: PublicKey) {
   )[0];
 }
 
-export function getActorPDA(authority: PublicKey) {
+export function getActorPDA(authority: PublicKey, folioPDA: PublicKey) {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("actor"), authority.toBuffer()],
+    [Buffer.from("actor"), authority.toBuffer(), folioPDA.toBuffer()],
+    DTF_PROGRAM_ID
+  )[0];
+}
+
+export function getProgramDataPDA(programId: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [programId.toBuffer()],
+    BPF_LOADER_PROGRAM_ID
+  )[0];
+}
+
+export function getDtfSignerPDA() {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("dtf_program_signer")],
     DTF_PROGRAM_ID
   )[0];
 }

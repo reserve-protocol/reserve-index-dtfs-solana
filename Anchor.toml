@@ -5,14 +5,14 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-dtfs = "7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn"
 folio = "n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG"
+dtfs = "7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn"
 [programs.devnet]
-dtfs = "7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn"
 folio = "n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG"
+dtfs = "7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn"
 [programs.mainnet]
-dtfs = "7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn"
 folio = "n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG"
+dtfs = "7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn"
 
 [registry]
 url = "https://api.apr.dev"

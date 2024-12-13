@@ -1,7 +1,6 @@
 use anchor_lang::prelude::*;
+use shared::{check_condition, errors::ErrorCode};
 
-use crate::check_condition;
-use crate::error::ErrorCode;
 use crate::state::ProgramRegistrar;
 use anchor_lang::prelude::Pubkey;
 

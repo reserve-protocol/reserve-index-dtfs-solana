@@ -1,7 +1,10 @@
-use crate::error::ErrorCode;
 use crate::events::ProgramRegistryUpdate;
-use crate::{check_condition, state::ProgramRegistrar, utils::constants::common::ADMIN};
+use crate::state::ProgramRegistrar;
 use anchor_lang::prelude::*;
+use shared::check_condition;
+use shared::constants::common::ADMIN;
+use shared::constants::PROGRAM_REGISTRAR_SEEDS;
+use shared::errors::ErrorCode;
 
 #[derive(Accounts)]
 pub struct UpdateProgramRegistrar<'info> {
@@ -10,7 +13,7 @@ pub struct UpdateProgramRegistrar<'info> {
 
     #[account(
         mut,
-        seeds = [ProgramRegistrar::SEEDS],
+        seeds = [PROGRAM_REGISTRAR_SEEDS],
         bump = program_registrar.bump
     )]
     pub program_registrar: Account<'info, ProgramRegistrar>,

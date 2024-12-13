@@ -1,5 +1,4 @@
 use crate::{
-    error::ErrorCode,
     events::FolioCreated,
     state::{Folio, FolioProgramSigner},
     DtfProgram,
@@ -10,8 +9,9 @@ use anchor_spl::{
     token_2022::Token2022,
     token_interface::{Mint, TokenAccount},
 };
+use shared::constants::{FOLIO_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS};
 
-use crate::{check_condition, state::ProgramRegistrar};
+use crate::state::ProgramRegistrar;
 
 #[derive(Accounts)]
 pub struct InitFolio<'info> {
@@ -24,13 +24,13 @@ pub struct InitFolio<'info> {
     pub folio_owner: Signer<'info>,
 
     #[account(
-        seeds = [ProgramRegistrar::SEEDS],
+        seeds = [PROGRAM_REGISTRAR_SEEDS],
         bump = program_registrar.bump
     )]
     pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
 
     #[account(
-        seeds = [FolioProgramSigner::SEEDS],
+        seeds = [FOLIO_PROGRAM_SIGNER_SEEDS],
         bump = folio_program_signer.bump
     )]
     pub folio_program_signer: Box<Account<'info, FolioProgramSigner>>,
@@ -38,7 +38,7 @@ pub struct InitFolio<'info> {
     #[account(init,
         payer = folio_owner,
         space = Folio::SIZE,
-        seeds = [Folio::SEEDS, folio_token_mint.key().as_ref()],
+        seeds = [FOLIO_SEEDS, folio_token_mint.key().as_ref()],
         bump
     )]
     pub folio: AccountLoader<'info, Folio>,
@@ -62,6 +62,10 @@ pub struct InitFolio<'info> {
     #[account()]
     pub dtf_program: UncheckedAccount<'info>,
 
+    /// CHECK: DTF program data to validate program deployment slot
+    #[account()]
+    pub dtf_program_data: UncheckedAccount<'info>,
+
     /// CHECK: Will be the first owner of the folio
     #[account(mut)]
     pub first_owner: UncheckedAccount<'info>,
@@ -69,11 +73,7 @@ pub struct InitFolio<'info> {
 
 impl<'info> InitFolio<'info> {
     pub fn validate(&self) -> Result<()> {
-        check_condition!(
-            self.program_registrar
-                .is_in_registrar(self.dtf_program.key()),
-            ProgramNotInRegistrar
-        );
+        Folio::validate_folio_program_for_init(&self.program_registrar, &self.dtf_program)?;
 
         Ok(())
     }
@@ -85,8 +85,15 @@ pub fn handler(ctx: Context<InitFolio>, fee_per_second: u64) -> Result<()> {
     {
         let folio = &mut ctx.accounts.folio.load_init()?;
 
+        let deployment_slot = DtfProgram::get_program_deployment_slot(
+            &ctx.accounts.dtf_program.key(),
+            &ctx.accounts.dtf_program.to_account_info(),
+            &ctx.accounts.dtf_program_data.to_account_info(),
+        )?;
+
         folio.bump = ctx.bumps.folio;
         folio.program_version = ctx.accounts.dtf_program.key();
+        folio.program_deployment_slot = deployment_slot;
         folio.folio_token_mint = ctx.accounts.folio_token_mint.key();
         folio.circulating_supply = 0;
         folio.fee_per_second = fee_per_second; // TODO: check for maximum fee?
@@ -94,7 +101,7 @@ pub fn handler(ctx: Context<InitFolio>, fee_per_second: u64) -> Result<()> {
     }
 
     let folio_signer_bump = ctx.accounts.folio_program_signer.bump;
-    let signer_seeds = &[FolioProgramSigner::SEEDS, &[folio_signer_bump]];
+    let signer_seeds = &[FOLIO_PROGRAM_SIGNER_SEEDS, &[folio_signer_bump]];
 
     DtfProgram::init_first_owner(
         ctx.accounts.system_program.to_account_info(),

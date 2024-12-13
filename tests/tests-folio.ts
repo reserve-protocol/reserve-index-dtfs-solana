@@ -13,7 +13,6 @@ import * as assert from "assert";
 import {
   DTF_PROGRAM_ID,
   getActorPDA,
-  getFolioPDA,
   getFolioSignerPDA,
   getProgramRegistrarPDA,
 } from "../utils/pda-helper";
@@ -128,7 +127,7 @@ describe("Folio Tests", () => {
       Array.from({ length: 64 }, () => PublicKey.default)
     );
 
-    const ownerActorPDA = getActorPDA(folioOwnerKeypair.publicKey);
+    const ownerActorPDA = getActorPDA(folioOwnerKeypair.publicKey, folioPDA);
 
     const ownerActor = await programDtf.account.actor.fetch(ownerActorPDA);
 

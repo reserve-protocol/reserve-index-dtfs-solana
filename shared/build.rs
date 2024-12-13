@@ -4,14 +4,7 @@ use std::path::Path;
 
 fn main() {
     let workspace_dir = env::var("CARGO_MANIFEST_DIR")
-        .map(|dir| {
-            Path::new(&dir)
-                .parent()
-                .unwrap()
-                .parent()
-                .unwrap()
-                .to_path_buf()
-        })
+        .map(|dir| Path::new(&dir).parent().unwrap().to_path_buf())
         .expect("Failed to find workspace root");
 
     dotenv::from_path(workspace_dir.join(".env")).ok();

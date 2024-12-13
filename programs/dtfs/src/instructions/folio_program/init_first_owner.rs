@@ -1,9 +1,11 @@
-use crate::check_condition;
-use crate::error::ErrorCode;
 use crate::state::Actor;
 use anchor_lang::prelude::*;
 use folio::state::{Folio, FolioProgramSigner};
 use folio::ID as FOLIO_ID;
+use shared::check_condition;
+use shared::constants::{ACTOR_SEEDS, FOLIO_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS};
+use shared::errors::ErrorCode;
+use shared::structs::{roles, Role, RoleData};
 
 #[derive(Accounts)]
 pub struct InitFirstOwner<'info> {
@@ -16,7 +18,7 @@ pub struct InitFirstOwner<'info> {
 
     // To ensure that the program is signed by the folio program
     #[account(
-        seeds = [FolioProgramSigner::SEEDS],
+        seeds = [FOLIO_PROGRAM_SIGNER_SEEDS],
         bump = folio_program_signer.bump,
         seeds::program = FOLIO_ID,
         signer
@@ -27,14 +29,14 @@ pub struct InitFirstOwner<'info> {
         init,
         payer = folio_owner,
         space = Actor::SIZE,
-        seeds = [Actor::SEEDS, folio_owner.key().as_ref()],
+        seeds = [ACTOR_SEEDS, folio_owner.key().as_ref(), folio.key().as_ref()],
         bump
     )]
     pub actor: Box<Account<'info, Actor>>,
 
     /// CHECK: Folio
     #[account(
-        seeds = [Folio::SEEDS, folio_token_mint.key().as_ref()],
+        seeds = [FOLIO_SEEDS, folio_token_mint.key().as_ref()],
         bump,
         seeds::program = FOLIO_ID,
     )]
@@ -57,6 +59,9 @@ pub fn handler(ctx: Context<InitFirstOwner>) -> Result<()> {
     let actor = &mut ctx.accounts.actor;
     actor.bump = ctx.bumps.actor;
     actor.authority = ctx.accounts.folio_owner.key();
+    actor.folio = ctx.accounts.folio.key();
+    actor.role_data = RoleData::default();
+    Role::add_role(&mut actor.roles, Role::Owner);
 
     Ok(())
 }

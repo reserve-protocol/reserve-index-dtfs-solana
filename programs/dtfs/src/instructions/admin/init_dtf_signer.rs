@@ -1,12 +1,13 @@
-use crate::state::FolioProgramSigner;
 use anchor_lang::prelude::*;
 use shared::check_condition;
 use shared::constants::common::ADMIN;
-use shared::constants::FOLIO_PROGRAM_SIGNER_SEEDS;
+use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 use shared::errors::ErrorCode;
 
+use crate::state::DtfProgramSigner;
+
 #[derive(Accounts)]
-pub struct InitFolioSigner<'info> {
+pub struct InitDtfSigner<'info> {
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
 
@@ -16,14 +17,14 @@ pub struct InitFolioSigner<'info> {
     #[account(
         init,
         payer = admin,
-        space = FolioProgramSigner::SIZE,
-        seeds = [FOLIO_PROGRAM_SIGNER_SEEDS],
+        space = DtfProgramSigner::SIZE,
+        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
         bump
     )]
-    pub folio_program_signer: Account<'info, FolioProgramSigner>,
+    pub dtf_program_signer: Account<'info, DtfProgramSigner>,
 }
 
-impl<'info> InitFolioSigner<'info> {
+impl<'info> InitDtfSigner<'info> {
     pub fn validate(&self) -> Result<()> {
         check_condition!(self.admin.key() == ADMIN, Unauthorized);
 
@@ -31,11 +32,11 @@ impl<'info> InitFolioSigner<'info> {
     }
 }
 
-pub fn handler(ctx: Context<InitFolioSigner>) -> Result<()> {
+pub fn handler(ctx: Context<InitDtfSigner>) -> Result<()> {
     ctx.accounts.validate()?;
 
-    let folio_program_signer = &mut ctx.accounts.folio_program_signer;
-    folio_program_signer.bump = ctx.bumps.folio_program_signer;
+    let dtf_program_signer = &mut ctx.accounts.dtf_program_signer;
+    dtf_program_signer.bump = ctx.bumps.dtf_program_signer;
 
     Ok(())
 }

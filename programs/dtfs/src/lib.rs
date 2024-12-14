@@ -31,4 +31,22 @@ pub mod dtfs {
     pub fn resize_folio(ctx: Context<ResizeFolio>, new_size: u64) -> Result<()> {
         resize_folio::handler(ctx, new_size)
     }
+
+    pub fn update_folio(
+        ctx: Context<UpdateFolio>,
+        program_version: Option<Pubkey>,
+        program_deployment_slot: Option<u64>,
+        fee_per_second: Option<u64>,
+        fee_recipients_to_add: Vec<Pubkey>,
+        fee_recipients_to_remove: Vec<Pubkey>,
+    ) -> Result<()> {
+        update_folio::handler(
+            ctx,
+            program_version,
+            program_deployment_slot,
+            fee_per_second,
+            fee_recipients_to_add,
+            fee_recipients_to_remove,
+        )
+    }
 }

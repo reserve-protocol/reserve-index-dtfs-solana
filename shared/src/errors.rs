@@ -28,6 +28,9 @@ pub enum ErrorCode {
 
     #[msg("Invalid Account Data")]
     InvalidAccountData,
+
+    #[msg("Invalid Fee Recipient Count")]
+    InvalidFeeRecipientCount,
 }
 
 #[macro_export]

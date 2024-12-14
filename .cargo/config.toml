@@ -4,3 +4,6 @@ rustflags = [
     "-A", "unused_imports",
     "-A", "clippy::needless_lifetimes"
 ]
+
+[lock]
+version = "3"

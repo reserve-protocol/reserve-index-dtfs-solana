@@ -3,7 +3,6 @@ use anchor_lang::prelude::*;
 use instructions::*;
 use utils::*;
 
-pub mod error;
 pub mod events;
 pub mod instructions;
 pub mod state;
@@ -60,7 +59,7 @@ pub mod folio {
         burn_folio_token::handler(ctx)
     }
 
-    pub fn resize_folio_account(ctx: Context<ResizeFolioAccount>) -> Result<()> {
-        resize_folio_account::handler(ctx)
+    pub fn resize_folio_account(ctx: Context<ResizeFolioAccount>, new_size: u64) -> Result<()> {
+        resize_folio_account::handler(ctx, new_size)
     }
 }

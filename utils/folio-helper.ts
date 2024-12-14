@@ -14,6 +14,7 @@ import {
   getActorPDA,
   getFolioPDA,
   getFolioSignerPDA,
+  getProgramDataPDA,
   getProgramRegistrarPDA,
 } from "./pda-helper";
 import {
@@ -49,6 +50,15 @@ export async function initFolioSigner(
 ) {
   const folioProgram = getFolioProgram(connection, adminKeypair);
 
+  const folioSigner =
+    await folioProgram.account.folioProgramSigner.fetchNullable(
+      getFolioSignerPDA()
+    );
+
+  if (folioSigner) {
+    return;
+  }
+
   const initFolioSigner = await folioProgram.methods
     .initFolioSigner()
     .accountsPartial({
@@ -68,6 +78,15 @@ export async function initProgramRegistrar(
   dtfAcceptedProgramId: PublicKey
 ) {
   const folioProgram = getFolioProgram(connection, adminKeypair);
+
+  const programRegistrar =
+    await folioProgram.account.programRegistrar.fetchNullable(
+      getProgramRegistrarPDA()
+    );
+
+  if (programRegistrar) {
+    return;
+  }
 
   const registerProgram = await folioProgram.methods
     .initProgramRegistrar(dtfAcceptedProgramId)
@@ -129,7 +148,8 @@ export async function initFolio(
         folioPDA
       ),
       dtfProgram: DTF_PROGRAM_ID,
-      firstOwner: getActorPDA(folioOwner.publicKey),
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      firstOwner: getActorPDA(folioOwner.publicKey, folioPDA),
     })
     .instruction();
 

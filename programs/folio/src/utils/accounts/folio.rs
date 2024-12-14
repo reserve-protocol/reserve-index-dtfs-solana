@@ -82,8 +82,7 @@ impl Folio {
 
         check_condition!(actor.data_len() >= 8 + 74, InvalidAccountData);
 
-        // Discriminator takes 8 bytes
-        let bump = data[8];
+        // Discriminator takes 8 bytes and bump 1
         let authority = Pubkey::try_from_slice(&data[9..41])?;
         let folio = Pubkey::try_from_slice(&data[41..73])?;
         let roles = data[73];

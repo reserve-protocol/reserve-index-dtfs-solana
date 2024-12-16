@@ -9,7 +9,10 @@ import {
 } from "@solana/web3.js";
 import idlDtf from "../target/idl/dtfs.json";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
-import { pSendAndConfirmTxn } from "./program-helper";
+import {
+  getComputeLimitInstruction,
+  pSendAndConfirmTxn,
+} from "./program-helper";
 import {
   DTF_PROGRAM_ID,
   getActorPDA,
@@ -84,7 +87,50 @@ export async function resizeFolio(
     })
     .instruction();
 
-  await pSendAndConfirmTxn(dtfProgram, [resizeFolio], [], {
-    skipPreflight: true,
-  });
+  await pSendAndConfirmTxn(dtfProgram, [resizeFolio]);
+}
+
+export async function updateFolio(
+  connection: Connection,
+  folioOwnerKeypair: Keypair,
+  folio: PublicKey,
+  folioTokenMint: PublicKey,
+  programVersion: PublicKey | null,
+  programDeploymentSlot: BN | null,
+  feePerSecond: BN | null,
+  feeRecipientsToAdd: PublicKey[],
+  feeRecipientsToRemove: PublicKey[]
+) {
+  const dtfProgram = getDtfProgram(connection, folioOwnerKeypair);
+
+  const resizeFolio = await dtfProgram.methods
+    .updateFolio(
+      programVersion,
+      programDeploymentSlot,
+      feePerSecond,
+      feeRecipientsToAdd,
+      feeRecipientsToRemove
+    )
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      rent: SYSVAR_RENT_PUBKEY,
+      actor: getActorPDA(folioOwnerKeypair.publicKey, folio),
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      folioProgram: FOLIO_PROGRAM_ID,
+      folio: folio,
+      folioTokenMint,
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .instruction();
+
+  await pSendAndConfirmTxn(
+    dtfProgram,
+    [...getComputeLimitInstruction(), resizeFolio],
+    [],
+    {
+      skipPreflight: true,
+    }
+  );
 }

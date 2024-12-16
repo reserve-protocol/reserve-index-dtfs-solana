@@ -103,4 +103,30 @@ impl Folio {
 
         Ok(())
     }
+
+    pub fn update_fee_recipients(
+        &mut self,
+        fee_recipients_to_add: Vec<Pubkey>,
+        fee_recipients_to_remove: Vec<Pubkey>,
+    ) -> Result<()> {
+        let default_pubkey = Pubkey::default();
+        let mut new_recipients = [default_pubkey; 64];
+        let mut add_index = 0;
+
+        for recipient in self.fee_recipients.iter() {
+            if !fee_recipients_to_remove.contains(recipient) && *recipient != default_pubkey {
+                new_recipients[add_index] = *recipient;
+                add_index += 1;
+            }
+        }
+
+        for new_recipient in fee_recipients_to_add {
+            check_condition!(add_index < 64, InvalidFeeRecipientCount);
+            new_recipients[add_index] = new_recipient;
+            add_index += 1;
+        }
+
+        self.fee_recipients = new_recipients;
+        Ok(())
+    }
 }

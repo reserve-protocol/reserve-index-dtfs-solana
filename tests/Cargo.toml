@@ -1,0 +1,17 @@
+[package]
+name = "integration-tests"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+shared = { path = "../shared" }
+dtfs = { path = "../programs/dtfs" }
+folio = { path = "../programs/folio" }
+anchor-lang = "0.30.1"
+
+[dev-dependencies]
+lazy_static = "1.4.0"
+
+[[test]]
+name = "integration"
+path = "mod.rs"

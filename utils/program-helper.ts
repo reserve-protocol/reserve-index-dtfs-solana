@@ -2,6 +2,8 @@ import * as anchor from "@coral-xyz/anchor";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 import {
   Commitment,
+  ComputeBudgetInstruction,
+  ComputeBudgetProgram,
   Connection,
   Keypair,
   LAMPORTS_PER_SOL,
@@ -172,4 +174,17 @@ export async function airdrop(
   );
 
   await wait();
+}
+
+export function getComputeLimitInstruction(
+  newLimit: number = 400_000
+): TransactionInstruction[] {
+  return [
+    ComputeBudgetProgram.setComputeUnitPrice({
+      microLamports: 1000,
+    }),
+    ComputeBudgetProgram.setComputeUnitLimit({
+      units: newLimit,
+    }),
+  ];
 }

@@ -43,8 +43,22 @@ pub mod folio {
         init_folio::handler(ctx, fee_per_second)
     }
 
-    pub fn update_folio(ctx: Context<UpdateFolio>) -> Result<()> {
-        update_folio::handler(ctx)
+    pub fn update_folio(
+        ctx: Context<UpdateFolio>,
+        program_version: Option<Pubkey>,
+        program_deployment_slot: Option<u64>,
+        fee_per_second: Option<u64>,
+        fee_recipients_to_add: Vec<Pubkey>,
+        fee_recipients_to_remove: Vec<Pubkey>,
+    ) -> Result<()> {
+        update_folio::handler(
+            ctx,
+            program_version,
+            program_deployment_slot,
+            fee_per_second,
+            fee_recipients_to_add,
+            fee_recipients_to_remove,
+        )
     }
 
     pub fn transfer_folio_token(ctx: Context<TransferFolioToken>) -> Result<()> {

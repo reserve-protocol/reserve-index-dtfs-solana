@@ -12,6 +12,7 @@ import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 import { pSendAndConfirmTxn } from "./program-helper";
 import {
   getActorPDA,
+  getCommunityPDA,
   getFolioPDA,
   getFolioSignerPDA,
   getProgramDataPDA,
@@ -70,6 +71,27 @@ export async function initFolioSigner(
     .instruction();
 
   await pSendAndConfirmTxn(folioProgram, [initFolioSigner]);
+}
+
+export async function initOrUpdateCommunity(
+  connection: Connection,
+  adminKeypair: Keypair,
+  communityReceiver: PublicKey
+) {
+  const folioProgram = getFolioProgram(connection, adminKeypair);
+
+  const initCommunity = await folioProgram.methods
+    .initOrUpdateCommunity()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      rent: SYSVAR_RENT_PUBKEY,
+      admin: adminKeypair.publicKey,
+      community: getCommunityPDA(),
+      communityReceiver: communityReceiver,
+    })
+    .instruction();
+
+  await pSendAndConfirmTxn(folioProgram, [initCommunity]);
 }
 
 export async function initProgramRegistrar(

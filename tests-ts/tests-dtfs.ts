@@ -10,8 +10,18 @@ import {
   updateProgramRegistrar,
 } from "../utils/folio-helper";
 import * as assert from "assert";
-import { DTF_PROGRAM_ID, getDtfSignerPDA } from "../utils/pda-helper";
-import { initDtfSigner, resizeFolio, updateFolio } from "../utils/dtf-helper";
+import {
+  DTF_PROGRAM_ID,
+  getActorPDA,
+  getDtfSignerPDA,
+} from "../utils/pda-helper";
+import {
+  addOrUpdateActor,
+  initDtfSigner,
+  removeActor,
+  resizeFolio,
+  updateFolio,
+} from "../utils/dtf-helper";
 
 describe("DTFs Tests", () => {
   let connection: Connection;
@@ -21,6 +31,9 @@ describe("DTFs Tests", () => {
 
   let payerKeypair: Keypair;
   let adminKeypair: Keypair;
+
+  let tradeApproverKeypair: Keypair;
+  let priceCuratorKeypair: Keypair;
 
   let folioOwnerKeypair: Keypair;
   let folioTokenMint: Keypair;
@@ -38,6 +51,8 @@ describe("DTFs Tests", () => {
     adminKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.admin));
 
     folioOwnerKeypair = Keypair.generate();
+    tradeApproverKeypair = Keypair.generate();
+    priceCuratorKeypair = Keypair.generate();
 
     await airdrop(connection, payerKeypair.publicKey, 1000);
     await airdrop(connection, adminKeypair.publicKey, 1000);
@@ -76,7 +91,7 @@ describe("DTFs Tests", () => {
       new BN(folioSizeBefore + 100)
     );
 
-    await wait(5);
+    await wait(2);
 
     const folioSizeAfter = (await connection.getAccountInfo(folioPDA))?.data
       .length;
@@ -216,8 +231,14 @@ describe("DTFs Tests", () => {
     const folioBefore = await program.account.folio.fetch(folioPDA);
 
     let newFeeRecipient = [
-      Keypair.generate().publicKey,
-      Keypair.generate().publicKey,
+      {
+        receiver: Keypair.generate().publicKey,
+        share: new BN(1_000_000_000 * 0.6),
+      },
+      {
+        receiver: Keypair.generate().publicKey,
+        share: new BN(1_000_000_000 * 0.4),
+      },
     ];
 
     await updateFolio(
@@ -244,32 +265,97 @@ describe("DTFs Tests", () => {
       folioBefore.feePerSecond.toNumber()
     );
 
-    assert.deepEqual(folioAfter.feeRecipients[0], newFeeRecipient[0]);
-    assert.deepEqual(folioAfter.feeRecipients[1], newFeeRecipient[1]);
+    assert.deepEqual(
+      folioAfter.feeRecipients[0].receiver,
+      newFeeRecipient[0].receiver
+    );
+    assert.deepEqual(
+      folioAfter.feeRecipients[1].receiver,
+      newFeeRecipient[1].receiver
+    );
     assert.deepEqual(
       folioAfter.feeRecipients.slice(2),
       folioBefore.feeRecipients.slice(2)
     );
+  });
 
-    // Removing a fee recipient
-    await updateFolio(
+  it("should add trade approver", async () => {
+    await addOrUpdateActor(
       connection,
       folioOwnerKeypair,
       folioPDA,
       folioTokenMint.publicKey,
-      null,
-      null,
-      folioBefore.feePerSecond,
-      [],
-      [newFeeRecipient[1]]
+      tradeApproverKeypair.publicKey,
+      {
+        tradeApprover: {},
+      }
     );
 
-    folioAfter = await program.account.folio.fetch(folioPDA);
-
-    assert.deepEqual(folioAfter.feeRecipients[0], newFeeRecipient[0]);
-    assert.deepEqual(
-      folioAfter.feeRecipients.slice(1),
-      folioBefore.feeRecipients.slice(1)
+    const actor = await programDtf.account.actor.fetch(
+      getActorPDA(tradeApproverKeypair.publicKey, folioPDA)
     );
+
+    assert.deepEqual(actor.roles, 2); //  binary 10 = 2 for trade approver
+    assert.deepEqual(actor.authority, tradeApproverKeypair.publicKey);
+    assert.deepEqual(actor.folio, folioPDA);
+    assert.notEqual(actor.bump, 0);
+  });
+
+  it("should update trade approver to also have price curator role", async () => {
+    await addOrUpdateActor(
+      connection,
+      folioOwnerKeypair,
+      folioPDA,
+      folioTokenMint.publicKey,
+      tradeApproverKeypair.publicKey,
+      {
+        priceCurator: {},
+      }
+    );
+
+    const actor = await programDtf.account.actor.fetch(
+      getActorPDA(tradeApproverKeypair.publicKey, folioPDA)
+    );
+
+    assert.deepEqual(actor.roles, 6); //  binary 110 = 6 for trade approver and price curator
+    assert.deepEqual(actor.authority, tradeApproverKeypair.publicKey);
+    assert.deepEqual(actor.folio, folioPDA);
+    assert.notEqual(actor.bump, 0);
+  });
+
+  it("should remove trade approver", async () => {
+    await removeActor(
+      connection,
+      folioOwnerKeypair,
+      folioPDA,
+      folioTokenMint.publicKey,
+      tradeApproverKeypair.publicKey,
+      {
+        tradeApprover: {},
+      },
+      true
+    );
+
+    await wait(2);
+
+    const actor = await programDtf.account.actor.fetchNullable(
+      getActorPDA(tradeApproverKeypair.publicKey, folioPDA)
+    );
+
+    // Null since we closed it
+    assert.equal(actor, null);
+
+    // // Just to test re-init attack, we'll re-init the actor and see the fields
+    await airdrop(
+      connection,
+      getActorPDA(tradeApproverKeypair.publicKey, folioPDA),
+      1000
+    );
+
+    const actorPostReinit = await programDtf.account.actor.fetchNullable(
+      getActorPDA(tradeApproverKeypair.publicKey, folioPDA)
+    );
+
+    assert.equal(actorPostReinit, null);
   });
 });

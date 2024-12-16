@@ -4,6 +4,7 @@ import { Folio } from "../target/types/folio";
 import { BN, Program } from "@coral-xyz/anchor";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import {
+  initOrUpdateCommunity,
   initFolio,
   initFolioSigner,
   initProgramRegistrar,
@@ -13,6 +14,7 @@ import * as assert from "assert";
 import {
   DTF_PROGRAM_ID,
   getActorPDA,
+  getCommunityPDA,
   getFolioSignerPDA,
   getProgramRegistrarPDA,
 } from "../utils/pda-helper";
@@ -30,6 +32,7 @@ describe("Folio Tests", () => {
   let folioTokenMint: Keypair;
 
   let randomProgramId: PublicKey = Keypair.generate().publicKey;
+  let communityReceiver: PublicKey = Keypair.generate().publicKey;
 
   before(async () => {
     ({
@@ -59,6 +62,17 @@ describe("Folio Tests", () => {
     );
 
     assert.notEqual(folioSigner.bump, 0);
+  });
+
+  it("should initialize a community", async () => {
+    await initOrUpdateCommunity(connection, adminKeypair, communityReceiver);
+
+    const communityPDA = getCommunityPDA();
+
+    const community = await program.account.community.fetch(communityPDA);
+
+    assert.notEqual(community.bump, 0);
+    assert.deepEqual(community.communityReceiver, communityReceiver);
   });
 
   it("should initialize program registrar", async () => {
@@ -121,9 +135,8 @@ describe("Folio Tests", () => {
     assert.equal(folio.feePerSecond.toNumber(), 100);
     assert.deepEqual(folio.programVersion, DTF_PROGRAM_ID);
     assert.deepEqual(folio.folioTokenMint, folioTokenMint.publicKey);
-    assert.equal(folio.circulatingSupply.toNumber(), 0);
     assert.deepEqual(
-      folio.feeRecipients,
+      folio.feeRecipients.map((feeRecipient) => feeRecipient.receiver),
       Array.from({ length: 64 }, () => PublicKey.default)
     );
 

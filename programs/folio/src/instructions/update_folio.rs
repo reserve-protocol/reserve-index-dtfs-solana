@@ -1,6 +1,8 @@
 use crate::state::{Folio, ProgramRegistrar};
 use anchor_lang::prelude::*;
+use shared::constants::MAX_PLATFORM_FEE;
 use shared::errors::ErrorCode;
+use shared::structs::FeeRecipient;
 use shared::{
     check_condition,
     constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS},
@@ -77,7 +79,7 @@ pub fn handler(
     program_version: Option<Pubkey>,
     program_deployment_slot: Option<u64>,
     fee_per_second: Option<u64>,
-    fee_recipients_to_add: Vec<Pubkey>,
+    fee_recipients_to_add: Vec<FeeRecipient>,
     fee_recipients_to_remove: Vec<Pubkey>,
 ) -> Result<()> {
     ctx.accounts.validate(ctx.bumps.folio)?;
@@ -100,11 +102,14 @@ pub fn handler(
     }
 
     if let Some(fee_per_second) = fee_per_second {
-        // TODO: validate fee?
+        check_condition!(fee_per_second <= MAX_PLATFORM_FEE, InvalidFeePerSecond);
+
         folio.fee_per_second = fee_per_second;
     }
 
-    folio.update_fee_recipients(fee_recipients_to_add, fee_recipients_to_remove)?;
+    if !fee_recipients_to_add.is_empty() || !fee_recipients_to_remove.is_empty() {
+        folio.update_fee_recipients(fee_recipients_to_add, fee_recipients_to_remove)?;
+    }
 
     Ok(())
 }

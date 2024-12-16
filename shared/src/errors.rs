@@ -31,6 +31,12 @@ pub enum ErrorCode {
 
     #[msg("Invalid Fee Recipient Count")]
     InvalidFeeRecipientCount,
+
+    #[msg("Invalid Fee Per Second")]
+    InvalidFeePerSecond,
+
+    #[msg("Invalid Fee Recipient Shares")]
+    InvalidFeeRecipientShares,
 }
 
 #[macro_export]

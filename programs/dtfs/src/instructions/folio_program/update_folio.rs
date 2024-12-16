@@ -8,7 +8,7 @@ use shared::constants::{
     ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS,
 };
 use shared::errors::ErrorCode;
-use shared::structs::Role;
+use shared::structs::{FeeRecipient, Role};
 
 use crate::state::DtfProgramSigner;
 use crate::utils::external::folio_program::FolioProgram;
@@ -85,7 +85,7 @@ pub fn handler(
     program_version: Option<Pubkey>,
     program_deployment_slot: Option<u64>,
     fee_per_second: Option<u64>,
-    fee_recipients_to_add: Vec<Pubkey>,
+    fee_recipients_to_add: Vec<FeeRecipient>,
     fee_recipients_to_remove: Vec<Pubkey>,
 ) -> Result<()> {
     ctx.accounts.validate()?;

@@ -21,7 +21,6 @@ import {
   FOLIO_PROGRAM_ID,
   getDtfSignerPDA,
 } from "./pda-helper";
-import { Folio } from "../target/types/folio";
 
 let dtfProgram: Program<Dtfs> = null;
 
@@ -76,6 +75,7 @@ export async function resizeFolio(
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
+      folioOwner: folioOwnerKeypair.publicKey,
       actor: getActorPDA(folioOwnerKeypair.publicKey, folio),
       dtfProgramSigner: getDtfSignerPDA(),
       dtfProgram: DTF_PROGRAM_ID,
@@ -98,7 +98,7 @@ export async function updateFolio(
   programVersion: PublicKey | null,
   programDeploymentSlot: BN | null,
   feePerSecond: BN | null,
-  feeRecipientsToAdd: PublicKey[],
+  feeRecipientsToAdd: { receiver: PublicKey; share: BN }[],
   feeRecipientsToRemove: PublicKey[]
 ) {
   const dtfProgram = getDtfProgram(connection, folioOwnerKeypair);
@@ -133,4 +133,69 @@ export async function updateFolio(
       skipPreflight: true,
     }
   );
+}
+
+export async function addOrUpdateActor(
+  connection: Connection,
+  folioOwnerKeypair: Keypair,
+  folio: PublicKey,
+  folioTokenMint: PublicKey,
+  newActorAuthority: PublicKey,
+  role: any = { priceCurator: {} }
+) {
+  const dtfProgram = getDtfProgram(connection, folioOwnerKeypair);
+
+  const addOrUpdateActor = await dtfProgram.methods
+    .initOrUpdateActor(role)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      rent: SYSVAR_RENT_PUBKEY,
+      folioOwner: folioOwnerKeypair.publicKey,
+      newActorAuthority: newActorAuthority,
+      folioOwnerActor: getActorPDA(folioOwnerKeypair.publicKey, folio),
+      newActor: getActorPDA(newActorAuthority, folio),
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      folioProgram: FOLIO_PROGRAM_ID,
+      folio: folio,
+      folioTokenMint: folioTokenMint,
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [addOrUpdateActor]);
+}
+
+export async function removeActor(
+  connection: Connection,
+  folioOwnerKeypair: Keypair,
+  folio: PublicKey,
+  folioTokenMint: PublicKey,
+  actorAuthority: PublicKey,
+  role: any = { priceCurator: {} },
+  closeActor: boolean
+) {
+  const dtfProgram = getDtfProgram(connection, folioOwnerKeypair);
+
+  const removeActor = await dtfProgram.methods
+    .removeActor(role, closeActor)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      rent: SYSVAR_RENT_PUBKEY,
+      folioOwner: folioOwnerKeypair.publicKey,
+      actorAuthority: actorAuthority,
+      folioOwnerActor: getActorPDA(folioOwnerKeypair.publicKey, folio),
+      actorToRemove: getActorPDA(actorAuthority, folio),
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      folioProgram: FOLIO_PROGRAM_ID,
+      folio: folio,
+      folioTokenMint: folioTokenMint,
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [removeActor]);
 }

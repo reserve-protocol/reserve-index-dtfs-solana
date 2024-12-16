@@ -3,7 +3,12 @@ use crate::{
     DtfProgram,
 };
 use anchor_lang::prelude::*;
-use shared::{check_condition, constants::ACTOR_SEEDS, errors::ErrorCode, structs::Role};
+use shared::{
+    check_condition,
+    constants::{ACTOR_SEEDS, MAX_FEE_RECIPIENTS, PRECISION_FACTOR},
+    errors::ErrorCode,
+    structs::{FeeRecipient, Role},
+};
 
 impl Folio {
     pub fn validate_folio_program_for_init<'info>(
@@ -80,7 +85,7 @@ impl Folio {
          */
         let data = &actor.data.borrow();
 
-        check_condition!(actor.data_len() >= 8 + 74, InvalidAccountData);
+        check_condition!(actor.data_len() >= 74, InvalidAccountData);
 
         // Discriminator takes 8 bytes and bump 1
         let authority = Pubkey::try_from_slice(&data[9..41])?;
@@ -106,27 +111,38 @@ impl Folio {
 
     pub fn update_fee_recipients(
         &mut self,
-        fee_recipients_to_add: Vec<Pubkey>,
+        fee_recipients_to_add: Vec<FeeRecipient>,
         fee_recipients_to_remove: Vec<Pubkey>,
     ) -> Result<()> {
-        let default_pubkey = Pubkey::default();
-        let mut new_recipients = [default_pubkey; 64];
+        let mut new_recipients = [FeeRecipient::default(); MAX_FEE_RECIPIENTS];
         let mut add_index = 0;
 
-        for recipient in self.fee_recipients.iter() {
-            if !fee_recipients_to_remove.contains(recipient) && *recipient != default_pubkey {
-                new_recipients[add_index] = *recipient;
+        for fee_recipient in self.fee_recipients.iter() {
+            if !fee_recipients_to_remove.contains(&fee_recipient.receiver)
+                && fee_recipient.receiver != Pubkey::default()
+            {
+                new_recipients[add_index] = *fee_recipient;
                 add_index += 1;
             }
         }
 
         for new_recipient in fee_recipients_to_add {
-            check_condition!(add_index < 64, InvalidFeeRecipientCount);
+            check_condition!(add_index < MAX_FEE_RECIPIENTS, InvalidFeeRecipientCount);
             new_recipients[add_index] = new_recipient;
             add_index += 1;
         }
 
         self.fee_recipients = new_recipients;
+
+        self.validate_fee_recipient_total_shares()
+    }
+
+    pub fn validate_fee_recipient_total_shares(&self) -> Result<()> {
+        check_condition!(
+            self.fee_recipients.iter().map(|r| r.share).sum::<u64>() == PRECISION_FACTOR,
+            InvalidFeeRecipientShares
+        );
+
         Ok(())
     }
 }

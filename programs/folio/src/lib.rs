@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 
 use instructions::*;
+use shared::structs::FeeRecipient;
 use utils::*;
 
 pub mod events;
@@ -12,6 +13,7 @@ declare_id!("n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG");
 
 #[program]
 pub mod folio {
+
     use super::*;
 
     /*
@@ -19,6 +21,10 @@ pub mod folio {
     */
     pub fn init_folio_signer(ctx: Context<InitFolioSigner>) -> Result<()> {
         init_folio_signer::handler(ctx)
+    }
+
+    pub fn init_or_update_community(ctx: Context<InitOrUpdateCommunity>) -> Result<()> {
+        init_or_update_community::handler(ctx)
     }
 
     pub fn init_program_registrar(
@@ -48,7 +54,7 @@ pub mod folio {
         program_version: Option<Pubkey>,
         program_deployment_slot: Option<u64>,
         fee_per_second: Option<u64>,
-        fee_recipients_to_add: Vec<Pubkey>,
+        fee_recipients_to_add: Vec<FeeRecipient>,
         fee_recipients_to_remove: Vec<Pubkey>,
     ) -> Result<()> {
         update_folio::handler(
@@ -75,5 +81,9 @@ pub mod folio {
 
     pub fn resize_folio_account(ctx: Context<ResizeFolioAccount>, new_size: u64) -> Result<()> {
         resize_folio_account::handler(ctx, new_size)
+    }
+
+    pub fn validate_mutate_actor_action(ctx: Context<ValidateMutateActorAction>) -> Result<()> {
+        validate_mutate_actor_action::handler(ctx)
     }
 }

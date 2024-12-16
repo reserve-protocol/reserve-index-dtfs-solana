@@ -1,8 +1,9 @@
 use anchor_lang::prelude::*;
 
 use instructions::*;
+use shared::structs::FeeRecipient;
+use shared::structs::Role;
 use utils::*;
-
 pub mod events;
 pub mod instructions;
 pub mod state;
@@ -12,6 +13,7 @@ declare_id!("7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn");
 
 #[program]
 pub mod dtfs {
+
     use super::*;
 
     /*
@@ -37,7 +39,7 @@ pub mod dtfs {
         program_version: Option<Pubkey>,
         program_deployment_slot: Option<u64>,
         fee_per_second: Option<u64>,
-        fee_recipients_to_add: Vec<Pubkey>,
+        fee_recipients_to_add: Vec<FeeRecipient>,
         fee_recipients_to_remove: Vec<Pubkey>,
     ) -> Result<()> {
         update_folio::handler(
@@ -48,5 +50,16 @@ pub mod dtfs {
             fee_recipients_to_add,
             fee_recipients_to_remove,
         )
+    }
+
+    /*
+    Owner functions
+     */
+    pub fn init_or_update_actor(ctx: Context<InitOrUpdateActor>, role: Role) -> Result<()> {
+        init_or_update_actor::handler(ctx, role)
+    }
+
+    pub fn remove_actor(ctx: Context<RemoveActor>, role: Role, close_actor: bool) -> Result<()> {
+        remove_actor::handler(ctx, role, close_actor)
     }
 }

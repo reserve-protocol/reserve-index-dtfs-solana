@@ -49,3 +49,10 @@ export function getDtfSignerPDA() {
     DTF_PROGRAM_ID
   )[0];
 }
+
+export function getCommunityPDA() {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("community")],
+    FOLIO_PROGRAM_ID
+  )[0];
+}

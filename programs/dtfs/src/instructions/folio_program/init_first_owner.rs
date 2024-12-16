@@ -5,7 +5,7 @@ use folio::ID as FOLIO_ID;
 use shared::check_condition;
 use shared::constants::{ACTOR_SEEDS, FOLIO_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS};
 use shared::errors::ErrorCode;
-use shared::structs::{roles, Role, RoleData};
+use shared::structs::{roles, Role};
 
 #[derive(Accounts)]
 pub struct InitFirstOwner<'info> {
@@ -60,7 +60,6 @@ pub fn handler(ctx: Context<InitFirstOwner>) -> Result<()> {
     actor.bump = ctx.bumps.actor;
     actor.authority = ctx.accounts.folio_owner.key();
     actor.folio = ctx.accounts.folio.key();
-    actor.role_data = RoleData::default();
     Role::add_role(&mut actor.roles, Role::Owner);
 
     Ok(())

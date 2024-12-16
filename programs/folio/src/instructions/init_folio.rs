@@ -9,9 +9,17 @@ use anchor_spl::{
     token_2022::Token2022,
     token_interface::{Mint, TokenAccount},
 };
-use shared::constants::{FOLIO_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS};
+use shared::{
+    check_condition,
+    constants::{
+        FOLIO_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, MAX_FEE_RECIPIENTS, MAX_PLATFORM_FEE,
+        PRECISION_FACTOR, PROGRAM_REGISTRAR_SEEDS,
+    },
+    structs::FeeRecipient,
+};
 
 use crate::state::ProgramRegistrar;
+use shared::errors::ErrorCode;
 
 #[derive(Accounts)]
 pub struct InitFolio<'info> {
@@ -72,15 +80,17 @@ pub struct InitFolio<'info> {
 }
 
 impl<'info> InitFolio<'info> {
-    pub fn validate(&self) -> Result<()> {
+    pub fn validate(&self, fee_per_second: u64) -> Result<()> {
         Folio::validate_folio_program_for_init(&self.program_registrar, &self.dtf_program)?;
+
+        check_condition!(fee_per_second <= MAX_PLATFORM_FEE, InvalidFeePerSecond);
 
         Ok(())
     }
 }
 
 pub fn handler(ctx: Context<InitFolio>, fee_per_second: u64) -> Result<()> {
-    ctx.accounts.validate()?;
+    ctx.accounts.validate(fee_per_second)?;
 
     {
         let folio = &mut ctx.accounts.folio.load_init()?;
@@ -95,9 +105,8 @@ pub fn handler(ctx: Context<InitFolio>, fee_per_second: u64) -> Result<()> {
         folio.program_version = ctx.accounts.dtf_program.key();
         folio.program_deployment_slot = deployment_slot;
         folio.folio_token_mint = ctx.accounts.folio_token_mint.key();
-        folio.circulating_supply = 0;
-        folio.fee_per_second = fee_per_second; // TODO: check for maximum fee?
-        folio.fee_recipients = [Pubkey::default(); 64];
+        folio.fee_per_second = fee_per_second;
+        folio.fee_recipients = [FeeRecipient::default(); MAX_FEE_RECIPIENTS];
     }
 
     let folio_signer_bump = ctx.accounts.folio_program_signer.bump;

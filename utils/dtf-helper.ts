@@ -1,6 +1,7 @@
 import { AnchorProvider, BN, Program } from "@coral-xyz/anchor";
 import { Dtfs } from "../target/types/dtfs";
 import {
+  AccountMeta,
   Connection,
   Keypair,
   PublicKey,
@@ -21,6 +22,16 @@ import {
   FOLIO_PROGRAM_ID,
   getDtfSignerPDA,
 } from "./pda-helper";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
+import {
+  getAtaAddress,
+  getAtaAddress2022,
+  getOrCreateAtaAddress2022,
+} from "./token-helper";
 
 let dtfProgram: Program<Dtfs> = null;
 
@@ -125,14 +136,10 @@ export async function updateFolio(
     })
     .instruction();
 
-  await pSendAndConfirmTxn(
-    dtfProgram,
-    [...getComputeLimitInstruction(), resizeFolio],
-    [],
-    {
-      skipPreflight: true,
-    }
-  );
+  await pSendAndConfirmTxn(dtfProgram, [
+    ...getComputeLimitInstruction(),
+    resizeFolio,
+  ]);
 }
 
 export async function addOrUpdateActor(
@@ -198,4 +205,92 @@ export async function removeActor(
     .instruction();
 
   await pSendAndConfirmTxn(dtfProgram, [removeActor]);
+}
+
+export async function addTokensToFolio(
+  connection: Connection,
+  folioOwnerKeypair: Keypair,
+  folio: PublicKey,
+  folioTokenMint: PublicKey,
+  tokens: { mint: PublicKey; amount: BN }[]
+) {
+  const dtfProgram = getDtfProgram(connection, folioOwnerKeypair);
+
+  let remainingAccounts: AccountMeta[] = [];
+
+  for (const token of tokens) {
+    remainingAccounts.push({
+      pubkey: token.mint,
+      isSigner: false,
+      isWritable: false,
+    });
+    remainingAccounts.push({
+      pubkey: await getAtaAddress(
+        connection,
+        token.mint,
+        folioOwnerKeypair,
+        folioOwnerKeypair.publicKey
+      ),
+      isSigner: false,
+      isWritable: true,
+    });
+    remainingAccounts.push({
+      pubkey: await getAtaAddress(
+        connection,
+        token.mint,
+        folioOwnerKeypair,
+        folio
+      ),
+      isSigner: false,
+      isWritable: true,
+    });
+  }
+
+  const addTokensToFolio = await dtfProgram.methods
+    .addTokensToFolio(tokens.map((token) => token.amount))
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      folioOwner: folioOwnerKeypair.publicKey,
+      actor: getActorPDA(folioOwnerKeypair.publicKey, folio),
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      folioProgram: FOLIO_PROGRAM_ID,
+      folio: folio,
+      folioTokenMint: folioTokenMint,
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .remainingAccounts(remainingAccounts)
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [addTokensToFolio]);
+}
+
+export async function finalizeFolio(
+  connection: Connection,
+  folioOwnerKeypair: Keypair,
+  folio: PublicKey,
+  folioTokenMint: PublicKey
+) {
+  const dtfProgram = getDtfProgram(connection, folioOwnerKeypair);
+
+  const finalizeFolio = await dtfProgram.methods
+    .finalizeFolio()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      folioOwner: folioOwnerKeypair.publicKey,
+      actor: getActorPDA(folioOwnerKeypair.publicKey, folio),
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      folioProgram: FOLIO_PROGRAM_ID,
+      folio: folio,
+      folioTokenMint: folioTokenMint,
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [finalizeFolio]);
 }

@@ -13,7 +13,7 @@ use shared::{
     check_condition,
     constants::{
         FOLIO_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, MAX_FEE_RECIPIENTS, MAX_PLATFORM_FEE,
-        PRECISION_FACTOR, PROGRAM_REGISTRAR_SEEDS,
+        PROGRAM_REGISTRAR_SEEDS,
     },
     structs::FeeRecipient,
 };

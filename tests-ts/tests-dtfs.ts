@@ -17,11 +17,21 @@ import {
 } from "../utils/pda-helper";
 import {
   addOrUpdateActor,
+  addTokensToFolio,
+  finalizeFolio,
   initDtfSigner,
   removeActor,
   resizeFolio,
   updateFolio,
 } from "../utils/dtf-helper";
+import {
+  DEFAULT_DECIMALS,
+  getAtaAddress,
+  getOrCreateAtaAddress2022,
+  getTokenBalance,
+  initToken,
+  mintToken,
+} from "../utils/token-helper";
 
 describe("DTFs Tests", () => {
   let connection: Connection;
@@ -38,6 +48,11 @@ describe("DTFs Tests", () => {
   let folioOwnerKeypair: Keypair;
   let folioTokenMint: Keypair;
   let folioPDA: PublicKey;
+
+  /*
+  Tokens that can be included in the folio
+  */
+  let tokenMints = [Keypair.generate(), Keypair.generate(), Keypair.generate()];
 
   before(async () => {
     ({
@@ -66,6 +81,18 @@ describe("DTFs Tests", () => {
       folioOwnerKeypair,
       new BN(100)
     ));
+
+    // Create the tokens that can be included in the folio
+    for (const tokenMint of tokenMints) {
+      await initToken(connection, adminKeypair, tokenMint);
+      await mintToken(
+        connection,
+        adminKeypair,
+        tokenMint.publicKey,
+        1_000,
+        folioOwnerKeypair.publicKey
+      );
+    }
   });
 
   it("should initialize dtf program signer", async () => {
@@ -357,5 +384,111 @@ describe("DTFs Tests", () => {
     );
 
     assert.equal(actorPostReinit, null);
+  });
+
+  it("should add a token to the folio", async () => {
+    const folioATA = await getAtaAddress(
+      connection,
+      tokenMints[0].publicKey,
+      folioOwnerKeypair,
+      folioPDA
+    );
+
+    const folioBalanceBefore = await getTokenBalance(
+      connection,
+      folioATA,
+      false
+    );
+
+    await addTokensToFolio(
+      connection,
+      folioOwnerKeypair,
+      folioPDA,
+      folioTokenMint.publicKey,
+      [
+        {
+          mint: tokenMints[0].publicKey,
+          amount: new BN(50 * 10 ** DEFAULT_DECIMALS),
+        },
+      ]
+    );
+
+    const folioBalanceAfter = await getTokenBalance(
+      connection,
+      folioATA,
+      false
+    );
+
+    assert.equal(folioBalanceAfter, folioBalanceBefore + 50);
+  });
+
+  it("should add another two tokens to the folio", async () => {
+    const folioATA1 = await getAtaAddress(
+      connection,
+      tokenMints[1].publicKey,
+      folioOwnerKeypair,
+      folioPDA
+    );
+    const folioATA2 = await getAtaAddress(
+      connection,
+      tokenMints[2].publicKey,
+      folioOwnerKeypair,
+      folioPDA
+    );
+
+    const folioBalanceBefore1 = await getTokenBalance(
+      connection,
+      folioATA1,
+      false
+    );
+    const folioBalanceBefore2 = await getTokenBalance(
+      connection,
+      folioATA2,
+      false
+    );
+
+    await addTokensToFolio(
+      connection,
+      folioOwnerKeypair,
+      folioPDA,
+      folioTokenMint.publicKey,
+      [
+        {
+          mint: tokenMints[1].publicKey,
+          amount: new BN(20 * 10 ** DEFAULT_DECIMALS),
+        },
+        {
+          mint: tokenMints[2].publicKey,
+          amount: new BN(90 * 10 ** DEFAULT_DECIMALS),
+        },
+      ]
+    );
+
+    const folioBalanceAfter1 = await getTokenBalance(
+      connection,
+      folioATA1,
+      false
+    );
+    const folioBalanceAfter2 = await getTokenBalance(
+      connection,
+      folioATA2,
+      false
+    );
+
+    assert.equal(folioBalanceAfter1, folioBalanceBefore1 + 20);
+    assert.equal(folioBalanceAfter2, folioBalanceBefore2 + 90);
+  });
+
+  it("should finalize the folio", async () => {
+    await finalizeFolio(
+      connection,
+      folioOwnerKeypair,
+      folioPDA,
+      folioTokenMint.publicKey
+    );
+
+    const folioAfter = await program.account.folio.fetch(folioPDA);
+
+    assert.equal(folioAfter.status, 1);
   });
 });

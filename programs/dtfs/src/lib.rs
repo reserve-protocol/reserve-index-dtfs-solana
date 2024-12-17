@@ -62,4 +62,15 @@ pub mod dtfs {
     pub fn remove_actor(ctx: Context<RemoveActor>, role: Role, close_actor: bool) -> Result<()> {
         remove_actor::handler(ctx, role, close_actor)
     }
+
+    pub fn add_tokens_to_folio<'info>(
+        ctx: Context<'_, '_, 'info, 'info, AddTokensToFolio<'info>>,
+        amounts: Vec<u64>,
+    ) -> Result<()> {
+        add_tokens_to_folio::handler(ctx, amounts)
+    }
+
+    pub fn finalize_folio(ctx: Context<FinalizeFolio>) -> Result<()> {
+        finalize_folio::handler(ctx)
+    }
 }

@@ -3,6 +3,8 @@ use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 use shared::structs::FeeRecipient;
 
 use crate::state::DtfProgramSigner;
+use crate::AddTokensToFolio;
+use crate::FinalizeFolio;
 use crate::InitOrUpdateActor;
 use crate::ResizeFolio;
 use crate::UpdateFolio;
@@ -117,6 +119,74 @@ impl FolioProgram {
         let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
 
         folio::cpi::validate_mutate_actor_action(cpi_ctx)?;
+
+        Ok(())
+    }
+
+    pub fn init_tokens_for_folio<'info>(
+        ctx: Context<'_, '_, 'info, 'info, AddTokensToFolio<'info>>,
+        amounts: Vec<u64>,
+    ) -> Result<()> {
+        let cpi_program = ctx.accounts.folio_program.to_account_info();
+
+        let cpi_accounts = folio::cpi::accounts::InitTokensForFolio {
+            system_program: ctx.accounts.system_program.to_account_info(),
+            token_program: ctx.accounts.token_program.to_account_info(),
+            associated_token_program: ctx.accounts.associated_token_program.to_account_info(),
+            folio_owner: ctx.accounts.folio_owner.to_account_info(),
+            actor: ctx.accounts.actor.to_account_info(),
+            dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
+            program_registrar: ctx.accounts.program_registrar.to_account_info(),
+            folio: ctx.accounts.folio.to_account_info(),
+            folio_token_mint: ctx.accounts.folio_token_mint.to_account_info(),
+            dtf_program: ctx.accounts.dtf_program.to_account_info(),
+            dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
+        };
+
+        let remaining_accounts = ctx.remaining_accounts.to_vec();
+
+        let cpi_ctx =
+            CpiContext::new(cpi_program, cpi_accounts).with_remaining_accounts(remaining_accounts);
+
+        let seeds = &[
+            DTF_PROGRAM_SIGNER_SEEDS,
+            &[ctx.accounts.dtf_program_signer.bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
+
+        let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
+
+        folio::cpi::init_tokens_for_folio(cpi_ctx, amounts)?;
+
+        Ok(())
+    }
+
+    pub fn finalize_folio(ctx: Context<FinalizeFolio>) -> Result<()> {
+        let cpi_program = ctx.accounts.folio_program.to_account_info();
+
+        let cpi_accounts = folio::cpi::accounts::FinishInitTokensForFolio {
+            system_program: ctx.accounts.system_program.to_account_info(),
+            folio_owner: ctx.accounts.folio_owner.to_account_info(),
+            actor: ctx.accounts.actor.to_account_info(),
+            dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
+            program_registrar: ctx.accounts.program_registrar.to_account_info(),
+            folio: ctx.accounts.folio.to_account_info(),
+            folio_token_mint: ctx.accounts.folio_token_mint.to_account_info(),
+            dtf_program: ctx.accounts.dtf_program.to_account_info(),
+            dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
+        };
+
+        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+
+        let seeds = &[
+            DTF_PROGRAM_SIGNER_SEEDS,
+            &[ctx.accounts.dtf_program_signer.bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
+
+        let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
+
+        folio::cpi::finish_init_tokens_for_folio(cpi_ctx)?;
 
         Ok(())
     }

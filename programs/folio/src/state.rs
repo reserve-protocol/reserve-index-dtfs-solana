@@ -1,5 +1,8 @@
 use anchor_lang::prelude::*;
-use shared::{constants::MAX_FEE_RECIPIENTS, structs::FeeRecipient};
+use shared::{
+    constants::MAX_FEE_RECIPIENTS,
+    structs::{FeeRecipient, FolioStatus},
+};
 
 /// PDA Seeds ["folio_program_signer"]
 #[account]
@@ -49,8 +52,12 @@ All numbers for calculations are u64 (up to 18 "decimals")
 #[derive(InitSpace)]
 pub struct Folio {
     pub bump: u8,
+
+    // Can't have an enum because of zero copy, so will use u8 and match it with FolioStatus enum
+    pub status: u8,
+
     // Add padding to ensure 8-byte alignment
-    pub _padding: [u8; 31],
+    pub _padding: [u8; 30],
 
     // Represents the program it can interact with
     pub program_version: Pubkey,
@@ -75,7 +82,8 @@ impl Default for Folio {
     fn default() -> Self {
         Self {
             bump: 0,
-            _padding: [0; 31],
+            status: FolioStatus::Initializing as u8,
+            _padding: [0; 30],
             program_version: Pubkey::default(),
             program_deployment_slot: 0,
             folio_token_mint: Pubkey::default(),

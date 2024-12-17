@@ -13,7 +13,7 @@ import {
   TransactionInstruction,
 } from "@solana/web3.js";
 
-const DEFAULT_DECIMALS = 9;
+export const DEFAULT_DECIMALS = 9;
 
 export async function initToken(
   connection: Connection,

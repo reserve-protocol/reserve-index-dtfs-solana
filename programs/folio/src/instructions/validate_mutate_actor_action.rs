@@ -70,7 +70,8 @@ impl<'info> ValidateMutateActorAction<'info> {
             &self.dtf_program_data,
             Some(folio.bump),
             Some(&self.actor),
-            Role::Owner,
+            Some(Role::Owner),
+            None, // Can CRUD actors no matter the status
         )?;
 
         Ok(())

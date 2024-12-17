@@ -7,7 +7,7 @@ use shared::{
     check_condition,
     constants::{ACTOR_SEEDS, MAX_FEE_RECIPIENTS, PRECISION_FACTOR},
     errors::ErrorCode,
-    structs::{FeeRecipient, Role},
+    structs::{FeeRecipient, FolioStatus, Role},
 };
 
 impl Folio {
@@ -23,6 +23,7 @@ impl Folio {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn validate_folio_program_post_init<'info>(
         self,
         program_registrar: &Account<'info, ProgramRegistrar>,
@@ -30,7 +31,8 @@ impl Folio {
         dtf_program_data: &AccountInfo<'info>,
         expected_bump: Option<u8>,
         actor: Option<&AccountInfo<'info>>,
-        required_role: Role,
+        required_role: Option<Role>,
+        expected_status: Option<FolioStatus>,
     ) -> Result<()> {
         /*
         Validate program is in registrar and has same deployment slot
@@ -43,8 +45,13 @@ impl Folio {
         }
 
         // Validate Role if needed
-        if let Some(actor) = actor {
+        if let (Some(actor), Some(required_role)) = (actor, required_role) {
             Folio::validate_permission_for_action(actor, required_role, dtf_program)?;
+        }
+
+        // Validate folio status is initialized
+        if let Some(expected_status) = expected_status {
+            check_condition!(self.status == expected_status as u8, FolioNotInitialized);
         }
 
         Ok(())

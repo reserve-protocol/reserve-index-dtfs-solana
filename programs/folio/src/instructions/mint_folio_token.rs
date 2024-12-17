@@ -17,6 +17,8 @@ pub struct MintFolioToken<'info> {
 
 impl<'info> MintFolioToken<'info> {
     pub fn validate(&self) -> Result<()> {
+        // TODO check folio status is initialized
+
         Ok(())
     }
 }

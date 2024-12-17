@@ -1,8 +1,8 @@
-use crate::state::{Community, FolioProgramSigner};
+use crate::state::Community;
 use anchor_lang::prelude::*;
 use shared::check_condition;
 use shared::constants::common::ADMIN;
-use shared::constants::{COMMUNITY_SEEDS, FOLIO_PROGRAM_SIGNER_SEEDS};
+use shared::constants::COMMUNITY_SEEDS;
 use shared::errors::ErrorCode;
 
 #[derive(Accounts)]

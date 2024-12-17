@@ -69,7 +69,8 @@ impl<'info> ResizeFolioAccount<'info> {
             &self.dtf_program_data,
             Some(folio_bump),
             Some(&self.actor.to_account_info()),
-            Role::Owner,
+            Some(Role::Owner),
+            None, // Can resize no matter the status
         )?;
 
         Ok(())

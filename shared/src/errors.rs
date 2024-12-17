@@ -37,6 +37,15 @@ pub enum ErrorCode {
 
     #[msg("Invalid Fee Recipient Shares")]
     InvalidFeeRecipientShares,
+
+    #[msg("Folio Not Initialized")]
+    FolioNotInitialized,
+
+    #[msg("Invalid Receiver Token Account")]
+    InvalidReceiverTokenAccount,
+
+    #[msg("Invalid Number of Remaining Accounts")]
+    InvalidNumberOfRemainingAccounts,
 }
 
 #[macro_export]

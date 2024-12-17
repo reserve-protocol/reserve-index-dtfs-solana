@@ -49,6 +49,17 @@ pub mod folio {
         init_folio::handler(ctx, fee_per_second)
     }
 
+    pub fn init_tokens_for_folio<'info>(
+        ctx: Context<'_, '_, 'info, 'info, InitTokensForFolio<'info>>,
+        amounts: Vec<u64>,
+    ) -> Result<()> {
+        init_tokens_for_folio::handler(ctx, amounts)
+    }
+
+    pub fn finish_init_tokens_for_folio(ctx: Context<FinishInitTokensForFolio>) -> Result<()> {
+        finish_init_tokens_for_folio::handler(ctx)
+    }
+
     pub fn update_folio(
         ctx: Context<UpdateFolio>,
         program_version: Option<Pubkey>,

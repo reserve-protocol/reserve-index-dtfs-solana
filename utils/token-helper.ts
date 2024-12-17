@@ -72,9 +72,14 @@ export async function transferToken(
   senderAta: PublicKey;
   receiverAta: PublicKey;
 }> {
-  let receiverAta = await getAtaAddress(connection, mint, payer, receiver);
+  let receiverAta = await getOrCreateAtaAddress(
+    connection,
+    mint,
+    payer,
+    receiver
+  );
 
-  let senderAta = await getAtaAddress(connection, mint, payer, sender);
+  let senderAta = await getOrCreateAtaAddress(connection, mint, payer, sender);
 
   return {
     instruction: createTransferCheckedInstruction(
@@ -90,7 +95,7 @@ export async function transferToken(
   };
 }
 
-export async function getAtaAddress(
+export async function getOrCreateAtaAddress(
   connection: Connection,
   mint: PublicKey,
   payer: Keypair,
@@ -105,6 +110,14 @@ export async function getAtaAddress(
       true
     )
   ).address;
+}
+
+export function getAtaAddress(
+  connection: Connection,
+  mint: PublicKey,
+  owner: PublicKey
+) {
+  return getAssociatedTokenAddressSync(mint, owner, true);
 }
 
 export async function getOrCreateAtaAddress2022(
@@ -127,7 +140,7 @@ export async function getOrCreateAtaAddress2022(
   ).address;
 }
 
-export async function getAtaAddress2022(
+export function getAtaAddress2022(
   connection: Connection,
   mint: PublicKey,
   owner: PublicKey

@@ -24,14 +24,9 @@ import {
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
-  TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import {
-  getAtaAddress,
-  getAtaAddress2022,
-  getOrCreateAtaAddress2022,
-} from "./token-helper";
+import { getOrCreateAtaAddress } from "./token-helper";
 
 let dtfProgram: Program<Dtfs> = null;
 
@@ -225,7 +220,7 @@ export async function addTokensToFolio(
       isWritable: false,
     });
     remainingAccounts.push({
-      pubkey: await getAtaAddress(
+      pubkey: await getOrCreateAtaAddress(
         connection,
         token.mint,
         folioOwnerKeypair,
@@ -235,7 +230,7 @@ export async function addTokensToFolio(
       isWritable: true,
     });
     remainingAccounts.push({
-      pubkey: await getAtaAddress(
+      pubkey: await getOrCreateAtaAddress(
         connection,
         token.mint,
         folioOwnerKeypair,

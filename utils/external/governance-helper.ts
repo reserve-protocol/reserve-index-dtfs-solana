@@ -14,7 +14,7 @@ import {
   Vote,
 } from "governance-idl-sdk";
 import { cSendAndConfirmTxn } from "../program-helper";
-import { getAtaAddress } from "../token-helper";
+import { getOrCreateAtaAddress } from "../token-helper";
 
 let governanceClient: SplGovernance = null;
 
@@ -120,7 +120,7 @@ export async function depositGoverningTokens(
   amount: BN
 ) {
   try {
-    const depositorAta = await getAtaAddress(
+    const depositorAta = await getOrCreateAtaAddress(
       connection,
       communityTokenMint,
       depositor,

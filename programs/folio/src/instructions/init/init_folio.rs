@@ -6,8 +6,8 @@ use crate::{
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token_2022::Token2022,
-    token_interface::{Mint, TokenAccount},
+    // token_2022::Token2022,
+    token_interface::{Mint, TokenAccount, TokenInterface},
 };
 use shared::{
     check_condition,
@@ -25,7 +25,7 @@ use shared::errors::ErrorCode;
 pub struct InitFolio<'info> {
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
-    pub token_program: Program<'info, Token2022>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
 
     #[account(mut)]

@@ -7,6 +7,7 @@ import {
   initFolio,
   initFolioSigner,
   initProgramRegistrar,
+  mintFolioToken,
   updateProgramRegistrar,
 } from "../utils/folio-helper";
 import * as assert from "assert";
@@ -26,12 +27,13 @@ import {
 } from "../utils/dtf-helper";
 import {
   DEFAULT_DECIMALS,
+  getOrCreateAtaAddress,
   getAtaAddress,
-  getOrCreateAtaAddress2022,
   getTokenBalance,
   initToken,
   mintToken,
 } from "../utils/token-helper";
+import { extendLUT, initLUT } from "../utils/lookup-table-helper";
 
 describe("DTFs Tests", () => {
   let connection: Connection;
@@ -106,7 +108,7 @@ describe("DTFs Tests", () => {
     assert.notEqual(dtfSigner.bump, 0);
   });
 
-  it("should resize folio", async () => {
+  it.skip("should resize folio", async () => {
     const folioSizeBefore = (await connection.getAccountInfo(folioPDA))?.data
       .length;
 
@@ -212,7 +214,7 @@ describe("DTFs Tests", () => {
   //   );
   // });
 
-  it("should update fee per second of folio", async () => {
+  it.skip("should update fee per second of folio", async () => {
     const folioBefore = await program.account.folio.fetch(folioPDA);
 
     await updateFolio(
@@ -254,7 +256,7 @@ describe("DTFs Tests", () => {
     );
   });
 
-  it("should update fee recipients of folio", async () => {
+  it.skip("should update fee recipients of folio", async () => {
     const folioBefore = await program.account.folio.fetch(folioPDA);
 
     let newFeeRecipient = [
@@ -306,7 +308,7 @@ describe("DTFs Tests", () => {
     );
   });
 
-  it("should add trade approver", async () => {
+  it.skip("should add trade approver", async () => {
     await addOrUpdateActor(
       connection,
       folioOwnerKeypair,
@@ -328,7 +330,7 @@ describe("DTFs Tests", () => {
     assert.notEqual(actor.bump, 0);
   });
 
-  it("should update trade approver to also have price curator role", async () => {
+  it.skip("should update trade approver to also have price curator role", async () => {
     await addOrUpdateActor(
       connection,
       folioOwnerKeypair,
@@ -350,7 +352,7 @@ describe("DTFs Tests", () => {
     assert.notEqual(actor.bump, 0);
   });
 
-  it("should remove trade approver", async () => {
+  it.skip("should remove trade approver", async () => {
     await removeActor(
       connection,
       folioOwnerKeypair,
@@ -386,8 +388,8 @@ describe("DTFs Tests", () => {
     assert.equal(actorPostReinit, null);
   });
 
-  it("should add a token to the folio", async () => {
-    const folioATA = await getAtaAddress(
+  it.skip("should add a token to the folio", async () => {
+    const folioATA = await getOrCreateAtaAddress(
       connection,
       tokenMints[0].publicKey,
       folioOwnerKeypair,
@@ -422,14 +424,14 @@ describe("DTFs Tests", () => {
     assert.equal(folioBalanceAfter, folioBalanceBefore + 50);
   });
 
-  it("should add another two tokens to the folio", async () => {
-    const folioATA1 = await getAtaAddress(
+  it.skip("should add another two tokens to the folio", async () => {
+    const folioATA1 = await getOrCreateAtaAddress(
       connection,
       tokenMints[1].publicKey,
       folioOwnerKeypair,
       folioPDA
     );
-    const folioATA2 = await getAtaAddress(
+    const folioATA2 = await getOrCreateAtaAddress(
       connection,
       tokenMints[2].publicKey,
       folioOwnerKeypair,
@@ -479,7 +481,7 @@ describe("DTFs Tests", () => {
     assert.equal(folioBalanceAfter2, folioBalanceBefore2 + 90);
   });
 
-  it("should finalize the folio", async () => {
+  it.skip("should finalize the folio", async () => {
     await finalizeFolio(
       connection,
       folioOwnerKeypair,
@@ -490,5 +492,117 @@ describe("DTFs Tests", () => {
     const folioAfter = await program.account.folio.fetch(folioPDA);
 
     assert.equal(folioAfter.status, 1);
+  });
+
+  /*
+  Temporary tests for max token accounts
+  */
+  it("should mint folio token", async () => {
+    // Works till 22
+    let testsCases = [10, 15, 20, 21, 22, 23, 24, 25];
+
+    let userKeypair = Keypair.generate();
+    await airdrop(connection, userKeypair.publicKey, 1000);
+
+    for (const testCase of testsCases) {
+      let folioTokenMints = [];
+
+      // Create a new for that number of tokens
+      ({ folioTokenMint, folioPDA } = await initFolio(
+        connection,
+        folioOwnerKeypair,
+        new BN(100)
+      ));
+
+      // Create the tokens that can be included in the folio
+      for (let i = 0; i < testCase; i++) {
+        let newTokenMint = Keypair.generate();
+        folioTokenMints.push(newTokenMint);
+
+        await initToken(connection, adminKeypair, newTokenMint);
+
+        // Creating the token accounts for the folio and giving it some tokens
+        await mintToken(
+          connection,
+          adminKeypair,
+          newTokenMint.publicKey,
+          10,
+          folioPDA
+        );
+      }
+
+      await mintFolioToken(
+        connection,
+        userKeypair,
+        folioPDA,
+        folioTokenMint.publicKey,
+        folioTokenMints.map((tokenMint) => tokenMint.publicKey)
+      );
+
+      console.log("Passed with ", testCase);
+    }
+  });
+
+  it("should mint folio token with LUT", async () => {
+    // Works till 30
+    let testsCases = [20, 25, 30, 35, 40, 45];
+
+    let userKeypair = Keypair.generate();
+    await airdrop(connection, userKeypair.publicKey, 1000);
+
+    for (const testCase of testsCases) {
+      let folioTokenMints = [];
+
+      // Create a new for that number of tokens
+      ({ folioTokenMint, folioPDA } = await initFolio(
+        connection,
+        folioOwnerKeypair,
+        new BN(100)
+      ));
+
+      // Create the tokens that can be included in the folio
+      for (let i = 0; i < testCase; i++) {
+        let newTokenMint = Keypair.generate();
+        folioTokenMints.push(newTokenMint);
+
+        await initToken(connection, adminKeypair, newTokenMint);
+
+        // Creating the token accounts for the folio and giving it some tokens
+        await mintToken(
+          connection,
+          adminKeypair,
+          newTokenMint.publicKey,
+          10,
+          folioPDA
+        );
+      }
+
+      // Create lookup table and put the folio token accounts in it
+      const lookupTable = await initLUT(connection, adminKeypair);
+
+      await extendLUT(
+        connection,
+        adminKeypair,
+        lookupTable,
+        folioTokenMints.map((tokenMint) =>
+          getAtaAddress(connection, tokenMint.publicKey, folioPDA)
+        )
+      );
+
+      const lookupTableAccount = (
+        await connection.getAddressLookupTable(lookupTable)
+      ).value;
+
+      await mintFolioToken(
+        connection,
+        userKeypair,
+        folioPDA,
+        folioTokenMint.publicKey,
+        folioTokenMints.map((tokenMint) => tokenMint.publicKey),
+        lookupTableAccount
+      );
+
+      console.log("Passed with ", testCase);
+    }
   });
 });

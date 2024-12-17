@@ -1,6 +1,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 import {
+  AddressLookupTableAccount,
   Commitment,
   ComputeBudgetInstruction,
   ComputeBudgetProgram,
@@ -8,6 +9,7 @@ import {
   Keypair,
   LAMPORTS_PER_SOL,
   PublicKey,
+  sendAndConfirmTransaction,
   SendOptions,
   Signer,
   Transaction,
@@ -20,6 +22,7 @@ import { Dtfs } from "../target/types/dtfs";
 import idlDtfs from "../target/idl/dtfs.json";
 import { Folio } from "../target/types/folio";
 import idlFolio from "../target/idl/folio.json";
+import { web3 } from "@coral-xyz/anchor";
 
 export async function getConnectors() {
   let rpcUrl = "";
@@ -145,6 +148,47 @@ export async function pSendAndConfirmTxn(
     );
 
     return { signature, error: null };
+  } catch (err) {
+    return {
+      signature: "",
+      error: err instanceof Error ? err : new Error("Unknown error occurred"),
+    };
+  }
+}
+
+export async function cSendAndConfirmVersionedTxn(
+  connection: Connection,
+  txn: TransactionInstruction[],
+  feePayer: Signer,
+  lookupTableAccount: AddressLookupTableAccount,
+  additionalSigners: Signer[] = [],
+  opts: SendOptions = { skipPreflight: false },
+  commitment: Commitment = "confirmed"
+): Promise<{ signature: TransactionSignature; error: Error | null }> {
+  try {
+    const messageV0 = new web3.TransactionMessage({
+      payerKey: feePayer.publicKey,
+      recentBlockhash: (await connection.getLatestBlockhash()).blockhash,
+      instructions: txn,
+    }).compileToV0Message([lookupTableAccount]);
+
+    const transactionV0 = new web3.VersionedTransaction(messageV0);
+
+    transactionV0.sign([feePayer]);
+
+    const txid = await connection.sendTransaction(transactionV0, {
+      maxRetries: 5,
+    });
+
+    const confirmation = await connection.confirmTransaction({
+      signature: txid,
+      blockhash: (await connection.getLatestBlockhash()).blockhash,
+      lastValidBlockHeight: (
+        await connection.getLatestBlockhash()
+      ).lastValidBlockHeight,
+    });
+
+    return { signature: txid, error: null };
   } catch (err) {
     return {
       signature: "",

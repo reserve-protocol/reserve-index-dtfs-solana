@@ -9,7 +9,10 @@ import {
 } from "@solana/web3.js";
 import idlFolio from "../target/idl/folio.json";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
-import { pSendAndConfirmTxn } from "./program-helper";
+import {
+  cSendAndConfirmVersionedTxn,
+  pSendAndConfirmTxn,
+} from "./program-helper";
 import {
   getActorPDA,
   getCommunityPDA,
@@ -20,10 +23,11 @@ import {
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
-  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { getAtaAddress2022 } from "./token-helper";
+import { getOrCreateAtaAddress, getAtaAddress } from "./token-helper";
 import { DTF_PROGRAM_ID } from "./pda-helper";
+import { AddressLookupTableAccount } from "@solana/web3.js";
 
 let folioProgram: Program<Folio> = null;
 
@@ -157,14 +161,14 @@ export async function initFolio(
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
-      tokenProgram: TOKEN_2022_PROGRAM_ID,
+      tokenProgram: TOKEN_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       folioOwner: folioOwner.publicKey,
       programRegistrar: getProgramRegistrarPDA(),
       folioProgramSigner: getFolioSignerPDA(),
       folio: folioPDA,
       folioTokenMint: folioTokenMint.publicKey,
-      folioTokenAccount: await getAtaAddress2022(
+      folioTokenAccount: getAtaAddress(
         connection,
         folioTokenMint.publicKey,
         folioPDA
@@ -180,4 +184,75 @@ export async function initFolio(
   });
 
   return { folioTokenMint, folioPDA };
+}
+
+export async function mintFolioToken(
+  connection: Connection,
+  userKeypair: Keypair,
+  folio: PublicKey,
+  folioTokenMint: PublicKey,
+  folioTokenMints: PublicKey[],
+  lookupTableAccount: AddressLookupTableAccount = null
+) {
+  const folioProgram = getFolioProgram(connection, userKeypair);
+
+  let remainingAccounts = [];
+
+  for (const tokenMint of folioTokenMints) {
+    remainingAccounts.push({
+      pubkey: await getOrCreateAtaAddress(
+        connection,
+        tokenMint,
+        userKeypair,
+        folio
+      ),
+      isSigner: false,
+      isWritable: false,
+    });
+  }
+
+  const mintFolioToken = await folioProgram.methods
+    .mintFolioToken()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      user: userKeypair.publicKey,
+      folio: folio,
+      folioCoins: Keypair.generate().publicKey,
+      userCoin: Keypair.generate().publicKey,
+      folioTokenMint: folioTokenMint,
+      folioTokenAccount: await getOrCreateAtaAddress(
+        connection,
+        folioTokenMint,
+        userKeypair,
+        folio
+      ),
+      userFolioTokenAccount: await getOrCreateAtaAddress(
+        connection,
+        folioTokenMint,
+        userKeypair,
+        userKeypair.publicKey
+      ),
+    })
+    .remainingAccounts(remainingAccounts)
+    .instruction();
+
+  if (lookupTableAccount) {
+    console.log(
+      await cSendAndConfirmVersionedTxn(
+        connection,
+        [mintFolioToken],
+        userKeypair,
+        lookupTableAccount,
+        [],
+        { skipPreflight: true }
+      )
+    );
+  } else {
+    console.log(
+      await pSendAndConfirmTxn(folioProgram, [mintFolioToken], [], {
+        skipPreflight: true,
+      })
+    );
+  }
 }

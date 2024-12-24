@@ -1,6 +1,6 @@
-use crate::state::{Folio, ProgramRegistrar};
+use crate::state::{Folio, FolioFeeRecipients, ProgramRegistrar};
 use anchor_lang::prelude::*;
-use shared::constants::MAX_PLATFORM_FEE;
+use shared::constants::{FOLIO_FEE_RECIPIENTS_SEEDS, MAX_PLATFORM_FEE};
 use shared::errors::ErrorCode;
 use shared::structs::FeeRecipient;
 use shared::{
@@ -38,16 +38,17 @@ pub struct UpdateFolio<'info> {
     )]
     pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
 
-    #[account(
-        mut,
-        seeds = [FOLIO_SEEDS, folio_token_mint.key().as_ref()],
-        bump,
-    )]
+    #[account(mut)]
     pub folio: AccountLoader<'info, Folio>,
 
-    /// CHECK: Folio token mint
-    #[account()]
-    pub folio_token_mint: AccountInfo<'info>,
+    #[account(
+        init_if_needed,
+        space = FolioFeeRecipients::SIZE,
+        payer = folio_owner,
+        seeds = [FOLIO_FEE_RECIPIENTS_SEEDS, folio.key().as_ref()],
+        bump,
+    )]
+    pub folio_fee_recipients: AccountLoader<'info, FolioFeeRecipients>,
 
     /// CHECK: DTF program used for creating owner record
     #[account()]
@@ -59,13 +60,13 @@ pub struct UpdateFolio<'info> {
 }
 
 impl<'info> UpdateFolio<'info> {
-    pub fn validate(&self, folio_bump: u8) -> Result<()> {
+    pub fn validate(&self) -> Result<()> {
         let folio = self.folio.load()?;
         folio.validate_folio_program_post_init(
+            &self.folio.key(),
             &self.program_registrar,
             &self.dtf_program,
             &self.dtf_program_data,
-            Some(folio_bump),
             Some(&self.actor.to_account_info()),
             Some(Role::Owner),
             None, // Can update no matter the status
@@ -83,7 +84,13 @@ pub fn handler(
     fee_recipients_to_add: Vec<FeeRecipient>,
     fee_recipients_to_remove: Vec<Pubkey>,
 ) -> Result<()> {
-    ctx.accounts.validate(ctx.bumps.folio)?;
+    ctx.accounts.validate()?;
+
+    FolioFeeRecipients::process_init_if_needed(
+        &mut ctx.accounts.folio_fee_recipients,
+        ctx.bumps.folio_fee_recipients,
+        &ctx.accounts.folio.key(),
+    )?;
 
     let mut folio = ctx.accounts.folio.load_mut()?;
 
@@ -109,7 +116,9 @@ pub fn handler(
     }
 
     if !fee_recipients_to_add.is_empty() || !fee_recipients_to_remove.is_empty() {
-        folio.update_fee_recipients(fee_recipients_to_add, fee_recipients_to_remove)?;
+        let mut fee_recipients = ctx.accounts.folio_fee_recipients.load_mut()?;
+
+        fee_recipients.update_fee_recipients(fee_recipients_to_add, fee_recipients_to_remove)?;
     }
 
     Ok(())

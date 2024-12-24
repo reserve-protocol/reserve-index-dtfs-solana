@@ -2,13 +2,13 @@ use crate::state::Actor;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
 use anchor_spl::associated_token::AssociatedToken;
-use anchor_spl::token_2022::Token2022;
 use anchor_spl::token_interface::TokenInterface;
 use folio::state::{Folio, FolioProgramSigner};
 use folio::ID as FOLIO_ID;
 use shared::check_condition;
 use shared::constants::{
-    ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS,
+    ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, PENDING_TOKEN_AMOUNTS_SEEDS,
+    PROGRAM_REGISTRAR_SEEDS,
 };
 use shared::errors::ErrorCode;
 use shared::structs::{FeeRecipient, Role};
@@ -42,7 +42,7 @@ pub struct AddTokensToFolio<'info> {
 
     /// CHECK: DTF Program
     #[account(address = DTF_PROGRAM_ID)]
-    pub dtf_program: AccountInfo<'info>,
+    pub dtf_program: UncheckedAccount<'info>,
 
     /// CHECK: DTF Program Data
     #[account(
@@ -50,30 +50,23 @@ pub struct AddTokensToFolio<'info> {
         bump,
         seeds::program = &bpf_loader_upgradeable::id()
     )]
-    pub dtf_program_data: AccountInfo<'info>,
+    pub dtf_program_data: UncheckedAccount<'info>,
 
     /// CHECK: Folio Program
     #[account(address = FOLIO_ID)]
-    pub folio_program: AccountInfo<'info>,
+    pub folio_program: UncheckedAccount<'info>,
 
-    /// CHECK: Folio
-    #[account(mut,
-        seeds = [FOLIO_SEEDS, folio_token_mint.key().as_ref()],
-        bump,
-        seeds::program = FOLIO_ID
-    )]
-    pub folio: AccountInfo<'info>,
+    /// CHECK: Done within the folio program
+    #[account(mut)]
+    pub folio: UncheckedAccount<'info>,
 
-    /// CHECK: Folio Token Mint
+    /// CHECK: Done within the folio program
+    #[account(mut)]
+    pub folio_pending_token_amounts: UncheckedAccount<'info>,
+
+    /// CHECK: Done within the folio program
     #[account()]
-    pub folio_token_mint: AccountInfo<'info>,
-
-    #[account(
-        seeds = [PROGRAM_REGISTRAR_SEEDS],
-        bump = program_registrar.bump,
-        seeds::program = FOLIO_ID
-    )]
-    pub program_registrar: Account<'info, ProgramRegistrar>,
+    pub program_registrar: UncheckedAccount<'info>,
     /*
     The remaining accounts need to match the order of amounts as parameter
 

@@ -1,13 +1,14 @@
 use crate::{
+    program::Folio as FolioProgram,
     state::{Folio, ProgramRegistrar},
     DtfProgram,
 };
 use anchor_lang::prelude::*;
 use shared::{
     check_condition,
-    constants::{ACTOR_SEEDS, MAX_FEE_RECIPIENTS, PRECISION_FACTOR},
+    constants::{ACTOR_SEEDS, FOLIO_SEEDS, PRECISION_FACTOR},
     errors::ErrorCode,
-    structs::{FeeRecipient, FolioStatus, Role},
+    structs::{FolioStatus, Role},
 };
 
 impl Folio {
@@ -25,11 +26,11 @@ impl Folio {
 
     #[allow(clippy::too_many_arguments)]
     pub fn validate_folio_program_post_init<'info>(
-        self,
+        &self,
+        folio_pubkey: &Pubkey,
         program_registrar: &Account<'info, ProgramRegistrar>,
         dtf_program: &AccountInfo<'info>,
         dtf_program_data: &AccountInfo<'info>,
-        expected_bump: Option<u8>,
         actor: Option<&AccountInfo<'info>>,
         required_role: Option<Role>,
         expected_status: Option<FolioStatus>,
@@ -39,10 +40,16 @@ impl Folio {
          */
         self.validate_program_registrar(program_registrar, dtf_program, dtf_program_data)?;
 
-        // Validate folio bump
-        if let Some(expected_bump) = expected_bump {
-            check_condition!(self.bump == expected_bump, InvalidBump);
-        }
+        // Validate folio seeds & bump
+        let folio_token_mint = self.folio_token_mint.key();
+        check_condition!(
+            (*folio_pubkey, self.bump)
+                == Pubkey::find_program_address(
+                    &[FOLIO_SEEDS, folio_token_mint.as_ref()],
+                    &FolioProgram::id()
+                ),
+            InvalidPda
+        );
 
         // Validate Role if needed
         if let (Some(actor), Some(required_role)) = (actor, required_role) {
@@ -58,7 +65,7 @@ impl Folio {
     }
 
     fn validate_program_registrar<'info>(
-        self,
+        &self,
         program_registrar: &Account<'info, ProgramRegistrar>,
         dtf_program: &AccountInfo<'info>,
         dtf_program_data: &AccountInfo<'info>,
@@ -112,43 +119,6 @@ impl Folio {
         );
 
         check_condition!(actor.key() == expected_actor_pda, InvalidActorPda);
-
-        Ok(())
-    }
-
-    pub fn update_fee_recipients(
-        &mut self,
-        fee_recipients_to_add: Vec<FeeRecipient>,
-        fee_recipients_to_remove: Vec<Pubkey>,
-    ) -> Result<()> {
-        let mut new_recipients = [FeeRecipient::default(); MAX_FEE_RECIPIENTS];
-        let mut add_index = 0;
-
-        for fee_recipient in self.fee_recipients.iter() {
-            if !fee_recipients_to_remove.contains(&fee_recipient.receiver)
-                && fee_recipient.receiver != Pubkey::default()
-            {
-                new_recipients[add_index] = *fee_recipient;
-                add_index += 1;
-            }
-        }
-
-        for new_recipient in fee_recipients_to_add {
-            check_condition!(add_index < MAX_FEE_RECIPIENTS, InvalidFeeRecipientCount);
-            new_recipients[add_index] = new_recipient;
-            add_index += 1;
-        }
-
-        self.fee_recipients = new_recipients;
-
-        self.validate_fee_recipient_total_shares()
-    }
-
-    pub fn validate_fee_recipient_total_shares(&self) -> Result<()> {
-        check_condition!(
-            self.fee_recipients.iter().map(|r| r.share).sum::<u64>() == PRECISION_FACTOR,
-            InvalidFeeRecipientShares
-        );
 
         Ok(())
     }

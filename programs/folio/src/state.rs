@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use shared::{
-    constants::MAX_FEE_RECIPIENTS,
-    structs::{FeeRecipient, FolioStatus},
+    constants::{MAX_FEE_RECIPIENTS, MAX_TOKEN_AMOUNTS},
+    structs::{FeeRecipient, FolioStatus, TokenAmount},
 };
 
 /// PDA Seeds ["folio_program_signer"]
@@ -53,42 +53,86 @@ All numbers for calculations are u64 (up to 18 "decimals")
 pub struct Folio {
     pub bump: u8,
 
-    // Can't have an enum because of zero copy, so will use u8 and match it with FolioStatus enum
     pub status: u8,
 
-    // Add padding to ensure 8-byte alignment
     pub _padding: [u8; 30],
 
     // Represents the program it can interact with
     pub program_version: Pubkey,
+
     // To also check if the program at the same address was updated (in case of upgrade authority takeover)
     pub program_deployment_slot: u64,
 
-    // The mint of the folio token
-    // Circulating supply is stored in the token mint automatically
+    // The mint of the folio token (Circulating supply is stored in the token mint automatically)
     pub folio_token_mint: Pubkey,
 
     pub fee_per_second: u64,
-
-    // Max 64 fee recipients, default pubkey means not set
-    pub fee_recipients: [FeeRecipient; MAX_FEE_RECIPIENTS],
 }
 
 impl Folio {
     pub const SIZE: usize = 8 + Folio::INIT_SPACE;
 }
 
-impl Default for Folio {
+/// PDA Seeds ["folio_fee_recipients", folio pubkey]
+#[account(zero_copy)]
+#[derive(InitSpace)]
+pub struct FolioFeeRecipients {
+    pub bump: u8,
+    pub _padding: [u8; 7],
+
+    pub folio: Pubkey,
+
+    // Max 64 fee recipients, default pubkey means not set
+    pub fee_recipients: [FeeRecipient; MAX_FEE_RECIPIENTS],
+}
+
+impl FolioFeeRecipients {
+    pub const SIZE: usize = 8 + FolioFeeRecipients::INIT_SPACE;
+}
+
+impl Default for FolioFeeRecipients {
     fn default() -> Self {
         Self {
             bump: 0,
-            status: FolioStatus::Initializing as u8,
-            _padding: [0; 30],
-            program_version: Pubkey::default(),
-            program_deployment_slot: 0,
-            folio_token_mint: Pubkey::default(),
-            fee_per_second: 0,
+            _padding: [0; 7],
+            folio: Pubkey::default(),
             fee_recipients: [FeeRecipient::default(); MAX_FEE_RECIPIENTS],
+        }
+    }
+}
+
+/*
+This is use to track the current user's "pending" token amounts, like when he's minting
+or burning and needs to do it in multiple steps.
+
+It's also used to tracked the "frozen" token amounts in the folio, like when a user is minting, so that
+those tokens aren't taken into account.
+*/
+/// PDA Seeds ["pending_token_amounts", folio OR wallet pubkey]
+#[account(zero_copy)]
+#[derive(InitSpace)]
+pub struct PendingTokenAmounts {
+    pub bump: u8,
+    pub _padding: [u8; 7],
+
+    /// User's wallet pubkey or folio pubkey
+    pub owner: Pubkey,
+
+    // Default pubkey means not set
+    pub token_amounts: [TokenAmount; MAX_TOKEN_AMOUNTS],
+}
+
+impl PendingTokenAmounts {
+    pub const SIZE: usize = 8 + PendingTokenAmounts::INIT_SPACE;
+}
+
+impl Default for PendingTokenAmounts {
+    fn default() -> Self {
+        Self {
+            bump: 0,
+            _padding: [0; 7],
+            owner: Pubkey::default(),
+            token_amounts: [TokenAmount::default(); MAX_TOKEN_AMOUNTS],
         }
     }
 }

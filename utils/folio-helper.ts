@@ -13,16 +13,18 @@ import { pSendAndConfirmTxn } from "./program-helper";
 import {
   getActorPDA,
   getCommunityPDA,
+  getFolioFeeRecipientsPDA,
   getFolioPDA,
+  getFolioPendingTokenAmountsPDA,
   getFolioSignerPDA,
   getProgramDataPDA,
   getProgramRegistrarPDA,
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
-  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { getAtaAddress2022 } from "./token-helper";
+import { getAtaAddress } from "./token-helper";
 import { DTF_PROGRAM_ID } from "./pda-helper";
 
 let folioProgram: Program<Folio> = null;
@@ -157,15 +159,14 @@ export async function initFolio(
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
-      tokenProgram: TOKEN_2022_PROGRAM_ID,
+      tokenProgram: TOKEN_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       folioOwner: folioOwner.publicKey,
       programRegistrar: getProgramRegistrarPDA(),
       folioProgramSigner: getFolioSignerPDA(),
       folio: folioPDA,
       folioTokenMint: folioTokenMint.publicKey,
-      folioTokenAccount: await getAtaAddress2022(
-        connection,
+      folioTokenAccount: await getAtaAddress(
         folioTokenMint.publicKey,
         folioPDA
       ),

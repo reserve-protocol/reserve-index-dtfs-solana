@@ -1,10 +1,12 @@
-use crate::state::{Folio, ProgramRegistrar};
+use crate::pending_token_amounts;
+use crate::state::{Folio, PendingTokenAmounts, ProgramRegistrar};
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::system_program;
 use anchor_spl::associated_token::{
     get_associated_token_address, get_associated_token_address_with_program_id, AssociatedToken,
 };
-use anchor_spl::token_2022::{self, Token2022, Transfer, TransferChecked};
-use anchor_spl::token_interface::{Mint, TokenInterface};
+use anchor_spl::token_interface::{self, Mint, TokenInterface, Transfer, TransferChecked};
+use shared::constants::PENDING_TOKEN_AMOUNTS_SEEDS;
 use shared::errors::ErrorCode;
 use shared::structs::{FeeRecipient, FolioStatus};
 use shared::{
@@ -43,16 +45,16 @@ pub struct InitTokensForFolio<'info> {
     )]
     pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
 
-    #[account(
-        mut,
-        seeds = [FOLIO_SEEDS, folio_token_mint.key().as_ref()],
-        bump,
-    )]
+    #[account(mut)]
     pub folio: AccountLoader<'info, Folio>,
 
-    /// CHECK: Folio token mint
-    #[account()]
-    pub folio_token_mint: AccountInfo<'info>,
+    #[account(init_if_needed,
+        payer = folio_owner,
+        space = PendingTokenAmounts::SIZE,
+        seeds = [PENDING_TOKEN_AMOUNTS_SEEDS, folio.key().as_ref()],
+        bump
+    )]
+    pub folio_pending_token_amounts: AccountLoader<'info, PendingTokenAmounts>,
 
     /// CHECK: DTF program used for creating owner record
     #[account()]
@@ -72,13 +74,13 @@ pub struct InitTokensForFolio<'info> {
 }
 
 impl<'info> InitTokensForFolio<'info> {
-    pub fn validate(&self, folio_bump: u8) -> Result<()> {
+    pub fn validate(&self) -> Result<()> {
         let folio = self.folio.load()?;
         folio.validate_folio_program_post_init(
+            &self.folio.key(),
             &self.program_registrar,
             &self.dtf_program,
             &self.dtf_program_data,
-            Some(folio_bump),
             Some(&self.actor.to_account_info()),
             Some(Role::Owner),
             Some(FolioStatus::Initializing), // Can only add new tokens while it's initializing
@@ -92,7 +94,7 @@ pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, InitTokensForFolio<'info>>,
     amounts: Vec<u64>,
 ) -> Result<()> {
-    ctx.accounts.validate(ctx.bumps.folio)?;
+    ctx.accounts.validate()?;
 
     let remaining_accounts = &ctx.remaining_accounts;
     let mut remaining_accounts_iter = remaining_accounts.iter();
@@ -112,6 +114,8 @@ pub fn handler<'info>(
         remaining_accounts.len() / 3 == amounts.len(),
         InvalidNumberOfRemainingAccounts
     );
+
+    let mut added_mints: Vec<Pubkey> = vec![];
 
     for amount in amounts {
         let token_mint = remaining_accounts_iter
@@ -148,12 +152,21 @@ pub fn handler<'info>(
 
         let cpi_program = ctx.accounts.token_program.to_account_info();
 
-        token_2022::transfer_checked(
+        token_interface::transfer_checked(
             CpiContext::new(cpi_program, cpi_accounts),
             amount,
             mint.decimals,
         )?;
+
+        added_mints.push(token_mint.key());
     }
+
+    PendingTokenAmounts::process_init_if_needed(
+        &mut ctx.accounts.folio_pending_token_amounts,
+        ctx.bumps.folio_pending_token_amounts,
+        &ctx.accounts.folio.key(),
+        added_mints,
+    )?;
 
     Ok(())
 }

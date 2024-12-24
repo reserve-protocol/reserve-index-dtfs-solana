@@ -64,7 +64,6 @@ impl DtfProgram {
         folio_program_signer: AccountInfo<'info>,
         actor: AccountInfo<'info>,
         folio: AccountInfo<'info>,
-        folio_token_mint: AccountInfo<'info>,
         dtf_program: AccountInfo<'info>,
         signer_seeds: &[&[u8]],
     ) -> Result<()> {
@@ -82,7 +81,6 @@ impl DtfProgram {
                 AccountMeta::new_readonly(folio_program_signer.key(), true),
                 AccountMeta::new(actor.key(), false),
                 AccountMeta::new_readonly(folio.key(), false),
-                AccountMeta::new_readonly(folio_token_mint.key(), false),
             ],
             data,
         };
@@ -96,7 +94,6 @@ impl DtfProgram {
                 folio_program_signer.to_account_info(),
                 actor.to_account_info(),
                 folio.to_account_info(),
-                folio_token_mint.to_account_info(),
             ],
             &[signer_seeds],
         )?;

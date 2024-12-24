@@ -34,16 +34,8 @@ pub struct FinishInitTokensForFolio<'info> {
     )]
     pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
 
-    #[account(
-        mut,
-        seeds = [FOLIO_SEEDS, folio_token_mint.key().as_ref()],
-        bump,
-    )]
+    #[account(mut)]
     pub folio: AccountLoader<'info, Folio>,
-
-    /// CHECK: Folio token mint
-    #[account()]
-    pub folio_token_mint: AccountInfo<'info>,
 
     /// CHECK: DTF program used for creating owner record
     #[account()]
@@ -55,13 +47,13 @@ pub struct FinishInitTokensForFolio<'info> {
 }
 
 impl<'info> FinishInitTokensForFolio<'info> {
-    pub fn validate(&self, folio_bump: u8) -> Result<()> {
+    pub fn validate(&self) -> Result<()> {
         let folio = self.folio.load()?;
         folio.validate_folio_program_post_init(
+            &self.folio.key(),
             &self.program_registrar,
             &self.dtf_program,
             &self.dtf_program_data,
-            Some(folio_bump),
             Some(&self.actor.to_account_info()),
             Some(Role::Owner),
             Some(FolioStatus::Initializing), // Can only finish initializing while it's initializing
@@ -72,7 +64,7 @@ impl<'info> FinishInitTokensForFolio<'info> {
 }
 
 pub fn handler(ctx: Context<FinishInitTokensForFolio>) -> Result<()> {
-    ctx.accounts.validate(ctx.bumps.folio)?;
+    ctx.accounts.validate()?;
 
     let folio = &mut ctx.accounts.folio.load_mut()?;
 

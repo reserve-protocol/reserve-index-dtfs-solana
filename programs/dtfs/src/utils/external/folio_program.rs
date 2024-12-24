@@ -23,7 +23,6 @@ impl FolioProgram {
             dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
             program_registrar: ctx.accounts.program_registrar.to_account_info(),
             folio: ctx.accounts.folio.to_account_info(),
-            folio_token_mint: ctx.accounts.folio_token_mint.to_account_info(),
             dtf_program: ctx.accounts.dtf_program.to_account_info(),
             dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
         };
@@ -61,7 +60,7 @@ impl FolioProgram {
             dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
             program_registrar: ctx.accounts.program_registrar.to_account_info(),
             folio: ctx.accounts.folio.to_account_info(),
-            folio_token_mint: ctx.accounts.folio_token_mint.to_account_info(),
+            folio_fee_recipients: ctx.accounts.folio_fee_recipients.to_account_info(),
             dtf_program: ctx.accounts.dtf_program.to_account_info(),
             dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
         };
@@ -138,7 +137,7 @@ impl FolioProgram {
             dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
             program_registrar: ctx.accounts.program_registrar.to_account_info(),
             folio: ctx.accounts.folio.to_account_info(),
-            folio_token_mint: ctx.accounts.folio_token_mint.to_account_info(),
+            folio_pending_token_amounts: ctx.accounts.folio_pending_token_amounts.to_account_info(),
             dtf_program: ctx.accounts.dtf_program.to_account_info(),
             dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
         };
@@ -171,7 +170,6 @@ impl FolioProgram {
             dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
             program_registrar: ctx.accounts.program_registrar.to_account_info(),
             folio: ctx.accounts.folio.to_account_info(),
-            folio_token_mint: ctx.accounts.folio_token_mint.to_account_info(),
             dtf_program: ctx.accounts.dtf_program.to_account_info(),
             dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
         };

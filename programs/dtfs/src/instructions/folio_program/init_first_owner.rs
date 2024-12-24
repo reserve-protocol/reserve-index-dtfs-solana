@@ -34,17 +34,9 @@ pub struct InitFirstOwner<'info> {
     )]
     pub actor: Box<Account<'info, Actor>>,
 
-    /// CHECK: Folio
-    #[account(
-        seeds = [FOLIO_SEEDS, folio_token_mint.key().as_ref()],
-        bump,
-        seeds::program = FOLIO_ID,
-    )]
-    pub folio: AccountInfo<'info>,
-
-    /// CHECK: Folio token mint
+    /// CHECK: Done within the folio program
     #[account()]
-    pub folio_token_mint: AccountInfo<'info>,
+    pub folio: UncheckedAccount<'info>,
 }
 
 impl<'info> InitFirstOwner<'info> {

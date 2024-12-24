@@ -6,7 +6,6 @@ use crate::{
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token_2022::Token2022,
     token_interface::{Mint, TokenAccount},
 };
 use shared::{
@@ -40,7 +39,6 @@ pub struct ValidateMutateActorAction<'info> {
     )]
     pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
 
-    /// CHECK: Folio
     #[account()]
     pub folio: AccountLoader<'info, Folio>,
 
@@ -65,11 +63,11 @@ impl<'info> ValidateMutateActorAction<'info> {
         let folio = &self.folio.load()?;
 
         folio.validate_folio_program_post_init(
+            &self.folio.key(),
             &self.program_registrar,
             &self.dtf_program,
             &self.dtf_program_data,
-            Some(folio.bump),
-            Some(&self.actor),
+            Some(&self.actor.to_account_info()),
             Some(Role::Owner),
             None, // Can CRUD actors no matter the status
         )?;

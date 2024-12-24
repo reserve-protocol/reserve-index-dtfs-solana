@@ -21,19 +21,18 @@ import {
   getProgramRegistrarPDA,
   FOLIO_PROGRAM_ID,
   getDtfSignerPDA,
+  getFolioFeeRecipientsPDA,
+  getFolioPendingTokenAmountsPDA,
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
-  TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import {
-  getAtaAddress,
-  getAtaAddress2022,
-  getOrCreateAtaAddress2022,
-} from "./token-helper";
+import { getOrCreateAtaAddress } from "./token-helper";
 
 let dtfProgram: Program<Dtfs> = null;
+
+const SKIP_PREFLIGHT = true;
 
 export function getDtfProgram(
   connection: Connection,
@@ -93,7 +92,6 @@ export async function resizeFolio(
       dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
       folioProgram: FOLIO_PROGRAM_ID,
       folio: folio,
-      folioTokenMint,
       programRegistrar: getProgramRegistrarPDA(),
     })
     .instruction();
@@ -114,7 +112,7 @@ export async function updateFolio(
 ) {
   const dtfProgram = getDtfProgram(connection, folioOwnerKeypair);
 
-  const resizeFolio = await dtfProgram.methods
+  const updateFolio = await dtfProgram.methods
     .updateFolio(
       programVersion,
       programDeploymentSlot,
@@ -131,15 +129,19 @@ export async function updateFolio(
       dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
       folioProgram: FOLIO_PROGRAM_ID,
       folio: folio,
-      folioTokenMint,
+      folioFeeRecipients: getFolioFeeRecipientsPDA(folio),
       programRegistrar: getProgramRegistrarPDA(),
     })
     .instruction();
 
-  await pSendAndConfirmTxn(dtfProgram, [
-    ...getComputeLimitInstruction(),
-    resizeFolio,
-  ]);
+  await pSendAndConfirmTxn(
+    dtfProgram,
+    [...getComputeLimitInstruction(), updateFolio],
+    [],
+    {
+      skipPreflight: true,
+    }
+  );
 }
 
 export async function addOrUpdateActor(
@@ -166,7 +168,6 @@ export async function addOrUpdateActor(
       dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
       folioProgram: FOLIO_PROGRAM_ID,
       folio: folio,
-      folioTokenMint: folioTokenMint,
       programRegistrar: getProgramRegistrarPDA(),
     })
     .instruction();
@@ -199,7 +200,6 @@ export async function removeActor(
       dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
       folioProgram: FOLIO_PROGRAM_ID,
       folio: folio,
-      folioTokenMint: folioTokenMint,
       programRegistrar: getProgramRegistrarPDA(),
     })
     .instruction();
@@ -225,7 +225,7 @@ export async function addTokensToFolio(
       isWritable: false,
     });
     remainingAccounts.push({
-      pubkey: await getAtaAddress(
+      pubkey: await getOrCreateAtaAddress(
         connection,
         token.mint,
         folioOwnerKeypair,
@@ -235,7 +235,7 @@ export async function addTokensToFolio(
       isWritable: true,
     });
     remainingAccounts.push({
-      pubkey: await getAtaAddress(
+      pubkey: await getOrCreateAtaAddress(
         connection,
         token.mint,
         folioOwnerKeypair,
@@ -259,13 +259,15 @@ export async function addTokensToFolio(
       dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
       folioProgram: FOLIO_PROGRAM_ID,
       folio: folio,
-      folioTokenMint: folioTokenMint,
+      folioPendingTokenAmounts: getFolioPendingTokenAmountsPDA(folio),
       programRegistrar: getProgramRegistrarPDA(),
     })
     .remainingAccounts(remainingAccounts)
     .instruction();
 
-  await pSendAndConfirmTxn(dtfProgram, [addTokensToFolio]);
+  await pSendAndConfirmTxn(dtfProgram, [addTokensToFolio], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
 }
 
 export async function finalizeFolio(
@@ -287,7 +289,6 @@ export async function finalizeFolio(
       dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
       folioProgram: FOLIO_PROGRAM_ID,
       folio: folio,
-      folioTokenMint: folioTokenMint,
       programRegistrar: getProgramRegistrarPDA(),
     })
     .instruction();

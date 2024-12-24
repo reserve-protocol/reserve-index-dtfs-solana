@@ -15,6 +15,7 @@ import {
   DTF_PROGRAM_ID,
   getActorPDA,
   getCommunityPDA,
+  getFolioFeeRecipientsPDA,
   getFolioSignerPDA,
   getProgramRegistrarPDA,
 } from "../utils/pda-helper";
@@ -131,14 +132,16 @@ describe("Folio Tests", () => {
 
     const folio = await program.account.folio.fetch(folioPDA);
 
+    const feeRecipients =
+      await program.account.folioFeeRecipients.fetchNullable(
+        getFolioFeeRecipientsPDA(folioPDA)
+      );
+
     assert.notEqual(folio.bump, 0);
     assert.equal(folio.feePerSecond.toNumber(), 100);
     assert.deepEqual(folio.programVersion, DTF_PROGRAM_ID);
     assert.deepEqual(folio.folioTokenMint, folioTokenMint.publicKey);
-    assert.deepEqual(
-      folio.feeRecipients.map((feeRecipient) => feeRecipient.receiver),
-      Array.from({ length: 64 }, () => PublicKey.default)
-    );
+    assert.equal(feeRecipients, null);
 
     const ownerActorPDA = getActorPDA(folioOwnerKeypair.publicKey, folioPDA);
 

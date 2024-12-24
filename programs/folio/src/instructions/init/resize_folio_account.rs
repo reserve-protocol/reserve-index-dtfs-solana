@@ -41,15 +41,9 @@ pub struct ResizeFolioAccount<'info> {
         mut,
         realloc = new_size as usize,
         realloc::payer = folio_owner,
-        realloc::zero = false,
-        seeds = [FOLIO_SEEDS, folio_token_mint.key().as_ref()],
-        bump,
+        realloc::zero = false
     )]
     pub folio: AccountLoader<'info, Folio>,
-
-    /// CHECK: Folio token mint
-    #[account()]
-    pub folio_token_mint: AccountInfo<'info>,
 
     /// CHECK: DTF program used for creating owner record
     #[account()]
@@ -61,13 +55,13 @@ pub struct ResizeFolioAccount<'info> {
 }
 
 impl<'info> ResizeFolioAccount<'info> {
-    pub fn validate(&self, folio_bump: u8) -> Result<()> {
+    pub fn validate(&self) -> Result<()> {
         let folio = self.folio.load()?;
         folio.validate_folio_program_post_init(
+            &self.folio.key(),
             &self.program_registrar,
             &self.dtf_program,
             &self.dtf_program_data,
-            Some(folio_bump),
             Some(&self.actor.to_account_info()),
             Some(Role::Owner),
             None, // Can resize no matter the status
@@ -78,7 +72,7 @@ impl<'info> ResizeFolioAccount<'info> {
 }
 
 pub fn handler(ctx: Context<ResizeFolioAccount>, _new_size: u64) -> Result<()> {
-    ctx.accounts.validate(ctx.bumps.folio)?;
+    ctx.accounts.validate()?;
 
     Ok(())
 }

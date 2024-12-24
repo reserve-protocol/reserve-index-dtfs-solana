@@ -1,21 +1,20 @@
 use crate::{
     events::FolioCreated,
-    state::{Folio, FolioProgramSigner},
+    state::{Folio, FolioFeeRecipients, FolioProgramSigner, PendingTokenAmounts},
     DtfProgram,
 };
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token_2022::Token2022,
-    token_interface::{Mint, TokenAccount},
+    token_interface::{Mint, TokenAccount, TokenInterface},
 };
 use shared::{
     check_condition,
     constants::{
-        FOLIO_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, MAX_FEE_RECIPIENTS, MAX_PLATFORM_FEE,
-        PROGRAM_REGISTRAR_SEEDS,
+        FOLIO_FEE_RECIPIENTS_SEEDS, FOLIO_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, MAX_FEE_RECIPIENTS,
+        MAX_PLATFORM_FEE, MAX_TOKEN_AMOUNTS, PENDING_TOKEN_AMOUNTS_SEEDS, PROGRAM_REGISTRAR_SEEDS,
     },
-    structs::FeeRecipient,
+    structs::{FeeRecipient, TokenAmount},
 };
 
 use crate::state::ProgramRegistrar;
@@ -25,7 +24,7 @@ use shared::errors::ErrorCode;
 pub struct InitFolio<'info> {
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
-    pub token_program: Program<'info, Token2022>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
 
     #[account(mut)]
@@ -66,6 +65,12 @@ pub struct InitFolio<'info> {
     )]
     pub folio_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
+    /*
+        Because of solana's limits with stack size, etc.
+
+        the folio_fee_recipients will be created in the update function (if needed)
+        the folio_pending_token_amounts will be created in the init tokens (if needed)
+    */
     /// CHECK: DTF program used for creating owner record
     #[account()]
     pub dtf_program: UncheckedAccount<'info>,
@@ -106,7 +111,6 @@ pub fn handler(ctx: Context<InitFolio>, fee_per_second: u64) -> Result<()> {
         folio.program_deployment_slot = deployment_slot;
         folio.folio_token_mint = ctx.accounts.folio_token_mint.key();
         folio.fee_per_second = fee_per_second;
-        folio.fee_recipients = [FeeRecipient::default(); MAX_FEE_RECIPIENTS];
     }
 
     let folio_signer_bump = ctx.accounts.folio_program_signer.bump;
@@ -119,7 +123,6 @@ pub fn handler(ctx: Context<InitFolio>, fee_per_second: u64) -> Result<()> {
         ctx.accounts.folio_program_signer.to_account_info(),
         ctx.accounts.first_owner.to_account_info(),
         ctx.accounts.folio.to_account_info(),
-        ctx.accounts.folio_token_mint.to_account_info(),
         ctx.accounts.dtf_program.to_account_info(),
         signer_seeds,
     )?;

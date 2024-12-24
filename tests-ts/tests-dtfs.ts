@@ -14,6 +14,7 @@ import {
   DTF_PROGRAM_ID,
   getActorPDA,
   getDtfSignerPDA,
+  getFolioFeeRecipientsPDA,
 } from "../utils/pda-helper";
 import {
   addOrUpdateActor,
@@ -26,8 +27,7 @@ import {
 } from "../utils/dtf-helper";
 import {
   DEFAULT_DECIMALS,
-  getAtaAddress,
-  getOrCreateAtaAddress2022,
+  getOrCreateAtaAddress,
   getTokenBalance,
   initToken,
   mintToken,
@@ -214,6 +214,10 @@ describe("DTFs Tests", () => {
 
   it("should update fee per second of folio", async () => {
     const folioBefore = await program.account.folio.fetch(folioPDA);
+    const feeRecipientsBefore =
+      await program.account.folioFeeRecipients.fetchNullable(
+        getFolioFeeRecipientsPDA(folioPDA)
+      );
 
     await updateFolio(
       connection,
@@ -228,6 +232,9 @@ describe("DTFs Tests", () => {
     );
 
     const folioAfter = await program.account.folio.fetch(folioPDA);
+    const feeRecipientsAfter = await program.account.folioFeeRecipients.fetch(
+      getFolioFeeRecipientsPDA(folioPDA)
+    );
 
     assert.deepEqual(folioAfter.programVersion, folioBefore.programVersion);
     assert.equal(
@@ -238,7 +245,8 @@ describe("DTFs Tests", () => {
       folioAfter.feePerSecond.toNumber(),
       folioBefore.feePerSecond.add(new BN(1)).toNumber()
     );
-    assert.deepEqual(folioAfter.feeRecipients, folioBefore.feeRecipients);
+    assert.equal(null, feeRecipientsBefore);
+    assert.notEqual(null, feeRecipientsAfter);
 
     // Resetting
     await updateFolio(
@@ -256,6 +264,9 @@ describe("DTFs Tests", () => {
 
   it("should update fee recipients of folio", async () => {
     const folioBefore = await program.account.folio.fetch(folioPDA);
+    const feeRecipientsBefore = await program.account.folioFeeRecipients.fetch(
+      getFolioFeeRecipientsPDA(folioPDA)
+    );
 
     let newFeeRecipient = [
       {
@@ -280,7 +291,10 @@ describe("DTFs Tests", () => {
       []
     );
 
-    let folioAfter = await program.account.folio.fetch(folioPDA);
+    const folioAfter = await program.account.folio.fetch(folioPDA);
+    const feeRecipientsAfter = await program.account.folioFeeRecipients.fetch(
+      getFolioFeeRecipientsPDA(folioPDA)
+    );
 
     assert.deepEqual(folioAfter.programVersion, folioBefore.programVersion);
     assert.equal(
@@ -293,16 +307,16 @@ describe("DTFs Tests", () => {
     );
 
     assert.deepEqual(
-      folioAfter.feeRecipients[0].receiver,
+      feeRecipientsAfter.feeRecipients[0].receiver,
       newFeeRecipient[0].receiver
     );
     assert.deepEqual(
-      folioAfter.feeRecipients[1].receiver,
+      feeRecipientsAfter.feeRecipients[1].receiver,
       newFeeRecipient[1].receiver
     );
     assert.deepEqual(
-      folioAfter.feeRecipients.slice(2),
-      folioBefore.feeRecipients.slice(2)
+      feeRecipientsAfter.feeRecipients.slice(2),
+      feeRecipientsBefore.feeRecipients.slice(2)
     );
   });
 
@@ -387,7 +401,7 @@ describe("DTFs Tests", () => {
   });
 
   it("should add a token to the folio", async () => {
-    const folioATA = await getAtaAddress(
+    const folioATA = await getOrCreateAtaAddress(
       connection,
       tokenMints[0].publicKey,
       folioOwnerKeypair,
@@ -423,13 +437,13 @@ describe("DTFs Tests", () => {
   });
 
   it("should add another two tokens to the folio", async () => {
-    const folioATA1 = await getAtaAddress(
+    const folioATA1 = await getOrCreateAtaAddress(
       connection,
       tokenMints[1].publicKey,
       folioOwnerKeypair,
       folioPDA
     );
-    const folioATA2 = await getAtaAddress(
+    const folioATA2 = await getOrCreateAtaAddress(
       connection,
       tokenMints[2].publicKey,
       folioOwnerKeypair,

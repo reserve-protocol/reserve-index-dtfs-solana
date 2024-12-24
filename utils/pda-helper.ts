@@ -56,3 +56,17 @@ export function getCommunityPDA() {
     FOLIO_PROGRAM_ID
   )[0];
 }
+
+export function getFolioFeeRecipientsPDA(folio: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("folio_fee_recipients"), folio.toBuffer()],
+    FOLIO_PROGRAM_ID
+  )[0];
+}
+
+export function getFolioPendingTokenAmountsPDA(folio: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("pending_token_amounts"), folio.toBuffer()],
+    FOLIO_PROGRAM_ID
+  )[0];
+}

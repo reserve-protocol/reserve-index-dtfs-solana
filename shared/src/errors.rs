@@ -46,6 +46,9 @@ pub enum ErrorCode {
 
     #[msg("Invalid Number of Remaining Accounts")]
     InvalidNumberOfRemainingAccounts,
+
+    #[msg("Invalid Added Token Mints")]
+    InvalidAddedTokenMints,
 }
 
 #[macro_export]

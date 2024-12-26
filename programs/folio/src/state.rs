@@ -106,7 +106,7 @@ This is use to track the current user's "pending" token amounts, like when he's 
 or burning and needs to do it in multiple steps.
 
 It's also used to tracked the "frozen" token amounts in the folio, like when a user is minting, so that
-those tokens aren't taken into account.
+those tokens aren't taken into account. It also will represent which tokens are in the folio (authorized tokens).
 */
 /// PDA Seeds ["pending_token_amounts", folio OR wallet pubkey]
 #[account(zero_copy)]

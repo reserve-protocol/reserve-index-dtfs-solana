@@ -26,7 +26,7 @@ import {
   updateFolio,
 } from "../utils/dtf-helper";
 import {
-  DEFAULT_DECIMALS,
+  DEFAULT_DECIMALS_MUL,
   getOrCreateAtaAddress,
   getTokenBalance,
   initToken,
@@ -422,7 +422,7 @@ describe("DTFs Tests", () => {
       [
         {
           mint: tokenMints[0].publicKey,
-          amount: new BN(50 * 10 ** DEFAULT_DECIMALS),
+          amount: new BN(50 * DEFAULT_DECIMALS_MUL),
         },
       ]
     );
@@ -433,7 +433,7 @@ describe("DTFs Tests", () => {
       false
     );
 
-    assert.equal(folioBalanceAfter, folioBalanceBefore + 50);
+    assert.equal(folioBalanceAfter, folioBalanceBefore);
   });
 
   it("should add another two tokens to the folio", async () => {
@@ -469,11 +469,11 @@ describe("DTFs Tests", () => {
       [
         {
           mint: tokenMints[1].publicKey,
-          amount: new BN(20 * 10 ** DEFAULT_DECIMALS),
+          amount: new BN(20 * DEFAULT_DECIMALS_MUL),
         },
         {
           mint: tokenMints[2].publicKey,
-          amount: new BN(90 * 10 ** DEFAULT_DECIMALS),
+          amount: new BN(90 * DEFAULT_DECIMALS_MUL),
         },
       ]
     );
@@ -489,8 +489,8 @@ describe("DTFs Tests", () => {
       false
     );
 
-    assert.equal(folioBalanceAfter1, folioBalanceBefore1 + 20);
-    assert.equal(folioBalanceAfter2, folioBalanceBefore2 + 90);
+    assert.equal(folioBalanceAfter1, folioBalanceBefore1);
+    assert.equal(folioBalanceAfter2, folioBalanceBefore2);
   });
 
   it("should finalize the folio", async () => {

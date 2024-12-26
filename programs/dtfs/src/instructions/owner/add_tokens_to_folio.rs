@@ -85,13 +85,10 @@ impl<'info> AddTokensToFolio<'info> {
     }
 }
 
-pub fn handler<'info>(
-    ctx: Context<'_, '_, 'info, 'info, AddTokensToFolio<'info>>,
-    amounts: Vec<u64>,
-) -> Result<()> {
+pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AddTokensToFolio<'info>>) -> Result<()> {
     ctx.accounts.validate()?;
 
-    FolioProgram::init_tokens_for_folio(ctx, amounts)?;
+    FolioProgram::init_tokens_for_folio(ctx)?;
 
     Ok(())
 }

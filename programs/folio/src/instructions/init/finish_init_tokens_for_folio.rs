@@ -51,9 +51,9 @@ impl<'info> FinishInitTokensForFolio<'info> {
         let folio = self.folio.load()?;
         folio.validate_folio_program_post_init(
             &self.folio.key(),
-            &self.program_registrar,
-            &self.dtf_program,
-            &self.dtf_program_data,
+            Some(&self.program_registrar),
+            Some(&self.dtf_program),
+            Some(&self.dtf_program_data),
             Some(&self.actor.to_account_info()),
             Some(Role::Owner),
             Some(FolioStatus::Initializing), // Can only finish initializing while it's initializing

@@ -1,3 +1,4 @@
+import { BN } from "@coral-xyz/anchor";
 import {
   createMint,
   createTransferCheckedInstruction,
@@ -7,6 +8,7 @@ import {
   TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
 import {
+  AccountMeta,
   Connection,
   Keypair,
   PublicKey,
@@ -14,6 +16,9 @@ import {
 } from "@solana/web3.js";
 
 export const DEFAULT_DECIMALS = 9;
+export const DEFAULT_DECIMALS_MUL = 10 ** DEFAULT_DECIMALS;
+
+export const DEFAULT_PRECISION = new BN(10 ** 9);
 
 export async function initToken(
   connection: Connection,
@@ -154,4 +159,51 @@ export async function getTokenBalance(
     return await connection.getBalance(account);
   }
   return (await connection.getTokenAccountBalance(account)).value.uiAmount;
+}
+
+export async function buildRemainingAccounts(
+  connection: Connection,
+  payerKeypair: Keypair,
+  tokens: { mint: PublicKey; amount: BN }[],
+  senderAddress: PublicKey = null,
+  receiverAddress: PublicKey = null,
+  includeMint: boolean = true
+): Promise<AccountMeta[]> {
+  let remainingAccounts: AccountMeta[] = [];
+
+  for (const token of tokens) {
+    if (includeMint) {
+      remainingAccounts.push({
+        pubkey: token.mint,
+        isSigner: false,
+        isWritable: false,
+      });
+    }
+    if (senderAddress) {
+      remainingAccounts.push({
+        pubkey: await getOrCreateAtaAddress(
+          connection,
+          token.mint,
+          payerKeypair,
+          senderAddress
+        ),
+        isSigner: false,
+        isWritable: true,
+      });
+    }
+    if (receiverAddress) {
+      remainingAccounts.push({
+        pubkey: await getOrCreateAtaAddress(
+          connection,
+          token.mint,
+          payerKeypair,
+          receiverAddress
+        ),
+        isSigner: false,
+        isWritable: true,
+      });
+    }
+  }
+
+  return remainingAccounts;
 }

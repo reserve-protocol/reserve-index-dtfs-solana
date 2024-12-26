@@ -51,9 +51,8 @@ pub mod folio {
 
     pub fn init_tokens_for_folio<'info>(
         ctx: Context<'_, '_, 'info, 'info, InitTokensForFolio<'info>>,
-        amounts: Vec<u64>,
     ) -> Result<()> {
-        init_tokens_for_folio::handler(ctx, amounts)
+        init_tokens_for_folio::handler(ctx)
     }
 
     pub fn finish_init_tokens_for_folio(ctx: Context<FinishInitTokensForFolio>) -> Result<()> {
@@ -82,8 +81,25 @@ pub mod folio {
         transfer_folio_token::handler(ctx)
     }
 
-    pub fn mint_folio_token(ctx: Context<MintFolioToken>) -> Result<()> {
-        mint_folio_token::handler(ctx)
+    pub fn mint_folio_token<'info>(
+        ctx: Context<'_, '_, 'info, 'info, MintFolioToken<'info>>,
+        shares: u64,
+    ) -> Result<()> {
+        mint_folio_token::handler(ctx, shares)
+    }
+
+    pub fn init_or_add_mint_folio_token<'info>(
+        ctx: Context<'_, '_, 'info, 'info, InitOrAddMintFolioToken<'info>>,
+        amounts: Vec<u64>,
+    ) -> Result<()> {
+        init_or_add_mint_folio_token::handler(ctx, amounts)
+    }
+
+    pub fn remove_from_mint_folio_token<'info>(
+        ctx: Context<'_, '_, 'info, 'info, RemoveFromMintFolioToken<'info>>,
+        amounts: Vec<u64>,
+    ) -> Result<()> {
+        remove_from_mint_folio_token::handler(ctx, amounts)
     }
 
     pub fn burn_folio_token(ctx: Context<BurnFolioToken>) -> Result<()> {

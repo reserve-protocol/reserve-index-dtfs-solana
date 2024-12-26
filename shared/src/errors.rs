@@ -49,6 +49,21 @@ pub enum ErrorCode {
 
     #[msg("Invalid Added Token Mints")]
     InvalidAddedTokenMints,
+
+    #[msg("Invalid Removed Token Mints")]
+    InvalidRemovedTokenMints,
+
+    #[msg("Mint Mismatch")]
+    MintMismatch,
+
+    #[msg("Invalid Share Amount Provided")]
+    InvalidShareAmountProvided,
+
+    #[msg("Invalid Token Amount")]
+    InvalidTokenAmount,
+
+    #[msg("Invalid Folio Token Mint")]
+    InvalidFolioTokenMint,
 }
 
 #[macro_export]

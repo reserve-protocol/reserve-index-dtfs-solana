@@ -28,9 +28,9 @@ impl Folio {
     pub fn validate_folio_program_post_init<'info>(
         &self,
         folio_pubkey: &Pubkey,
-        program_registrar: &Account<'info, ProgramRegistrar>,
-        dtf_program: &AccountInfo<'info>,
-        dtf_program_data: &AccountInfo<'info>,
+        program_registrar: Option<&Account<'info, ProgramRegistrar>>,
+        dtf_program: Option<&AccountInfo<'info>>,
+        dtf_program_data: Option<&AccountInfo<'info>>,
         actor: Option<&AccountInfo<'info>>,
         required_role: Option<Role>,
         expected_status: Option<FolioStatus>,
@@ -38,7 +38,11 @@ impl Folio {
         /*
         Validate program is in registrar and has same deployment slot
          */
-        self.validate_program_registrar(program_registrar, dtf_program, dtf_program_data)?;
+        if let (Some(program_registrar), Some(dtf_program), Some(dtf_program_data)) =
+            (program_registrar, dtf_program, dtf_program_data)
+        {
+            self.validate_program_registrar(program_registrar, dtf_program, dtf_program_data)?;
+        }
 
         // Validate folio seeds & bump
         let folio_token_mint = self.folio_token_mint.key();
@@ -52,7 +56,9 @@ impl Folio {
         );
 
         // Validate Role if needed
-        if let (Some(actor), Some(required_role)) = (actor, required_role) {
+        if let (Some(actor), Some(required_role), Some(dtf_program)) =
+            (actor, required_role, dtf_program)
+        {
             Folio::validate_permission_for_action(actor, required_role, dtf_program)?;
         }
 

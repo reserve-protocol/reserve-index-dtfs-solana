@@ -28,7 +28,7 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { getOrCreateAtaAddress } from "./token-helper";
+import { buildRemainingAccounts } from "./token-helper";
 
 let dtfProgram: Program<Dtfs> = null;
 
@@ -58,6 +58,14 @@ export async function initDtfSigner(
 ) {
   const dtfProgram = getDtfProgram(connection, adminKeypair);
 
+  const dtfSigner = await dtfProgram.account.dtfProgramSigner.fetchNullable(
+    getDtfSignerPDA()
+  );
+
+  if (dtfSigner) {
+    return;
+  }
+
   const initDtfProgramSigner = await dtfProgram.methods
     .initDtfSigner()
     .accountsPartial({
@@ -68,7 +76,9 @@ export async function initDtfSigner(
     })
     .instruction();
 
-  await pSendAndConfirmTxn(dtfProgram, [initDtfProgramSigner]);
+  await pSendAndConfirmTxn(dtfProgram, [initDtfProgramSigner], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
 }
 
 export async function resizeFolio(
@@ -96,7 +106,9 @@ export async function resizeFolio(
     })
     .instruction();
 
-  await pSendAndConfirmTxn(dtfProgram, [resizeFolio]);
+  await pSendAndConfirmTxn(dtfProgram, [resizeFolio], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
 }
 
 export async function updateFolio(
@@ -139,7 +151,7 @@ export async function updateFolio(
     [...getComputeLimitInstruction(), updateFolio],
     [],
     {
-      skipPreflight: true,
+      skipPreflight: SKIP_PREFLIGHT,
     }
   );
 }
@@ -172,7 +184,9 @@ export async function addOrUpdateActor(
     })
     .instruction();
 
-  await pSendAndConfirmTxn(dtfProgram, [addOrUpdateActor]);
+  await pSendAndConfirmTxn(dtfProgram, [addOrUpdateActor], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
 }
 
 export async function removeActor(
@@ -204,7 +218,9 @@ export async function removeActor(
     })
     .instruction();
 
-  await pSendAndConfirmTxn(dtfProgram, [removeActor]);
+  await pSendAndConfirmTxn(dtfProgram, [removeActor], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
 }
 
 export async function addTokensToFolio(
@@ -216,38 +232,8 @@ export async function addTokensToFolio(
 ) {
   const dtfProgram = getDtfProgram(connection, folioOwnerKeypair);
 
-  let remainingAccounts: AccountMeta[] = [];
-
-  for (const token of tokens) {
-    remainingAccounts.push({
-      pubkey: token.mint,
-      isSigner: false,
-      isWritable: false,
-    });
-    remainingAccounts.push({
-      pubkey: await getOrCreateAtaAddress(
-        connection,
-        token.mint,
-        folioOwnerKeypair,
-        folioOwnerKeypair.publicKey
-      ),
-      isSigner: false,
-      isWritable: true,
-    });
-    remainingAccounts.push({
-      pubkey: await getOrCreateAtaAddress(
-        connection,
-        token.mint,
-        folioOwnerKeypair,
-        folio
-      ),
-      isSigner: false,
-      isWritable: true,
-    });
-  }
-
   const addTokensToFolio = await dtfProgram.methods
-    .addTokensToFolio(tokens.map((token) => token.amount))
+    .addTokensToFolio()
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
@@ -262,7 +248,15 @@ export async function addTokensToFolio(
       folioPendingTokenAmounts: getFolioPendingTokenAmountsPDA(folio),
       programRegistrar: getProgramRegistrarPDA(),
     })
-    .remainingAccounts(remainingAccounts)
+    .remainingAccounts(
+      await buildRemainingAccounts(
+        connection,
+        folioOwnerKeypair,
+        tokens,
+        null,
+        null
+      )
+    )
     .instruction();
 
   await pSendAndConfirmTxn(dtfProgram, [addTokensToFolio], [], {
@@ -293,5 +287,7 @@ export async function finalizeFolio(
     })
     .instruction();
 
-  await pSendAndConfirmTxn(dtfProgram, [finalizeFolio]);
+  await pSendAndConfirmTxn(dtfProgram, [finalizeFolio], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
 }

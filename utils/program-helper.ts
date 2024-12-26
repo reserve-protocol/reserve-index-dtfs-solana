@@ -2,8 +2,8 @@ import * as anchor from "@coral-xyz/anchor";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 import {
   Commitment,
-  ComputeBudgetInstruction,
   ComputeBudgetProgram,
+  ConfirmOptions,
   Connection,
   Keypair,
   LAMPORTS_PER_SOL,
@@ -20,6 +20,7 @@ import { Dtfs } from "../target/types/dtfs";
 import idlDtfs from "../target/idl/dtfs.json";
 import { Folio } from "../target/types/folio";
 import idlFolio from "../target/idl/folio.json";
+import * as assert from "assert";
 
 export async function getConnectors() {
   let rpcUrl = "";
@@ -120,10 +121,7 @@ export async function cSendAndConfirmTxn(
 
     return { signature, error: null };
   } catch (err) {
-    return {
-      signature: "",
-      error: err instanceof Error ? err : new Error("Unknown error occurred"),
-    };
+    throw err;
   }
 }
 
@@ -131,8 +129,8 @@ export async function pSendAndConfirmTxn(
   program: anchor.Program<any>,
   txn: TransactionInstruction[],
   additionalSigners: Signer[] = [],
-  opts: SendOptions = { skipPreflight: false },
-  commitment: Commitment = "confirmed"
+  opts: ConfirmOptions = { skipPreflight: false, commitment: "confirmed" },
+  expectError: boolean = false
 ): Promise<{ signature: TransactionSignature; error: Error | null }> {
   try {
     const transaction = new Transaction();
@@ -141,15 +139,13 @@ export async function pSendAndConfirmTxn(
     const signature = await program.provider.sendAndConfirm(
       transaction,
       additionalSigners,
-      opts
+      // Can't skip preflight when expecting an error, anchor issues
+      { ...opts, ...(expectError ? { skipPreflight: false } : {}) }
     );
 
     return { signature, error: null };
   } catch (err) {
-    return {
-      signature: "",
-      error: err instanceof Error ? err : new Error("Unknown error occurred"),
-    };
+    throw err;
   }
 }
 
@@ -187,4 +183,23 @@ export function getComputeLimitInstruction(
       units: newLimit,
     }),
   ];
+}
+
+export async function assertThrows(
+  fn: () => Promise<any>,
+  expectedErrorCode: string | number,
+  message?: string
+) {
+  try {
+    await fn();
+    assert.fail(message || "Expected an error to be thrown");
+  } catch (error) {
+    for (const log of error.logs) {
+      if (log.includes(expectedErrorCode)) {
+        return;
+      }
+    }
+
+    assert.fail(message || `Expected error code ${expectedErrorCode}`);
+  }
 }

@@ -9,25 +9,35 @@ import {
 } from "@solana/web3.js";
 import idlFolio from "../target/idl/folio.json";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
-import { pSendAndConfirmTxn } from "./program-helper";
+import {
+  getComputeLimitInstruction,
+  pSendAndConfirmTxn,
+} from "./program-helper";
 import {
   getActorPDA,
   getCommunityPDA,
-  getFolioFeeRecipientsPDA,
   getFolioPDA,
   getFolioPendingTokenAmountsPDA,
   getFolioSignerPDA,
   getProgramDataPDA,
   getProgramRegistrarPDA,
+  getUserPendingTokenAmountsPDA,
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { getAtaAddress } from "./token-helper";
+import {
+  buildRemainingAccounts,
+  DEFAULT_PRECISION,
+  getAtaAddress,
+  getOrCreateAtaAddress,
+} from "./token-helper";
 import { DTF_PROGRAM_ID } from "./pda-helper";
 
 let folioProgram: Program<Folio> = null;
+
+const SKIP_PREFLIGHT = true;
 
 export function getFolioProgram(
   connection: Connection,
@@ -72,7 +82,9 @@ export async function initFolioSigner(
     })
     .instruction();
 
-  await pSendAndConfirmTxn(folioProgram, [initFolioSigner]);
+  await pSendAndConfirmTxn(folioProgram, [initFolioSigner], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
 }
 
 export async function initOrUpdateCommunity(
@@ -93,7 +105,9 @@ export async function initOrUpdateCommunity(
     })
     .instruction();
 
-  await pSendAndConfirmTxn(folioProgram, [initCommunity]);
+  await pSendAndConfirmTxn(folioProgram, [initCommunity], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
 }
 
 export async function initProgramRegistrar(
@@ -122,7 +136,9 @@ export async function initProgramRegistrar(
     })
     .instruction();
 
-  await pSendAndConfirmTxn(folioProgram, [registerProgram]);
+  await pSendAndConfirmTxn(folioProgram, [registerProgram], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
 }
 export async function updateProgramRegistrar(
   connection: Connection,
@@ -140,7 +156,9 @@ export async function updateProgramRegistrar(
     })
     .instruction();
 
-  await pSendAndConfirmTxn(folioProgram, [updateProgramRegistrar]);
+  await pSendAndConfirmTxn(folioProgram, [updateProgramRegistrar], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
 }
 
 export async function initFolio(
@@ -177,8 +195,133 @@ export async function initFolio(
     .instruction();
 
   await pSendAndConfirmTxn(folioProgram, [initFolio], [folioTokenMint], {
-    skipPreflight: true,
+    skipPreflight: SKIP_PREFLIGHT,
   });
 
   return { folioTokenMint, folioPDA };
+}
+
+export async function initOrAddMintFolioToken(
+  connection: Connection,
+  userKeypair: Keypair,
+  folio: PublicKey,
+  tokens: { mint: PublicKey; amount: BN }[]
+) {
+  const folioProgram = getFolioProgram(connection, userKeypair);
+
+  const initOrAddMintFolioToken = await folioProgram.methods
+    .initOrAddMintFolioToken(tokens.map((token) => token.amount))
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      rent: SYSVAR_RENT_PUBKEY,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      user: userKeypair.publicKey,
+      folio,
+      folioPendingTokenAmounts: getFolioPendingTokenAmountsPDA(folio),
+      userPendingTokenAmounts: getUserPendingTokenAmountsPDA(
+        userKeypair.publicKey
+      ),
+    })
+    .remainingAccounts(
+      await buildRemainingAccounts(
+        connection,
+        userKeypair,
+        tokens,
+        userKeypair.publicKey,
+        folio
+      )
+    )
+    .instruction();
+
+  await pSendAndConfirmTxn(folioProgram, [initOrAddMintFolioToken], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+}
+
+export async function removeFromMintFolioToken(
+  connection: Connection,
+  userKeypair: Keypair,
+  folio: PublicKey,
+  tokens: { mint: PublicKey; amount: BN }[]
+) {
+  const folioProgram = getFolioProgram(connection, userKeypair);
+
+  const removeFromMintFolioToken = await folioProgram.methods
+    .removeFromMintFolioToken(tokens.map((token) => token.amount))
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      user: userKeypair.publicKey,
+      folio,
+      folioPendingTokenAmounts: getFolioPendingTokenAmountsPDA(folio),
+      userPendingTokenAmounts: getUserPendingTokenAmountsPDA(
+        userKeypair.publicKey
+      ),
+    })
+    .remainingAccounts(
+      await buildRemainingAccounts(
+        connection,
+        userKeypair,
+        tokens,
+        folio,
+        userKeypair.publicKey
+      )
+    )
+    .instruction();
+
+  await pSendAndConfirmTxn(folioProgram, [removeFromMintFolioToken], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+}
+
+export async function mintFolioToken(
+  connection: Connection,
+  userKeypair: Keypair,
+  folio: PublicKey,
+  folioTokenMint: PublicKey,
+  tokens: { mint: PublicKey; amount: BN }[],
+  shares: BN
+) {
+  const folioProgram = getFolioProgram(connection, userKeypair);
+
+  const mintFolioToken = await folioProgram.methods
+    .mintFolioToken(shares)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      user: userKeypair.publicKey,
+      folio,
+      folioTokenMint,
+      folioPendingTokenAmounts: getFolioPendingTokenAmountsPDA(folio),
+      userPendingTokenAmounts: getUserPendingTokenAmountsPDA(
+        userKeypair.publicKey
+      ),
+      userFolioTokenAccount: await getOrCreateAtaAddress(
+        connection,
+        folioTokenMint,
+        userKeypair,
+        userKeypair.publicKey
+      ),
+    })
+    .remainingAccounts(
+      await buildRemainingAccounts(
+        connection,
+        userKeypair,
+        tokens,
+        folio,
+        null,
+        false
+      )
+    )
+    .instruction();
+
+  await pSendAndConfirmTxn(
+    folioProgram,
+    [...getComputeLimitInstruction(1_200_000), mintFolioToken],
+    [],
+    {
+      skipPreflight: SKIP_PREFLIGHT,
+    },
+    true
+  );
 }

@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::system_program;
 use shared::check_condition;
 use shared::constants::MAX_TOKEN_AMOUNTS;
 use shared::errors::ErrorCode;

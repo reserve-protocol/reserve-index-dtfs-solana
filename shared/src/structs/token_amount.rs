@@ -1,8 +1,6 @@
 use anchor_lang::prelude::*;
 use bytemuck::{Pod, Zeroable};
 
-use crate::constants::MAX_TOKEN_AMOUNTS;
-
 #[derive(
     AnchorSerialize,
     AnchorDeserialize,

@@ -26,7 +26,7 @@ pub struct InitOrUpdateCommunity<'info> {
     pub community_receiver: AccountInfo<'info>,
 }
 
-impl<'info> InitOrUpdateCommunity<'info> {
+impl InitOrUpdateCommunity<'_> {
     pub fn validate(&self) -> Result<()> {
         check_condition!(self.admin.key() == ADMIN, Unauthorized);
 

@@ -1,20 +1,19 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::get_associated_token_address_with_program_id,
-    token_interface::{self, Mint, TokenAccount, TokenInterface, TransferChecked},
+    token_interface::{self, Mint, TokenInterface, TransferChecked},
 };
 use shared::{
     check_condition,
     constants::{
-        FOLIO_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, IS_ADDING_TO_MINT_FOLIO,
-        PENDING_TOKEN_AMOUNTS_SEEDS, PROGRAM_REGISTRAR_SEEDS,
+        FOLIO_SEEDS, IS_ADDING_TO_MINT_FOLIO, PENDING_TOKEN_AMOUNTS_SEEDS, PROGRAM_REGISTRAR_SEEDS,
     },
     structs::TokenAmount,
 };
 use shared::{constants::DTF_PROGRAM_SIGNER_SEEDS, errors::ErrorCode::*};
 use shared::{errors::ErrorCode, structs::FolioStatus};
 
-use crate::state::{Folio, FolioProgramSigner, PendingTokenAmounts, ProgramRegistrar};
+use crate::state::{Folio, PendingTokenAmounts, ProgramRegistrar};
 
 #[derive(Accounts)]
 pub struct RemoveFromMintFolioToken<'info> {
@@ -69,7 +68,7 @@ pub struct RemoveFromMintFolioToken<'info> {
      */
 }
 
-impl<'info> RemoveFromMintFolioToken<'info> {
+impl RemoveFromMintFolioToken<'_> {
     pub fn validate(&self, folio: &Folio) -> Result<()> {
         folio.validate_folio_program_post_init(
             &self.folio.key(),

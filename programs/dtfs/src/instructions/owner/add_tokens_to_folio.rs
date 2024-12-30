@@ -3,21 +3,15 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token_interface::TokenInterface;
-use folio::state::{Folio, FolioProgramSigner};
 use folio::ID as FOLIO_ID;
 use shared::check_condition;
-use shared::constants::{
-    ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, PENDING_TOKEN_AMOUNTS_SEEDS,
-    PROGRAM_REGISTRAR_SEEDS,
-};
+use shared::constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS};
 use shared::errors::ErrorCode;
-use shared::structs::{FeeRecipient, Role};
+use shared::structs::Role;
 
 use crate::state::DtfProgramSigner;
 use crate::utils::external::folio_program::FolioProgram;
 use crate::ID as DTF_PROGRAM_ID;
-use anchor_lang::prelude::*;
-use folio::state::ProgramRegistrar;
 
 #[derive(Accounts)]
 pub struct AddTokensToFolio<'info> {
@@ -77,7 +71,7 @@ pub struct AddTokensToFolio<'info> {
      */
 }
 
-impl<'info> AddTokensToFolio<'info> {
+impl AddTokensToFolio<'_> {
     pub fn validate(&self) -> Result<()> {
         check_condition!(Role::has_role(self.actor.roles, Role::Owner), Unauthorized);
 

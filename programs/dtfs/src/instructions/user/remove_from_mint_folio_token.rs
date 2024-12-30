@@ -1,19 +1,6 @@
 use anchor_lang::{prelude::*, solana_program::bpf_loader_upgradeable};
-use anchor_spl::{
-    associated_token::get_associated_token_address_with_program_id,
-    token_interface::{self, Mint, TokenAccount, TokenInterface, TransferChecked},
-};
-use folio::ID;
-use shared::{
-    check_condition,
-    constants::{
-        FOLIO_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, PENDING_TOKEN_AMOUNTS_SEEDS,
-        PROGRAM_REGISTRAR_SEEDS,
-    },
-    structs::TokenAmount,
-};
-use shared::{constants::DTF_PROGRAM_SIGNER_SEEDS, errors::ErrorCode::*};
-use shared::{errors::ErrorCode, structs::FolioStatus};
+use anchor_spl::token_interface::TokenInterface;
+use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 
 use crate::ID as DTF_PROGRAM_ID;
 use crate::{state::DtfProgramSigner, FolioProgram};
@@ -73,7 +60,7 @@ pub struct RemoveFromMintFolioToken<'info> {
      */
 }
 
-impl<'info> RemoveFromMintFolioToken<'info> {
+impl RemoveFromMintFolioToken<'_> {
     pub fn validate(&self) -> Result<()> {
         Ok(())
     }

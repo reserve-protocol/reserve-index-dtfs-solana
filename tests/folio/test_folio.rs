@@ -2,11 +2,8 @@
 mod tests {
     use crate::fixtures::fixtures::TestFixture;
 
-    use super::*;
-    use anchor_lang::{prelude::*, solana_program::bpf_loader_upgradeable};
+    use anchor_lang::prelude::*;
     use folio::state::{Folio, ProgramRegistrar};
-    use shared::errors::ErrorCode;
-    use shared::{constants::PRECISION_FACTOR, structs::FeeRecipient};
 
     /*
     This is the only test done with accounts, because of the complexity of mocking / doing fixtures for accounts.

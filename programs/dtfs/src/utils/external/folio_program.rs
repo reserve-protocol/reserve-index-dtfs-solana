@@ -6,7 +6,6 @@ use crate::state::DtfProgramSigner;
 use crate::AddTokensToFolio;
 use crate::FinalizeFolio;
 use crate::InitOrAddMintFolioToken;
-use crate::InitOrUpdateActor;
 use crate::MintFolioToken;
 use crate::RemoveFromMintFolioToken;
 use crate::ResizeFolio;

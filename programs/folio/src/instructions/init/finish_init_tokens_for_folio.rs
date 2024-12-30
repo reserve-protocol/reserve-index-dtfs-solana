@@ -62,7 +62,7 @@ pub struct FinishInitTokensForFolio<'info> {
     pub dtf_program_data: UncheckedAccount<'info>,
 }
 
-impl<'info> FinishInitTokensForFolio<'info> {
+impl FinishInitTokensForFolio<'_> {
     pub fn validate(&self, folio: &Folio) -> Result<()> {
         folio.validate_folio_program_post_init(
             &self.folio.key(),

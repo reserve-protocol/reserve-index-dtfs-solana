@@ -1,6 +1,6 @@
 use crate::{
     events::FolioCreated,
-    state::{Folio, FolioFeeRecipients, FolioProgramSigner},
+    state::{Folio, FolioProgramSigner},
     DtfProgram,
 };
 use anchor_lang::prelude::*;
@@ -11,10 +11,8 @@ use anchor_spl::{
 use shared::{
     check_condition,
     constants::{
-        FOLIO_FEE_RECIPIENTS_SEEDS, FOLIO_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, MAX_FEE_RECIPIENTS,
-        MAX_PLATFORM_FEE, MAX_TOKEN_AMOUNTS, PENDING_TOKEN_AMOUNTS_SEEDS, PROGRAM_REGISTRAR_SEEDS,
+        FOLIO_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, MAX_PLATFORM_FEE, PROGRAM_REGISTRAR_SEEDS,
     },
-    structs::{FeeRecipient, TokenAmount},
 };
 
 use crate::state::ProgramRegistrar;
@@ -84,7 +82,7 @@ pub struct InitFolio<'info> {
     pub first_owner: UncheckedAccount<'info>,
 }
 
-impl<'info> InitFolio<'info> {
+impl InitFolio<'_> {
     pub fn validate(&self, fee_per_second: u64) -> Result<()> {
         Folio::validate_folio_program_for_init(&self.program_registrar, &self.dtf_program)?;
 

@@ -19,7 +19,7 @@ pub struct UpdateProgramRegistrar<'info> {
     pub program_registrar: Account<'info, ProgramRegistrar>,
 }
 
-impl<'info> UpdateProgramRegistrar<'info> {
+impl UpdateProgramRegistrar<'_> {
     pub fn validate(&self) -> Result<()> {
         check_condition!(self.admin.key() == ADMIN, Unauthorized);
 

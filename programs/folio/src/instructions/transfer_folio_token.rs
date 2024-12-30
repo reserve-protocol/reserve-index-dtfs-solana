@@ -15,7 +15,7 @@ pub struct TransferFolioToken<'info> {
     pub folio_owner: Signer<'info>,
 }
 
-impl<'info> TransferFolioToken<'info> {
+impl TransferFolioToken<'_> {
     pub fn validate(&self) -> Result<()> {
         Ok(())
     }

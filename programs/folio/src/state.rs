@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use shared::{
     constants::{MAX_FEE_RECIPIENTS, MAX_TOKEN_AMOUNTS},
-    structs::{FeeRecipient, FolioStatus, TokenAmount},
+    structs::{FeeRecipient, TokenAmount},
 };
 
 /// PDA Seeds ["folio_program_signer"]

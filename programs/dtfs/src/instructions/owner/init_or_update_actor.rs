@@ -1,9 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
-use folio::state::{Folio, ProgramRegistrar};
 use folio::ID as FOLIO_ID;
-use shared::constants::common::ADMIN;
-use shared::constants::{DTF_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS};
+use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 use shared::errors::ErrorCode;
 use shared::structs::Role;
 use shared::{check_condition, constants::ACTOR_SEEDS};
@@ -74,7 +72,7 @@ pub struct InitOrUpdateActor<'info> {
     pub program_registrar: UncheckedAccount<'info>,
 }
 
-impl<'info> InitOrUpdateActor<'info> {
+impl InitOrUpdateActor<'_> {
     pub fn validate(&self) -> Result<()> {
         check_condition!(
             Role::has_role(self.folio_owner_actor.roles, Role::Owner),

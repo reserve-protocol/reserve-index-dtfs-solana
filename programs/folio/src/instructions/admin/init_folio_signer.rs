@@ -23,7 +23,7 @@ pub struct InitFolioSigner<'info> {
     pub folio_program_signer: Account<'info, FolioProgramSigner>,
 }
 
-impl<'info> InitFolioSigner<'info> {
+impl InitFolioSigner<'_> {
     pub fn validate(&self) -> Result<()> {
         check_condition!(self.admin.key() == ADMIN, Unauthorized);
 

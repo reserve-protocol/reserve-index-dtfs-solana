@@ -1,21 +1,9 @@
-use std::cmp::max;
-
 use anchor_lang::{prelude::*, solana_program::bpf_loader_upgradeable};
 use anchor_spl::{
-    associated_token::{get_associated_token_address_with_program_id, AssociatedToken},
-    token,
-    token_interface::{self, Mint, TokenAccount, TokenInterface, TransferChecked},
+    associated_token::AssociatedToken,
+    token_interface::{Mint, TokenAccount, TokenInterface},
 };
-use shared::{
-    check_condition,
-    constants::{
-        FOLIO_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, PENDING_TOKEN_AMOUNTS_SEEDS, PRECISION_FACTOR,
-        PROGRAM_REGISTRAR_SEEDS,
-    },
-    structs::TokenAmount,
-};
-use shared::{constants::DTF_PROGRAM_SIGNER_SEEDS, errors::ErrorCode::*};
-use shared::{errors::ErrorCode, structs::FolioStatus};
+use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 
 use crate::ID as DTF_PROGRAM_ID;
 use crate::{state::DtfProgramSigner, FolioProgram};
@@ -80,7 +68,7 @@ pub struct MintFolioToken<'info> {
      */
 }
 
-impl<'info> MintFolioToken<'info> {
+impl MintFolioToken<'_> {
     pub fn validate(&self) -> Result<()> {
         Ok(())
     }

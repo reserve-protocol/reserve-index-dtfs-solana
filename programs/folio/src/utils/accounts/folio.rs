@@ -6,7 +6,7 @@ use crate::{
 use anchor_lang::prelude::*;
 use shared::{
     check_condition,
-    constants::{ACTOR_SEEDS, FOLIO_SEEDS, PRECISION_FACTOR},
+    constants::{ACTOR_SEEDS, FOLIO_SEEDS},
     errors::ErrorCode,
     structs::{FolioStatus, Role},
 };
@@ -95,10 +95,10 @@ impl Folio {
         Ok(())
     }
 
-    fn validate_permission_for_action<'info>(
+    fn validate_permission_for_action(
         actor: &AccountInfo,
         required_role: Role,
-        dtf_program: &AccountInfo<'info>,
+        dtf_program: &AccountInfo<'_>,
     ) -> Result<()> {
         /*
         Manually deserialize the actor data

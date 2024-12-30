@@ -1,7 +1,5 @@
 use crate::state::FolioFeeRecipients;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::system_program;
-use anchor_spl::associated_token::spl_associated_token_account::tools::account;
 use shared::constants::PRECISION_FACTOR;
 use shared::errors::ErrorCode;
 use shared::{check_condition, constants::MAX_FEE_RECIPIENTS, structs::FeeRecipient};

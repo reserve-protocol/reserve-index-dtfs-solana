@@ -1,7 +1,7 @@
 use crate::state::Folio;
 use anchor_lang::prelude::*;
 use shared::{
-    constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS},
+    constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, PROGRAM_REGISTRAR_SEEDS},
     structs::Role,
 };
 
@@ -54,7 +54,7 @@ pub struct ResizeFolioAccount<'info> {
     pub dtf_program_data: UncheckedAccount<'info>,
 }
 
-impl<'info> ResizeFolioAccount<'info> {
+impl ResizeFolioAccount<'_> {
     pub fn validate(&self) -> Result<()> {
         let folio = self.folio.load()?;
         folio.validate_folio_program_post_init(

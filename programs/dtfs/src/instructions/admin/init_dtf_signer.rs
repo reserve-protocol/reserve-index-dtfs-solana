@@ -24,7 +24,7 @@ pub struct InitDtfSigner<'info> {
     pub dtf_program_signer: Account<'info, DtfProgramSigner>,
 }
 
-impl<'info> InitDtfSigner<'info> {
+impl InitDtfSigner<'_> {
     pub fn validate(&self) -> Result<()> {
         check_condition!(self.admin.key() == ADMIN, Unauthorized);
 

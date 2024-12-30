@@ -14,8 +14,6 @@ declare_id!("7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn");
 #[program]
 pub mod dtfs {
 
-    use shared::structs::TokenAmount;
-
     use super::*;
 
     /*

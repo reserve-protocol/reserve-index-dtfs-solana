@@ -1,10 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
 use folio::ID as FOLIO_ID;
-use shared::check_condition;
-use shared::constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS};
-use shared::errors::ErrorCode;
-use shared::structs::Role;
+use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 
 use crate::state::DtfProgramSigner;
 use crate::utils::external::folio_program::FolioProgram;

@@ -93,8 +93,8 @@ impl Folio {
         Ok(())
     }
 
-    fn validate_permission_for_action<'info>(
-        actor: &Account<'info, Actor>,
+    fn validate_permission_for_action(
+        actor: &Account<'_, Actor>,
         required_role: Role,
     ) -> Result<()> {
         check_condition!(Role::has_role(actor.roles, required_role), InvalidRole);

@@ -5,3 +5,5 @@ cargo clippy --fix --allow-dirty --allow-staged && \
 cargo fmt && \
 cargo test && \
 yarn lint:fix
+
+git add .

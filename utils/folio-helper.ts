@@ -22,7 +22,6 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { getAtaAddress } from "./token-helper";
 import { DTF_PROGRAM_ID } from "./pda-helper";
 
 let folioProgram: Program<Folio> = null;

@@ -1,19 +1,16 @@
 use crate::{
     events::FolioCreated,
-    state::{Actor, Folio, FolioProgramSigner},
+    state::{Actor, Folio},
     DtfProgram,
 };
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token_interface::{Mint, TokenAccount, TokenInterface},
+    token_interface::{Mint, TokenInterface},
 };
 use shared::{
     check_condition,
-    constants::{
-        ACTOR_SEEDS, FOLIO_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, MAX_PLATFORM_FEE,
-        PROGRAM_REGISTRAR_SEEDS,
-    },
+    constants::{ACTOR_SEEDS, FOLIO_SEEDS, MAX_PLATFORM_FEE, PROGRAM_REGISTRAR_SEEDS},
     structs::Role,
 };
 

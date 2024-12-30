@@ -3,10 +3,7 @@ use anchor_lang::solana_program::bpf_loader_upgradeable;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use folio::ID as FOLIO_ID;
-use shared::check_condition;
-use shared::constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS};
-use shared::errors::ErrorCode;
-use shared::structs::Role;
+use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 
 use crate::state::DtfProgramSigner;
 use crate::utils::external::folio_program::FolioProgram;

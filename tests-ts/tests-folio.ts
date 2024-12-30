@@ -1,5 +1,4 @@
 import { airdrop, getConnectors } from "../utils/program-helper";
-import { Dtfs } from "../target/types/dtfs";
 import { Folio } from "../target/types/folio";
 import { BN, Program } from "@coral-xyz/anchor";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
@@ -23,7 +22,6 @@ import {
 describe("Folio Tests", () => {
   let connection: Connection;
   let program: Program<Folio>;
-  let programDtf: Program<Dtfs>;
   let keys: any;
 
   let payerKeypair: Keypair;
@@ -37,12 +35,7 @@ describe("Folio Tests", () => {
   let communityReceiver: PublicKey = Keypair.generate().publicKey;
 
   before(async () => {
-    ({
-      connection,
-      programFolio: program,
-      programDtf,
-      keys,
-    } = await getConnectors());
+    ({ connection, programFolio: program, keys } = await getConnectors());
 
     payerKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.payer));
     adminKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.admin));

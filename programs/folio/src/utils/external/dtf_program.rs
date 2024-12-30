@@ -1,7 +1,4 @@
-use anchor_lang::{
-    prelude::*,
-    solana_program::{self, bpf_loader_upgradeable, hash},
-};
+use anchor_lang::{prelude::*, solana_program::bpf_loader_upgradeable};
 
 use shared::{check_condition, errors::ErrorCode};
 
@@ -13,8 +10,6 @@ include the folio program as a dependency, so we need to do it manually for the 
 */
 
 impl DtfProgram {
-    const DISCRIMINATOR_SIZE: usize = 8;
-
     pub fn get_program_deployment_slot(
         program_id: &Pubkey,
         program_info: &AccountInfo,

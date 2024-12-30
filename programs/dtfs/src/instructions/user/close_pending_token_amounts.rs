@@ -1,5 +1,4 @@
 use anchor_lang::{prelude::*, solana_program::bpf_loader_upgradeable};
-use anchor_spl::token_interface::TokenInterface;
 use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 
 use crate::ID as DTF_PROGRAM_ID;

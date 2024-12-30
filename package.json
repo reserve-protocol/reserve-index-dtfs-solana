@@ -1,7 +1,7 @@
 {
   "license": "ISC",
   "scripts": {
-    "prepare": "husky install",
+    "prepare": "husky",
     "lint:fix": "eslint --fix . && prettier */*.js \"*/**/*{.js,.ts}\" -w",
     "lint": "eslint . && prettier */*.js \"*/**/*{.js,.ts}\" --check",
     "precommit": "cargo fmt && cargo test && yarn lint:fix"

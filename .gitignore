@@ -9,7 +9,6 @@ test-ledger
 .vscode
 .idea
 .env
-run-test-iterm.command
 
 # TypeScript build output
 **/*.js

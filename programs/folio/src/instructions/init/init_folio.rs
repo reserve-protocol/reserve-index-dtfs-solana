@@ -1,18 +1,17 @@
 use crate::{
     events::FolioCreated,
-    state::{Folio, FolioProgramSigner},
+    state::{Actor, Folio},
     DtfProgram,
 };
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token_interface::{Mint, TokenAccount, TokenInterface},
+    token_interface::{Mint, TokenInterface},
 };
 use shared::{
     check_condition,
-    constants::{
-        FOLIO_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, MAX_PLATFORM_FEE, PROGRAM_REGISTRAR_SEEDS,
-    },
+    constants::{ACTOR_SEEDS, FOLIO_SEEDS, MAX_PLATFORM_FEE, PROGRAM_REGISTRAR_SEEDS},
+    structs::Role,
 };
 
 use crate::state::ProgramRegistrar;
@@ -34,12 +33,6 @@ pub struct InitFolio<'info> {
     )]
     pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
 
-    #[account(
-        seeds = [FOLIO_PROGRAM_SIGNER_SEEDS],
-        bump = folio_program_signer.bump
-    )]
-    pub folio_program_signer: Box<Account<'info, FolioProgramSigner>>,
-
     #[account(init,
         payer = folio_owner,
         space = Folio::SIZE,
@@ -56,16 +49,19 @@ pub struct InitFolio<'info> {
     )]
     pub folio_token_mint: Box<InterfaceAccount<'info, Mint>>,
 
-    #[account(init,
-    payer = folio_owner,
-    associated_token::mint = folio_token_mint,
-    associated_token::authority = folio,
+    #[account(
+        init,
+        payer = folio_owner,
+        space = Actor::SIZE,
+        seeds = [ACTOR_SEEDS, folio_owner.key().as_ref(), folio.key().as_ref()],
+        bump
     )]
-    pub folio_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub actor: Box<Account<'info, Actor>>,
 
     /*
         Because of solana's limits with stack size, etc.
 
+        the folio token account will be created in finalize folio (if needed)
         the folio_fee_recipients will be created in the update function (if needed)
         the folio_pending_token_amounts will be created in the init tokens (if needed)
     */
@@ -76,10 +72,6 @@ pub struct InitFolio<'info> {
     /// CHECK: DTF program data to validate program deployment slot
     #[account()]
     pub dtf_program_data: UncheckedAccount<'info>,
-
-    /// CHECK: Will be the first owner of the folio
-    #[account(mut)]
-    pub first_owner: UncheckedAccount<'info>,
 }
 
 impl InitFolio<'_> {
@@ -111,19 +103,11 @@ pub fn handler(ctx: Context<InitFolio>, fee_per_second: u64) -> Result<()> {
         folio.fee_per_second = fee_per_second;
     }
 
-    let folio_signer_bump = ctx.accounts.folio_program_signer.bump;
-    let signer_seeds = &[FOLIO_PROGRAM_SIGNER_SEEDS, &[folio_signer_bump]];
-
-    DtfProgram::init_first_owner(
-        ctx.accounts.system_program.to_account_info(),
-        ctx.accounts.rent.to_account_info(),
-        ctx.accounts.folio_owner.to_account_info(),
-        ctx.accounts.folio_program_signer.to_account_info(),
-        ctx.accounts.first_owner.to_account_info(),
-        ctx.accounts.folio.to_account_info(),
-        ctx.accounts.dtf_program.to_account_info(),
-        signer_seeds,
-    )?;
+    let actor = &mut ctx.accounts.actor;
+    actor.bump = ctx.bumps.actor;
+    actor.authority = ctx.accounts.folio_owner.key();
+    actor.folio = ctx.accounts.folio.key();
+    Role::add_role(&mut actor.roles, Role::Owner);
 
     emit!(FolioCreated {
         folio_token_mint: ctx.accounts.folio_token_mint.key(),

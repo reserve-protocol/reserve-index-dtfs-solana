@@ -1,4 +1,4 @@
-use crate::state::{Folio, FolioFeeRecipients, ProgramRegistrar};
+use crate::state::{Actor, Folio, FolioFeeRecipients, ProgramRegistrar};
 use anchor_lang::prelude::*;
 use shared::constants::{FOLIO_FEE_RECIPIENTS_SEEDS, MAX_PLATFORM_FEE};
 use shared::errors::ErrorCode;
@@ -17,13 +17,11 @@ pub struct UpdateFolio<'info> {
     #[account(mut)]
     pub folio_owner: Signer<'info>,
 
-    /// CHECK: Actor
     #[account(mut,
         seeds = [ACTOR_SEEDS, folio_owner.key().as_ref(), folio.key().as_ref()],
-        bump,
-        seeds::program = dtf_program.key()
+        bump = actor.bump,
     )]
-    pub actor: AccountInfo<'info>,
+    pub actor: Account<'info, Actor>,
 
     #[account(
         seeds = [DTF_PROGRAM_SIGNER_SEEDS],
@@ -67,7 +65,7 @@ impl UpdateFolio<'_> {
             Some(&self.program_registrar),
             Some(&self.dtf_program),
             Some(&self.dtf_program_data),
-            Some(&self.actor.to_account_info()),
+            Some(&self.actor),
             Some(Role::Owner),
             None, // Can update no matter the status
         )?;

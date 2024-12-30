@@ -1,24 +1,19 @@
-use anchor_lang::prelude::*;
-use anchor_lang::solana_program::bpf_loader_upgradeable;
-use folio::ID as FOLIO_ID;
+use anchor_lang::{prelude::*, solana_program::bpf_loader_upgradeable};
 use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
-use shared::structs::FeeRecipient;
 
-use crate::state::DtfProgramSigner;
-use crate::utils::external::folio_program::FolioProgram;
 use crate::ID as DTF_PROGRAM_ID;
+use crate::{state::DtfProgramSigner, FolioProgram};
+use folio::ID as FOLIO_ID;
 
 #[derive(Accounts)]
-pub struct UpdateFolio<'info> {
+pub struct ClosePendingTokenAmounts<'info> {
     pub system_program: Program<'info, System>,
-    pub rent: Sysvar<'info, Rent>,
 
     #[account(mut)]
-    pub folio_owner: Signer<'info>,
+    pub user: Signer<'info>,
 
     /// CHECK: Done within the folio program
-    #[account(mut)]
-    pub actor: UncheckedAccount<'info>,
+    pub program_registrar: UncheckedAccount<'info>,
 
     #[account(
         seeds = [DTF_PROGRAM_SIGNER_SEEDS],
@@ -48,37 +43,20 @@ pub struct UpdateFolio<'info> {
 
     /// CHECK: Done within the folio program
     #[account(mut)]
-    pub folio_fee_recipients: UncheckedAccount<'info>,
-
-    /// CHECK: Done within the folio program
-    #[account()]
-    pub program_registrar: UncheckedAccount<'info>,
+    pub user_pending_token_amounts: UncheckedAccount<'info>,
 }
 
-impl UpdateFolio<'_> {
+impl ClosePendingTokenAmounts<'_> {
     pub fn validate(&self) -> Result<()> {
         Ok(())
     }
 }
 
-pub fn handler(
-    ctx: Context<UpdateFolio>,
-    program_version: Option<Pubkey>,
-    program_deployment_slot: Option<u64>,
-    fee_per_second: Option<u64>,
-    fee_recipients_to_add: Vec<FeeRecipient>,
-    fee_recipients_to_remove: Vec<Pubkey>,
+pub fn handler<'info>(
+    ctx: Context<'_, '_, 'info, 'info, ClosePendingTokenAmounts<'info>>,
+    is_adding_to_mint_folio: u8,
 ) -> Result<()> {
-    ctx.accounts.validate()?;
-
-    FolioProgram::update_folio_account(
-        ctx,
-        program_version,
-        program_deployment_slot,
-        fee_per_second,
-        fee_recipients_to_add,
-        fee_recipients_to_remove,
-    )?;
+    FolioProgram::close_pending_token_amounts(ctx, is_adding_to_mint_folio)?;
 
     Ok(())
 }

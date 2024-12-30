@@ -26,10 +26,6 @@ pub mod dtfs {
     /*
     Folio Program functions
      */
-    pub fn init_first_owner(ctx: Context<InitFirstOwner>) -> Result<()> {
-        init_first_owner::handler(ctx)
-    }
-
     pub fn resize_folio(ctx: Context<ResizeFolio>, new_size: u64) -> Result<()> {
         resize_folio::handler(ctx, new_size)
     }
@@ -55,11 +51,18 @@ pub mod dtfs {
     /*
     Owner functions
      */
-    pub fn init_or_update_actor(ctx: Context<InitOrUpdateActor>, role: Role) -> Result<()> {
+    pub fn init_or_update_actor<'info>(
+        ctx: Context<'_, '_, 'info, 'info, InitOrUpdateActor<'info>>,
+        role: Role,
+    ) -> Result<()> {
         init_or_update_actor::handler(ctx, role)
     }
 
-    pub fn remove_actor(ctx: Context<RemoveActor>, role: Role, close_actor: bool) -> Result<()> {
+    pub fn remove_actor<'info>(
+        ctx: Context<'_, '_, 'info, 'info, RemoveActor<'info>>,
+        role: Role,
+        close_actor: bool,
+    ) -> Result<()> {
         remove_actor::handler(ctx, role, close_actor)
     }
 
@@ -95,5 +98,12 @@ pub mod dtfs {
         shares: u64,
     ) -> Result<()> {
         mint_folio_token::handler(ctx, shares)
+    }
+
+    pub fn close_pending_token_amounts<'info>(
+        ctx: Context<'_, '_, 'info, 'info, ClosePendingTokenAmounts<'info>>,
+        is_adding_to_mint_folio: u8,
+    ) -> Result<()> {
+        close_pending_token_amounts::handler(ctx, is_adding_to_mint_folio)
     }
 }

@@ -32,7 +32,7 @@ export function getFolioPDA(folioTokenMint: PublicKey) {
 export function getActorPDA(authority: PublicKey, folioPDA: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("actor"), authority.toBuffer(), folioPDA.toBuffer()],
-    DTF_PROGRAM_ID
+    FOLIO_PROGRAM_ID
   )[0];
 }
 

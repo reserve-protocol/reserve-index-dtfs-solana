@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+cargo clippy --fix --allow-dirty --allow-staged && \
+cargo fmt && \
+cargo test && \
+yarn lint:fix
+
+git add .

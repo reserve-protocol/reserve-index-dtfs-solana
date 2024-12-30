@@ -2,7 +2,7 @@
 mod tests {
 
     use anchor_lang::prelude::Pubkey;
-    use dtfs::state::Actor;
+    use folio::state::Actor;
     use shared::errors::ErrorCode;
 
     #[test]

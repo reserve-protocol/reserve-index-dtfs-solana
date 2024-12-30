@@ -1,4 +1,4 @@
-use crate::state::{Folio, ProgramRegistrar};
+use crate::state::{Actor, Folio, ProgramRegistrar};
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token;
@@ -20,13 +20,11 @@ pub struct FinishInitTokensForFolio<'info> {
     #[account(mut)]
     pub folio_owner: Signer<'info>,
 
-    /// CHECK: Actor for folio owner
     #[account(mut,
         seeds = [ACTOR_SEEDS, folio_owner.key().as_ref(), folio.key().as_ref()],
-        bump,
-        seeds::program = dtf_program.key()
+        bump = actor.bump,
     )]
-    pub actor: AccountInfo<'info>,
+    pub actor: Account<'info, Actor>,
 
     #[account(mut,
         associated_token::mint = folio_token_mint,
@@ -53,6 +51,13 @@ pub struct FinishInitTokensForFolio<'info> {
     #[account(mut)]
     pub folio_token_mint: Box<InterfaceAccount<'info, Mint>>,
 
+    #[account(init,
+    payer = folio_owner,
+    associated_token::mint = folio_token_mint,
+    associated_token::authority = folio,
+    )]
+    pub folio_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
+
     /// CHECK: DTF program used for creating owner record
     #[account()]
     pub dtf_program: UncheckedAccount<'info>,
@@ -69,7 +74,7 @@ impl FinishInitTokensForFolio<'_> {
             Some(&self.program_registrar),
             Some(&self.dtf_program),
             Some(&self.dtf_program_data),
-            Some(&self.actor.to_account_info()),
+            Some(&self.actor),
             Some(Role::Owner),
             Some(FolioStatus::Initializing), // Can only finish initializing while it's initializing
         )?;
@@ -95,8 +100,6 @@ pub fn handler(ctx: Context<FinishInitTokensForFolio>, initial_shares: u64) -> R
     let token_mint_key = ctx.accounts.folio_token_mint.key();
     let bump = ctx.accounts.folio.load()?.bump;
     let signer_seeds = &[FOLIO_SEEDS, token_mint_key.as_ref(), &[bump]];
-
-    msg!("Minting to owner folio token account");
 
     token::mint_to(
         CpiContext::new_with_signer(

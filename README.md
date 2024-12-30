@@ -42,5 +42,5 @@ anchor test -- --features dev
 ```bash
 anchor build
 
-anchor deploy
+anchor deploy 
 ```

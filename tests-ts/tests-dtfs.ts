@@ -351,7 +351,7 @@ describe("DTFs Tests", () => {
       }
     );
 
-    const actor = await programDtf.account.actor.fetch(
+    const actor = await program.account.actor.fetch(
       getActorPDA(tradeApproverKeypair.publicKey, folioPDA)
     );
 
@@ -372,7 +372,7 @@ describe("DTFs Tests", () => {
       }
     );
 
-    const actor = await programDtf.account.actor.fetch(
+    const actor = await program.account.actor.fetch(
       getActorPDA(tradeApproverKeypair.publicKey, folioPDA)
     );
 
@@ -396,7 +396,7 @@ describe("DTFs Tests", () => {
 
     await wait(2);
 
-    const actor = await programDtf.account.actor.fetchNullable(
+    const actor = await program.account.actor.fetchNullable(
       getActorPDA(tradeApproverKeypair.publicKey, folioPDA)
     );
 
@@ -410,7 +410,7 @@ describe("DTFs Tests", () => {
       1000
     );
 
-    const actorPostReinit = await programDtf.account.actor.fetchNullable(
+    const actorPostReinit = await program.account.actor.fetchNullable(
       getActorPDA(tradeApproverKeypair.publicKey, folioPDA)
     );
 

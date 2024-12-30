@@ -1,4 +1,4 @@
-use crate::state::{Folio, PendingTokenAmounts, ProgramRegistrar};
+use crate::state::{Actor, Folio, PendingTokenAmounts, ProgramRegistrar};
 use anchor_lang::prelude::*;
 use shared::constants::{IS_ADDING_TO_MINT_FOLIO, PENDING_TOKEN_AMOUNTS_SEEDS};
 use shared::structs::{FolioStatus, TokenAmount};
@@ -14,13 +14,11 @@ pub struct InitTokensForFolio<'info> {
     #[account(mut)]
     pub folio_owner: Signer<'info>,
 
-    /// CHECK: Actor for folio owner
     #[account(mut,
         seeds = [ACTOR_SEEDS, folio_owner.key().as_ref(), folio.key().as_ref()],
-        bump,
-        seeds::program = dtf_program.key()
+        bump = actor.bump,
     )]
-    pub actor: AccountInfo<'info>,
+    pub actor: Account<'info, Actor>,
 
     #[account(
         seeds = [DTF_PROGRAM_SIGNER_SEEDS],
@@ -67,7 +65,7 @@ impl InitTokensForFolio<'_> {
             Some(&self.program_registrar),
             Some(&self.dtf_program),
             Some(&self.dtf_program_data),
-            Some(&self.actor.to_account_info()),
+            Some(&self.actor),
             Some(Role::Owner),
             Some(FolioStatus::Initializing), // Can only add new tokens while it's initializing
         )?;

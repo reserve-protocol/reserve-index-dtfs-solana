@@ -54,6 +54,7 @@ pub struct FinalizeFolio<'info> {
     #[account(mut)]
     pub folio_token_mint: Box<InterfaceAccount<'info, Mint>>,
 
+    /// CHECK: Done within the folio program
     #[account(mut)]
     pub folio_token_account: UncheckedAccount<'info>,
 

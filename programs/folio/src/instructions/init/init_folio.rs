@@ -1,6 +1,6 @@
 use crate::{
     events::FolioCreated,
-    state::{Folio, FolioFeeRecipients, FolioProgramSigner, PendingTokenAmounts},
+    state::{Folio, FolioFeeRecipients, FolioProgramSigner},
     DtfProgram,
 };
 use anchor_lang::prelude::*;
@@ -52,7 +52,7 @@ pub struct InitFolio<'info> {
 
     #[account(init,
     payer = folio_owner,
-    mint::decimals = 18,
+    mint::decimals = 9,
     mint::authority = folio,
     mint::freeze_authority = folio,
     )]

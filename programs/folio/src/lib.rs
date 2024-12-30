@@ -55,8 +55,11 @@ pub mod folio {
         init_tokens_for_folio::handler(ctx)
     }
 
-    pub fn finish_init_tokens_for_folio(ctx: Context<FinishInitTokensForFolio>) -> Result<()> {
-        finish_init_tokens_for_folio::handler(ctx)
+    pub fn finish_init_tokens_for_folio(
+        ctx: Context<FinishInitTokensForFolio>,
+        initial_shares: u64,
+    ) -> Result<()> {
+        finish_init_tokens_for_folio::handler(ctx, initial_shares)
     }
 
     pub fn update_folio(

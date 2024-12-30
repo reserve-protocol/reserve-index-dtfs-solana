@@ -25,19 +25,19 @@ import * as assert from "assert";
 export async function getConnectors() {
   let rpcUrl = "";
   let keysFileName = "";
-  let dtfsProgramId = "";
-  let folioProgramId = "";
+  // let dtfsProgramId = "";
+  // let folioProgramId = "";
 
   switch (process.env.NODE_ENV) {
     case "devnet":
-      dtfsProgramId = "Cr1UEkStzJPQ4wa9Lr6ryJWci83baMvrQLT3skd1eLmG";
-      folioProgramId = "n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG";
+      // dtfsProgramId = "Cr1UEkStzJPQ4wa9Lr6ryJWci83baMvrQLT3skd1eLmG";
+      // folioProgramId = "n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG";
       rpcUrl = "https://api.devnet.solana.com";
       keysFileName = "keys-devnet.json";
       break;
     default:
-      dtfsProgramId = idlDtfs.address;
-      folioProgramId = idlFolio.address;
+      // dtfsProgramId = idlDtfs.address;
+      // folioProgramId = idlFolio.address;
       rpcUrl = "http://127.0.0.1:8899";
       keysFileName = "keys-local.json";
   }

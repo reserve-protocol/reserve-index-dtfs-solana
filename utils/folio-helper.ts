@@ -9,30 +9,20 @@ import {
 } from "@solana/web3.js";
 import idlFolio from "../target/idl/folio.json";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
-import {
-  getComputeLimitInstruction,
-  pSendAndConfirmTxn,
-} from "./program-helper";
+import { pSendAndConfirmTxn } from "./program-helper";
 import {
   getActorPDA,
   getCommunityPDA,
   getFolioPDA,
-  getFolioPendingTokenAmountsPDA,
   getFolioSignerPDA,
   getProgramDataPDA,
   getProgramRegistrarPDA,
-  getUserPendingTokenAmountsPDA,
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import {
-  buildRemainingAccounts,
-  DEFAULT_PRECISION,
-  getAtaAddress,
-  getOrCreateAtaAddress,
-} from "./token-helper";
+import { getAtaAddress } from "./token-helper";
 import { DTF_PROGRAM_ID } from "./pda-helper";
 
 let folioProgram: Program<Folio> = null;
@@ -199,129 +189,4 @@ export async function initFolio(
   });
 
   return { folioTokenMint, folioPDA };
-}
-
-export async function initOrAddMintFolioToken(
-  connection: Connection,
-  userKeypair: Keypair,
-  folio: PublicKey,
-  tokens: { mint: PublicKey; amount: BN }[]
-) {
-  const folioProgram = getFolioProgram(connection, userKeypair);
-
-  const initOrAddMintFolioToken = await folioProgram.methods
-    .initOrAddMintFolioToken(tokens.map((token) => token.amount))
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      rent: SYSVAR_RENT_PUBKEY,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      user: userKeypair.publicKey,
-      folio,
-      folioPendingTokenAmounts: getFolioPendingTokenAmountsPDA(folio),
-      userPendingTokenAmounts: getUserPendingTokenAmountsPDA(
-        userKeypair.publicKey
-      ),
-    })
-    .remainingAccounts(
-      await buildRemainingAccounts(
-        connection,
-        userKeypair,
-        tokens,
-        userKeypair.publicKey,
-        folio
-      )
-    )
-    .instruction();
-
-  await pSendAndConfirmTxn(folioProgram, [initOrAddMintFolioToken], [], {
-    skipPreflight: SKIP_PREFLIGHT,
-  });
-}
-
-export async function removeFromMintFolioToken(
-  connection: Connection,
-  userKeypair: Keypair,
-  folio: PublicKey,
-  tokens: { mint: PublicKey; amount: BN }[]
-) {
-  const folioProgram = getFolioProgram(connection, userKeypair);
-
-  const removeFromMintFolioToken = await folioProgram.methods
-    .removeFromMintFolioToken(tokens.map((token) => token.amount))
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      user: userKeypair.publicKey,
-      folio,
-      folioPendingTokenAmounts: getFolioPendingTokenAmountsPDA(folio),
-      userPendingTokenAmounts: getUserPendingTokenAmountsPDA(
-        userKeypair.publicKey
-      ),
-    })
-    .remainingAccounts(
-      await buildRemainingAccounts(
-        connection,
-        userKeypair,
-        tokens,
-        folio,
-        userKeypair.publicKey
-      )
-    )
-    .instruction();
-
-  await pSendAndConfirmTxn(folioProgram, [removeFromMintFolioToken], [], {
-    skipPreflight: SKIP_PREFLIGHT,
-  });
-}
-
-export async function mintFolioToken(
-  connection: Connection,
-  userKeypair: Keypair,
-  folio: PublicKey,
-  folioTokenMint: PublicKey,
-  tokens: { mint: PublicKey; amount: BN }[],
-  shares: BN
-) {
-  const folioProgram = getFolioProgram(connection, userKeypair);
-
-  const mintFolioToken = await folioProgram.methods
-    .mintFolioToken(shares)
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      user: userKeypair.publicKey,
-      folio,
-      folioTokenMint,
-      folioPendingTokenAmounts: getFolioPendingTokenAmountsPDA(folio),
-      userPendingTokenAmounts: getUserPendingTokenAmountsPDA(
-        userKeypair.publicKey
-      ),
-      userFolioTokenAccount: await getOrCreateAtaAddress(
-        connection,
-        folioTokenMint,
-        userKeypair,
-        userKeypair.publicKey
-      ),
-    })
-    .remainingAccounts(
-      await buildRemainingAccounts(
-        connection,
-        userKeypair,
-        tokens,
-        folio,
-        null,
-        false
-      )
-    )
-    .instruction();
-
-  await pSendAndConfirmTxn(
-    folioProgram,
-    [...getComputeLimitInstruction(1_200_000), mintFolioToken],
-    [],
-    {
-      skipPreflight: SKIP_PREFLIGHT,
-    },
-    true
-  );
 }

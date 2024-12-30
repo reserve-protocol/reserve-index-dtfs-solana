@@ -1,4 +1,4 @@
-import { BN, Program } from "@coral-xyz/anchor";
+import { BN } from "@coral-xyz/anchor";
 import {
   Connection,
   Keypair,
@@ -6,7 +6,6 @@ import {
   PublicKey,
   SystemProgram,
 } from "@solana/web3.js";
-import { Dtfs } from "../target/types/dtfs";
 import { airdrop, getConnectors, wait } from "../utils/program-helper";
 import {
   getTokenBalance,
@@ -30,7 +29,6 @@ import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 describe("DAO / Realm Tests", () => {
   let connection: Connection;
-  let program: Program<Dtfs>;
   let keys: any;
 
   let payerKeypair: Keypair;
@@ -50,7 +48,7 @@ describe("DAO / Realm Tests", () => {
   let proposalAccount: PublicKey;
   let proposalTransactionAccount: PublicKey;
   before(async () => {
-    ({ connection, programDtf: program, keys } = await getConnectors());
+    ({ connection, keys } = await getConnectors());
 
     payerKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.payer));
     adminKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.admin));

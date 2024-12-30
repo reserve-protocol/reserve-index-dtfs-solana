@@ -13,7 +13,9 @@ impl PendingTokenAmounts {
     pub fn process_init_if_needed(
         account_loader_pending_token_amounts: &mut AccountLoader<PendingTokenAmounts>,
         context_bump: u8,
+        owner: &Pubkey,
         folio: &Pubkey,
+        is_adding: u8,
         added_token_amounts: &Vec<TokenAmount>,
         can_add_new_mints: bool,
     ) -> Result<()> {
@@ -33,7 +35,9 @@ impl PendingTokenAmounts {
             let pending_token_amounts = &mut account_loader_pending_token_amounts.load_init()?;
 
             pending_token_amounts.bump = context_bump;
-            pending_token_amounts.owner = *folio;
+            pending_token_amounts.owner = *owner;
+            pending_token_amounts.folio = *folio;
+            pending_token_amounts.is_adding = is_adding;
             pending_token_amounts.token_amounts = [TokenAmount::default(); MAX_TOKEN_AMOUNTS];
 
             pending_token_amounts

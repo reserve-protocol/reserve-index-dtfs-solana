@@ -17,7 +17,6 @@ pub struct BurnFolioToken<'info> {
 
 impl<'info> BurnFolioToken<'info> {
     pub fn validate(&self) -> Result<()> {
-        // TODO check folio status is initialized
         Ok(())
     }
 }

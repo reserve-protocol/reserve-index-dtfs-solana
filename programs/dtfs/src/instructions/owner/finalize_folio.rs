@@ -1,7 +1,8 @@
 use crate::state::Actor;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
-use folio::state::{Folio, FolioProgramSigner};
+use anchor_spl::associated_token::AssociatedToken;
+use anchor_spl::token_interface::{self, Mint, TokenAccount, TokenInterface};
 use folio::ID as FOLIO_ID;
 use shared::check_condition;
 use shared::constants::{
@@ -14,11 +15,12 @@ use crate::state::DtfProgramSigner;
 use crate::utils::external::folio_program::FolioProgram;
 use crate::ID as DTF_PROGRAM_ID;
 use anchor_lang::prelude::*;
-use folio::state::ProgramRegistrar;
 
 #[derive(Accounts)]
 pub struct FinalizeFolio<'info> {
     pub system_program: Program<'info, System>,
+    pub token_program: Interface<'info, TokenInterface>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
 
     #[account(mut)]
     pub folio_owner: Signer<'info>,
@@ -28,6 +30,9 @@ pub struct FinalizeFolio<'info> {
         bump = actor.bump,
     )]
     pub actor: Box<Account<'info, Actor>>,
+
+    #[account(mut)]
+    pub owner_folio_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(
         seeds = [DTF_PROGRAM_SIGNER_SEEDS],
@@ -55,6 +60,9 @@ pub struct FinalizeFolio<'info> {
     #[account(mut)]
     pub folio: UncheckedAccount<'info>,
 
+    #[account(mut)]
+    pub folio_token_mint: Box<InterfaceAccount<'info, Mint>>,
+
     /// CHECK: Done within the folio program
     pub program_registrar: UncheckedAccount<'info>,
 }
@@ -67,10 +75,10 @@ impl<'info> FinalizeFolio<'info> {
     }
 }
 
-pub fn handler(ctx: Context<FinalizeFolio>) -> Result<()> {
+pub fn handler(ctx: Context<FinalizeFolio>, initial_shares: u64) -> Result<()> {
     ctx.accounts.validate()?;
 
-    FolioProgram::finalize_folio(ctx)?;
+    FolioProgram::finalize_folio(ctx, initial_shares)?;
 
     Ok(())
 }

@@ -2,7 +2,7 @@ use crate::pending_token_amounts;
 use crate::state::{Folio, PendingTokenAmounts, ProgramRegistrar};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::system_program;
-use shared::constants::PENDING_TOKEN_AMOUNTS_SEEDS;
+use shared::constants::{IS_ADDING_TO_MINT_FOLIO, PENDING_TOKEN_AMOUNTS_SEEDS};
 use shared::errors::ErrorCode;
 use shared::structs::{FeeRecipient, FolioStatus, TokenAmount};
 use shared::{
@@ -98,6 +98,8 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, InitTokensForFolio<'inf
         &mut ctx.accounts.folio_pending_token_amounts,
         ctx.bumps.folio_pending_token_amounts,
         &ctx.accounts.folio.key(),
+        &ctx.accounts.folio.key(),
+        IS_ADDING_TO_MINT_FOLIO, // Not used
         &added_mints,
         true,
     )?;

@@ -14,6 +14,8 @@ declare_id!("7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn");
 #[program]
 pub mod dtfs {
 
+    use shared::structs::TokenAmount;
+
     use super::*;
 
     /*
@@ -69,7 +71,31 @@ pub mod dtfs {
         add_tokens_to_folio::handler(ctx)
     }
 
-    pub fn finalize_folio(ctx: Context<FinalizeFolio>) -> Result<()> {
-        finalize_folio::handler(ctx)
+    pub fn finalize_folio(ctx: Context<FinalizeFolio>, initial_shares: u64) -> Result<()> {
+        finalize_folio::handler(ctx, initial_shares)
+    }
+
+    /*
+    User functions
+     */
+    pub fn init_or_add_mint_folio_token<'info>(
+        ctx: Context<'_, '_, 'info, 'info, InitOrAddMintFolioToken<'info>>,
+        amounts: Vec<u64>,
+    ) -> Result<()> {
+        init_or_add_mint_folio_token::handler(ctx, amounts)
+    }
+
+    pub fn remove_from_mint_folio_token<'info>(
+        ctx: Context<'_, '_, 'info, 'info, RemoveFromMintFolioToken<'info>>,
+        amounts: Vec<u64>,
+    ) -> Result<()> {
+        remove_from_mint_folio_token::handler(ctx, amounts)
+    }
+
+    pub fn mint_folio_token<'info>(
+        ctx: Context<'_, '_, 'info, 'info, MintFolioToken<'info>>,
+        shares: u64,
+    ) -> Result<()> {
+        mint_folio_token::handler(ctx, shares)
     }
 }

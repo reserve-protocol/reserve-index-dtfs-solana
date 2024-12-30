@@ -17,8 +17,6 @@ pub struct TransferFolioToken<'info> {
 
 impl<'info> TransferFolioToken<'info> {
     pub fn validate(&self) -> Result<()> {
-        // TODO check folio status is initialized
-
         Ok(())
     }
 }

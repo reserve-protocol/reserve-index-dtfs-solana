@@ -147,7 +147,7 @@ describe("Folio Tests", () => {
 
     const ownerActorPDA = getActorPDA(folioOwnerKeypair.publicKey, folioPDA);
 
-    const ownerActor = await programDtf.account.actor.fetch(ownerActorPDA);
+    const ownerActor = await program.account.actor.fetch(ownerActorPDA);
 
     assert.notEqual(ownerActor.bump, 0);
     assert.deepEqual(ownerActor.authority, folioOwnerKeypair.publicKey);

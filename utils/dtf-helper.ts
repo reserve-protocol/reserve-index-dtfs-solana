@@ -28,7 +28,11 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { buildRemainingAccounts, getOrCreateAtaAddress } from "./token-helper";
+import {
+  buildRemainingAccounts,
+  getAtaAddress,
+  getOrCreateAtaAddress,
+} from "./token-helper";
 
 let dtfProgram: Program<Dtfs> = null;
 
@@ -282,6 +286,7 @@ export async function finalizeFolio(
       folioProgram: FOLIO_PROGRAM_ID,
       folio: folio,
       folioTokenMint,
+      folioTokenAccount: await getAtaAddress(folioTokenMint, folio),
       programRegistrar: getProgramRegistrarPDA(),
       ownerFolioTokenAccount: await getOrCreateAtaAddress(
         connection,

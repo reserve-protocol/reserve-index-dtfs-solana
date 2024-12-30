@@ -64,6 +64,9 @@ pub enum ErrorCode {
 
     #[msg("Invalid Folio Token Mint")]
     InvalidFolioTokenMint,
+
+    #[msg("Pending Token Amounts Is Not Empty")]
+    PendingTokenAmountsIsNotEmpty,
 }
 
 #[macro_export]

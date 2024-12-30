@@ -1,4 +1,4 @@
-use crate::state::Folio;
+use crate::state::{Actor, Folio};
 use anchor_lang::prelude::*;
 use shared::{
     constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, PROGRAM_REGISTRAR_SEEDS},
@@ -8,17 +8,28 @@ use shared::{
 use crate::state::ProgramRegistrar;
 
 #[derive(Accounts)]
-pub struct ValidateMutateActorAction<'info> {
+pub struct RemoveActor<'info> {
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+
     #[account(mut)]
     pub folio_owner: Signer<'info>,
 
-    /// CHECK: Actor
+    /// CHECK: Wallet, DAO, multisig
+    #[account()]
+    pub actor_authority: UncheckedAccount<'info>,
+
     #[account(mut,
-        seeds = [ACTOR_SEEDS, folio_owner.key().as_ref(), folio.key().as_ref()],
-        bump,
-        seeds::program = dtf_program.key()
+        seeds = [ACTOR_SEEDS, folio_owner.key().as_ref(), folio_owner_actor.folio.key().as_ref()],
+        bump = folio_owner_actor.bump,
     )]
-    pub actor: AccountInfo<'info>,
+    pub folio_owner_actor: Box<Account<'info, Actor>>,
+
+    #[account(mut,
+        seeds = [ACTOR_SEEDS, actor_authority.key().as_ref(), folio_owner_actor.folio.key().as_ref()],
+        bump = actor_to_remove.bump,
+    )]
+    pub actor_to_remove: Box<Account<'info, Actor>>,
 
     #[account(
         seeds = [PROGRAM_REGISTRAR_SEEDS],
@@ -45,7 +56,7 @@ pub struct ValidateMutateActorAction<'info> {
     pub dtf_program_data: UncheckedAccount<'info>,
 }
 
-impl ValidateMutateActorAction<'_> {
+impl RemoveActor<'_> {
     pub fn validate(&self) -> Result<()> {
         let folio = &self.folio.load()?;
 
@@ -54,7 +65,7 @@ impl ValidateMutateActorAction<'_> {
             Some(&self.program_registrar),
             Some(&self.dtf_program),
             Some(&self.dtf_program_data),
-            Some(&self.actor.to_account_info()),
+            Some(&self.folio_owner_actor),
             Some(Role::Owner),
             None, // Can CRUD actors no matter the status
         )?;
@@ -63,10 +74,19 @@ impl ValidateMutateActorAction<'_> {
     }
 }
 
-pub fn handler(ctx: Context<ValidateMutateActorAction>) -> Result<()> {
+pub fn handler(ctx: Context<RemoveActor>, role: Role, close_actor: bool) -> Result<()> {
     ctx.accounts.validate()?;
 
-    // No actual action to perform here, just validation that will rollback the transaction if it fails
+    let actor_to_remove = &mut ctx.accounts.actor_to_remove;
+
+    if !close_actor {
+        Role::remove_role(&mut actor_to_remove.roles, role);
+    } else {
+        // To prevent re-init attacks, we re-init the actor with default values
+        actor_to_remove.reset();
+
+        actor_to_remove.close(ctx.accounts.folio_owner.to_account_info())?;
+    }
 
     Ok(())
 }

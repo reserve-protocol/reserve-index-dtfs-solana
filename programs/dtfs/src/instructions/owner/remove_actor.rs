@@ -7,7 +7,7 @@ use shared::errors::ErrorCode;
 use shared::structs::Role;
 use shared::{check_condition, constants::ACTOR_SEEDS};
 
-use crate::state::{Actor, DtfProgramSigner};
+use crate::state::DtfProgramSigner;
 
 #[derive(Accounts)]
 pub struct RemoveActor<'info> {
@@ -21,17 +21,13 @@ pub struct RemoveActor<'info> {
     #[account()]
     pub actor_authority: UncheckedAccount<'info>,
 
-    #[account(mut,
-        seeds = [ACTOR_SEEDS, folio_owner.key().as_ref(), folio_owner_actor.folio.key().as_ref()],
-        bump = folio_owner_actor.bump,
-    )]
-    pub folio_owner_actor: Box<Account<'info, Actor>>,
+    /// CHECK: Done within the folio program
+    #[account(mut)]
+    pub folio_owner_actor: UncheckedAccount<'info>,
 
-    #[account(mut,
-        seeds = [ACTOR_SEEDS, actor_authority.key().as_ref(), folio_owner_actor.folio.key().as_ref()],
-        bump = actor_to_remove.bump,
-    )]
-    pub actor_to_remove: Box<Account<'info, Actor>>,
+    /// CHECK: Done within the folio program
+    #[account(mut)]
+    pub actor_to_remove: UncheckedAccount<'info>,
 
     /*
     Accounts for validation
@@ -69,42 +65,18 @@ pub struct RemoveActor<'info> {
 
 impl RemoveActor<'_> {
     pub fn validate(&self) -> Result<()> {
-        check_condition!(
-            Role::has_role(self.folio_owner_actor.roles, Role::Owner),
-            Unauthorized
-        );
-
         Ok(())
     }
 }
 
-pub fn handler(ctx: Context<RemoveActor>, role: Role, close_actor: bool) -> Result<()> {
+pub fn handler<'info>(
+    ctx: Context<'_, '_, 'info, 'info, RemoveActor<'info>>,
+    role: Role,
+    close_actor: bool,
+) -> Result<()> {
     ctx.accounts.validate()?;
 
-    let actor_to_remove = &mut ctx.accounts.actor_to_remove;
-
-    /*
-    Call the validate function on the folio progam, it doesn't do much appart from validating
-     */
-    FolioProgram::validate_mutate_actor_action(
-        &ctx.accounts.folio_program.to_account_info(),
-        &ctx.accounts.folio_owner.to_account_info(),
-        &ctx.accounts.folio_owner_actor.to_account_info(),
-        &ctx.accounts.program_registrar.to_account_info(),
-        &ctx.accounts.folio.to_account_info(),
-        &ctx.accounts.dtf_program_signer,
-        &ctx.accounts.dtf_program.to_account_info(),
-        &ctx.accounts.dtf_program_data.to_account_info(),
-    )?;
-
-    if !close_actor {
-        Role::remove_role(&mut actor_to_remove.roles, role);
-    } else {
-        // To prevent re-init attacks, we re-init the actor with default values
-        actor_to_remove.reset();
-
-        actor_to_remove.close(ctx.accounts.folio_owner.to_account_info())?;
-    }
+    FolioProgram::remove_actor(ctx, role, close_actor)?;
 
     Ok(())
 }

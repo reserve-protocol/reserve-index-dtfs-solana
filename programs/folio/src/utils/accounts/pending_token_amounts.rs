@@ -125,4 +125,12 @@ impl PendingTokenAmounts {
 
         Ok(())
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.token_amounts.iter().all(|ta| ta.amount == 0)
+    }
+
+    pub fn reset(&mut self) {
+        self.token_amounts = [TokenAmount::default(); MAX_TOKEN_AMOUNTS];
+    }
 }

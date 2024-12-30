@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 use instructions::*;
-use shared::structs::FeeRecipient;
+use shared::structs::{FeeRecipient, Role};
 use utils::*;
 
 pub mod events;
@@ -47,6 +47,21 @@ pub mod folio {
     */
     pub fn init_folio(ctx: Context<InitFolio>, fee_per_second: u64) -> Result<()> {
         init_folio::handler(ctx, fee_per_second)
+    }
+
+    pub fn init_or_update_actor<'info>(
+        ctx: Context<'_, '_, 'info, 'info, InitOrUpdateActor<'info>>,
+        role: Role,
+    ) -> Result<()> {
+        init_or_update_actor::handler(ctx, role)
+    }
+
+    pub fn remove_actor<'info>(
+        ctx: Context<'_, '_, 'info, 'info, RemoveActor<'info>>,
+        role: Role,
+        close_actor: bool,
+    ) -> Result<()> {
+        remove_actor::handler(ctx, role, close_actor)
     }
 
     pub fn init_tokens_for_folio<'info>(
@@ -105,15 +120,18 @@ pub mod folio {
         remove_from_mint_folio_token::handler(ctx, amounts)
     }
 
+    pub fn close_pending_token_amount<'info>(
+        ctx: Context<'_, '_, 'info, 'info, ClosePendingTokenAmount<'info>>,
+        is_adding_to_mint_folio: u8,
+    ) -> Result<()> {
+        close_pending_token_amount::handler(ctx, is_adding_to_mint_folio)
+    }
+
     pub fn burn_folio_token(ctx: Context<BurnFolioToken>) -> Result<()> {
         burn_folio_token::handler(ctx)
     }
 
     pub fn resize_folio_account(ctx: Context<ResizeFolioAccount>, new_size: u64) -> Result<()> {
         resize_folio_account::handler(ctx, new_size)
-    }
-
-    pub fn validate_mutate_actor_action(ctx: Context<ValidateMutateActorAction>) -> Result<()> {
-        validate_mutate_actor_action::handler(ctx)
     }
 }

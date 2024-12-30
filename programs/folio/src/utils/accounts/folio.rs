@@ -1,12 +1,12 @@
 use crate::{
     program::Folio as FolioProgram,
-    state::{Folio, ProgramRegistrar},
+    state::{Actor, Folio, ProgramRegistrar},
     DtfProgram,
 };
 use anchor_lang::prelude::*;
 use shared::{
     check_condition,
-    constants::{ACTOR_SEEDS, FOLIO_SEEDS},
+    constants::FOLIO_SEEDS,
     errors::ErrorCode,
     structs::{FolioStatus, Role},
 };
@@ -31,7 +31,7 @@ impl Folio {
         program_registrar: Option<&Account<'info, ProgramRegistrar>>,
         dtf_program: Option<&AccountInfo<'info>>,
         dtf_program_data: Option<&AccountInfo<'info>>,
-        actor: Option<&AccountInfo<'info>>,
+        actor: Option<&Account<'info, Actor>>,
         required_role: Option<Role>,
         expected_status: Option<FolioStatus>,
     ) -> Result<()> {
@@ -56,10 +56,8 @@ impl Folio {
         );
 
         // Validate Role if needed
-        if let (Some(actor), Some(required_role), Some(dtf_program)) =
-            (actor, required_role, dtf_program)
-        {
-            Folio::validate_permission_for_action(actor, required_role, dtf_program)?;
+        if let (Some(actor), Some(required_role)) = (actor, required_role) {
+            Folio::validate_permission_for_action(actor, required_role)?;
         }
 
         // Validate folio status is initialized
@@ -95,36 +93,11 @@ impl Folio {
         Ok(())
     }
 
-    fn validate_permission_for_action(
-        actor: &AccountInfo,
+    fn validate_permission_for_action<'info>(
+        actor: &Account<'info, Actor>,
         required_role: Role,
-        dtf_program: &AccountInfo<'_>,
     ) -> Result<()> {
-        /*
-        Manually deserialize the actor data
-         */
-        let data = &actor.data.borrow();
-
-        check_condition!(actor.data_len() >= 74, InvalidAccountData);
-
-        // Discriminator takes 8 bytes and bump 1
-        let authority = Pubkey::try_from_slice(&data[9..41])?;
-        let folio = Pubkey::try_from_slice(&data[41..73])?;
-        let roles = data[73];
-
-        // Don't need the rest of the data
-
-        check_condition!(Role::has_role(roles, required_role), InvalidRole);
-
-        /*
-        Validate actor PDA
-         */
-        let (expected_actor_pda, _) = Pubkey::find_program_address(
-            &[ACTOR_SEEDS, authority.as_ref(), folio.as_ref()],
-            &dtf_program.key(),
-        );
-
-        check_condition!(actor.key() == expected_actor_pda, InvalidActorPda);
+        check_condition!(Role::has_role(actor.roles, required_role), InvalidRole);
 
         Ok(())
     }

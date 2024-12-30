@@ -171,16 +171,11 @@ export async function initFolio(
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       folioOwner: folioOwner.publicKey,
       programRegistrar: getProgramRegistrarPDA(),
-      folioProgramSigner: getFolioSignerPDA(),
       folio: folioPDA,
       folioTokenMint: folioTokenMint.publicKey,
-      folioTokenAccount: await getAtaAddress(
-        folioTokenMint.publicKey,
-        folioPDA
-      ),
       dtfProgram: DTF_PROGRAM_ID,
       dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
-      firstOwner: getActorPDA(folioOwner.publicKey, folioPDA),
+      actor: getActorPDA(folioOwner.publicKey, folioPDA),
     })
     .instruction();
 

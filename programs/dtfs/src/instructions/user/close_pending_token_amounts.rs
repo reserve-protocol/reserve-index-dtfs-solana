@@ -1,26 +1,20 @@
-use anchor_lang::prelude::*;
-use anchor_lang::solana_program::bpf_loader_upgradeable;
-use folio::ID as FOLIO_ID;
-use shared::check_condition;
-use shared::constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS};
-use shared::errors::ErrorCode;
-use shared::structs::Role;
+use anchor_lang::{prelude::*, solana_program::bpf_loader_upgradeable};
+use anchor_spl::token_interface::TokenInterface;
+use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 
-use crate::state::DtfProgramSigner;
-use crate::utils::external::folio_program::FolioProgram;
 use crate::ID as DTF_PROGRAM_ID;
+use crate::{state::DtfProgramSigner, FolioProgram};
+use folio::ID as FOLIO_ID;
 
 #[derive(Accounts)]
-pub struct ResizeFolio<'info> {
+pub struct ClosePendingTokenAmounts<'info> {
     pub system_program: Program<'info, System>,
-    pub rent: Sysvar<'info, Rent>,
 
     #[account(mut)]
-    pub folio_owner: Signer<'info>,
+    pub user: Signer<'info>,
 
     /// CHECK: Done within the folio program
-    #[account(mut)]
-    pub actor: UncheckedAccount<'info>,
+    pub program_registrar: UncheckedAccount<'info>,
 
     #[account(
         seeds = [DTF_PROGRAM_SIGNER_SEEDS],
@@ -49,20 +43,21 @@ pub struct ResizeFolio<'info> {
     pub folio: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
-    #[account()]
-    pub program_registrar: UncheckedAccount<'info>,
+    #[account(mut)]
+    pub user_pending_token_amounts: UncheckedAccount<'info>,
 }
 
-impl ResizeFolio<'_> {
+impl ClosePendingTokenAmounts<'_> {
     pub fn validate(&self) -> Result<()> {
         Ok(())
     }
 }
 
-pub fn handler(ctx: Context<ResizeFolio>, new_size: u64) -> Result<()> {
-    ctx.accounts.validate()?;
-
-    FolioProgram::resize_folio_account(ctx, new_size)?;
+pub fn handler<'info>(
+    ctx: Context<'_, '_, 'info, 'info, ClosePendingTokenAmounts<'info>>,
+    is_adding_to_mint_folio: u8,
+) -> Result<()> {
+    FolioProgram::close_pending_token_amounts(ctx, is_adding_to_mint_folio)?;
 
     Ok(())
 }

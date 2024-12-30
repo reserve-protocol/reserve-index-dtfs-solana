@@ -6,7 +6,7 @@ use shared::errors::ErrorCode;
 use shared::structs::Role;
 use shared::{check_condition, constants::ACTOR_SEEDS};
 
-use crate::state::{Actor, DtfProgramSigner};
+use crate::state::DtfProgramSigner;
 use crate::{FolioProgram, ID as DTF_PROGRAM_ID};
 
 #[derive(Accounts)]
@@ -21,22 +21,13 @@ pub struct InitOrUpdateActor<'info> {
     #[account()]
     pub new_actor_authority: UncheckedAccount<'info>,
 
-    #[account(mut,
-        seeds = [ACTOR_SEEDS, folio_owner.key().as_ref(), folio_owner_actor.folio.key().as_ref()],
-        bump = folio_owner_actor.bump,
-    )]
-    pub folio_owner_actor: Box<Account<'info, Actor>>,
+    /// CHECK: Done within the folio program
+    #[account(mut)]
+    pub folio_owner_actor: UncheckedAccount<'info>,
 
-    /*
-    Init if needed because we use the same functionality to add roles to the actor
-     */
-    #[account(init_if_needed,
-        payer = folio_owner,
-        space = Actor::SIZE,
-        seeds = [ACTOR_SEEDS, new_actor_authority.key().as_ref(), folio_owner_actor.folio.key().as_ref()],
-        bump
-    )]
-    pub new_actor: Box<Account<'info, Actor>>,
+    /// CHECK: Done within the folio program
+    #[account(mut)]
+    pub new_actor: UncheckedAccount<'info>,
 
     /*
     Accounts for validation
@@ -74,43 +65,17 @@ pub struct InitOrUpdateActor<'info> {
 
 impl InitOrUpdateActor<'_> {
     pub fn validate(&self) -> Result<()> {
-        check_condition!(
-            Role::has_role(self.folio_owner_actor.roles, Role::Owner),
-            Unauthorized
-        );
-
         Ok(())
     }
 }
 
-pub fn handler(ctx: Context<InitOrUpdateActor>, role: Role) -> Result<()> {
+pub fn handler<'info>(
+    ctx: Context<'_, '_, 'info, 'info, InitOrUpdateActor<'info>>,
+    role: Role,
+) -> Result<()> {
     ctx.accounts.validate()?;
 
-    let new_actor = &mut ctx.accounts.new_actor;
+    FolioProgram::init_or_update_actor(ctx, role)?;
 
-    let new_actor_bump = new_actor.bump;
-
-    new_actor.process_init_if_needed(
-        new_actor_bump,
-        ctx.bumps.new_actor,
-        &ctx.accounts.new_actor_authority.key(),
-        &ctx.accounts.folio_owner_actor.folio,
-    )?;
-
-    Role::add_role(&mut new_actor.roles, role);
-
-    /*
-    Call the validate function on the folio progam, it doesn't do much appart from validating
-     */
-    FolioProgram::validate_mutate_actor_action(
-        &ctx.accounts.folio_program.to_account_info(),
-        &ctx.accounts.folio_owner.to_account_info(),
-        &ctx.accounts.folio_owner_actor.to_account_info(),
-        &ctx.accounts.program_registrar.to_account_info(),
-        &ctx.accounts.folio.to_account_info(),
-        &ctx.accounts.dtf_program_signer,
-        &ctx.accounts.dtf_program.to_account_info(),
-        &ctx.accounts.dtf_program_data.to_account_info(),
-    )?;
     Ok(())
 }

@@ -1,4 +1,3 @@
-use crate::state::Actor;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
 use folio::ID as FOLIO_ID;
@@ -19,11 +18,9 @@ pub struct UpdateFolio<'info> {
     #[account(mut)]
     pub folio_owner: Signer<'info>,
 
-    #[account(mut,
-        seeds = [ACTOR_SEEDS, folio_owner.key().as_ref(), folio.key().as_ref()],
-        bump = actor.bump,
-    )]
-    pub actor: Box<Account<'info, Actor>>,
+    /// CHECK: Done within the folio program
+    #[account(mut)]
+    pub actor: UncheckedAccount<'info>,
 
     #[account(
         seeds = [DTF_PROGRAM_SIGNER_SEEDS],
@@ -62,8 +59,6 @@ pub struct UpdateFolio<'info> {
 
 impl UpdateFolio<'_> {
     pub fn validate(&self) -> Result<()> {
-        check_condition!(Role::has_role(self.actor.roles, Role::Owner), Unauthorized);
-
         Ok(())
     }
 }

@@ -15,9 +15,8 @@ pub struct BurnFolioToken<'info> {
     pub folio_owner: Signer<'info>,
 }
 
-impl<'info> BurnFolioToken<'info> {
+impl BurnFolioToken<'_> {
     pub fn validate(&self) -> Result<()> {
-        // TODO check folio status is initialized
         Ok(())
     }
 }

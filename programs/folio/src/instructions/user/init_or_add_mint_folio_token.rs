@@ -1,20 +1,17 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::get_associated_token_address_with_program_id,
-    token_interface::{self, Mint, TokenAccount, TokenInterface, TransferChecked},
+    token_interface::{self, Mint, TokenInterface, TransferChecked},
 };
-use shared::errors::ErrorCode::*;
 use shared::{
     check_condition,
-    constants::{
-        FOLIO_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, PENDING_TOKEN_AMOUNTS_SEEDS,
-        PROGRAM_REGISTRAR_SEEDS,
-    },
+    constants::{IS_ADDING_TO_MINT_FOLIO, PENDING_TOKEN_AMOUNTS_SEEDS, PROGRAM_REGISTRAR_SEEDS},
     structs::TokenAmount,
 };
+use shared::{constants::DTF_PROGRAM_SIGNER_SEEDS, errors::ErrorCode::*};
 use shared::{errors::ErrorCode, structs::FolioStatus};
 
-use crate::state::{Folio, FolioProgramSigner, PendingTokenAmounts, ProgramRegistrar};
+use crate::state::{Folio, PendingTokenAmounts, ProgramRegistrar};
 
 #[derive(Accounts)]
 pub struct InitOrAddMintFolioToken<'info> {
@@ -24,6 +21,19 @@ pub struct InitOrAddMintFolioToken<'info> {
 
     #[account(mut)]
     pub user: Signer<'info>,
+
+    #[account(
+        seeds = [PROGRAM_REGISTRAR_SEEDS],
+        bump = program_registrar.bump
+    )]
+    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
+
+    #[account(
+        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
+        bump,
+        seeds::program = dtf_program.key(),
+    )]
+    pub dtf_program_signer: Signer<'info>,
 
     #[account(mut)]
     pub folio: AccountLoader<'info, Folio>,
@@ -37,10 +47,18 @@ pub struct InitOrAddMintFolioToken<'info> {
     #[account(init_if_needed,
         payer = user,
         space = PendingTokenAmounts::SIZE,
-        seeds = [PENDING_TOKEN_AMOUNTS_SEEDS, user.key().as_ref()],
+        seeds = [PENDING_TOKEN_AMOUNTS_SEEDS, folio.key().as_ref(), user.key().as_ref(), &[IS_ADDING_TO_MINT_FOLIO]],
         bump
     )]
     pub user_pending_token_amounts: AccountLoader<'info, PendingTokenAmounts>,
+
+    /// CHECK: DTF program used for creating owner record
+    #[account()]
+    pub dtf_program: UncheckedAccount<'info>,
+
+    /// CHECK: DTF program data to validate program deployment slot
+    #[account()]
+    pub dtf_program_data: UncheckedAccount<'info>,
     /*
     The remaining accounts need to match the order of amounts as parameter
 
@@ -51,14 +69,14 @@ pub struct InitOrAddMintFolioToken<'info> {
      */
 }
 
-impl<'info> InitOrAddMintFolioToken<'info> {
+impl InitOrAddMintFolioToken<'_> {
     pub fn validate(&self) -> Result<()> {
         let folio = self.folio.load()?;
         folio.validate_folio_program_post_init(
             &self.folio.key(),
-            None,
-            None,
-            None,
+            Some(&self.program_registrar),
+            Some(&self.dtf_program),
+            Some(&self.dtf_program_data),
             None,
             None,
             Some(FolioStatus::Initialized),
@@ -150,6 +168,8 @@ pub fn handler<'info>(
         &mut ctx.accounts.user_pending_token_amounts,
         ctx.bumps.user_pending_token_amounts,
         &ctx.accounts.user.key(),
+        &ctx.accounts.folio.key(),
+        IS_ADDING_TO_MINT_FOLIO,
         &added_mints,
         true,
     )?;

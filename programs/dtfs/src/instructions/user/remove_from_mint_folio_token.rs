@@ -1,32 +1,21 @@
-use crate::state::Actor;
-use anchor_lang::prelude::*;
-use anchor_lang::solana_program::bpf_loader_upgradeable;
-use anchor_spl::associated_token::AssociatedToken;
+use anchor_lang::{prelude::*, solana_program::bpf_loader_upgradeable};
 use anchor_spl::token_interface::TokenInterface;
-use folio::ID as FOLIO_ID;
-use shared::check_condition;
-use shared::constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS};
-use shared::errors::ErrorCode;
-use shared::structs::Role;
+use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 
-use crate::state::DtfProgramSigner;
-use crate::utils::external::folio_program::FolioProgram;
 use crate::ID as DTF_PROGRAM_ID;
+use crate::{state::DtfProgramSigner, FolioProgram};
+use folio::ID as FOLIO_ID;
 
 #[derive(Accounts)]
-pub struct AddTokensToFolio<'info> {
+pub struct RemoveFromMintFolioToken<'info> {
     pub system_program: Program<'info, System>,
     pub token_program: Interface<'info, TokenInterface>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
 
     #[account(mut)]
-    pub folio_owner: Signer<'info>,
+    pub user: Signer<'info>,
 
-    #[account(mut,
-        seeds = [ACTOR_SEEDS, folio_owner.key().as_ref(), folio.key().as_ref()],
-        bump = actor.bump,
-    )]
-    pub actor: Box<Account<'info, Actor>>,
+    /// CHECK: Done within the folio program
+    pub program_registrar: UncheckedAccount<'info>,
 
     #[account(
         seeds = [DTF_PROGRAM_SIGNER_SEEDS],
@@ -59,30 +48,29 @@ pub struct AddTokensToFolio<'info> {
     pub folio_pending_token_amounts: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
-    #[account()]
-    pub program_registrar: UncheckedAccount<'info>,
+    #[account(mut)]
+    pub user_pending_token_amounts: UncheckedAccount<'info>,
     /*
     The remaining accounts need to match the order of amounts as parameter
 
     Remaining accounts will have as many as possible of the following (always in the same order):
         - Token Mint (read)
-        - Sender Token Account (needs to be owned by owner) (mut)
-        - Receiver Token Account (needs to be owned by folio) (this is expected to be the ATA and already exist, to save on compute) (mut)
+        - Sender Token Account (needs to be owned by folio) (mut)
+        - Receiver Token Account (needs to be owned by user) (mut)
      */
 }
 
-impl AddTokensToFolio<'_> {
+impl RemoveFromMintFolioToken<'_> {
     pub fn validate(&self) -> Result<()> {
-        check_condition!(Role::has_role(self.actor.roles, Role::Owner), Unauthorized);
-
         Ok(())
     }
 }
 
-pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AddTokensToFolio<'info>>) -> Result<()> {
-    ctx.accounts.validate()?;
-
-    FolioProgram::init_tokens_for_folio(ctx)?;
+pub fn handler<'info>(
+    ctx: Context<'_, '_, 'info, 'info, RemoveFromMintFolioToken<'info>>,
+    amounts: Vec<u64>,
+) -> Result<()> {
+    FolioProgram::remove_from_mint_folio_token(ctx, amounts)?;
 
     Ok(())
 }

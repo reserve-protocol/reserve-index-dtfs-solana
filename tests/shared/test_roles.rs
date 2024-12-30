@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use anchor_lang::prelude::*;
+
     use shared::structs::Role;
 
     #[test]

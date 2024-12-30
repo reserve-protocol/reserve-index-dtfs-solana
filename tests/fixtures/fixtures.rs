@@ -1,9 +1,7 @@
 use anchor_lang::solana_program::hash::hashv;
 use anchor_lang::{prelude::*, solana_program::bpf_loader_upgradeable};
 use dtfs::ID as DTF_ID;
-use folio::state::{Folio, ProgramRegistrar};
 use folio::ID as FOLIO_ID;
-use shared::{constants::*, structs::Role};
 
 lazy_static::lazy_static! {
     static ref BPF_LOADER_UPGRADEABLE_ID: Pubkey = bpf_loader_upgradeable::id();

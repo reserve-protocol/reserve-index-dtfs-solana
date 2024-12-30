@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use super::*;
+
     use anchor_lang::prelude::Pubkey;
     use dtfs::state::Actor;
     use shared::errors::ErrorCode;

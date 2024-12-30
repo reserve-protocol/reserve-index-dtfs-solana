@@ -1,11 +1,9 @@
 use crate::state::Actor;
 use anchor_lang::prelude::*;
-use folio::state::{Folio, FolioProgramSigner};
+use folio::state::FolioProgramSigner;
 use folio::ID as FOLIO_ID;
-use shared::check_condition;
-use shared::constants::{ACTOR_SEEDS, FOLIO_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS};
-use shared::errors::ErrorCode;
-use shared::structs::{roles, Role};
+use shared::constants::{ACTOR_SEEDS, FOLIO_PROGRAM_SIGNER_SEEDS};
+use shared::structs::Role;
 
 #[derive(Accounts)]
 pub struct InitFirstOwner<'info> {
@@ -39,7 +37,7 @@ pub struct InitFirstOwner<'info> {
     pub folio: UncheckedAccount<'info>,
 }
 
-impl<'info> InitFirstOwner<'info> {
+impl InitFirstOwner<'_> {
     pub fn validate(&self) -> Result<()> {
         Ok(())
     }

@@ -55,8 +55,6 @@ jobs:
         run: |
           cargo clippy -- \
             -A ambiguous_glob_reexports \
-            -A unused_imports \
-            -A clippy::needless_lifetimes \
             -D warnings
 
       - name: Anchor Build

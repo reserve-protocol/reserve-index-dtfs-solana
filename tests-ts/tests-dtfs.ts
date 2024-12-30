@@ -1,4 +1,9 @@
-import { airdrop, getConnectors, wait } from "../utils/program-helper";
+import {
+  airdrop,
+  assertThrows,
+  getConnectors,
+  wait,
+} from "../utils/program-helper";
 import { Dtfs } from "../target/types/dtfs";
 import { Folio } from "../target/types/folio";
 import { BN, Program } from "@coral-xyz/anchor";
@@ -7,7 +12,6 @@ import {
   initFolio,
   initFolioSigner,
   initProgramRegistrar,
-  updateProgramRegistrar,
 } from "../utils/folio-helper";
 import * as assert from "assert";
 import {
@@ -15,13 +19,18 @@ import {
   getActorPDA,
   getDtfSignerPDA,
   getFolioFeeRecipientsPDA,
+  getFolioPendingTokenAmountsPDA,
+  getUserPendingTokenAmountsPDA,
 } from "../utils/pda-helper";
 import {
   addOrUpdateActor,
   addTokensToFolio,
   finalizeFolio,
   initDtfSigner,
+  initOrAddMintFolioToken,
+  mintFolioToken,
   removeActor,
+  removeFromMintFolioToken,
   resizeFolio,
   updateFolio,
 } from "../utils/dtf-helper";
@@ -41,9 +50,9 @@ describe("DTFs Tests", () => {
 
   let payerKeypair: Keypair;
   let adminKeypair: Keypair;
+  let userKeypair: Keypair;
 
   let tradeApproverKeypair: Keypair;
-  let priceCuratorKeypair: Keypair;
 
   let folioOwnerKeypair: Keypair;
   let folioTokenMint: Keypair;
@@ -52,7 +61,13 @@ describe("DTFs Tests", () => {
   /*
   Tokens that can be included in the folio
   */
-  let tokenMints = [Keypair.generate(), Keypair.generate(), Keypair.generate()];
+  let tokenMints = [
+    Keypair.generate(),
+    Keypair.generate(),
+    Keypair.generate(),
+    Keypair.generate(),
+    Keypair.generate(),
+  ];
 
   before(async () => {
     ({
@@ -66,12 +81,13 @@ describe("DTFs Tests", () => {
     adminKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.admin));
 
     folioOwnerKeypair = Keypair.generate();
+    userKeypair = Keypair.generate();
     tradeApproverKeypair = Keypair.generate();
-    priceCuratorKeypair = Keypair.generate();
 
     await airdrop(connection, payerKeypair.publicKey, 1000);
     await airdrop(connection, adminKeypair.publicKey, 1000);
     await airdrop(connection, folioOwnerKeypair.publicKey, 1000);
+    await airdrop(connection, userKeypair.publicKey, 1000);
 
     // Init folio related accounts
     await initFolioSigner(connection, payerKeypair);
@@ -91,6 +107,14 @@ describe("DTFs Tests", () => {
         tokenMint.publicKey,
         1_000,
         folioOwnerKeypair.publicKey
+      );
+
+      await mintToken(
+        connection,
+        adminKeypair,
+        tokenMint.publicKey,
+        1_000,
+        userKeypair.publicKey
       );
     }
   });
@@ -114,7 +138,6 @@ describe("DTFs Tests", () => {
       connection,
       folioOwnerKeypair,
       folioPDA,
-      folioTokenMint.publicKey,
       new BN(folioSizeBefore + 100)
     );
 
@@ -223,7 +246,6 @@ describe("DTFs Tests", () => {
       connection,
       folioOwnerKeypair,
       folioPDA,
-      folioTokenMint.publicKey,
       null,
       null,
       folioBefore.feePerSecond.add(new BN(1)),
@@ -253,7 +275,6 @@ describe("DTFs Tests", () => {
       connection,
       folioOwnerKeypair,
       folioPDA,
-      folioTokenMint.publicKey,
       null,
       null,
       folioBefore.feePerSecond,
@@ -283,7 +304,6 @@ describe("DTFs Tests", () => {
       connection,
       folioOwnerKeypair,
       folioPDA,
-      folioTokenMint.publicKey,
       null,
       null,
       null,
@@ -325,7 +345,6 @@ describe("DTFs Tests", () => {
       connection,
       folioOwnerKeypair,
       folioPDA,
-      folioTokenMint.publicKey,
       tradeApproverKeypair.publicKey,
       {
         tradeApprover: {},
@@ -347,7 +366,6 @@ describe("DTFs Tests", () => {
       connection,
       folioOwnerKeypair,
       folioPDA,
-      folioTokenMint.publicKey,
       tradeApproverKeypair.publicKey,
       {
         priceCurator: {},
@@ -369,7 +387,6 @@ describe("DTFs Tests", () => {
       connection,
       folioOwnerKeypair,
       folioPDA,
-      folioTokenMint.publicKey,
       tradeApproverKeypair.publicKey,
       {
         tradeApprover: {},
@@ -414,18 +431,12 @@ describe("DTFs Tests", () => {
       false
     );
 
-    await addTokensToFolio(
-      connection,
-      folioOwnerKeypair,
-      folioPDA,
-      folioTokenMint.publicKey,
-      [
-        {
-          mint: tokenMints[0].publicKey,
-          amount: new BN(50 * DEFAULT_DECIMALS_MUL),
-        },
-      ]
-    );
+    await addTokensToFolio(connection, folioOwnerKeypair, folioPDA, [
+      {
+        mint: tokenMints[0].publicKey,
+        amount: new BN(50 * DEFAULT_DECIMALS_MUL),
+      },
+    ]);
 
     const folioBalanceAfter = await getTokenBalance(
       connection,
@@ -465,17 +476,10 @@ describe("DTFs Tests", () => {
       connection,
       folioOwnerKeypair,
       folioPDA,
-      folioTokenMint.publicKey,
-      [
-        {
-          mint: tokenMints[1].publicKey,
-          amount: new BN(20 * DEFAULT_DECIMALS_MUL),
-        },
-        {
-          mint: tokenMints[2].publicKey,
-          amount: new BN(90 * DEFAULT_DECIMALS_MUL),
-        },
-      ]
+      tokenMints.map((token) => ({
+        mint: token.publicKey,
+        amount: new BN(0),
+      }))
     );
 
     const folioBalanceAfter1 = await getTokenBalance(
@@ -494,15 +498,352 @@ describe("DTFs Tests", () => {
   });
 
   it("should finalize the folio", async () => {
+    const ownerFolioTokenATA = await getOrCreateAtaAddress(
+      connection,
+      folioTokenMint.publicKey,
+      folioOwnerKeypair,
+      folioOwnerKeypair.publicKey
+    );
+
+    const ownerFolioTokenBalanceBefore = await getTokenBalance(
+      connection,
+      ownerFolioTokenATA
+    );
+
     await finalizeFolio(
       connection,
       folioOwnerKeypair,
       folioPDA,
-      folioTokenMint.publicKey
+      folioTokenMint.publicKey,
+      new BN(10)
     );
 
     const folioAfter = await program.account.folio.fetch(folioPDA);
 
+    const ownerFolioTokenBalanceAfter = await getTokenBalance(
+      connection,
+      ownerFolioTokenATA
+    );
+
     assert.equal(folioAfter.status, 1);
+    assert.equal(
+      ownerFolioTokenBalanceAfter,
+      ownerFolioTokenBalanceBefore + 10 / DEFAULT_DECIMALS_MUL
+    );
+  });
+
+  it("should allow user to init mint folio tokens", async () => {
+    await initOrAddMintFolioToken(connection, userKeypair, folioPDA, [
+      { mint: tokenMints[0].publicKey, amount: new BN(100) },
+    ]);
+
+    const userPendingTokenAmountsPDA = getUserPendingTokenAmountsPDA(
+      folioPDA,
+      userKeypair.publicKey,
+      true
+    );
+
+    const folioPendingTokenAmountsPDA =
+      getFolioPendingTokenAmountsPDA(folioPDA);
+
+    const userPendingTokenAmounts =
+      await program.account.pendingTokenAmounts.fetch(
+        userPendingTokenAmountsPDA
+      );
+
+    const folioPendingTokenAmounts =
+      await program.account.pendingTokenAmounts.fetch(
+        folioPendingTokenAmountsPDA
+      );
+
+    assert.equal(
+      userPendingTokenAmounts.tokenAmounts[0].amount.toNumber(),
+      100
+    );
+
+    assert.equal(
+      folioPendingTokenAmounts.tokenAmounts[0].amount.toNumber(),
+      100
+    );
+  });
+
+  it("should allow user to add to mint folio tokens", async () => {
+    const userPendingTokenAmountsPDA = getUserPendingTokenAmountsPDA(
+      folioPDA,
+      userKeypair.publicKey,
+      true
+    );
+    const folioPendingTokenAmountsPDA =
+      getFolioPendingTokenAmountsPDA(folioPDA);
+
+    const userPendingTokenAmountsBefore =
+      await program.account.pendingTokenAmounts.fetch(
+        userPendingTokenAmountsPDA
+      );
+
+    const folioPendingTokenAmountsBefore =
+      await program.account.pendingTokenAmounts.fetch(
+        folioPendingTokenAmountsPDA
+      );
+
+    await initOrAddMintFolioToken(connection, userKeypair, folioPDA, [
+      { mint: tokenMints[1].publicKey, amount: new BN(100) },
+      { mint: tokenMints[2].publicKey, amount: new BN(200) },
+      { mint: tokenMints[3].publicKey, amount: new BN(300) },
+    ]);
+
+    const userPendingTokenAmountsAfter =
+      await program.account.pendingTokenAmounts.fetch(
+        userPendingTokenAmountsPDA
+      );
+
+    const folioPendingTokenAmountsAfter =
+      await program.account.pendingTokenAmounts.fetch(
+        folioPendingTokenAmountsPDA
+      );
+
+    assert.equal(
+      userPendingTokenAmountsAfter.tokenAmounts[0].amount.toNumber(),
+      userPendingTokenAmountsBefore.tokenAmounts[0].amount.toNumber()
+    );
+
+    assert.equal(
+      folioPendingTokenAmountsAfter.tokenAmounts[0].amount.toNumber(),
+      folioPendingTokenAmountsBefore.tokenAmounts[0].amount.toNumber()
+    );
+
+    assert.equal(
+      userPendingTokenAmountsAfter.tokenAmounts[1].amount.toNumber(),
+      userPendingTokenAmountsBefore.tokenAmounts[1].amount.toNumber() + 100
+    );
+
+    assert.equal(
+      folioPendingTokenAmountsAfter.tokenAmounts[1].amount.toNumber(),
+      folioPendingTokenAmountsBefore.tokenAmounts[1].amount.toNumber() + 100
+    );
+
+    assert.equal(
+      userPendingTokenAmountsAfter.tokenAmounts[2].amount.toNumber(),
+      userPendingTokenAmountsBefore.tokenAmounts[2].amount.toNumber() + 200
+    );
+
+    assert.equal(
+      folioPendingTokenAmountsAfter.tokenAmounts[2].amount.toNumber(),
+      folioPendingTokenAmountsBefore.tokenAmounts[2].amount.toNumber() + 200
+    );
+
+    assert.equal(
+      userPendingTokenAmountsAfter.tokenAmounts[3].amount.toNumber(),
+      userPendingTokenAmountsBefore.tokenAmounts[3].amount.toNumber() + 300
+    );
+    assert.equal(
+      folioPendingTokenAmountsAfter.tokenAmounts[3].amount.toNumber(),
+      folioPendingTokenAmountsBefore.tokenAmounts[3].amount.toNumber() + 300
+    );
+  });
+
+  it("should not allow user to mint folio token, because missing 5th token", async () => {
+    const userFolioMintATA = await getOrCreateAtaAddress(
+      connection,
+      folioTokenMint.publicKey,
+      userKeypair,
+      userKeypair.publicKey
+    );
+
+    const userPendingTokenAmountsPDA = getUserPendingTokenAmountsPDA(
+      folioPDA,
+      userKeypair.publicKey,
+      true
+    );
+
+    const folioPendingTokenAmountsPDA =
+      getFolioPendingTokenAmountsPDA(folioPDA);
+
+    const userPendingTokenAmountsBefore =
+      await program.account.pendingTokenAmounts.fetch(
+        userPendingTokenAmountsPDA
+      );
+
+    const folioPendingTokenAmountsBefore =
+      await program.account.pendingTokenAmounts.fetch(
+        folioPendingTokenAmountsPDA
+      );
+
+    const userFolioTokenBalanceBefore = await getTokenBalance(
+      connection,
+      userFolioMintATA
+    );
+
+    await assertThrows(
+      () =>
+        mintFolioToken(
+          connection,
+          userKeypair,
+          folioPDA,
+          folioTokenMint.publicKey,
+          tokenMints.map((token) => ({
+            mint: token.publicKey,
+            amount: new BN(0),
+          })),
+          new BN(100)
+        ),
+      "MintMismatch",
+      "Should fail when mint mismatch"
+    );
+
+    const userPendingTokenAmountsAfter =
+      await program.account.pendingTokenAmounts.fetch(
+        userPendingTokenAmountsPDA
+      );
+
+    const userFolioTokenBalanceAfter = await getTokenBalance(
+      connection,
+      userFolioMintATA
+    );
+
+    const folioPendingTokenAmountsAfter =
+      await program.account.pendingTokenAmounts.fetch(
+        folioPendingTokenAmountsPDA
+      );
+
+    assert.equal(userFolioTokenBalanceAfter, userFolioTokenBalanceBefore);
+
+    for (
+      let i = 0;
+      i < userPendingTokenAmountsBefore.tokenAmounts.length;
+      i++
+    ) {
+      assert.equal(
+        userPendingTokenAmountsAfter.tokenAmounts[i].amount.toNumber(),
+        userPendingTokenAmountsBefore.tokenAmounts[i].amount.toNumber()
+      );
+
+      assert.equal(
+        folioPendingTokenAmountsAfter.tokenAmounts[i].amount.toNumber(),
+        folioPendingTokenAmountsBefore.tokenAmounts[i].amount.toNumber()
+      );
+    }
+  });
+
+  it("should allow user to remove pending token from token #4", async () => {
+    // Only remove 100 so we can still mint
+    const userPendingTokenAmountsPDA = getUserPendingTokenAmountsPDA(
+      folioPDA,
+      userKeypair.publicKey,
+      true
+    );
+    const folioPendingTokenAmountsPDA =
+      getFolioPendingTokenAmountsPDA(folioPDA);
+
+    const userPendingTokenAmountsBefore =
+      await program.account.pendingTokenAmounts.fetch(
+        userPendingTokenAmountsPDA
+      );
+
+    const folioPendingTokenAmountsBefore =
+      await program.account.pendingTokenAmounts.fetch(
+        folioPendingTokenAmountsPDA
+      );
+
+    await removeFromMintFolioToken(connection, userKeypair, folioPDA, [
+      { mint: tokenMints[3].publicKey, amount: new BN(100) },
+    ]);
+
+    const userPendingTokenAmountsAfter =
+      await program.account.pendingTokenAmounts.fetch(
+        userPendingTokenAmountsPDA
+      );
+
+    const folioPendingTokenAmountsAfter =
+      await program.account.pendingTokenAmounts.fetch(
+        folioPendingTokenAmountsPDA
+      );
+
+    assert.equal(
+      userPendingTokenAmountsAfter.tokenAmounts[3].amount.toNumber(),
+      userPendingTokenAmountsBefore.tokenAmounts[3].amount.toNumber() - 100
+    );
+
+    assert.equal(
+      folioPendingTokenAmountsAfter.tokenAmounts[3].amount.toNumber(),
+      folioPendingTokenAmountsBefore.tokenAmounts[3].amount.toNumber() - 100
+    );
+  });
+
+  it("should allow user to mint folio token (after adding 5th token)", async () => {
+    await initOrAddMintFolioToken(connection, userKeypair, folioPDA, [
+      { mint: tokenMints[4].publicKey, amount: new BN(100) },
+    ]);
+
+    const userFolioMintATA = await getOrCreateAtaAddress(
+      connection,
+      folioTokenMint.publicKey,
+      userKeypair,
+      userKeypair.publicKey
+    );
+
+    const userPendingTokenAmountsPDA = getUserPendingTokenAmountsPDA(
+      folioPDA,
+      userKeypair.publicKey,
+      true
+    );
+    const folioPendingTokenAmountsPDA =
+      getFolioPendingTokenAmountsPDA(folioPDA);
+
+    const userPendingTokenAmountsBefore =
+      await program.account.pendingTokenAmounts.fetch(
+        userPendingTokenAmountsPDA
+      );
+
+    const folioPendingTokenAmountsBefore =
+      await program.account.pendingTokenAmounts.fetch(
+        folioPendingTokenAmountsPDA
+      );
+
+    const userFolioTokenBalanceBefore = await getTokenBalance(
+      connection,
+      userFolioMintATA
+    );
+
+    await mintFolioToken(
+      connection,
+      userKeypair,
+      folioPDA,
+      folioTokenMint.publicKey,
+      tokenMints.map((token) => ({
+        mint: token.publicKey,
+        amount: new BN(0),
+      })),
+      new BN(100)
+    );
+
+    const userPendingTokenAmountsAfter =
+      await program.account.pendingTokenAmounts.fetch(
+        userPendingTokenAmountsPDA
+      );
+
+    const folioPendingTokenAmountsAfter =
+      await program.account.pendingTokenAmounts.fetch(
+        folioPendingTokenAmountsPDA
+      );
+
+    const userFolioTokenBalanceAfter = await getTokenBalance(
+      connection,
+      userFolioMintATA
+    );
+
+    assert.equal(userFolioTokenBalanceAfter, userFolioTokenBalanceBefore + 10);
+
+    for (let i = 0; i < tokenMints.length; i++) {
+      assert.equal(
+        userPendingTokenAmountsAfter.tokenAmounts[i].amount.toNumber(),
+        userPendingTokenAmountsBefore.tokenAmounts[i].amount.toNumber() - 100
+      );
+
+      assert.equal(
+        folioPendingTokenAmountsAfter.tokenAmounts[i].amount.toNumber(),
+        folioPendingTokenAmountsBefore.tokenAmounts[i].amount.toNumber() - 100
+      );
+    }
   });
 });

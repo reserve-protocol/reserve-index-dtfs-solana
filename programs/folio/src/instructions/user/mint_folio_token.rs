@@ -4,20 +4,19 @@ use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::{get_associated_token_address_with_program_id, AssociatedToken},
     token,
-    token_interface::{self, Mint, TokenAccount, TokenInterface, TransferChecked},
+    token_interface::{Mint, TokenAccount, TokenInterface},
 };
-use shared::errors::ErrorCode::*;
+use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 use shared::{
     check_condition,
     constants::{
-        FOLIO_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, PENDING_TOKEN_AMOUNTS_SEEDS, PRECISION_FACTOR,
+        FOLIO_SEEDS, IS_ADDING_TO_MINT_FOLIO, PENDING_TOKEN_AMOUNTS_SEEDS, PRECISION_FACTOR,
         PROGRAM_REGISTRAR_SEEDS,
     },
-    structs::TokenAmount,
 };
 use shared::{errors::ErrorCode, structs::FolioStatus};
 
-use crate::state::{Folio, FolioProgramSigner, PendingTokenAmounts, ProgramRegistrar};
+use crate::state::{Folio, PendingTokenAmounts, ProgramRegistrar};
 
 #[derive(Accounts)]
 pub struct MintFolioToken<'info> {
@@ -27,6 +26,12 @@ pub struct MintFolioToken<'info> {
 
     #[account(mut)]
     pub user: Signer<'info>,
+
+    #[account(
+        seeds = [PROGRAM_REGISTRAR_SEEDS],
+        bump = program_registrar.bump
+    )]
+    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
 
     #[account(mut)]
     pub folio: AccountLoader<'info, Folio>,
@@ -41,16 +46,31 @@ pub struct MintFolioToken<'info> {
     pub folio_pending_token_amounts: AccountLoader<'info, PendingTokenAmounts>,
 
     #[account(mut,
-        seeds = [PENDING_TOKEN_AMOUNTS_SEEDS, user.key().as_ref()],
+        seeds = [PENDING_TOKEN_AMOUNTS_SEEDS, folio.key().as_ref(), user.key().as_ref(), &[IS_ADDING_TO_MINT_FOLIO]],
         bump
     )]
     pub user_pending_token_amounts: AccountLoader<'info, PendingTokenAmounts>,
 
     #[account(mut,
-        associated_token::mint = user_folio_token_account.mint,
+        associated_token::mint = folio_token_mint,
         associated_token::authority = user,
     )]
     pub user_folio_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    /// CHECK: DTF program used for creating owner record
+    #[account()]
+    pub dtf_program: UncheckedAccount<'info>,
+
+    /// CHECK: DTF program data to validate program deployment slot
+    #[account()]
+    pub dtf_program_data: UncheckedAccount<'info>,
+
+    #[account(
+        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
+        bump,
+        seeds::program = dtf_program.key(),
+    )]
+    pub dtf_program_signer: Signer<'info>,
     /*
     The remaining accounts need to match the order of amounts as parameter
 
@@ -59,13 +79,13 @@ pub struct MintFolioToken<'info> {
      */
 }
 
-impl<'info> MintFolioToken<'info> {
+impl MintFolioToken<'_> {
     pub fn validate(&self, folio: &Folio) -> Result<()> {
         folio.validate_folio_program_post_init(
             &self.folio.key(),
-            None,
-            None,
-            None,
+            Some(&self.program_registrar),
+            Some(&self.dtf_program),
+            Some(&self.dtf_program_data),
             None,
             None,
             Some(FolioStatus::Initialized),
@@ -133,7 +153,6 @@ pub fn handler<'info>(
         let folio_token_balance = folio_token_account.amount;
 
         // Calculate if share is respected
-        // TODO extract calculation
         check_condition!(
             user_amount
                 .amount
@@ -162,7 +181,6 @@ pub fn handler<'info>(
     let token_mint_key = ctx.accounts.folio_token_mint.key();
 
     let folio_token_amount_to_mint = shares
-        //TODO validate how the initial mints occur?
         .checked_mul(PRECISION_FACTOR)
         .unwrap()
         .checked_div(max(ctx.accounts.folio_token_mint.supply, 1))

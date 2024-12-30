@@ -1,13 +1,9 @@
-use crate::pending_token_amounts;
 use crate::state::{Folio, PendingTokenAmounts, ProgramRegistrar};
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::system_program;
-use shared::constants::PENDING_TOKEN_AMOUNTS_SEEDS;
-use shared::errors::ErrorCode;
-use shared::structs::{FeeRecipient, FolioStatus, TokenAmount};
+use shared::constants::{IS_ADDING_TO_MINT_FOLIO, PENDING_TOKEN_AMOUNTS_SEEDS};
+use shared::structs::{FolioStatus, TokenAmount};
 use shared::{
-    check_condition,
-    constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS},
+    constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, PROGRAM_REGISTRAR_SEEDS},
     structs::Role,
 };
 
@@ -63,7 +59,7 @@ pub struct InitTokensForFolio<'info> {
      */
 }
 
-impl<'info> InitTokensForFolio<'info> {
+impl InitTokensForFolio<'_> {
     pub fn validate(&self) -> Result<()> {
         let folio = self.folio.load()?;
         folio.validate_folio_program_post_init(
@@ -98,6 +94,8 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, InitTokensForFolio<'inf
         &mut ctx.accounts.folio_pending_token_amounts,
         ctx.bumps.folio_pending_token_amounts,
         &ctx.accounts.folio.key(),
+        &ctx.accounts.folio.key(),
+        IS_ADDING_TO_MINT_FOLIO, // Not used
         &added_mints,
         true,
     )?;

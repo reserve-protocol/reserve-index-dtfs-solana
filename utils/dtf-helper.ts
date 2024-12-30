@@ -1,7 +1,6 @@
 import { AnchorProvider, BN, Program } from "@coral-xyz/anchor";
 import { Dtfs } from "../target/types/dtfs";
 import {
-  AccountMeta,
   Connection,
   Keypair,
   PublicKey,
@@ -23,12 +22,13 @@ import {
   getDtfSignerPDA,
   getFolioFeeRecipientsPDA,
   getFolioPendingTokenAmountsPDA,
+  getUserPendingTokenAmountsPDA,
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { buildRemainingAccounts } from "./token-helper";
+import { buildRemainingAccounts, getOrCreateAtaAddress } from "./token-helper";
 
 let dtfProgram: Program<Dtfs> = null;
 
@@ -85,7 +85,6 @@ export async function resizeFolio(
   connection: Connection,
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
-  folioTokenMint: PublicKey,
   newSize: BN
 ) {
   const dtfProgram = getDtfProgram(connection, folioOwnerKeypair);
@@ -115,7 +114,6 @@ export async function updateFolio(
   connection: Connection,
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
-  folioTokenMint: PublicKey,
   programVersion: PublicKey | null,
   programDeploymentSlot: BN | null,
   feePerSecond: BN | null,
@@ -160,7 +158,6 @@ export async function addOrUpdateActor(
   connection: Connection,
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
-  folioTokenMint: PublicKey,
   newActorAuthority: PublicKey,
   role: any = { priceCurator: {} }
 ) {
@@ -193,7 +190,6 @@ export async function removeActor(
   connection: Connection,
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
-  folioTokenMint: PublicKey,
   actorAuthority: PublicKey,
   role: any = { priceCurator: {} },
   closeActor: boolean
@@ -227,7 +223,6 @@ export async function addTokensToFolio(
   connection: Connection,
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
-  folioTokenMint: PublicKey,
   tokens: { mint: PublicKey; amount: BN }[]
 ) {
   const dtfProgram = getDtfProgram(connection, folioOwnerKeypair);
@@ -268,14 +263,17 @@ export async function finalizeFolio(
   connection: Connection,
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
-  folioTokenMint: PublicKey
+  folioTokenMint: PublicKey,
+  initialShares: BN
 ) {
   const dtfProgram = getDtfProgram(connection, folioOwnerKeypair);
 
   const finalizeFolio = await dtfProgram.methods
-    .finalizeFolio()
+    .finalizeFolio(initialShares)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       folioOwner: folioOwnerKeypair.publicKey,
       actor: getActorPDA(folioOwnerKeypair.publicKey, folio),
       dtfProgramSigner: getDtfSignerPDA(),
@@ -283,11 +281,165 @@ export async function finalizeFolio(
       dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
       folioProgram: FOLIO_PROGRAM_ID,
       folio: folio,
+      folioTokenMint,
       programRegistrar: getProgramRegistrarPDA(),
+      ownerFolioTokenAccount: await getOrCreateAtaAddress(
+        connection,
+        folioTokenMint,
+        folioOwnerKeypair,
+        folioOwnerKeypair.publicKey
+      ),
     })
     .instruction();
 
   await pSendAndConfirmTxn(dtfProgram, [finalizeFolio], [], {
     skipPreflight: SKIP_PREFLIGHT,
   });
+}
+
+export async function initOrAddMintFolioToken(
+  connection: Connection,
+  userKeypair: Keypair,
+  folio: PublicKey,
+  tokens: { mint: PublicKey; amount: BN }[]
+) {
+  const dtfProgram = getDtfProgram(connection, userKeypair);
+
+  const initOrAddMintFolioToken = await dtfProgram.methods
+    .initOrAddMintFolioToken(tokens.map((token) => token.amount))
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      rent: SYSVAR_RENT_PUBKEY,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      user: userKeypair.publicKey,
+      programRegistrar: getProgramRegistrarPDA(),
+      folio,
+      folioPendingTokenAmounts: getFolioPendingTokenAmountsPDA(folio),
+      userPendingTokenAmounts: getUserPendingTokenAmountsPDA(
+        folio,
+        userKeypair.publicKey,
+        true
+      ),
+      folioProgram: FOLIO_PROGRAM_ID,
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+    })
+    .remainingAccounts(
+      await buildRemainingAccounts(
+        connection,
+        userKeypair,
+        tokens,
+        userKeypair.publicKey,
+        folio
+      )
+    )
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [initOrAddMintFolioToken], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+}
+
+export async function removeFromMintFolioToken(
+  connection: Connection,
+  userKeypair: Keypair,
+  folio: PublicKey,
+  tokens: { mint: PublicKey; amount: BN }[]
+) {
+  const dtfProgram = getDtfProgram(connection, userKeypair);
+
+  const removeFromMintFolioToken = await dtfProgram.methods
+    .removeFromMintFolioToken(tokens.map((token) => token.amount))
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+
+      user: userKeypair.publicKey,
+      programRegistrar: getProgramRegistrarPDA(),
+      folio,
+      folioPendingTokenAmounts: getFolioPendingTokenAmountsPDA(folio),
+      userPendingTokenAmounts: getUserPendingTokenAmountsPDA(
+        folio,
+        userKeypair.publicKey,
+        true
+      ),
+      folioProgram: FOLIO_PROGRAM_ID,
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+    })
+    .remainingAccounts(
+      await buildRemainingAccounts(
+        connection,
+        userKeypair,
+        tokens,
+        folio,
+        userKeypair.publicKey
+      )
+    )
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [removeFromMintFolioToken], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+}
+
+export async function mintFolioToken(
+  connection: Connection,
+  userKeypair: Keypair,
+  folio: PublicKey,
+  folioTokenMint: PublicKey,
+  tokens: { mint: PublicKey; amount: BN }[],
+  shares: BN
+) {
+  const dtfProgram = getDtfProgram(connection, userKeypair);
+
+  const mintFolioToken = await dtfProgram.methods
+    .mintFolioToken(shares)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      user: userKeypair.publicKey,
+      programRegistrar: getProgramRegistrarPDA(),
+      folio,
+      folioTokenMint,
+      folioPendingTokenAmounts: getFolioPendingTokenAmountsPDA(folio),
+      userPendingTokenAmounts: getUserPendingTokenAmountsPDA(
+        folio,
+        userKeypair.publicKey,
+        true
+      ),
+      userFolioTokenAccount: await getOrCreateAtaAddress(
+        connection,
+        folioTokenMint,
+        userKeypair,
+        userKeypair.publicKey
+      ),
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      folioProgram: FOLIO_PROGRAM_ID,
+    })
+    .remainingAccounts(
+      await buildRemainingAccounts(
+        connection,
+        userKeypair,
+        tokens,
+        folio,
+        null,
+        false
+      )
+    )
+    .instruction();
+
+  await pSendAndConfirmTxn(
+    dtfProgram,
+    [...getComputeLimitInstruction(1_200_000), mintFolioToken],
+    [],
+    {
+      skipPreflight: SKIP_PREFLIGHT,
+    },
+    true
+  );
 }

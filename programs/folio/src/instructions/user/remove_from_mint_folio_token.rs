@@ -1,20 +1,19 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::get_associated_token_address_with_program_id,
-    token_interface::{self, Mint, TokenAccount, TokenInterface, TransferChecked},
+    token_interface::{self, Mint, TokenInterface, TransferChecked},
 };
-use shared::errors::ErrorCode::*;
 use shared::{
     check_condition,
     constants::{
-        FOLIO_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS, PENDING_TOKEN_AMOUNTS_SEEDS,
-        PROGRAM_REGISTRAR_SEEDS,
+        FOLIO_SEEDS, IS_ADDING_TO_MINT_FOLIO, PENDING_TOKEN_AMOUNTS_SEEDS, PROGRAM_REGISTRAR_SEEDS,
     },
     structs::TokenAmount,
 };
+use shared::{constants::DTF_PROGRAM_SIGNER_SEEDS, errors::ErrorCode::*};
 use shared::{errors::ErrorCode, structs::FolioStatus};
 
-use crate::state::{Folio, FolioProgramSigner, PendingTokenAmounts, ProgramRegistrar};
+use crate::state::{Folio, PendingTokenAmounts, ProgramRegistrar};
 
 #[derive(Accounts)]
 pub struct RemoveFromMintFolioToken<'info> {
@@ -23,6 +22,12 @@ pub struct RemoveFromMintFolioToken<'info> {
 
     #[account(mut)]
     pub user: Signer<'info>,
+
+    #[account(
+        seeds = [PROGRAM_REGISTRAR_SEEDS],
+        bump = program_registrar.bump
+    )]
+    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
 
     #[account(mut)]
     pub folio: AccountLoader<'info, Folio>,
@@ -34,10 +39,25 @@ pub struct RemoveFromMintFolioToken<'info> {
     pub folio_pending_token_amounts: AccountLoader<'info, PendingTokenAmounts>,
 
     #[account(mut,
-        seeds = [PENDING_TOKEN_AMOUNTS_SEEDS, user.key().as_ref()],
+        seeds = [PENDING_TOKEN_AMOUNTS_SEEDS, folio.key().as_ref(), user.key().as_ref(), &[IS_ADDING_TO_MINT_FOLIO]],
         bump
     )]
     pub user_pending_token_amounts: AccountLoader<'info, PendingTokenAmounts>,
+
+    /// CHECK: DTF program used for creating owner record
+    #[account()]
+    pub dtf_program: UncheckedAccount<'info>,
+
+    /// CHECK: DTF program data to validate program deployment slot
+    #[account()]
+    pub dtf_program_data: UncheckedAccount<'info>,
+
+    #[account(
+        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
+        bump,
+        seeds::program = dtf_program.key(),
+    )]
+    pub dtf_program_signer: Signer<'info>,
     /*
     The remaining accounts need to match the order of amounts as parameter
 
@@ -48,13 +68,13 @@ pub struct RemoveFromMintFolioToken<'info> {
      */
 }
 
-impl<'info> RemoveFromMintFolioToken<'info> {
+impl RemoveFromMintFolioToken<'_> {
     pub fn validate(&self, folio: &Folio) -> Result<()> {
         folio.validate_folio_program_post_init(
             &self.folio.key(),
-            None,
-            None,
-            None,
+            Some(&self.program_registrar),
+            Some(&self.dtf_program),
+            Some(&self.dtf_program_data),
             None,
             None,
             Some(FolioStatus::Initialized),
@@ -131,22 +151,16 @@ pub fn handler<'info>(
         let folio_mint_key = folio.folio_token_mint;
         let signer_seeds = &[FOLIO_SEEDS, folio_mint_key.as_ref(), &[folio.bump]];
 
-        match token_interface::transfer_checked(
+        token_interface::transfer_checked(
             CpiContext::new_with_signer(cpi_program, cpi_accounts, &[signer_seeds]),
             amount,
             mint.decimals,
-        ) {
-            Ok(_) => {
-                removed_mints.push(TokenAmount {
-                    mint: token_mint.key(),
-                    amount,
-                });
-            }
-            Err(e) => {
-                // TODO check error type to not rever
-                msg!("Error transferring token: {:?}", e);
-            }
-        }
+        )?;
+
+        removed_mints.push(TokenAmount {
+            mint: token_mint.key(),
+            amount,
+        });
     }
 
     /*

@@ -1,10 +1,4 @@
-import * as anchor from "@coral-xyz/anchor";
-import {
-  Keypair,
-  SystemProgram,
-  Transaction,
-  TransactionInstruction,
-} from "@solana/web3.js";
+import { Keypair, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { getConnectors } from "../utils/program-helper";
 
 async function testIx() {

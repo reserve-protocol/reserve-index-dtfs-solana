@@ -1,4 +1,3 @@
-import { Program } from "@coral-xyz/anchor";
 import {
   Connection,
   Keypair,
@@ -6,7 +5,6 @@ import {
   PublicKey,
   SystemProgram,
 } from "@solana/web3.js";
-import { Dtfs } from "../target/types/dtfs";
 import { airdrop, getConnectors } from "../utils/program-helper";
 import {
   createSquad,
@@ -27,7 +25,6 @@ import * as assert from "assert";
 
 describe("Multisig Tests", () => {
   let connection: Connection;
-  let program: Program<Dtfs>;
   let keys: any;
 
   let payerKeypair: Keypair;
@@ -43,7 +40,7 @@ describe("Multisig Tests", () => {
   let multisigVault: PublicKey;
 
   before(async () => {
-    ({ connection, programDtf: program, keys } = await getConnectors());
+    ({ connection, keys } = await getConnectors());
 
     payerKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.payer));
     adminKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.admin));

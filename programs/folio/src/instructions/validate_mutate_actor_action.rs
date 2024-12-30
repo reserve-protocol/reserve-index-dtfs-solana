@@ -1,24 +1,11 @@
-use crate::{
-    events::FolioCreated,
-    state::{Folio, FolioProgramSigner},
-    DtfProgram,
-};
+use crate::state::Folio;
 use anchor_lang::prelude::*;
-use anchor_spl::{
-    associated_token::AssociatedToken,
-    token_interface::{Mint, TokenAccount},
-};
 use shared::{
-    check_condition,
-    constants::{
-        ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, FOLIO_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS,
-        MAX_FEE_RECIPIENTS, MAX_PLATFORM_FEE, PRECISION_FACTOR, PROGRAM_REGISTRAR_SEEDS,
-    },
-    structs::{FeeRecipient, Role},
+    constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, PROGRAM_REGISTRAR_SEEDS},
+    structs::Role,
 };
 
 use crate::state::ProgramRegistrar;
-use shared::errors::ErrorCode;
 
 #[derive(Accounts)]
 pub struct ValidateMutateActorAction<'info> {
@@ -58,7 +45,7 @@ pub struct ValidateMutateActorAction<'info> {
     pub dtf_program_data: UncheckedAccount<'info>,
 }
 
-impl<'info> ValidateMutateActorAction<'info> {
+impl ValidateMutateActorAction<'_> {
     pub fn validate(&self) -> Result<()> {
         let folio = &self.folio.load()?;
 

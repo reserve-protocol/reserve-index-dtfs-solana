@@ -2,6 +2,7 @@
 mod tests {
     use anchor_lang::prelude::Pubkey;
     use folio::state::PendingTokenAmounts;
+    use shared::constants::PendingTokenAmountsType;
     use shared::errors::ErrorCode;
     use shared::structs::TokenAmount;
 
@@ -10,10 +11,15 @@ mod tests {
         let mut pending = PendingTokenAmounts::default();
         let token = TokenAmount {
             mint: Pubkey::new_unique(),
-            amount: 100,
+            amount_for_minting: 100,
+            amount_for_redeeming: 0,
         };
 
-        let result = pending.add_token_amounts_to_folio(&vec![token], true);
+        let result = pending.add_token_amounts_to_folio(
+            &vec![token],
+            true,
+            PendingTokenAmountsType::MintProcess,
+        );
 
         assert!(result.is_ok());
         assert_eq!(pending.token_amounts[0], token);
@@ -25,19 +31,25 @@ mod tests {
         let mut pending = PendingTokenAmounts::default();
         let token = TokenAmount {
             mint: Pubkey::new_unique(),
-            amount: 100,
+            amount_for_minting: 100,
+            amount_for_redeeming: 0,
         };
         pending.token_amounts[0] = token;
 
         let add_amount = TokenAmount {
             mint: token.mint,
-            amount: 50,
+            amount_for_minting: 50,
+            amount_for_redeeming: 0,
         };
 
-        let result = pending.add_token_amounts_to_folio(&vec![add_amount], true);
+        let result = pending.add_token_amounts_to_folio(
+            &vec![add_amount],
+            true,
+            PendingTokenAmountsType::MintProcess,
+        );
 
         assert!(result.is_ok());
-        assert_eq!(pending.token_amounts[0].amount, 150);
+        assert_eq!(pending.token_amounts[0].amount_for_minting, 150);
     }
 
     #[test]
@@ -46,11 +58,13 @@ mod tests {
         let tokens: Vec<TokenAmount> = (0..65)
             .map(|_| TokenAmount {
                 mint: Pubkey::new_unique(),
-                amount: 100,
+                amount_for_minting: 100,
+                amount_for_redeeming: 0,
             })
             .collect();
 
-        let result = pending.add_token_amounts_to_folio(&tokens, true);
+        let result =
+            pending.add_token_amounts_to_folio(&tokens, true, PendingTokenAmountsType::MintProcess);
 
         assert!(result.is_err());
         assert_eq!(
@@ -64,19 +78,25 @@ mod tests {
         let mut pending = PendingTokenAmounts::default();
         let token = TokenAmount {
             mint: Pubkey::new_unique(),
-            amount: 100,
+            amount_for_minting: 100,
+            amount_for_redeeming: 0,
         };
         pending.token_amounts[0] = token;
 
         let remove_amount = TokenAmount {
             mint: token.mint,
-            amount: 50,
+            amount_for_minting: 50,
+            amount_for_redeeming: 0,
         };
 
-        let result = pending.remove_token_amounts_to_folio(&vec![remove_amount], true);
+        let result = pending.remove_token_amounts_from_folio(
+            &vec![remove_amount],
+            true,
+            PendingTokenAmountsType::MintProcess,
+        );
 
         assert!(result.is_ok());
-        assert_eq!(pending.token_amounts[0].amount, 50);
+        assert_eq!(pending.token_amounts[0].amount_for_minting, 50);
     }
 
     #[test]
@@ -84,16 +104,22 @@ mod tests {
         let mut pending = PendingTokenAmounts::default();
         let token = TokenAmount {
             mint: Pubkey::new_unique(),
-            amount: 50,
+            amount_for_minting: 50,
+            amount_for_redeeming: 0,
         };
         pending.token_amounts[0] = token;
 
         let remove_amount = TokenAmount {
             mint: token.mint,
-            amount: 100,
+            amount_for_minting: 100,
+            amount_for_redeeming: 0,
         };
 
-        let result = pending.remove_token_amounts_to_folio(&vec![remove_amount], true);
+        let result = pending.remove_token_amounts_from_folio(
+            &vec![remove_amount],
+            true,
+            PendingTokenAmountsType::MintProcess,
+        );
 
         assert!(result.is_err());
         assert_eq!(
@@ -107,10 +133,15 @@ mod tests {
         let mut pending = PendingTokenAmounts::default();
         let remove_amount = TokenAmount {
             mint: Pubkey::new_unique(),
-            amount: 100,
+            amount_for_minting: 100,
+            amount_for_redeeming: 0,
         };
 
-        let result = pending.remove_token_amounts_to_folio(&vec![remove_amount], true);
+        let result = pending.remove_token_amounts_from_folio(
+            &vec![remove_amount],
+            true,
+            PendingTokenAmountsType::MintProcess,
+        );
 
         assert!(result.is_err());
         assert_eq!(
@@ -124,10 +155,15 @@ mod tests {
         let mut pending = PendingTokenAmounts::default();
         let remove_amount = TokenAmount {
             mint: Pubkey::new_unique(),
-            amount: 100,
+            amount_for_minting: 100,
+            amount_for_redeeming: 0,
         };
 
-        let result = pending.remove_token_amounts_to_folio(&vec![remove_amount], false);
+        let result = pending.remove_token_amounts_from_folio(
+            &vec![remove_amount],
+            false,
+            PendingTokenAmountsType::MintProcess,
+        );
 
         assert!(result.is_ok());
     }
@@ -137,11 +173,13 @@ mod tests {
         let mut pending = PendingTokenAmounts::default();
         let token1 = TokenAmount {
             mint: Pubkey::new_unique(),
-            amount: 100,
+            amount_for_minting: 100,
+            amount_for_redeeming: 0,
         };
         let token2 = TokenAmount {
             mint: Pubkey::new_unique(),
-            amount: 200,
+            amount_for_minting: 200,
+            amount_for_redeeming: 0,
         };
         pending.token_amounts[0] = token1;
         pending.token_amounts[1] = token2;
@@ -159,10 +197,15 @@ mod tests {
         let mut pending = PendingTokenAmounts::default();
         let token = TokenAmount {
             mint: Pubkey::new_unique(),
-            amount: 100,
+            amount_for_minting: 100,
+            amount_for_redeeming: 0,
         };
 
-        let result = pending.add_token_amounts_to_folio(&vec![token], false);
+        let result = pending.add_token_amounts_to_folio(
+            &vec![token],
+            false,
+            PendingTokenAmountsType::MintProcess,
+        );
 
         assert!(result.is_err());
         assert_eq!(

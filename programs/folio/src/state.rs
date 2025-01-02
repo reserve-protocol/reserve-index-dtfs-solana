@@ -125,17 +125,15 @@ or burning and needs to do it in multiple steps.
 It's also used to tracked the "frozen" token amounts in the folio, like when a user is minting, so that
 those tokens aren't taken into account. It also will represent which tokens are in the folio (authorized tokens).
 */
+
 /// PDA Seeds ["pending_token_amounts", folio] for the folio's pending token amounts
-/// PDA Seeds ["pending_token_amounts", folio, wallet, is_adding] for the wallet's pending token amounts
+/// PDA Seeds ["pending_token_amounts", folio, wallet] for the wallet's pending token amounts
 #[account(zero_copy)]
 #[derive(InitSpace)]
 pub struct PendingTokenAmounts {
     pub bump: u8,
 
-    /// 1 if the user is adding tokens, 0 if the user is removing tokens
-    pub is_adding: u8,
-
-    pub _padding: [u8; 6],
+    pub _padding: [u8; 7],
 
     /// User's wallet pubkey or folio pubkey
     pub owner: Pubkey,
@@ -155,8 +153,7 @@ impl Default for PendingTokenAmounts {
     fn default() -> Self {
         Self {
             bump: 0,
-            is_adding: 0,
-            _padding: [0; 6],
+            _padding: [0; 7],
             owner: Pubkey::default(),
             folio: Pubkey::default(),
             token_amounts: [TokenAmount::default(); MAX_TOKEN_AMOUNTS],

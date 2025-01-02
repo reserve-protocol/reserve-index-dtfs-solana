@@ -4,11 +4,13 @@ use shared::structs::FeeRecipient;
 use shared::structs::Role;
 
 use crate::AddTokensToFolio;
+use crate::BurnFolioToken;
 use crate::ClosePendingTokenAmounts;
 use crate::FinalizeFolio;
 use crate::InitOrAddMintFolioToken;
 use crate::InitOrUpdateActor;
 use crate::MintFolioToken;
+use crate::RedeemFromBurnFolioToken;
 use crate::RemoveActor;
 use crate::RemoveFromMintFolioToken;
 use crate::ResizeFolio;
@@ -311,7 +313,6 @@ impl FolioProgram {
 
     pub fn close_pending_token_amounts<'info>(
         ctx: Context<'_, '_, 'info, 'info, ClosePendingTokenAmounts<'info>>,
-        is_adding_to_mint_folio: u8,
     ) -> Result<()> {
         let cpi_program = ctx.accounts.folio_program.to_account_info();
 
@@ -336,7 +337,7 @@ impl FolioProgram {
 
         let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
 
-        folio::cpi::close_pending_token_amount(cpi_ctx, is_adding_to_mint_folio)?;
+        folio::cpi::close_pending_token_amount(cpi_ctx)?;
 
         Ok(())
     }
@@ -377,6 +378,84 @@ impl FolioProgram {
         let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
 
         folio::cpi::mint_folio_token(cpi_ctx, shares)?;
+
+        Ok(())
+    }
+
+    pub fn burn_folio_token<'info>(
+        ctx: Context<'_, '_, 'info, 'info, BurnFolioToken<'info>>,
+        amount_to_burn: u64,
+    ) -> Result<()> {
+        let cpi_program = ctx.accounts.folio_program.to_account_info();
+
+        let cpi_accounts = folio::cpi::accounts::BurnFolioToken {
+            system_program: ctx.accounts.system_program.to_account_info(),
+            token_program: ctx.accounts.token_program.to_account_info(),
+            associated_token_program: ctx.accounts.associated_token_program.to_account_info(),
+            user: ctx.accounts.user.to_account_info(),
+            program_registrar: ctx.accounts.program_registrar.to_account_info(),
+            dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
+            folio: ctx.accounts.folio.to_account_info(),
+            folio_pending_token_amounts: ctx.accounts.folio_pending_token_amounts.to_account_info(),
+            user_pending_token_amounts: ctx.accounts.user_pending_token_amounts.to_account_info(),
+            folio_token_mint: ctx.accounts.folio_token_mint.to_account_info(),
+            user_folio_token_account: ctx.accounts.user_folio_token_account.to_account_info(),
+            dtf_program: ctx.accounts.dtf_program.to_account_info(),
+            dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
+        };
+
+        let remaining_accounts = ctx.remaining_accounts.to_vec();
+
+        let cpi_ctx =
+            CpiContext::new(cpi_program, cpi_accounts).with_remaining_accounts(remaining_accounts);
+
+        let seeds = &[
+            DTF_PROGRAM_SIGNER_SEEDS,
+            &[ctx.accounts.dtf_program_signer.bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
+
+        let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
+
+        folio::cpi::burn_folio_token(cpi_ctx, amount_to_burn)?;
+
+        Ok(())
+    }
+
+    pub fn redeem_from_burn_folio_token<'info>(
+        ctx: Context<'_, '_, 'info, 'info, RedeemFromBurnFolioToken<'info>>,
+        amounts: Vec<u64>,
+    ) -> Result<()> {
+        let cpi_program = ctx.accounts.folio_program.to_account_info();
+
+        let cpi_accounts = folio::cpi::accounts::RedeemFromBurnFolioToken {
+            system_program: ctx.accounts.system_program.to_account_info(),
+            rent: ctx.accounts.rent.to_account_info(),
+            token_program: ctx.accounts.token_program.to_account_info(),
+            user: ctx.accounts.user.to_account_info(),
+            program_registrar: ctx.accounts.program_registrar.to_account_info(),
+            dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
+            folio: ctx.accounts.folio.to_account_info(),
+            folio_pending_token_amounts: ctx.accounts.folio_pending_token_amounts.to_account_info(),
+            user_pending_token_amounts: ctx.accounts.user_pending_token_amounts.to_account_info(),
+            dtf_program: ctx.accounts.dtf_program.to_account_info(),
+            dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
+        };
+
+        let remaining_accounts = ctx.remaining_accounts.to_vec();
+
+        let cpi_ctx =
+            CpiContext::new(cpi_program, cpi_accounts).with_remaining_accounts(remaining_accounts);
+
+        let seeds = &[
+            DTF_PROGRAM_SIGNER_SEEDS,
+            &[ctx.accounts.dtf_program_signer.bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
+
+        let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
+
+        folio::cpi::redeem_from_burn_folio_token(cpi_ctx, amounts)?;
 
         Ok(())
     }

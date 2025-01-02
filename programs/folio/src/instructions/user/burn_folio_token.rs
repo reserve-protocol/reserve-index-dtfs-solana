@@ -9,16 +9,14 @@ use anchor_spl::{
 use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 use shared::{
     check_condition,
-    constants::{
-        FOLIO_SEEDS, PENDING_TOKEN_AMOUNTS_SEEDS, PRECISION_FACTOR, PROGRAM_REGISTRAR_SEEDS,
-    },
+    constants::{PENDING_TOKEN_AMOUNTS_SEEDS, PRECISION_FACTOR, PROGRAM_REGISTRAR_SEEDS},
 };
 use shared::{errors::ErrorCode, structs::FolioStatus};
 
 use crate::state::{Folio, PendingTokenAmounts, ProgramRegistrar};
 
 #[derive(Accounts)]
-pub struct MintFolioToken<'info> {
+pub struct BurnFolioToken<'info> {
     pub system_program: Program<'info, System>,
     pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
@@ -78,7 +76,7 @@ pub struct MintFolioToken<'info> {
      */
 }
 
-impl MintFolioToken<'_> {
+impl BurnFolioToken<'_> {
     pub fn validate(&self, folio: &Folio) -> Result<()> {
         folio.validate_folio_program_post_init(
             &self.folio.key(),
@@ -99,17 +97,10 @@ impl MintFolioToken<'_> {
     }
 }
 
-/*
-Shares is how much share the user wants, all the pending token amounts need to be AT LEAST valid for the amount of shares the user wants
-
-Shares follows the precision PRECISION_FACTOR
-*/
 pub fn handler<'info>(
-    ctx: Context<'_, '_, 'info, 'info, MintFolioToken<'info>>,
-    shares: u64,
+    ctx: Context<'_, '_, 'info, 'info, BurnFolioToken<'info>>,
+    amount_to_burn: u64,
 ) -> Result<()> {
-    //TODO calculate fee
-
     let folio = ctx.accounts.folio.load()?;
 
     ctx.accounts.validate(&folio)?;
@@ -126,10 +117,17 @@ pub fn handler<'info>(
 
     token_amounts_user.reorder_token_amounts(&folio_pending_token_amounts.token_amounts)?;
 
+    // Calculate share of the folio the user "owns"
+    let shares = (amount_to_burn as u128)
+        .checked_mul(PRECISION_FACTOR as u128)
+        .unwrap()
+        .checked_div(max(ctx.accounts.folio_token_mint.supply, 1) as u128)
+        .unwrap() as u64;
+
     for (index, folio_token_account) in remaining_accounts.iter().enumerate() {
         let related_mint = &mut folio_pending_token_amounts.token_amounts[index];
 
-        // Validate the receiver token account is the ATA of the folio
+        // Validate the provided token account is the ATA of the folio (to calculate balances)
         check_condition!(
             folio_token_account.key()
                 == get_associated_token_address_with_program_id(
@@ -140,7 +138,7 @@ pub fn handler<'info>(
             InvalidReceiverTokenAccount
         );
 
-        // Get user amount (validate mint)
+        // Calculate how much the user gets
         let user_amount = &mut token_amounts_user.token_amounts[index];
 
         check_condition!(user_amount.mint == related_mint.mint, MintMismatch);
@@ -152,55 +150,34 @@ pub fn handler<'info>(
         let folio_token_balance =
             PendingTokenAmounts::get_clean_token_balance(folio_token_account.amount, related_mint);
 
-        // Calculate if share is respected
-        check_condition!(
-            (user_amount.amount_for_minting as u128)
-                .checked_mul(PRECISION_FACTOR as u128)
-                .unwrap()
-                .checked_div(folio_token_balance as u128)
-                .unwrap() as u64
-                >= shares,
-            InvalidShareAmountProvided
-        );
-
-        let user_amount_taken = (user_amount.amount_for_minting as u128)
+        let amount_to_give_to_user = (folio_token_balance as u128)
             .checked_mul(shares as u128)
             .unwrap()
             .checked_div(PRECISION_FACTOR as u128)
             .unwrap() as u64;
-        // Remove from both pending amounts
-        user_amount.amount_for_minting = user_amount
-            .amount_for_minting
-            .checked_sub(user_amount_taken)
+
+        // Add to both pending amounts for redeeming
+        user_amount.amount_for_redeeming = user_amount
+            .amount_for_redeeming
+            .checked_add(amount_to_give_to_user)
             .unwrap();
-        related_mint.amount_for_minting = related_mint
-            .amount_for_minting
-            .checked_sub(user_amount_taken)
+        related_mint.amount_for_redeeming = related_mint
+            .amount_for_redeeming
+            .checked_add(amount_to_give_to_user)
             .unwrap();
     }
 
-    // Mint folio token to user based on shares
-    let token_mint_key = ctx.accounts.folio_token_mint.key();
-
-    let folio_token_amount_to_mint = (shares as u128)
-        .checked_mul(max(ctx.accounts.folio_token_mint.supply, 1) as u128)
-        .unwrap()
-        .checked_div(PRECISION_FACTOR as u128)
-        .unwrap() as u64;
-
-    let signer_seeds = &[FOLIO_SEEDS, token_mint_key.as_ref(), &[folio.bump]];
-
-    token::mint_to(
-        CpiContext::new_with_signer(
+    // Burn folio token from user's folio token account
+    token::burn(
+        CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
-            token::MintTo {
+            token::Burn {
                 mint: ctx.accounts.folio_token_mint.to_account_info(),
-                to: ctx.accounts.user_folio_token_account.to_account_info(),
-                authority: ctx.accounts.folio.to_account_info(),
+                from: ctx.accounts.user_folio_token_account.to_account_info(),
+                authority: ctx.accounts.user.to_account_info(),
             },
-            &[signer_seeds],
         ),
-        folio_token_amount_to_mint,
+        amount_to_burn,
     )?;
 
     Ok(())

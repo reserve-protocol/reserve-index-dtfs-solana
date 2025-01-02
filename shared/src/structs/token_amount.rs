@@ -16,5 +16,6 @@ use bytemuck::{Pod, Zeroable};
 #[repr(C)]
 pub struct TokenAmount {
     pub mint: Pubkey,
-    pub amount: u64,
+    pub amount_for_minting: u64,
+    pub amount_for_redeeming: u64,
 }

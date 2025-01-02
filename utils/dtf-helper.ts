@@ -232,11 +232,10 @@ export async function addTokensToFolio(
   const dtfProgram = getDtfProgram(connection, folioOwnerKeypair);
 
   const addTokensToFolio = await dtfProgram.methods
-    .addTokensToFolio()
+    .addTokensToFolio(tokens.map((token) => token.amount))
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
-      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       folioOwner: folioOwnerKeypair.publicKey,
       actor: getActorPDA(folioOwnerKeypair.publicKey, folio),
       dtfProgramSigner: getDtfSignerPDA(),
@@ -252,8 +251,8 @@ export async function addTokensToFolio(
         connection,
         folioOwnerKeypair,
         tokens,
-        null,
-        null
+        folioOwnerKeypair.publicKey,
+        folio
       )
     )
     .instruction();
@@ -399,7 +398,6 @@ export async function mintFolioToken(
   shares: BN
 ) {
   const dtfProgram = getDtfProgram(connection, userKeypair);
-
   const mintFolioToken = await dtfProgram.methods
     .mintFolioToken(shares)
     .accountsPartial({

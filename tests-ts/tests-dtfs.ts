@@ -36,6 +36,7 @@ import {
 } from "../utils/dtf-helper";
 import {
   DEFAULT_DECIMALS_MUL,
+  DEFAULT_PRECISION,
   getOrCreateAtaAddress,
   getTokenBalance,
   initToken,
@@ -62,11 +63,11 @@ describe("DTFs Tests", () => {
   Tokens that can be included in the folio
   */
   let tokenMints = [
-    Keypair.generate(),
-    Keypair.generate(),
-    Keypair.generate(),
-    Keypair.generate(),
-    Keypair.generate(),
+    { mint: Keypair.generate(), decimals: 9 },
+    { mint: Keypair.generate(), decimals: 9 },
+    { mint: Keypair.generate(), decimals: 5 },
+    { mint: Keypair.generate(), decimals: 9 },
+    { mint: Keypair.generate(), decimals: 9 },
   ];
 
   before(async () => {
@@ -100,11 +101,16 @@ describe("DTFs Tests", () => {
 
     // Create the tokens that can be included in the folio
     for (const tokenMint of tokenMints) {
-      await initToken(connection, adminKeypair, tokenMint);
+      await initToken(
+        connection,
+        adminKeypair,
+        tokenMint.mint,
+        tokenMint.decimals // to test different decimals
+      );
       await mintToken(
         connection,
         adminKeypair,
-        tokenMint.publicKey,
+        tokenMint.mint.publicKey,
         1_000,
         folioOwnerKeypair.publicKey
       );
@@ -112,7 +118,7 @@ describe("DTFs Tests", () => {
       await mintToken(
         connection,
         adminKeypair,
-        tokenMint.publicKey,
+        tokenMint.mint.publicKey,
         1_000,
         userKeypair.publicKey
       );
@@ -420,7 +426,7 @@ describe("DTFs Tests", () => {
   it("should add a token to the folio", async () => {
     const folioATA = await getOrCreateAtaAddress(
       connection,
-      tokenMints[0].publicKey,
+      tokenMints[0].mint.publicKey,
       folioOwnerKeypair,
       folioPDA
     );
@@ -433,8 +439,8 @@ describe("DTFs Tests", () => {
 
     await addTokensToFolio(connection, folioOwnerKeypair, folioPDA, [
       {
-        mint: tokenMints[0].publicKey,
-        amount: new BN(50 * DEFAULT_DECIMALS_MUL),
+        mint: tokenMints[0].mint.publicKey,
+        amount: new BN(100 * 10 ** tokenMints[0].decimals),
       },
     ]);
 
@@ -444,19 +450,25 @@ describe("DTFs Tests", () => {
       false
     );
 
-    assert.equal(folioBalanceAfter, folioBalanceBefore);
+    assert.equal(folioBalanceAfter, folioBalanceBefore + 100);
   });
 
-  it("should add another two tokens to the folio", async () => {
+  it("should add another 4 tokens to the folio", async () => {
+    let tokenAmountsToAdd = tokenMints.slice(1).map((token) => ({
+      mint: token.mint.publicKey,
+      amount: new BN(100 * 10 ** token.decimals),
+    }));
+
+    // TODO check all balances in next pr
     const folioATA1 = await getOrCreateAtaAddress(
       connection,
-      tokenMints[1].publicKey,
+      tokenMints[1].mint.publicKey,
       folioOwnerKeypair,
       folioPDA
     );
     const folioATA2 = await getOrCreateAtaAddress(
       connection,
-      tokenMints[2].publicKey,
+      tokenMints[2].mint.publicKey,
       folioOwnerKeypair,
       folioPDA
     );
@@ -476,10 +488,7 @@ describe("DTFs Tests", () => {
       connection,
       folioOwnerKeypair,
       folioPDA,
-      tokenMints.map((token) => ({
-        mint: token.publicKey,
-        amount: new BN(0),
-      }))
+      tokenAmountsToAdd
     );
 
     const folioBalanceAfter1 = await getTokenBalance(
@@ -493,8 +502,8 @@ describe("DTFs Tests", () => {
       false
     );
 
-    assert.equal(folioBalanceAfter1, folioBalanceBefore1);
-    assert.equal(folioBalanceAfter2, folioBalanceBefore2);
+    assert.equal(folioBalanceAfter1, folioBalanceBefore1 + 100);
+    assert.equal(folioBalanceAfter2, folioBalanceBefore2 + 100);
   });
 
   it("should finalize the folio", async () => {
@@ -515,7 +524,7 @@ describe("DTFs Tests", () => {
       folioOwnerKeypair,
       folioPDA,
       folioTokenMint.publicKey,
-      new BN(10)
+      new BN(10 * DEFAULT_DECIMALS_MUL) //10 shares, mint decimals for folio token is 9
     );
 
     const folioAfter = await program.account.folio.fetch(folioPDA);
@@ -528,13 +537,16 @@ describe("DTFs Tests", () => {
     assert.equal(folioAfter.status, 1);
     assert.equal(
       ownerFolioTokenBalanceAfter,
-      ownerFolioTokenBalanceBefore + 10 / DEFAULT_DECIMALS_MUL
+      ownerFolioTokenBalanceBefore + 10
     );
   });
 
   it("should allow user to init mint folio tokens", async () => {
     await initOrAddMintFolioToken(connection, userKeypair, folioPDA, [
-      { mint: tokenMints[0].publicKey, amount: new BN(100) },
+      {
+        mint: tokenMints[0].mint.publicKey,
+        amount: new BN(100 * 10 ** tokenMints[0].decimals),
+      },
     ]);
 
     const userPendingTokenAmountsPDA = getUserPendingTokenAmountsPDA(
@@ -558,12 +570,12 @@ describe("DTFs Tests", () => {
 
     assert.equal(
       userPendingTokenAmounts.tokenAmounts[0].amount.toNumber(),
-      100
+      100 * 10 ** tokenMints[0].decimals
     );
 
     assert.equal(
       folioPendingTokenAmounts.tokenAmounts[0].amount.toNumber(),
-      100
+      100 * 10 ** tokenMints[0].decimals
     );
   });
 
@@ -587,9 +599,18 @@ describe("DTFs Tests", () => {
       );
 
     await initOrAddMintFolioToken(connection, userKeypair, folioPDA, [
-      { mint: tokenMints[1].publicKey, amount: new BN(100) },
-      { mint: tokenMints[2].publicKey, amount: new BN(200) },
-      { mint: tokenMints[3].publicKey, amount: new BN(300) },
+      {
+        mint: tokenMints[1].mint.publicKey,
+        amount: new BN(100 * 10 ** tokenMints[1].decimals),
+      },
+      {
+        mint: tokenMints[2].mint.publicKey,
+        amount: new BN(200 * 10 ** tokenMints[2].decimals),
+      },
+      {
+        mint: tokenMints[3].mint.publicKey,
+        amount: new BN(300 * 10 ** tokenMints[3].decimals),
+      },
     ]);
 
     const userPendingTokenAmountsAfter =
@@ -614,31 +635,37 @@ describe("DTFs Tests", () => {
 
     assert.equal(
       userPendingTokenAmountsAfter.tokenAmounts[1].amount.toNumber(),
-      userPendingTokenAmountsBefore.tokenAmounts[1].amount.toNumber() + 100
+      userPendingTokenAmountsBefore.tokenAmounts[1].amount.toNumber() +
+        100 * 10 ** tokenMints[1].decimals
     );
 
     assert.equal(
       folioPendingTokenAmountsAfter.tokenAmounts[1].amount.toNumber(),
-      folioPendingTokenAmountsBefore.tokenAmounts[1].amount.toNumber() + 100
+      folioPendingTokenAmountsBefore.tokenAmounts[1].amount.toNumber() +
+        100 * 10 ** tokenMints[1].decimals
     );
 
     assert.equal(
       userPendingTokenAmountsAfter.tokenAmounts[2].amount.toNumber(),
-      userPendingTokenAmountsBefore.tokenAmounts[2].amount.toNumber() + 200
+      userPendingTokenAmountsBefore.tokenAmounts[2].amount.toNumber() +
+        200 * 10 ** tokenMints[2].decimals
     );
 
     assert.equal(
       folioPendingTokenAmountsAfter.tokenAmounts[2].amount.toNumber(),
-      folioPendingTokenAmountsBefore.tokenAmounts[2].amount.toNumber() + 200
+      folioPendingTokenAmountsBefore.tokenAmounts[2].amount.toNumber() +
+        200 * 10 ** tokenMints[2].decimals
     );
 
     assert.equal(
       userPendingTokenAmountsAfter.tokenAmounts[3].amount.toNumber(),
-      userPendingTokenAmountsBefore.tokenAmounts[3].amount.toNumber() + 300
+      userPendingTokenAmountsBefore.tokenAmounts[3].amount.toNumber() +
+        300 * 10 ** tokenMints[3].decimals
     );
     assert.equal(
       folioPendingTokenAmountsAfter.tokenAmounts[3].amount.toNumber(),
-      folioPendingTokenAmountsBefore.tokenAmounts[3].amount.toNumber() + 300
+      folioPendingTokenAmountsBefore.tokenAmounts[3].amount.toNumber() +
+        300 * 10 ** tokenMints[3].decimals
     );
   });
 
@@ -682,10 +709,10 @@ describe("DTFs Tests", () => {
           folioPDA,
           folioTokenMint.publicKey,
           tokenMints.map((token) => ({
-            mint: token.publicKey,
+            mint: token.mint.publicKey,
             amount: new BN(0),
           })),
-          new BN(100)
+          new BN(0.1).mul(DEFAULT_PRECISION)
         ),
       "MintMismatch",
       "Should fail when mint mismatch"
@@ -746,7 +773,10 @@ describe("DTFs Tests", () => {
       );
 
     await removeFromMintFolioToken(connection, userKeypair, folioPDA, [
-      { mint: tokenMints[3].publicKey, amount: new BN(100) },
+      {
+        mint: tokenMints[3].mint.publicKey,
+        amount: new BN(100 * 10 ** tokenMints[3].decimals),
+      },
     ]);
 
     const userPendingTokenAmountsAfter =
@@ -761,18 +791,23 @@ describe("DTFs Tests", () => {
 
     assert.equal(
       userPendingTokenAmountsAfter.tokenAmounts[3].amount.toNumber(),
-      userPendingTokenAmountsBefore.tokenAmounts[3].amount.toNumber() - 100
+      userPendingTokenAmountsBefore.tokenAmounts[3].amount.toNumber() -
+        100 * 10 ** tokenMints[3].decimals
     );
 
     assert.equal(
       folioPendingTokenAmountsAfter.tokenAmounts[3].amount.toNumber(),
-      folioPendingTokenAmountsBefore.tokenAmounts[3].amount.toNumber() - 100
+      folioPendingTokenAmountsBefore.tokenAmounts[3].amount.toNumber() -
+        100 * 10 ** tokenMints[3].decimals
     );
   });
 
   it("should allow user to mint folio token (after adding 5th token)", async () => {
     await initOrAddMintFolioToken(connection, userKeypair, folioPDA, [
-      { mint: tokenMints[4].publicKey, amount: new BN(100) },
+      {
+        mint: tokenMints[4].mint.publicKey,
+        amount: new BN(100 * 10 ** tokenMints[4].decimals),
+      },
     ]);
 
     const userFolioMintATA = await getOrCreateAtaAddress(
@@ -805,16 +840,18 @@ describe("DTFs Tests", () => {
       userFolioMintATA
     );
 
+    const shares = new BN(3).mul(new BN(10 ** 8));
+
     await mintFolioToken(
       connection,
       userKeypair,
       folioPDA,
       folioTokenMint.publicKey,
       tokenMints.map((token) => ({
-        mint: token.publicKey,
+        mint: token.mint.publicKey,
         amount: new BN(0),
       })),
-      new BN(100)
+      shares
     );
 
     const userPendingTokenAmountsAfter =
@@ -832,18 +869,67 @@ describe("DTFs Tests", () => {
       userFolioMintATA
     );
 
-    assert.equal(userFolioTokenBalanceAfter, userFolioTokenBalanceBefore + 10);
+    assert.equal(userFolioTokenBalanceAfter, userFolioTokenBalanceBefore + 3);
 
-    for (let i = 0; i < tokenMints.length; i++) {
-      assert.equal(
-        userPendingTokenAmountsAfter.tokenAmounts[i].amount.toNumber(),
-        userPendingTokenAmountsBefore.tokenAmounts[i].amount.toNumber() - 100
-      );
+    // Take 30% (3 tokens and 10 is the supply)
+    assert.equal(
+      userPendingTokenAmountsAfter.tokenAmounts[0].amount.toNumber(),
+      userPendingTokenAmountsBefore.tokenAmounts[0].amount.toNumber() -
+        30 * 10 ** tokenMints[0].decimals
+    );
 
-      assert.equal(
-        folioPendingTokenAmountsAfter.tokenAmounts[i].amount.toNumber(),
-        folioPendingTokenAmountsBefore.tokenAmounts[i].amount.toNumber() - 100
-      );
-    }
+    assert.equal(
+      folioPendingTokenAmountsAfter.tokenAmounts[0].amount.toNumber(),
+      folioPendingTokenAmountsBefore.tokenAmounts[0].amount.toNumber() -
+        30 * 10 ** tokenMints[0].decimals
+    );
+
+    assert.equal(
+      userPendingTokenAmountsAfter.tokenAmounts[1].amount.toNumber(),
+      userPendingTokenAmountsBefore.tokenAmounts[1].amount.toNumber() -
+        30 * 10 ** tokenMints[1].decimals
+    );
+
+    assert.equal(
+      folioPendingTokenAmountsAfter.tokenAmounts[1].amount.toNumber(),
+      folioPendingTokenAmountsBefore.tokenAmounts[1].amount.toNumber() -
+        30 * 10 ** tokenMints[1].decimals
+    );
+
+    assert.equal(
+      userPendingTokenAmountsAfter.tokenAmounts[2].amount.toNumber(),
+      userPendingTokenAmountsBefore.tokenAmounts[2].amount.toNumber() -
+        60 * 10 ** tokenMints[2].decimals
+    );
+
+    assert.equal(
+      folioPendingTokenAmountsAfter.tokenAmounts[2].amount.toNumber(),
+      folioPendingTokenAmountsBefore.tokenAmounts[2].amount.toNumber() -
+        60 * 10 ** tokenMints[2].decimals
+    );
+
+    assert.equal(
+      userPendingTokenAmountsAfter.tokenAmounts[3].amount.toNumber(),
+      userPendingTokenAmountsBefore.tokenAmounts[3].amount.toNumber() -
+        60 * 10 ** tokenMints[3].decimals
+    );
+
+    assert.equal(
+      folioPendingTokenAmountsAfter.tokenAmounts[3].amount.toNumber(),
+      folioPendingTokenAmountsBefore.tokenAmounts[3].amount.toNumber() -
+        60 * 10 ** tokenMints[3].decimals
+    );
+
+    assert.equal(
+      userPendingTokenAmountsAfter.tokenAmounts[4].amount.toNumber(),
+      userPendingTokenAmountsBefore.tokenAmounts[4].amount.toNumber() -
+        30 * 10 ** tokenMints[4].decimals
+    );
+
+    assert.equal(
+      folioPendingTokenAmountsAfter.tokenAmounts[4].amount.toNumber(),
+      folioPendingTokenAmountsBefore.tokenAmounts[4].amount.toNumber() -
+        30 * 10 ** tokenMints[4].decimals
+    );
   });
 });

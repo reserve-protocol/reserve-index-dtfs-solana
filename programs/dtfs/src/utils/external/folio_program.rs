@@ -165,11 +165,13 @@ impl FolioProgram {
 
     pub fn init_tokens_for_folio<'info>(
         ctx: Context<'_, '_, 'info, 'info, AddTokensToFolio<'info>>,
+        amounts: Vec<u64>,
     ) -> Result<()> {
         let cpi_program = ctx.accounts.folio_program.to_account_info();
 
         let cpi_accounts = folio::cpi::accounts::InitTokensForFolio {
             system_program: ctx.accounts.system_program.to_account_info(),
+            token_program: ctx.accounts.token_program.to_account_info(),
             folio_owner: ctx.accounts.folio_owner.to_account_info(),
             actor: ctx.accounts.actor.to_account_info(),
             dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
@@ -193,7 +195,7 @@ impl FolioProgram {
 
         let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
 
-        folio::cpi::init_tokens_for_folio(cpi_ctx)?;
+        folio::cpi::init_tokens_for_folio(cpi_ctx, amounts)?;
 
         Ok(())
     }

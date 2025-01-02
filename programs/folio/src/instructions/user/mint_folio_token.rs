@@ -154,24 +154,20 @@ pub fn handler<'info>(
 
         // Calculate if share is respected
         check_condition!(
-            user_amount
-                .amount
-                .checked_mul(PRECISION_FACTOR)
+            (user_amount.amount as u128)
+                .checked_mul(PRECISION_FACTOR as u128)
                 .unwrap()
-                .checked_div(folio_token_balance)
-                .unwrap()
+                .checked_div(folio_token_balance as u128)
+                .unwrap() as u64
                 >= shares,
             InvalidShareAmountProvided
         );
 
-        let user_amount_taken = user_amount
-            .amount
-            .checked_div(folio_token_balance)
+        let user_amount_taken = (user_amount.amount as u128)
+            .checked_mul(shares as u128)
             .unwrap()
-            .checked_mul(shares)
-            .unwrap();
-        // TODO set as mint decimals
-
+            .checked_div(PRECISION_FACTOR as u128)
+            .unwrap() as u64;
         // Remove from both pending amounts
         user_amount.amount = user_amount.amount.checked_sub(user_amount_taken).unwrap();
         related_mint.amount = related_mint.amount.checked_sub(user_amount_taken).unwrap();
@@ -180,11 +176,11 @@ pub fn handler<'info>(
     // Mint folio token to user based on shares
     let token_mint_key = ctx.accounts.folio_token_mint.key();
 
-    let folio_token_amount_to_mint = shares
-        .checked_mul(PRECISION_FACTOR)
+    let folio_token_amount_to_mint = (shares as u128)
+        .checked_mul(max(ctx.accounts.folio_token_mint.supply, 1) as u128)
         .unwrap()
-        .checked_div(max(ctx.accounts.folio_token_mint.supply, 1))
-        .unwrap();
+        .checked_div(PRECISION_FACTOR as u128)
+        .unwrap() as u64;
 
     let signer_seeds = &[FOLIO_SEEDS, token_mint_key.as_ref(), &[folio.bump]];
 

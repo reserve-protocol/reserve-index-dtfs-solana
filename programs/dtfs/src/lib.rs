@@ -101,10 +101,23 @@ pub mod dtfs {
         mint_folio_token::handler(ctx, shares)
     }
 
+    pub fn burn_folio_token<'info>(
+        ctx: Context<'_, '_, 'info, 'info, BurnFolioToken<'info>>,
+        amount_to_burn: u64,
+    ) -> Result<()> {
+        burn_folio_token::handler(ctx, amount_to_burn)
+    }
+
+    pub fn redeem_from_burn_folio_token<'info>(
+        ctx: Context<'_, '_, 'info, 'info, RedeemFromBurnFolioToken<'info>>,
+        amounts: Vec<u64>,
+    ) -> Result<()> {
+        redeem_from_burn_folio_token::handler(ctx, amounts)
+    }
+
     pub fn close_pending_token_amounts<'info>(
         ctx: Context<'_, '_, 'info, 'info, ClosePendingTokenAmounts<'info>>,
-        is_adding_to_mint_folio: u8,
     ) -> Result<()> {
-        close_pending_token_amounts::handler(ctx, is_adding_to_mint_folio)
+        close_pending_token_amounts::handler(ctx)
     }
 }

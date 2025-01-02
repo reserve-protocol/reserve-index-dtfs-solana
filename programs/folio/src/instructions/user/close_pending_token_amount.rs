@@ -9,7 +9,6 @@ use shared::{errors::ErrorCode, structs::FolioStatus};
 use crate::state::{Folio, PendingTokenAmounts, ProgramRegistrar};
 
 #[derive(Accounts)]
-#[instruction(is_adding_to_mint_folio: u8)]
 pub struct ClosePendingTokenAmount<'info> {
     pub system_program: Program<'info, System>,
 
@@ -26,7 +25,7 @@ pub struct ClosePendingTokenAmount<'info> {
     pub folio: AccountLoader<'info, Folio>,
 
     #[account(mut,
-        seeds = [PENDING_TOKEN_AMOUNTS_SEEDS, folio.key().as_ref(), user.key().as_ref(), &[is_adding_to_mint_folio]],
+        seeds = [PENDING_TOKEN_AMOUNTS_SEEDS, folio.key().as_ref(), user.key().as_ref()],
         bump
     )]
     pub user_pending_token_amounts: AccountLoader<'info, PendingTokenAmounts>,
@@ -65,7 +64,6 @@ impl ClosePendingTokenAmount<'_> {
 
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, ClosePendingTokenAmount<'info>>,
-    _is_adding_to_mint_folio: u8,
 ) -> Result<()> {
     ctx.accounts.validate()?;
 

@@ -73,16 +73,10 @@ export function getFolioPendingTokenAmountsPDA(folio: PublicKey) {
 
 export function getUserPendingTokenAmountsPDA(
   folio: PublicKey,
-  user: PublicKey,
-  isAdding: boolean
+  user: PublicKey
 ) {
   return PublicKey.findProgramAddressSync(
-    [
-      Buffer.from("pending_token_amounts"),
-      folio.toBuffer(),
-      user.toBuffer(),
-      Buffer.from([isAdding ? 1 : 0]),
-    ],
+    [Buffer.from("pending_token_amounts"), folio.toBuffer(), user.toBuffer()],
     FOLIO_PROGRAM_ID
   )[0];
 }

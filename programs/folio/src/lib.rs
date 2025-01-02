@@ -49,6 +49,10 @@ pub mod folio {
         init_folio::handler(ctx, fee_per_second)
     }
 
+    pub fn resize_folio_account(ctx: Context<ResizeFolioAccount>, new_size: u64) -> Result<()> {
+        resize_folio_account::handler(ctx, new_size)
+    }
+
     pub fn init_or_update_actor<'info>(
         ctx: Context<'_, '_, 'info, 'info, InitOrUpdateActor<'info>>,
         role: Role,
@@ -123,16 +127,21 @@ pub mod folio {
 
     pub fn close_pending_token_amount<'info>(
         ctx: Context<'_, '_, 'info, 'info, ClosePendingTokenAmount<'info>>,
-        is_adding_to_mint_folio: u8,
     ) -> Result<()> {
-        close_pending_token_amount::handler(ctx, is_adding_to_mint_folio)
+        close_pending_token_amount::handler(ctx)
     }
 
-    pub fn burn_folio_token(ctx: Context<BurnFolioToken>) -> Result<()> {
-        burn_folio_token::handler(ctx)
+    pub fn burn_folio_token<'info>(
+        ctx: Context<'_, '_, 'info, 'info, BurnFolioToken<'info>>,
+        amount_to_burn: u64,
+    ) -> Result<()> {
+        burn_folio_token::handler(ctx, amount_to_burn)
     }
 
-    pub fn resize_folio_account(ctx: Context<ResizeFolioAccount>, new_size: u64) -> Result<()> {
-        resize_folio_account::handler(ctx, new_size)
+    pub fn redeem_from_burn_folio_token<'info>(
+        ctx: Context<'_, '_, 'info, 'info, RedeemFromBurnFolioToken<'info>>,
+        amounts: Vec<u64>,
+    ) -> Result<()> {
+        redeem_from_burn_folio_token::handler(ctx, amounts)
     }
 }

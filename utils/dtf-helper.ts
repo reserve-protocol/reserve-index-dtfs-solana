@@ -321,8 +321,7 @@ export async function initOrAddMintFolioToken(
       folioPendingTokenAmounts: getFolioPendingTokenAmountsPDA(folio),
       userPendingTokenAmounts: getUserPendingTokenAmountsPDA(
         folio,
-        userKeypair.publicKey,
-        true
+        userKeypair.publicKey
       ),
       folioProgram: FOLIO_PROGRAM_ID,
       dtfProgramSigner: getDtfSignerPDA(),
@@ -365,8 +364,7 @@ export async function removeFromMintFolioToken(
       folioPendingTokenAmounts: getFolioPendingTokenAmountsPDA(folio),
       userPendingTokenAmounts: getUserPendingTokenAmountsPDA(
         folio,
-        userKeypair.publicKey,
-        true
+        userKeypair.publicKey
       ),
       folioProgram: FOLIO_PROGRAM_ID,
       dtfProgramSigner: getDtfSignerPDA(),
@@ -410,8 +408,7 @@ export async function mintFolioToken(
       folioPendingTokenAmounts: getFolioPendingTokenAmountsPDA(folio),
       userPendingTokenAmounts: getUserPendingTokenAmountsPDA(
         folio,
-        userKeypair.publicKey,
-        true
+        userKeypair.publicKey
       ),
       userFolioTokenAccount: await getOrCreateAtaAddress(
         connection,
@@ -445,4 +442,100 @@ export async function mintFolioToken(
     },
     true
   );
+}
+
+export async function burnFolioToken(
+  connection: Connection,
+  userKeypair: Keypair,
+  folio: PublicKey,
+  folioTokenMint: PublicKey,
+  amountToBurn: BN,
+  tokens: { mint: PublicKey; amount: BN }[]
+) {
+  const dtfProgram = getDtfProgram(connection, userKeypair);
+
+  const burnFolioTokenIx = await dtfProgram.methods
+    .burnFolioToken(amountToBurn)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      user: userKeypair.publicKey,
+      programRegistrar: getProgramRegistrarPDA(),
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      folioProgram: FOLIO_PROGRAM_ID,
+      folio,
+      folioTokenMint,
+      folioPendingTokenAmounts: getFolioPendingTokenAmountsPDA(folio),
+      userPendingTokenAmounts: getUserPendingTokenAmountsPDA(
+        folio,
+        userKeypair.publicKey
+      ),
+      userFolioTokenAccount: await getOrCreateAtaAddress(
+        connection,
+        folioTokenMint,
+        userKeypair,
+        userKeypair.publicKey
+      ),
+    })
+    .remainingAccounts(
+      await buildRemainingAccounts(
+        connection,
+        userKeypair,
+        tokens,
+        folio,
+        null,
+        false
+      )
+    )
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [burnFolioTokenIx], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+}
+
+export async function redeemFromBurnFolioToken(
+  connection: Connection,
+  userKeypair: Keypair,
+  folio: PublicKey,
+  tokens: { mint: PublicKey; amount: BN }[]
+) {
+  const dtfProgram = getDtfProgram(connection, userKeypair);
+
+  const redeemFromBurnFolioToken = await dtfProgram.methods
+    .redeemFromBurnFolioToken(tokens.map((token) => token.amount))
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      rent: SYSVAR_RENT_PUBKEY,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      user: userKeypair.publicKey,
+      programRegistrar: getProgramRegistrarPDA(),
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      folioProgram: FOLIO_PROGRAM_ID,
+      folio,
+      folioPendingTokenAmounts: getFolioPendingTokenAmountsPDA(folio),
+      userPendingTokenAmounts: getUserPendingTokenAmountsPDA(
+        folio,
+        userKeypair.publicKey
+      ),
+    })
+    .remainingAccounts(
+      await buildRemainingAccounts(
+        connection,
+        userKeypair,
+        tokens,
+        folio,
+        userKeypair.publicKey
+      )
+    )
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [redeemFromBurnFolioToken], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
 }

@@ -5,7 +5,7 @@ use anchor_spl::{
 };
 use shared::{
     check_condition,
-    constants::{IS_ADDING_TO_MINT_FOLIO, PENDING_TOKEN_AMOUNTS_SEEDS, PROGRAM_REGISTRAR_SEEDS},
+    constants::{PendingTokenAmountsType, PENDING_TOKEN_AMOUNTS_SEEDS, PROGRAM_REGISTRAR_SEEDS},
     structs::TokenAmount,
 };
 use shared::{constants::DTF_PROGRAM_SIGNER_SEEDS, errors::ErrorCode::*};
@@ -47,7 +47,7 @@ pub struct InitOrAddMintFolioToken<'info> {
     #[account(init_if_needed,
         payer = user,
         space = PendingTokenAmounts::SIZE,
-        seeds = [PENDING_TOKEN_AMOUNTS_SEEDS, folio.key().as_ref(), user.key().as_ref(), &[IS_ADDING_TO_MINT_FOLIO]],
+        seeds = [PENDING_TOKEN_AMOUNTS_SEEDS, folio.key().as_ref(), user.key().as_ref()],
         bump
     )]
     pub user_pending_token_amounts: AccountLoader<'info, PendingTokenAmounts>,
@@ -156,20 +156,24 @@ pub fn handler<'info>(
 
         added_mints.push(TokenAmount {
             mint: token_mint.key(),
-            amount,
+            amount_for_minting: amount,
+            amount_for_redeeming: 0,
         });
     }
 
     // Can't add new mints if it's for the folio, user should only be able to add what's in the folio's pending token amounts
     let folio_pending_token_amounts = &mut ctx.accounts.folio_pending_token_amounts.load_mut()?;
-    folio_pending_token_amounts.add_token_amounts_to_folio(&added_mints, false)?;
+    folio_pending_token_amounts.add_token_amounts_to_folio(
+        &added_mints,
+        false,
+        PendingTokenAmountsType::MintProcess,
+    )?;
 
     PendingTokenAmounts::process_init_if_needed(
         &mut ctx.accounts.user_pending_token_amounts,
         ctx.bumps.user_pending_token_amounts,
         &ctx.accounts.user.key(),
         &ctx.accounts.folio.key(),
-        IS_ADDING_TO_MINT_FOLIO,
         &added_mints,
         true,
     )?;

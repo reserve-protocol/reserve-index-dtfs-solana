@@ -6,7 +6,7 @@ use anchor_spl::{
 use shared::{
     check_condition,
     constants::{
-        FOLIO_SEEDS, IS_ADDING_TO_MINT_FOLIO, PENDING_TOKEN_AMOUNTS_SEEDS, PROGRAM_REGISTRAR_SEEDS,
+        PendingTokenAmountsType, FOLIO_SEEDS, PENDING_TOKEN_AMOUNTS_SEEDS, PROGRAM_REGISTRAR_SEEDS,
     },
     structs::TokenAmount,
 };
@@ -39,7 +39,7 @@ pub struct RemoveFromMintFolioToken<'info> {
     pub folio_pending_token_amounts: AccountLoader<'info, PendingTokenAmounts>,
 
     #[account(mut,
-        seeds = [PENDING_TOKEN_AMOUNTS_SEEDS, folio.key().as_ref(), user.key().as_ref(), &[IS_ADDING_TO_MINT_FOLIO]],
+        seeds = [PENDING_TOKEN_AMOUNTS_SEEDS, folio.key().as_ref(), user.key().as_ref()],
         bump
     )]
     pub user_pending_token_amounts: AccountLoader<'info, PendingTokenAmounts>,
@@ -159,7 +159,8 @@ pub fn handler<'info>(
 
         removed_mints.push(TokenAmount {
             mint: token_mint.key(),
-            amount,
+            amount_for_minting: amount,
+            amount_for_redeeming: 0,
         });
     }
 
@@ -170,12 +171,20 @@ pub fn handler<'info>(
     ctx.accounts
         .folio_pending_token_amounts
         .load_mut()?
-        .remove_token_amounts_to_folio(&removed_mints, false)?;
+        .remove_token_amounts_from_folio(
+            &removed_mints,
+            false,
+            PendingTokenAmountsType::MintProcess,
+        )?;
 
     ctx.accounts
         .user_pending_token_amounts
         .load_mut()?
-        .remove_token_amounts_to_folio(&removed_mints, true)?;
+        .remove_token_amounts_from_folio(
+            &removed_mints,
+            true,
+            PendingTokenAmountsType::MintProcess,
+        )?;
 
     Ok(())
 }

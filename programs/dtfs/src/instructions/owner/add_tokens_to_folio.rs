@@ -1,6 +1,5 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
-use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token_interface::TokenInterface;
 use folio::ID as FOLIO_ID;
 use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
@@ -13,7 +12,6 @@ use crate::ID as DTF_PROGRAM_ID;
 pub struct AddTokensToFolio<'info> {
     pub system_program: Program<'info, System>,
     pub token_program: Interface<'info, TokenInterface>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
 
     #[account(mut)]
     pub folio_owner: Signer<'info>,
@@ -71,10 +69,13 @@ impl AddTokensToFolio<'_> {
     }
 }
 
-pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AddTokensToFolio<'info>>) -> Result<()> {
+pub fn handler<'info>(
+    ctx: Context<'_, '_, 'info, 'info, AddTokensToFolio<'info>>,
+    amounts: Vec<u64>,
+) -> Result<()> {
     ctx.accounts.validate()?;
 
-    FolioProgram::init_tokens_for_folio(ctx)?;
+    FolioProgram::init_tokens_for_folio(ctx, amounts)?;
 
     Ok(())
 }

@@ -66,8 +66,9 @@ pub mod folio {
 
     pub fn init_tokens_for_folio<'info>(
         ctx: Context<'_, '_, 'info, 'info, InitTokensForFolio<'info>>,
+        amounts: Vec<u64>,
     ) -> Result<()> {
-        init_tokens_for_folio::handler(ctx)
+        init_tokens_for_folio::handler(ctx, amounts)
     }
 
     pub fn finish_init_tokens_for_folio(

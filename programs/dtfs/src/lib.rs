@@ -68,8 +68,9 @@ pub mod dtfs {
 
     pub fn add_tokens_to_folio<'info>(
         ctx: Context<'_, '_, 'info, 'info, AddTokensToFolio<'info>>,
+        amounts: Vec<u64>,
     ) -> Result<()> {
-        add_tokens_to_folio::handler(ctx)
+        add_tokens_to_folio::handler(ctx, amounts)
     }
 
     pub fn finalize_folio(ctx: Context<FinalizeFolio>, initial_shares: u64) -> Result<()> {

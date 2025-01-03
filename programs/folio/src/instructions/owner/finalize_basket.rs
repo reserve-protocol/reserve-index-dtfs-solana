@@ -38,7 +38,7 @@ pub struct FinalizeBasket<'info> {
     #[account(mut)]
     pub folio_token_mint: Box<InterfaceAccount<'info, Mint>>,
 
-    #[account(init,
+    #[account(init_if_needed,
     payer = folio_owner,
     associated_token::mint = folio_token_mint,
     associated_token::authority = folio,

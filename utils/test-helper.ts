@@ -28,7 +28,15 @@ export class TestHelper {
     this.tokenMints = tokenMints;
   }
 
-  async getBalanceSnapshot(): Promise<{
+  setUserPubkey(userPubkey: PublicKey) {
+    this.userPubkey = userPubkey;
+  }
+
+  async getBalanceSnapshot(
+    includePendingAmounts: boolean,
+    includeFolioTokenBalances: boolean,
+    includeTokenBalances: boolean
+  ): Promise<{
     userPendingAmounts: any;
     folioPendingAmounts: any;
     folioTokenBalance?: number;
@@ -36,63 +44,73 @@ export class TestHelper {
     folioTokenBalances?: number[];
     userTokenBalances?: number[];
   }> {
-    const userPendingBasketPDA = getUserPendingBasketPDA(
-      this.folioPDA,
-      this.userPubkey
-    );
-    const folioPendingBasketPDA = getFolioPendingBasketPDA(this.folioPDA);
-
-    const [userPendingAmounts, folioPendingAmounts] = await Promise.all([
-      this.program.account.pendingBasket.fetch(userPendingBasketPDA),
-      this.program.account.pendingBasket.fetch(folioPendingBasketPDA),
-    ]);
-
-    const userAta = await getOrCreateAtaAddress(
-      this.connection,
-      this.folioTokenMint,
-      this.payer,
-      this.userPubkey
-    );
-    const userBalance = await getTokenBalance(this.connection, userAta);
-
-    const folioAta = await getOrCreateAtaAddress(
-      this.connection,
-      this.folioTokenMint,
-      this.payer,
-      this.folioPDA
-    );
-    const folioBalance = await getTokenBalance(this.connection, folioAta);
-
+    let userPendingAmounts: any | undefined = undefined;
+    let folioPendingAmounts: any | undefined = undefined;
+    let folioTokenBalance: number | undefined = undefined;
+    let userTokenBalance: number | undefined = undefined;
     let folioTokenBalances: number[] = [];
     let userTokenBalances: number[] = [];
 
-    for (const token of this.tokenMints) {
-      const userTokenAta = await getOrCreateAtaAddress(
+    if (includePendingAmounts) {
+      const userPendingBasketPDA = getUserPendingBasketPDA(
+        this.folioPDA,
+        this.userPubkey
+      );
+      const folioPendingBasketPDA = getFolioPendingBasketPDA(this.folioPDA);
+
+      [userPendingAmounts, folioPendingAmounts] = await Promise.all([
+        this.program.account.pendingBasket.fetchNullable(userPendingBasketPDA),
+        this.program.account.pendingBasket.fetchNullable(folioPendingBasketPDA),
+      ]);
+    }
+
+    if (includeFolioTokenBalances) {
+      const userAta = await getOrCreateAtaAddress(
         this.connection,
-        token.mint.publicKey,
+        this.folioTokenMint,
         this.payer,
         this.userPubkey
       );
-      userTokenBalances.push(
-        await getTokenBalance(this.connection, userTokenAta)
-      );
+      userTokenBalance = await getTokenBalance(this.connection, userAta);
 
-      const folioTokenAta = await getOrCreateAtaAddress(
+      const folioAta = await getOrCreateAtaAddress(
         this.connection,
-        token.mint.publicKey,
+        this.folioTokenMint,
         this.payer,
         this.folioPDA
       );
-      folioTokenBalances.push(
-        await getTokenBalance(this.connection, folioTokenAta)
-      );
+      folioTokenBalance = await getTokenBalance(this.connection, folioAta);
+    }
+
+    if (includeTokenBalances) {
+      for (const token of this.tokenMints) {
+        const userTokenAta = await getOrCreateAtaAddress(
+          this.connection,
+          token.mint.publicKey,
+          this.payer,
+          this.userPubkey
+        );
+        userTokenBalances.push(
+          await getTokenBalance(this.connection, userTokenAta)
+        );
+
+        const folioTokenAta = await getOrCreateAtaAddress(
+          this.connection,
+          token.mint.publicKey,
+          this.payer,
+          this.folioPDA
+        );
+        folioTokenBalances.push(
+          await getTokenBalance(this.connection, folioTokenAta)
+        );
+      }
     }
 
     return {
       userPendingAmounts,
       folioPendingAmounts,
-      folioTokenBalance: folioBalance,
-      userTokenBalance: userBalance,
+      folioTokenBalance,
+      userTokenBalance,
       folioTokenBalances,
       userTokenBalances,
     };
@@ -101,42 +119,102 @@ export class TestHelper {
   assertBalanceSnapshot(
     before: any,
     after: any,
-    expectedDifferences: number[],
-    expectedTokenBalancesDiffs: number[],
-    expectedBalancesDifference: number,
+    expectedDifferences: number[][],
+    expectedTokenBalancesDiffs: number[][],
+    expectedBalancesDifference: number[],
     indices: number[],
-    property: "amountForMinting" | "amountForRedeeming"
+    property: "amountForMinting" | "amountForRedeeming" = "amountForMinting",
+    isEstimate: boolean = false
   ) {
-    indices.forEach((index) => {
-      const diff = expectedDifferences[index];
-      assert.equal(
-        after.userPendingAmounts.tokenAmounts[index][property].toNumber(),
-        before.userPendingAmounts.tokenAmounts[index][property].toNumber() -
-          diff
-      );
-      assert.equal(
-        after.folioPendingAmounts.tokenAmounts[index][property].toNumber(),
-        before.folioPendingAmounts.tokenAmounts[index][property].toNumber() -
-          diff
-      );
+    if (expectedDifferences.length > 0) {
+      indices.forEach((index) => {
+        const afterValue =
+          after.userPendingAmounts.tokenAmounts[index][property].toNumber();
+        const expectedValue =
+          before.userPendingAmounts.tokenAmounts[index][property].toNumber() +
+          expectedDifferences[index][0];
 
-      assert.equal(
-        after.userTokenBalances[index],
-        before.userTokenBalances[index] - expectedTokenBalancesDiffs[index]
-      );
-      assert.equal(
-        after.folioTokenBalances[index],
-        before.folioTokenBalances[index] - expectedTokenBalancesDiffs[index]
-      );
-    });
+        if (isEstimate) {
+          assert.equal(Math.floor(afterValue), Math.floor(expectedValue));
+        } else {
+          assert.equal(afterValue, expectedValue);
+        }
 
-    assert.equal(
-      after.folioTokenBalance,
-      before.folioTokenBalance - expectedBalancesDifference
-    );
-    assert.equal(
-      after.userTokenBalance,
-      before.userTokenBalance - expectedBalancesDifference
-    );
+        const afterFolioValue =
+          after.folioPendingAmounts.tokenAmounts[index][property].toNumber();
+        const expectedFolioValue =
+          before.folioPendingAmounts.tokenAmounts[index][property].toNumber() +
+          expectedDifferences[index][1];
+
+        if (isEstimate) {
+          assert.equal(
+            Math.floor(afterFolioValue),
+            Math.floor(expectedFolioValue)
+          );
+        } else {
+          assert.equal(afterFolioValue, expectedFolioValue);
+        }
+      });
+    }
+
+    if (expectedTokenBalancesDiffs.length > 0) {
+      indices.forEach((index) => {
+        const afterUserValue = after.userTokenBalances[index];
+        const expectedUserValue =
+          before.userTokenBalances[index] +
+          expectedTokenBalancesDiffs[index][0];
+
+        if (isEstimate) {
+          assert.equal(
+            Math.floor(afterUserValue),
+            Math.floor(expectedUserValue)
+          );
+        } else {
+          assert.equal(afterUserValue, expectedUserValue);
+        }
+
+        const afterFolioValue = after.folioTokenBalances[index];
+        const expectedFolioValue =
+          before.folioTokenBalances[index] +
+          expectedTokenBalancesDiffs[index][1];
+
+        if (isEstimate) {
+          assert.equal(
+            Math.floor(afterFolioValue),
+            Math.floor(expectedFolioValue)
+          );
+        } else {
+          assert.equal(afterFolioValue, expectedFolioValue);
+        }
+      });
+    }
+
+    if (expectedBalancesDifference.length > 0) {
+      const afterFolioValue = after.folioTokenBalance;
+      const expectedFolioValue =
+        before.folioTokenBalance + expectedBalancesDifference[0];
+
+      if (isEstimate) {
+        assert.equal(
+          Math.floor(afterFolioValue * 100) / 100,
+          Math.floor(expectedFolioValue * 100) / 100
+        );
+      } else {
+        assert.equal(afterFolioValue, expectedFolioValue);
+      }
+
+      const afterUserValue = after.userTokenBalance;
+      const expectedUserValue =
+        before.userTokenBalance + expectedBalancesDifference[1];
+
+      if (isEstimate) {
+        assert.equal(
+          Math.floor(afterUserValue * 100) / 100,
+          Math.floor(expectedUserValue * 100) / 100
+        );
+      } else {
+        assert.equal(afterUserValue, expectedUserValue);
+      }
+    }
   }
 }

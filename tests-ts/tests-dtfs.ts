@@ -45,7 +45,6 @@ import {
   initToken,
   mintToken,
 } from "../utils/token-helper";
-import { TestHelper } from "../utils/test-helper";
 
 describe("DTFs Tests", () => {
   let connection: Connection;

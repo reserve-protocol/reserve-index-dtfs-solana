@@ -83,17 +83,20 @@ pub struct Folio {
     // The mint of the folio token (Circulating supply is stored in the token mint automatically)
     pub folio_token_mint: Pubkey,
 
-    pub fee_per_second: u64,
+    pub folio_fee: u64,
+
+    pub trade_delay: u64,
+    pub auction_length: u64,
 }
 
 impl Folio {
     pub const SIZE: usize = 8 + Folio::INIT_SPACE;
 }
 
-/// PDA Seeds ["folio_fee_recipients", folio pubkey]
+/// PDA Seeds ["fee_recipients", folio pubkey]
 #[account(zero_copy)]
 #[derive(InitSpace)]
-pub struct FolioFeeRecipients {
+pub struct FeeRecipients {
     pub bump: u8,
     pub _padding: [u8; 7],
 
@@ -103,11 +106,11 @@ pub struct FolioFeeRecipients {
     pub fee_recipients: [FeeRecipient; MAX_FEE_RECIPIENTS],
 }
 
-impl FolioFeeRecipients {
-    pub const SIZE: usize = 8 + FolioFeeRecipients::INIT_SPACE;
+impl FeeRecipients {
+    pub const SIZE: usize = 8 + FeeRecipients::INIT_SPACE;
 }
 
-impl Default for FolioFeeRecipients {
+impl Default for FeeRecipients {
     fn default() -> Self {
         Self {
             bump: 0,
@@ -126,11 +129,11 @@ It's also used to tracked the "frozen" token amounts in the folio, like when a u
 those tokens aren't taken into account. It also will represent which tokens are in the folio (authorized tokens).
 */
 
-/// PDA Seeds ["pending_token_amounts", folio] for the folio's pending token amounts
-/// PDA Seeds ["pending_token_amounts", folio, wallet] for the wallet's pending token amounts
+/// PDA Seeds ["pending_basket", folio] for the folio's pending token amounts
+/// PDA Seeds ["pending_basket", folio, wallet] for the wallet's pending token amounts
 #[account(zero_copy)]
 #[derive(InitSpace)]
-pub struct PendingTokenAmounts {
+pub struct PendingBasket {
     pub bump: u8,
 
     pub _padding: [u8; 7],
@@ -145,11 +148,11 @@ pub struct PendingTokenAmounts {
     pub token_amounts: [TokenAmount; MAX_TOKEN_AMOUNTS],
 }
 
-impl PendingTokenAmounts {
-    pub const SIZE: usize = 8 + PendingTokenAmounts::INIT_SPACE;
+impl PendingBasket {
+    pub const SIZE: usize = 8 + PendingBasket::INIT_SPACE;
 }
 
-impl Default for PendingTokenAmounts {
+impl Default for PendingBasket {
     fn default() -> Self {
         Self {
             bump: 0,

@@ -59,24 +59,21 @@ export function getCommunityPDA() {
 
 export function getFolioFeeRecipientsPDA(folio: PublicKey) {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("folio_fee_recipients"), folio.toBuffer()],
+    [Buffer.from("fee_recipients"), folio.toBuffer()],
     FOLIO_PROGRAM_ID
   )[0];
 }
 
-export function getFolioPendingTokenAmountsPDA(folio: PublicKey) {
+export function getFolioPendingBasketPDA(folio: PublicKey) {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("pending_token_amounts"), folio.toBuffer()],
+    [Buffer.from("pending_basket"), folio.toBuffer()],
     FOLIO_PROGRAM_ID
   )[0];
 }
 
-export function getUserPendingTokenAmountsPDA(
-  folio: PublicKey,
-  user: PublicKey
-) {
+export function getUserPendingBasketPDA(folio: PublicKey, user: PublicKey) {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("pending_token_amounts"), folio.toBuffer(), user.toBuffer()],
+    [Buffer.from("pending_basket"), folio.toBuffer(), user.toBuffer()],
     FOLIO_PROGRAM_ID
   )[0];
 }

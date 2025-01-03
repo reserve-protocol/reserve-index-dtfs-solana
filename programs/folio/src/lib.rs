@@ -45,12 +45,30 @@ pub mod folio {
     /*
     Folio functions
     */
-    pub fn init_folio(ctx: Context<InitFolio>, fee_per_second: u64) -> Result<()> {
-        init_folio::handler(ctx, fee_per_second)
+    pub fn init_folio(ctx: Context<InitFolio>, folio_fee: u64) -> Result<()> {
+        init_folio::handler(ctx, folio_fee)
     }
 
-    pub fn resize_folio_account(ctx: Context<ResizeFolioAccount>, new_size: u64) -> Result<()> {
-        resize_folio_account::handler(ctx, new_size)
+    pub fn resize_folio(ctx: Context<ResizeFolio>, new_size: u64) -> Result<()> {
+        resize_folio::handler(ctx, new_size)
+    }
+
+    pub fn update_folio(
+        ctx: Context<UpdateFolio>,
+        program_version: Option<Pubkey>,
+        program_deployment_slot: Option<u64>,
+        folio_fee: Option<u64>,
+        fee_recipients_to_add: Vec<FeeRecipient>,
+        fee_recipients_to_remove: Vec<Pubkey>,
+    ) -> Result<()> {
+        update_folio::handler(
+            ctx,
+            program_version,
+            program_deployment_slot,
+            folio_fee,
+            fee_recipients_to_add,
+            fee_recipients_to_remove,
+        )
     }
 
     pub fn init_or_update_actor<'info>(
@@ -68,48 +86,20 @@ pub mod folio {
         remove_actor::handler(ctx, role, close_actor)
     }
 
-    pub fn init_tokens_for_folio<'info>(
-        ctx: Context<'_, '_, 'info, 'info, InitTokensForFolio<'info>>,
+    pub fn add_to_basket<'info>(
+        ctx: Context<'_, '_, 'info, 'info, AddToBasket<'info>>,
         amounts: Vec<u64>,
     ) -> Result<()> {
-        init_tokens_for_folio::handler(ctx, amounts)
+        add_to_basket::handler(ctx, amounts)
     }
 
-    pub fn finish_init_tokens_for_folio(
-        ctx: Context<FinishInitTokensForFolio>,
-        initial_shares: u64,
-    ) -> Result<()> {
-        finish_init_tokens_for_folio::handler(ctx, initial_shares)
+    pub fn finalize_basket(ctx: Context<FinalizeBasket>, initial_shares: u64) -> Result<()> {
+        finalize_basket::handler(ctx, initial_shares)
     }
 
-    pub fn update_folio(
-        ctx: Context<UpdateFolio>,
-        program_version: Option<Pubkey>,
-        program_deployment_slot: Option<u64>,
-        fee_per_second: Option<u64>,
-        fee_recipients_to_add: Vec<FeeRecipient>,
-        fee_recipients_to_remove: Vec<Pubkey>,
-    ) -> Result<()> {
-        update_folio::handler(
-            ctx,
-            program_version,
-            program_deployment_slot,
-            fee_per_second,
-            fee_recipients_to_add,
-            fee_recipients_to_remove,
-        )
-    }
-
-    pub fn transfer_folio_token(ctx: Context<TransferFolioToken>) -> Result<()> {
-        transfer_folio_token::handler(ctx)
-    }
-
-    pub fn mint_folio_token<'info>(
-        ctx: Context<'_, '_, 'info, 'info, MintFolioToken<'info>>,
-        shares: u64,
-    ) -> Result<()> {
-        mint_folio_token::handler(ctx, shares)
-    }
+    /*
+    User functions
+     */
 
     pub fn init_or_add_mint_folio_token<'info>(
         ctx: Context<'_, '_, 'info, 'info, InitOrAddMintFolioToken<'info>>,
@@ -125,10 +115,11 @@ pub mod folio {
         remove_from_mint_folio_token::handler(ctx, amounts)
     }
 
-    pub fn close_pending_token_amount<'info>(
-        ctx: Context<'_, '_, 'info, 'info, ClosePendingTokenAmount<'info>>,
+    pub fn mint_folio_token<'info>(
+        ctx: Context<'_, '_, 'info, 'info, MintFolioToken<'info>>,
+        shares: u64,
     ) -> Result<()> {
-        close_pending_token_amount::handler(ctx)
+        mint_folio_token::handler(ctx, shares)
     }
 
     pub fn burn_folio_token<'info>(
@@ -143,5 +134,11 @@ pub mod folio {
         amounts: Vec<u64>,
     ) -> Result<()> {
         redeem_from_burn_folio_token::handler(ctx, amounts)
+    }
+
+    pub fn close_pending_token_amount<'info>(
+        ctx: Context<'_, '_, 'info, 'info, ClosePendingTokenAmount<'info>>,
+    ) -> Result<()> {
+        close_pending_token_amount::handler(ctx)
     }
 }

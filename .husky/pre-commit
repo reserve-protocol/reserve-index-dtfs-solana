@@ -6,4 +6,4 @@ cargo fmt && \
 cargo test && \
 yarn lint:fix
 
-git add .
+# git add .

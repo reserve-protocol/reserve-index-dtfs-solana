@@ -153,7 +153,7 @@ export async function updateProgramRegistrar(
 export async function initFolio(
   connection: Connection,
   folioOwner: Keypair,
-  feePerSecond: BN
+  folioFee: BN
 ): Promise<{ folioTokenMint: Keypair; folioPDA: PublicKey }> {
   const folioProgram = getFolioProgram(connection, folioOwner);
 
@@ -162,7 +162,7 @@ export async function initFolio(
   let folioPDA = getFolioPDA(folioTokenMint.publicKey);
 
   const initFolio = await folioProgram.methods
-    .initFolio(feePerSecond)
+    .initFolio(folioFee)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,

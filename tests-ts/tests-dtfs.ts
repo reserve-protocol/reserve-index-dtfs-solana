@@ -19,14 +19,14 @@ import {
   getActorPDA,
   getDtfSignerPDA,
   getFolioFeeRecipientsPDA,
-  getFolioPendingTokenAmountsPDA,
-  getUserPendingTokenAmountsPDA,
+  getFolioPendingBasketPDA,
+  getUserPendingBasketPDA,
 } from "../utils/pda-helper";
 import {
   addOrUpdateActor,
-  addTokensToFolio,
+  addToBasket,
   burnFolioToken,
-  finalizeFolio,
+  finalizeBasket,
   initDtfSigner,
   initOrAddMintFolioToken,
   mintFolioToken,
@@ -45,6 +45,7 @@ import {
   initToken,
   mintToken,
 } from "../utils/token-helper";
+import { TestHelper } from "../utils/test-helper";
 
 describe("DTFs Tests", () => {
   let connection: Connection;
@@ -56,11 +57,13 @@ describe("DTFs Tests", () => {
   let adminKeypair: Keypair;
   let userKeypair: Keypair;
 
-  let tradeApproverKeypair: Keypair;
+  let tradeProposerKeypair: Keypair;
 
   let folioOwnerKeypair: Keypair;
   let folioTokenMint: Keypair;
   let folioPDA: PublicKey;
+
+  // let folioTestHelper: TestHelper;
 
   /*
   Tokens that can be included in the folio
@@ -86,7 +89,7 @@ describe("DTFs Tests", () => {
 
     folioOwnerKeypair = Keypair.generate();
     userKeypair = Keypair.generate();
-    tradeApproverKeypair = Keypair.generate();
+    tradeProposerKeypair = Keypair.generate();
 
     await airdrop(connection, payerKeypair.publicKey, 1000);
     await airdrop(connection, adminKeypair.publicKey, 1000);
@@ -126,6 +129,16 @@ describe("DTFs Tests", () => {
         userKeypair.publicKey
       );
     }
+
+    // folioTestHelper = new TestHelper(
+    //   connection,
+    //   payerKeypair,
+    //   program,
+    //   folioPDA,
+    //   folioTokenMint.publicKey,
+    //   userKeypair.publicKey,
+    //   tokenMints
+    // );
   });
 
   it("should initialize dtf program signer", async () => {
@@ -188,7 +201,7 @@ describe("DTFs Tests", () => {
   //     folioAfter.programDeploymentSlot,
   //     folioBefore.programDeploymentSlot
   //   );
-  //   assert.deepEqual(folioAfter.feePerSecond, folioBefore.feePerSecond);
+  //   assert.deepEqual(folioAfter.folioFee, folioBefore.folioFee);
   //   assert.deepEqual(folioAfter.feeRecipients, folioBefore.feeRecipients);
 
   //   // Resetting
@@ -227,7 +240,7 @@ describe("DTFs Tests", () => {
   //     folioAfter.programDeploymentSlot.toNumber(),
   //     folioBefore.programDeploymentSlot.add(new BN(1)).toNumber()
   //   );
-  //   assert.deepEqual(folioAfter.feePerSecond, folioBefore.feePerSecond);
+  //   assert.deepEqual(folioAfter.folioFee, folioBefore.folioFee);
   //   assert.deepEqual(folioAfter.feeRecipients, folioBefore.feeRecipients);
 
   //   // Resetting
@@ -247,7 +260,7 @@ describe("DTFs Tests", () => {
   it("should update fee per second of folio", async () => {
     const folioBefore = await program.account.folio.fetch(folioPDA);
     const feeRecipientsBefore =
-      await program.account.folioFeeRecipients.fetchNullable(
+      await program.account.feeRecipients.fetchNullable(
         getFolioFeeRecipientsPDA(folioPDA)
       );
 
@@ -257,13 +270,13 @@ describe("DTFs Tests", () => {
       folioPDA,
       null,
       null,
-      folioBefore.feePerSecond.add(new BN(1)),
+      folioBefore.folioFee.add(new BN(1)),
       [],
       []
     );
 
     const folioAfter = await program.account.folio.fetch(folioPDA);
-    const feeRecipientsAfter = await program.account.folioFeeRecipients.fetch(
+    const feeRecipientsAfter = await program.account.feeRecipients.fetch(
       getFolioFeeRecipientsPDA(folioPDA)
     );
 
@@ -273,8 +286,8 @@ describe("DTFs Tests", () => {
       folioBefore.programDeploymentSlot.toNumber()
     );
     assert.equal(
-      folioAfter.feePerSecond.toNumber(),
-      folioBefore.feePerSecond.add(new BN(1)).toNumber()
+      folioAfter.folioFee.toNumber(),
+      folioBefore.folioFee.add(new BN(1)).toNumber()
     );
     assert.equal(null, feeRecipientsBefore);
     assert.notEqual(null, feeRecipientsAfter);
@@ -286,7 +299,7 @@ describe("DTFs Tests", () => {
       folioPDA,
       null,
       null,
-      folioBefore.feePerSecond,
+      folioBefore.folioFee,
       [],
       []
     );
@@ -294,18 +307,18 @@ describe("DTFs Tests", () => {
 
   it("should update fee recipients of folio", async () => {
     const folioBefore = await program.account.folio.fetch(folioPDA);
-    const feeRecipientsBefore = await program.account.folioFeeRecipients.fetch(
+    const feeRecipientsBefore = await program.account.feeRecipients.fetch(
       getFolioFeeRecipientsPDA(folioPDA)
     );
 
     let newFeeRecipient = [
       {
         receiver: Keypair.generate().publicKey,
-        share: new BN(1_000_000_000 * 0.6),
+        portion: new BN(1_000_000_000 * 0.6),
       },
       {
         receiver: Keypair.generate().publicKey,
-        share: new BN(1_000_000_000 * 0.4),
+        portion: new BN(1_000_000_000 * 0.4),
       },
     ];
 
@@ -321,7 +334,7 @@ describe("DTFs Tests", () => {
     );
 
     const folioAfter = await program.account.folio.fetch(folioPDA);
-    const feeRecipientsAfter = await program.account.folioFeeRecipients.fetch(
+    const feeRecipientsAfter = await program.account.feeRecipients.fetch(
       getFolioFeeRecipientsPDA(folioPDA)
     );
 
@@ -331,8 +344,8 @@ describe("DTFs Tests", () => {
       folioBefore.programDeploymentSlot.toNumber()
     );
     assert.equal(
-      folioAfter.feePerSecond.toNumber(),
-      folioBefore.feePerSecond.toNumber()
+      folioAfter.folioFee.toNumber(),
+      folioBefore.folioFee.toNumber()
     );
 
     assert.deepEqual(
@@ -354,18 +367,18 @@ describe("DTFs Tests", () => {
       connection,
       folioOwnerKeypair,
       folioPDA,
-      tradeApproverKeypair.publicKey,
+      tradeProposerKeypair.publicKey,
       {
-        tradeApprover: {},
+        tradeProposer: {},
       }
     );
 
     const actor = await program.account.actor.fetch(
-      getActorPDA(tradeApproverKeypair.publicKey, folioPDA)
+      getActorPDA(tradeProposerKeypair.publicKey, folioPDA)
     );
 
     assert.deepEqual(actor.roles, 2); //  binary 10 = 2 for trade approver
-    assert.deepEqual(actor.authority, tradeApproverKeypair.publicKey);
+    assert.deepEqual(actor.authority, tradeProposerKeypair.publicKey);
     assert.deepEqual(actor.folio, folioPDA);
     assert.notEqual(actor.bump, 0);
   });
@@ -375,18 +388,18 @@ describe("DTFs Tests", () => {
       connection,
       folioOwnerKeypair,
       folioPDA,
-      tradeApproverKeypair.publicKey,
+      tradeProposerKeypair.publicKey,
       {
         priceCurator: {},
       }
     );
 
     const actor = await program.account.actor.fetch(
-      getActorPDA(tradeApproverKeypair.publicKey, folioPDA)
+      getActorPDA(tradeProposerKeypair.publicKey, folioPDA)
     );
 
     assert.deepEqual(actor.roles, 6); //  binary 110 = 6 for trade approver and price curator
-    assert.deepEqual(actor.authority, tradeApproverKeypair.publicKey);
+    assert.deepEqual(actor.authority, tradeProposerKeypair.publicKey);
     assert.deepEqual(actor.folio, folioPDA);
     assert.notEqual(actor.bump, 0);
   });
@@ -396,9 +409,9 @@ describe("DTFs Tests", () => {
       connection,
       folioOwnerKeypair,
       folioPDA,
-      tradeApproverKeypair.publicKey,
+      tradeProposerKeypair.publicKey,
       {
-        tradeApprover: {},
+        tradeProposer: {},
       },
       true
     );
@@ -406,7 +419,7 @@ describe("DTFs Tests", () => {
     await wait(2);
 
     const actor = await program.account.actor.fetchNullable(
-      getActorPDA(tradeApproverKeypair.publicKey, folioPDA)
+      getActorPDA(tradeProposerKeypair.publicKey, folioPDA)
     );
 
     // Null since we closed it
@@ -415,12 +428,12 @@ describe("DTFs Tests", () => {
     // // Just to test re-init attack, we'll re-init the actor and see the fields
     await airdrop(
       connection,
-      getActorPDA(tradeApproverKeypair.publicKey, folioPDA),
+      getActorPDA(tradeProposerKeypair.publicKey, folioPDA),
       1000
     );
 
     const actorPostReinit = await program.account.actor.fetchNullable(
-      getActorPDA(tradeApproverKeypair.publicKey, folioPDA)
+      getActorPDA(tradeProposerKeypair.publicKey, folioPDA)
     );
 
     assert.equal(actorPostReinit, null);
@@ -440,7 +453,7 @@ describe("DTFs Tests", () => {
       false
     );
 
-    await addTokensToFolio(connection, folioOwnerKeypair, folioPDA, [
+    await addToBasket(connection, folioOwnerKeypair, folioPDA, [
       {
         mint: tokenMints[0].mint.publicKey,
         amount: new BN(100 * 10 ** tokenMints[0].decimals),
@@ -487,7 +500,7 @@ describe("DTFs Tests", () => {
       false
     );
 
-    await addTokensToFolio(
+    await addToBasket(
       connection,
       folioOwnerKeypair,
       folioPDA,
@@ -522,7 +535,7 @@ describe("DTFs Tests", () => {
       ownerFolioTokenATA
     );
 
-    await finalizeFolio(
+    await finalizeBasket(
       connection,
       folioOwnerKeypair,
       folioPDA,
@@ -552,52 +565,46 @@ describe("DTFs Tests", () => {
       },
     ]);
 
-    const userPendingTokenAmountsPDA = getUserPendingTokenAmountsPDA(
+    const userPendingBasketPDA = getUserPendingBasketPDA(
       folioPDA,
       userKeypair.publicKey
     );
 
-    const folioPendingTokenAmountsPDA =
-      getFolioPendingTokenAmountsPDA(folioPDA);
+    const folioPendingBasketPDA = getFolioPendingBasketPDA(folioPDA);
 
-    const userPendingTokenAmounts =
-      await program.account.pendingTokenAmounts.fetch(
-        userPendingTokenAmountsPDA
-      );
+    const userPendingBasket = await program.account.pendingBasket.fetch(
+      userPendingBasketPDA
+    );
 
-    const folioPendingTokenAmounts =
-      await program.account.pendingTokenAmounts.fetch(
-        folioPendingTokenAmountsPDA
-      );
+    const folioPendingBasket = await program.account.pendingBasket.fetch(
+      folioPendingBasketPDA
+    );
 
     assert.equal(
-      userPendingTokenAmounts.tokenAmounts[0].amountForMinting.toNumber(),
+      userPendingBasket.tokenAmounts[0].amountForMinting.toNumber(),
       100 * 10 ** tokenMints[0].decimals
     );
 
     assert.equal(
-      folioPendingTokenAmounts.tokenAmounts[0].amountForMinting.toNumber(),
+      folioPendingBasket.tokenAmounts[0].amountForMinting.toNumber(),
       100 * 10 ** tokenMints[0].decimals
     );
   });
 
   it("should allow user to add to mint folio tokens", async () => {
-    const userPendingTokenAmountsPDA = getUserPendingTokenAmountsPDA(
+    const userPendingBasketPDA = getUserPendingBasketPDA(
       folioPDA,
       userKeypair.publicKey
     );
-    const folioPendingTokenAmountsPDA =
-      getFolioPendingTokenAmountsPDA(folioPDA);
+    const folioPendingBasketPDA = getFolioPendingBasketPDA(folioPDA);
 
-    const userPendingTokenAmountsBefore =
-      await program.account.pendingTokenAmounts.fetch(
-        userPendingTokenAmountsPDA
-      );
+    const userPendingBasketBefore = await program.account.pendingBasket.fetch(
+      userPendingBasketPDA
+    );
 
-    const folioPendingTokenAmountsBefore =
-      await program.account.pendingTokenAmounts.fetch(
-        folioPendingTokenAmountsPDA
-      );
+    const folioPendingBasketBefore = await program.account.pendingBasket.fetch(
+      folioPendingBasketPDA
+    );
 
     await initOrAddMintFolioToken(connection, userKeypair, folioPDA, [
       {
@@ -614,58 +621,56 @@ describe("DTFs Tests", () => {
       },
     ]);
 
-    const userPendingTokenAmountsAfter =
-      await program.account.pendingTokenAmounts.fetch(
-        userPendingTokenAmountsPDA
-      );
+    const userPendingBasketAfter = await program.account.pendingBasket.fetch(
+      userPendingBasketPDA
+    );
 
-    const folioPendingTokenAmountsAfter =
-      await program.account.pendingTokenAmounts.fetch(
-        folioPendingTokenAmountsPDA
-      );
-
-    assert.equal(
-      userPendingTokenAmountsAfter.tokenAmounts[0].amountForMinting.toNumber(),
-      userPendingTokenAmountsBefore.tokenAmounts[0].amountForMinting.toNumber()
+    const folioPendingBasketAfter = await program.account.pendingBasket.fetch(
+      folioPendingBasketPDA
     );
 
     assert.equal(
-      folioPendingTokenAmountsAfter.tokenAmounts[0].amountForMinting.toNumber(),
-      folioPendingTokenAmountsBefore.tokenAmounts[0].amountForMinting.toNumber()
+      userPendingBasketAfter.tokenAmounts[0].amountForMinting.toNumber(),
+      userPendingBasketBefore.tokenAmounts[0].amountForMinting.toNumber()
     );
 
     assert.equal(
-      userPendingTokenAmountsAfter.tokenAmounts[1].amountForMinting.toNumber(),
-      userPendingTokenAmountsBefore.tokenAmounts[1].amountForMinting.toNumber() +
+      folioPendingBasketAfter.tokenAmounts[0].amountForMinting.toNumber(),
+      folioPendingBasketBefore.tokenAmounts[0].amountForMinting.toNumber()
+    );
+
+    assert.equal(
+      userPendingBasketAfter.tokenAmounts[1].amountForMinting.toNumber(),
+      userPendingBasketBefore.tokenAmounts[1].amountForMinting.toNumber() +
         100 * 10 ** tokenMints[1].decimals
     );
 
     assert.equal(
-      folioPendingTokenAmountsAfter.tokenAmounts[1].amountForMinting.toNumber(),
-      folioPendingTokenAmountsBefore.tokenAmounts[1].amountForMinting.toNumber() +
+      folioPendingBasketAfter.tokenAmounts[1].amountForMinting.toNumber(),
+      folioPendingBasketBefore.tokenAmounts[1].amountForMinting.toNumber() +
         100 * 10 ** tokenMints[1].decimals
     );
 
     assert.equal(
-      userPendingTokenAmountsAfter.tokenAmounts[2].amountForMinting.toNumber(),
-      userPendingTokenAmountsBefore.tokenAmounts[2].amountForMinting.toNumber() +
+      userPendingBasketAfter.tokenAmounts[2].amountForMinting.toNumber(),
+      userPendingBasketBefore.tokenAmounts[2].amountForMinting.toNumber() +
         200 * 10 ** tokenMints[2].decimals
     );
 
     assert.equal(
-      folioPendingTokenAmountsAfter.tokenAmounts[2].amountForMinting.toNumber(),
-      folioPendingTokenAmountsBefore.tokenAmounts[2].amountForMinting.toNumber() +
+      folioPendingBasketAfter.tokenAmounts[2].amountForMinting.toNumber(),
+      folioPendingBasketBefore.tokenAmounts[2].amountForMinting.toNumber() +
         200 * 10 ** tokenMints[2].decimals
     );
 
     assert.equal(
-      userPendingTokenAmountsAfter.tokenAmounts[3].amountForMinting.toNumber(),
-      userPendingTokenAmountsBefore.tokenAmounts[3].amountForMinting.toNumber() +
+      userPendingBasketAfter.tokenAmounts[3].amountForMinting.toNumber(),
+      userPendingBasketBefore.tokenAmounts[3].amountForMinting.toNumber() +
         300 * 10 ** tokenMints[3].decimals
     );
     assert.equal(
-      folioPendingTokenAmountsAfter.tokenAmounts[3].amountForMinting.toNumber(),
-      folioPendingTokenAmountsBefore.tokenAmounts[3].amountForMinting.toNumber() +
+      folioPendingBasketAfter.tokenAmounts[3].amountForMinting.toNumber(),
+      folioPendingBasketBefore.tokenAmounts[3].amountForMinting.toNumber() +
         300 * 10 ** tokenMints[3].decimals
     );
   });
@@ -678,23 +683,20 @@ describe("DTFs Tests", () => {
       userKeypair.publicKey
     );
 
-    const userPendingTokenAmountsPDA = getUserPendingTokenAmountsPDA(
+    const userPendingBasketPDA = getUserPendingBasketPDA(
       folioPDA,
       userKeypair.publicKey
     );
 
-    const folioPendingTokenAmountsPDA =
-      getFolioPendingTokenAmountsPDA(folioPDA);
+    const folioPendingBasketPDA = getFolioPendingBasketPDA(folioPDA);
 
-    const userPendingTokenAmountsBefore =
-      await program.account.pendingTokenAmounts.fetch(
-        userPendingTokenAmountsPDA
-      );
+    const userPendingBasketBefore = await program.account.pendingBasket.fetch(
+      userPendingBasketPDA
+    );
 
-    const folioPendingTokenAmountsBefore =
-      await program.account.pendingTokenAmounts.fetch(
-        folioPendingTokenAmountsPDA
-      );
+    const folioPendingBasketBefore = await program.account.pendingBasket.fetch(
+      folioPendingBasketPDA
+    );
 
     const userFolioTokenBalanceBefore = await getTokenBalance(
       connection,
@@ -718,66 +720,49 @@ describe("DTFs Tests", () => {
       "Should fail when mint mismatch"
     );
 
-    const userPendingTokenAmountsAfter =
-      await program.account.pendingTokenAmounts.fetch(
-        userPendingTokenAmountsPDA
-      );
+    const userPendingBasketAfter = await program.account.pendingBasket.fetch(
+      userPendingBasketPDA
+    );
 
     const userFolioTokenBalanceAfter = await getTokenBalance(
       connection,
       userFolioMintATA
     );
 
-    const folioPendingTokenAmountsAfter =
-      await program.account.pendingTokenAmounts.fetch(
-        folioPendingTokenAmountsPDA
-      );
+    const folioPendingBasketAfter = await program.account.pendingBasket.fetch(
+      folioPendingBasketPDA
+    );
 
     assert.equal(userFolioTokenBalanceAfter, userFolioTokenBalanceBefore);
 
-    for (
-      let i = 0;
-      i < userPendingTokenAmountsBefore.tokenAmounts.length;
-      i++
-    ) {
+    for (let i = 0; i < userPendingBasketBefore.tokenAmounts.length; i++) {
       assert.equal(
-        userPendingTokenAmountsAfter.tokenAmounts[
-          i
-        ].amountForMinting.toNumber(),
-        userPendingTokenAmountsBefore.tokenAmounts[
-          i
-        ].amountForMinting.toNumber()
+        userPendingBasketAfter.tokenAmounts[i].amountForMinting.toNumber(),
+        userPendingBasketBefore.tokenAmounts[i].amountForMinting.toNumber()
       );
 
       assert.equal(
-        folioPendingTokenAmountsAfter.tokenAmounts[
-          i
-        ].amountForMinting.toNumber(),
-        folioPendingTokenAmountsBefore.tokenAmounts[
-          i
-        ].amountForMinting.toNumber()
+        folioPendingBasketAfter.tokenAmounts[i].amountForMinting.toNumber(),
+        folioPendingBasketBefore.tokenAmounts[i].amountForMinting.toNumber()
       );
     }
   });
 
   it("should allow user to remove pending token from token #4", async () => {
     // Only remove 100 so we can still mint
-    const userPendingTokenAmountsPDA = getUserPendingTokenAmountsPDA(
+    const userPendingBasketPDA = getUserPendingBasketPDA(
       folioPDA,
       userKeypair.publicKey
     );
-    const folioPendingTokenAmountsPDA =
-      getFolioPendingTokenAmountsPDA(folioPDA);
+    const folioPendingBasketPDA = getFolioPendingBasketPDA(folioPDA);
 
-    const userPendingTokenAmountsBefore =
-      await program.account.pendingTokenAmounts.fetch(
-        userPendingTokenAmountsPDA
-      );
+    const userPendingBasketBefore = await program.account.pendingBasket.fetch(
+      userPendingBasketPDA
+    );
 
-    const folioPendingTokenAmountsBefore =
-      await program.account.pendingTokenAmounts.fetch(
-        folioPendingTokenAmountsPDA
-      );
+    const folioPendingBasketBefore = await program.account.pendingBasket.fetch(
+      folioPendingBasketPDA
+    );
 
     await removeFromMintFolioToken(connection, userKeypair, folioPDA, [
       {
@@ -786,25 +771,23 @@ describe("DTFs Tests", () => {
       },
     ]);
 
-    const userPendingTokenAmountsAfter =
-      await program.account.pendingTokenAmounts.fetch(
-        userPendingTokenAmountsPDA
-      );
+    const userPendingBasketAfter = await program.account.pendingBasket.fetch(
+      userPendingBasketPDA
+    );
 
-    const folioPendingTokenAmountsAfter =
-      await program.account.pendingTokenAmounts.fetch(
-        folioPendingTokenAmountsPDA
-      );
+    const folioPendingBasketAfter = await program.account.pendingBasket.fetch(
+      folioPendingBasketPDA
+    );
 
     assert.equal(
-      userPendingTokenAmountsAfter.tokenAmounts[3].amountForMinting.toNumber(),
-      userPendingTokenAmountsBefore.tokenAmounts[3].amountForMinting.toNumber() -
+      userPendingBasketAfter.tokenAmounts[3].amountForMinting.toNumber(),
+      userPendingBasketBefore.tokenAmounts[3].amountForMinting.toNumber() -
         100 * 10 ** tokenMints[3].decimals
     );
 
     assert.equal(
-      folioPendingTokenAmountsAfter.tokenAmounts[3].amountForMinting.toNumber(),
-      folioPendingTokenAmountsBefore.tokenAmounts[3].amountForMinting.toNumber() -
+      folioPendingBasketAfter.tokenAmounts[3].amountForMinting.toNumber(),
+      folioPendingBasketBefore.tokenAmounts[3].amountForMinting.toNumber() -
         100 * 10 ** tokenMints[3].decimals
     );
   });
@@ -824,22 +807,19 @@ describe("DTFs Tests", () => {
       userKeypair.publicKey
     );
 
-    const userPendingTokenAmountsPDA = getUserPendingTokenAmountsPDA(
+    const userPendingBasketPDA = getUserPendingBasketPDA(
       folioPDA,
       userKeypair.publicKey
     );
-    const folioPendingTokenAmountsPDA =
-      getFolioPendingTokenAmountsPDA(folioPDA);
+    const folioPendingBasketPDA = getFolioPendingBasketPDA(folioPDA);
 
-    const userPendingTokenAmountsBefore =
-      await program.account.pendingTokenAmounts.fetch(
-        userPendingTokenAmountsPDA
-      );
+    const userPendingBasketBefore = await program.account.pendingBasket.fetch(
+      userPendingBasketPDA
+    );
 
-    const folioPendingTokenAmountsBefore =
-      await program.account.pendingTokenAmounts.fetch(
-        folioPendingTokenAmountsPDA
-      );
+    const folioPendingBasketBefore = await program.account.pendingBasket.fetch(
+      folioPendingBasketPDA
+    );
 
     const userFolioTokenBalanceBefore = await getTokenBalance(
       connection,
@@ -860,15 +840,13 @@ describe("DTFs Tests", () => {
       shares
     );
 
-    const userPendingTokenAmountsAfter =
-      await program.account.pendingTokenAmounts.fetch(
-        userPendingTokenAmountsPDA
-      );
+    const userPendingBasketAfter = await program.account.pendingBasket.fetch(
+      userPendingBasketPDA
+    );
 
-    const folioPendingTokenAmountsAfter =
-      await program.account.pendingTokenAmounts.fetch(
-        folioPendingTokenAmountsPDA
-      );
+    const folioPendingBasketAfter = await program.account.pendingBasket.fetch(
+      folioPendingBasketPDA
+    );
 
     const userFolioTokenBalanceAfter = await getTokenBalance(
       connection,
@@ -879,83 +857,80 @@ describe("DTFs Tests", () => {
 
     // Take 30% (3 tokens and 10 is the supply)
     assert.equal(
-      userPendingTokenAmountsAfter.tokenAmounts[0].amountForMinting.toNumber(),
-      userPendingTokenAmountsBefore.tokenAmounts[0].amountForMinting.toNumber() -
+      userPendingBasketAfter.tokenAmounts[0].amountForMinting.toNumber(),
+      userPendingBasketBefore.tokenAmounts[0].amountForMinting.toNumber() -
         30 * 10 ** tokenMints[0].decimals
     );
 
     assert.equal(
-      folioPendingTokenAmountsAfter.tokenAmounts[0].amountForMinting.toNumber(),
-      folioPendingTokenAmountsBefore.tokenAmounts[0].amountForMinting.toNumber() -
+      folioPendingBasketAfter.tokenAmounts[0].amountForMinting.toNumber(),
+      folioPendingBasketBefore.tokenAmounts[0].amountForMinting.toNumber() -
         30 * 10 ** tokenMints[0].decimals
     );
 
     assert.equal(
-      userPendingTokenAmountsAfter.tokenAmounts[1].amountForMinting.toNumber(),
-      userPendingTokenAmountsBefore.tokenAmounts[1].amountForMinting.toNumber() -
+      userPendingBasketAfter.tokenAmounts[1].amountForMinting.toNumber(),
+      userPendingBasketBefore.tokenAmounts[1].amountForMinting.toNumber() -
         30 * 10 ** tokenMints[1].decimals
     );
 
     assert.equal(
-      folioPendingTokenAmountsAfter.tokenAmounts[1].amountForMinting.toNumber(),
-      folioPendingTokenAmountsBefore.tokenAmounts[1].amountForMinting.toNumber() -
+      folioPendingBasketAfter.tokenAmounts[1].amountForMinting.toNumber(),
+      folioPendingBasketBefore.tokenAmounts[1].amountForMinting.toNumber() -
         30 * 10 ** tokenMints[1].decimals
     );
 
     assert.equal(
-      userPendingTokenAmountsAfter.tokenAmounts[2].amountForMinting.toNumber(),
-      userPendingTokenAmountsBefore.tokenAmounts[2].amountForMinting.toNumber() -
-        60 * 10 ** tokenMints[2].decimals
+      userPendingBasketAfter.tokenAmounts[2].amountForMinting.toNumber(),
+      userPendingBasketBefore.tokenAmounts[2].amountForMinting.toNumber() -
+        30 * 10 ** tokenMints[2].decimals
     );
 
     assert.equal(
-      folioPendingTokenAmountsAfter.tokenAmounts[2].amountForMinting.toNumber(),
-      folioPendingTokenAmountsBefore.tokenAmounts[2].amountForMinting.toNumber() -
-        60 * 10 ** tokenMints[2].decimals
+      folioPendingBasketAfter.tokenAmounts[2].amountForMinting.toNumber(),
+      folioPendingBasketBefore.tokenAmounts[2].amountForMinting.toNumber() -
+        30 * 10 ** tokenMints[2].decimals
     );
 
     assert.equal(
-      userPendingTokenAmountsAfter.tokenAmounts[3].amountForMinting.toNumber(),
-      userPendingTokenAmountsBefore.tokenAmounts[3].amountForMinting.toNumber() -
-        60 * 10 ** tokenMints[3].decimals
+      userPendingBasketAfter.tokenAmounts[3].amountForMinting.toNumber(),
+      userPendingBasketBefore.tokenAmounts[3].amountForMinting.toNumber() -
+        30 * 10 ** tokenMints[3].decimals
     );
 
     assert.equal(
-      folioPendingTokenAmountsAfter.tokenAmounts[3].amountForMinting.toNumber(),
-      folioPendingTokenAmountsBefore.tokenAmounts[3].amountForMinting.toNumber() -
-        60 * 10 ** tokenMints[3].decimals
+      folioPendingBasketAfter.tokenAmounts[3].amountForMinting.toNumber(),
+      folioPendingBasketBefore.tokenAmounts[3].amountForMinting.toNumber() -
+        30 * 10 ** tokenMints[3].decimals
     );
 
     assert.equal(
-      userPendingTokenAmountsAfter.tokenAmounts[4].amountForMinting.toNumber(),
-      userPendingTokenAmountsBefore.tokenAmounts[4].amountForMinting.toNumber() -
+      userPendingBasketAfter.tokenAmounts[4].amountForMinting.toNumber(),
+      userPendingBasketBefore.tokenAmounts[4].amountForMinting.toNumber() -
         30 * 10 ** tokenMints[4].decimals
     );
 
     assert.equal(
-      folioPendingTokenAmountsAfter.tokenAmounts[4].amountForMinting.toNumber(),
-      folioPendingTokenAmountsBefore.tokenAmounts[4].amountForMinting.toNumber() -
+      folioPendingBasketAfter.tokenAmounts[4].amountForMinting.toNumber(),
+      folioPendingBasketBefore.tokenAmounts[4].amountForMinting.toNumber() -
         30 * 10 ** tokenMints[4].decimals
     );
   });
 
   it("should allow user to burn folio token (burn 2 tokens)", async () => {
-    const userPendingTokenAmountsPDA = getUserPendingTokenAmountsPDA(
+    const userPendingBasketPDA = getUserPendingBasketPDA(
       folioPDA,
       userKeypair.publicKey
     );
-    const folioPendingTokenAmountsPDA =
-      getFolioPendingTokenAmountsPDA(folioPDA);
+    const folioPendingBasketPDA = getFolioPendingBasketPDA(folioPDA);
 
-    const userPendingTokenAmountsBefore =
-      await program.account.pendingTokenAmounts.fetch(
-        userPendingTokenAmountsPDA
-      );
+    const userPendingBasketBefore = await program.account.pendingBasket.fetch(
+      userPendingBasketPDA
+    );
 
-    const folioPendingTokenAmountsBefore =
-      await program.account.pendingTokenAmounts.fetch(
-        folioPendingTokenAmountsPDA
-      );
+    const folioPendingBasketBefore = await program.account.pendingBasket.fetch(
+      folioPendingBasketPDA
+    );
 
     const userFolioTokenATA = await getOrCreateAtaAddress(
       connection,
@@ -981,15 +956,13 @@ describe("DTFs Tests", () => {
       }))
     );
 
-    const userPendingTokenAmountsAfter =
-      await program.account.pendingTokenAmounts.fetch(
-        userPendingTokenAmountsPDA
-      );
+    const userPendingBasketAfter = await program.account.pendingBasket.fetch(
+      userPendingBasketPDA
+    );
 
-    const folioPendingTokenAmountsAfter =
-      await program.account.pendingTokenAmounts.fetch(
-        folioPendingTokenAmountsPDA
-      );
+    const folioPendingBasketAfter = await program.account.pendingBasket.fetch(
+      folioPendingBasketPDA
+    );
 
     const userFolioTokenBalanceAfter = await getTokenBalance(
       connection,
@@ -1001,38 +974,24 @@ describe("DTFs Tests", () => {
     for (let i = 0; i < tokenMints.length; i++) {
       // Minting token amounts are the same
       assert.equal(
-        userPendingTokenAmountsAfter.tokenAmounts[
-          i
-        ].amountForMinting.toNumber(),
-        userPendingTokenAmountsBefore.tokenAmounts[
-          i
-        ].amountForMinting.toNumber()
+        userPendingBasketAfter.tokenAmounts[i].amountForMinting.toNumber(),
+        userPendingBasketBefore.tokenAmounts[i].amountForMinting.toNumber()
       );
 
       assert.equal(
-        folioPendingTokenAmountsAfter.tokenAmounts[
-          i
-        ].amountForMinting.toNumber(),
-        folioPendingTokenAmountsBefore.tokenAmounts[
-          i
-        ].amountForMinting.toNumber()
+        folioPendingBasketAfter.tokenAmounts[i].amountForMinting.toNumber(),
+        folioPendingBasketBefore.tokenAmounts[i].amountForMinting.toNumber()
       );
 
       // TODO more precise equal
       assert.equal(
-        userPendingTokenAmountsAfter.tokenAmounts[
-          i
-        ].amountForRedeeming.toNumber() >
-          userPendingTokenAmountsBefore.tokenAmounts[
-            i
-          ].amountForRedeeming.toNumber(),
+        userPendingBasketAfter.tokenAmounts[i].amountForRedeeming.toNumber() >
+          userPendingBasketBefore.tokenAmounts[i].amountForRedeeming.toNumber(),
         true
       );
       assert.equal(
-        folioPendingTokenAmountsAfter.tokenAmounts[
-          i
-        ].amountForRedeeming.toNumber() >
-          folioPendingTokenAmountsBefore.tokenAmounts[
+        folioPendingBasketAfter.tokenAmounts[i].amountForRedeeming.toNumber() >
+          folioPendingBasketBefore.tokenAmounts[
             i
           ].amountForRedeeming.toNumber(),
         true
@@ -1053,22 +1012,19 @@ describe("DTFs Tests", () => {
       balances.push(await getTokenBalance(connection, userAta));
     }
 
-    const userPendingTokenAmountsPDA = getUserPendingTokenAmountsPDA(
+    const userPendingBasketPDA = getUserPendingBasketPDA(
       folioPDA,
       userKeypair.publicKey
     );
-    const folioPendingTokenAmountsPDA =
-      getFolioPendingTokenAmountsPDA(folioPDA);
+    const folioPendingBasketPDA = getFolioPendingBasketPDA(folioPDA);
 
-    const userPendingTokenAmountsBefore =
-      await program.account.pendingTokenAmounts.fetch(
-        userPendingTokenAmountsPDA
-      );
+    const userPendingBasketBefore = await program.account.pendingBasket.fetch(
+      userPendingBasketPDA
+    );
 
-    const folioPendingTokenAmountsBefore =
-      await program.account.pendingTokenAmounts.fetch(
-        folioPendingTokenAmountsPDA
-      );
+    const folioPendingBasketBefore = await program.account.pendingBasket.fetch(
+      folioPendingBasketPDA
+    );
 
     await redeemFromBurnFolioToken(
       connection,
@@ -1080,15 +1036,13 @@ describe("DTFs Tests", () => {
       }))
     );
 
-    const userPendingTokenAmountsAfter =
-      await program.account.pendingTokenAmounts.fetch(
-        userPendingTokenAmountsPDA
-      );
+    const userPendingBasketAfter = await program.account.pendingBasket.fetch(
+      userPendingBasketPDA
+    );
 
-    const folioPendingTokenAmountsAfter =
-      await program.account.pendingTokenAmounts.fetch(
-        folioPendingTokenAmountsPDA
-      );
+    const folioPendingBasketAfter = await program.account.pendingBasket.fetch(
+      folioPendingBasketPDA
+    );
 
     for (let i = 0; i < tokenMints.length; i++) {
       const balanceAfter = await getTokenBalance(
@@ -1097,22 +1051,14 @@ describe("DTFs Tests", () => {
       );
 
       assert.equal(
-        userPendingTokenAmountsAfter.tokenAmounts[
-          i
-        ].amountForRedeeming.toNumber(),
-        userPendingTokenAmountsBefore.tokenAmounts[
-          i
-        ].amountForRedeeming.toNumber() -
+        userPendingBasketAfter.tokenAmounts[i].amountForRedeeming.toNumber(),
+        userPendingBasketBefore.tokenAmounts[i].amountForRedeeming.toNumber() -
           1 * 10 ** tokenMints[i].decimals
       );
 
       assert.equal(
-        folioPendingTokenAmountsAfter.tokenAmounts[
-          i
-        ].amountForRedeeming.toNumber(),
-        folioPendingTokenAmountsBefore.tokenAmounts[
-          i
-        ].amountForRedeeming.toNumber() -
+        folioPendingBasketAfter.tokenAmounts[i].amountForRedeeming.toNumber(),
+        folioPendingBasketBefore.tokenAmounts[i].amountForRedeeming.toNumber() -
           1 * 10 ** tokenMints[i].decimals
       );
 

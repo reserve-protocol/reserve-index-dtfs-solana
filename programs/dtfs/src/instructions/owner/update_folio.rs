@@ -20,6 +20,9 @@ pub struct UpdateFolio<'info> {
     #[account(mut)]
     pub actor: UncheckedAccount<'info>,
 
+    /*
+    DTF Program Accounts
+    */
     #[account(
         seeds = [DTF_PROGRAM_SIGNER_SEEDS],
         bump = dtf_program_signer.bump
@@ -38,6 +41,9 @@ pub struct UpdateFolio<'info> {
     )]
     pub dtf_program_data: UncheckedAccount<'info>,
 
+    /*
+    Folio Program Accounts
+    */
     /// CHECK: Folio Program
     #[account(address = FOLIO_ID)]
     pub folio_program: UncheckedAccount<'info>,
@@ -48,7 +54,7 @@ pub struct UpdateFolio<'info> {
 
     /// CHECK: Done within the folio program
     #[account(mut)]
-    pub folio_fee_recipients: UncheckedAccount<'info>,
+    pub fee_recipients: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
     #[account()]
@@ -65,7 +71,7 @@ pub fn handler(
     ctx: Context<UpdateFolio>,
     program_version: Option<Pubkey>,
     program_deployment_slot: Option<u64>,
-    fee_per_second: Option<u64>,
+    folio_fee: Option<u64>,
     fee_recipients_to_add: Vec<FeeRecipient>,
     fee_recipients_to_remove: Vec<Pubkey>,
 ) -> Result<()> {
@@ -75,7 +81,7 @@ pub fn handler(
         ctx,
         program_version,
         program_deployment_slot,
-        fee_per_second,
+        folio_fee,
         fee_recipients_to_add,
         fee_recipients_to_remove,
     )?;

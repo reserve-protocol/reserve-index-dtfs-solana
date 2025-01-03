@@ -5,7 +5,7 @@ use anchor_spl::{
 };
 use shared::{
     check_condition,
-    constants::{PendingBasketType, FOLIO_SEEDS, PENDING_BASKET_SEEDS, PROGRAM_REGISTRAR_SEEDS},
+    constants::{PendingBasketType, PENDING_BASKET_SEEDS, PROGRAM_REGISTRAR_SEEDS},
     structs::TokenAmount,
 };
 use shared::{constants::DTF_PROGRAM_SIGNER_SEEDS, errors::ErrorCode::*};
@@ -14,7 +14,7 @@ use shared::{errors::ErrorCode, structs::FolioStatus};
 use crate::state::{Folio, PendingBasket, ProgramRegistrar};
 
 #[derive(Accounts)]
-pub struct RedeemFromBurnFolioToken<'info> {
+pub struct AddToPendingBasket<'info> {
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
     pub token_program: Interface<'info, TokenInterface>,
@@ -31,14 +31,16 @@ pub struct RedeemFromBurnFolioToken<'info> {
     )]
     pub folio_pending_basket: AccountLoader<'info, PendingBasket>,
 
-    #[account(mut,
+    #[account(init_if_needed,
+        payer = user,
+        space = PendingBasket::SIZE,
         seeds = [PENDING_BASKET_SEEDS, folio.key().as_ref(), user.key().as_ref()],
         bump
     )]
     pub user_pending_basket: AccountLoader<'info, PendingBasket>,
 
     /*
-    Accounts to validate
+    Account to validate
     */
     #[account(
         seeds = [PROGRAM_REGISTRAR_SEEDS],
@@ -65,12 +67,12 @@ pub struct RedeemFromBurnFolioToken<'info> {
 
     Remaining accounts will have as many as possible of the following (always in the same order):
         - Token Mint (read)
-        - Sender Token Account (needs to be owned by folio) (mut)
-        - Receiver Token Account (needs to be owned by user) (this is expected to be the ATA and already exist, to save on compute) (mut)
+        - Sender Token Account (needs to be owned by user) (mut)
+        - Receiver Token Account (needs to be owned by folio) (this is expected to be the ATA and already exist, to save on compute) (mut)
      */
 }
 
-impl RedeemFromBurnFolioToken<'_> {
+impl AddToPendingBasket<'_> {
     pub fn validate(&self) -> Result<()> {
         let folio = self.folio.load()?;
         folio.validate_folio_program_post_init(
@@ -88,7 +90,7 @@ impl RedeemFromBurnFolioToken<'_> {
 }
 
 pub fn handler<'info>(
-    ctx: Context<'_, '_, 'info, 'info, RedeemFromBurnFolioToken<'info>>,
+    ctx: Context<'_, '_, 'info, 'info, AddToPendingBasket<'info>>,
     amounts: Vec<u64>,
 ) -> Result<()> {
     ctx.accounts.validate()?;
@@ -96,10 +98,9 @@ pub fn handler<'info>(
     let remaining_accounts = &ctx.remaining_accounts;
     let mut remaining_accounts_iter = remaining_accounts.iter();
 
+    let folio_key = ctx.accounts.folio.key();
     let token_program_id = ctx.accounts.token_program.key();
     let user = ctx.accounts.user.to_account_info();
-    let folio = ctx.accounts.folio.to_account_info();
-    let folio_data = ctx.accounts.folio.load()?;
 
     // Remaining accounts need to be divisible by 3
     check_condition!(
@@ -113,7 +114,7 @@ pub fn handler<'info>(
         InvalidNumberOfRemainingAccounts
     );
 
-    let mut removed_mints: Vec<TokenAmount> = vec![];
+    let mut added_mints: Vec<TokenAmount> = vec![];
 
     for amount in amounts {
         let token_mint = remaining_accounts_iter
@@ -126,11 +127,11 @@ pub fn handler<'info>(
             .next()
             .ok_or(InvalidAddedTokenMints)?;
 
-        // Validate the receiver token account is the ATA of the user
+        // Validate the receiver token account is the ATA of the folio
         check_condition!(
             receiver_token_account.key()
                 == get_associated_token_address_with_program_id(
-                    &user.key(),
+                    &folio_key,
                     token_mint.key,
                     &token_program_id,
                 ),
@@ -144,43 +145,40 @@ pub fn handler<'info>(
         let cpi_accounts = TransferChecked {
             from: sender_token_account.to_account_info(),
             to: receiver_token_account.to_account_info(),
-            authority: folio.clone(),
+            authority: user.clone(),
             mint: token_mint.to_account_info(),
         };
 
         let cpi_program = ctx.accounts.token_program.to_account_info();
 
-        let signer_seeds = &[
-            FOLIO_SEEDS,
-            folio_data.folio_token_mint.as_ref(),
-            &[folio_data.bump],
-        ];
-
         token_interface::transfer_checked(
-            CpiContext::new_with_signer(cpi_program, cpi_accounts, &[&signer_seeds[..]]),
+            CpiContext::new(cpi_program, cpi_accounts),
             amount,
             mint.decimals,
         )?;
 
-        removed_mints.push(TokenAmount {
+        added_mints.push(TokenAmount {
             mint: token_mint.key(),
-            amount_for_minting: 0,
-            amount_for_redeeming: amount,
+            amount_for_minting: amount,
+            amount_for_redeeming: 0,
         });
     }
 
+    // Can't add new mints if it's for the folio, user should only be able to add what's in the folio's pending token amounts
     let folio_pending_basket = &mut ctx.accounts.folio_pending_basket.load_mut()?;
-    folio_pending_basket.remove_token_amounts_from_folio(
-        &removed_mints,
+    folio_pending_basket.add_token_amounts_to_folio(
+        &added_mints,
         false,
-        PendingBasketType::RedeemProcess,
+        PendingBasketType::MintProcess,
     )?;
 
-    let user_pending_basket = &mut ctx.accounts.user_pending_basket.load_mut()?;
-    user_pending_basket.remove_token_amounts_from_folio(
-        &removed_mints,
+    PendingBasket::process_init_if_needed(
+        &mut ctx.accounts.user_pending_basket,
+        ctx.bumps.user_pending_basket,
+        &ctx.accounts.user.key(),
+        &ctx.accounts.folio.key(),
+        &added_mints,
         true,
-        PendingBasketType::RedeemProcess,
     )?;
 
     Ok(())

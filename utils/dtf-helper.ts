@@ -301,7 +301,7 @@ export async function finalizeBasket(
   });
 }
 
-export async function initOrAddMintFolioToken(
+export async function addToPendingBasket(
   connection: Connection,
   userKeypair: Keypair,
   folio: PublicKey,
@@ -309,8 +309,8 @@ export async function initOrAddMintFolioToken(
 ) {
   const dtfProgram = getDtfProgram(connection, userKeypair);
 
-  const initOrAddMintFolioToken = await dtfProgram.methods
-    .initOrAddMintFolioToken(tokens.map((token) => token.amount))
+  const addToPendingBasket = await dtfProgram.methods
+    .addToPendingBasket(tokens.map((token) => token.amount))
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
@@ -336,12 +336,12 @@ export async function initOrAddMintFolioToken(
     )
     .instruction();
 
-  await pSendAndConfirmTxn(dtfProgram, [initOrAddMintFolioToken], [], {
+  await pSendAndConfirmTxn(dtfProgram, [addToPendingBasket], [], {
     skipPreflight: SKIP_PREFLIGHT,
   });
 }
 
-export async function removeFromMintFolioToken(
+export async function removeFromPendingBasket(
   connection: Connection,
   userKeypair: Keypair,
   folio: PublicKey,
@@ -349,8 +349,8 @@ export async function removeFromMintFolioToken(
 ) {
   const dtfProgram = getDtfProgram(connection, userKeypair);
 
-  const removeFromMintFolioToken = await dtfProgram.methods
-    .removeFromMintFolioToken(tokens.map((token) => token.amount))
+  const removeFromPendingBasket = await dtfProgram.methods
+    .removeFromPendingBasket(tokens.map((token) => token.amount))
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
@@ -376,7 +376,7 @@ export async function removeFromMintFolioToken(
     )
     .instruction();
 
-  await pSendAndConfirmTxn(dtfProgram, [removeFromMintFolioToken], [], {
+  await pSendAndConfirmTxn(dtfProgram, [removeFromPendingBasket], [], {
     skipPreflight: SKIP_PREFLIGHT,
   });
 }
@@ -485,7 +485,7 @@ export async function burnFolioToken(
   });
 }
 
-export async function redeemFromBurnFolioToken(
+export async function redeemFromPendingBasket(
   connection: Connection,
   userKeypair: Keypair,
   folio: PublicKey,
@@ -493,8 +493,8 @@ export async function redeemFromBurnFolioToken(
 ) {
   const dtfProgram = getDtfProgram(connection, userKeypair);
 
-  const redeemFromBurnFolioToken = await dtfProgram.methods
-    .redeemFromBurnFolioToken(tokens.map((token) => token.amount))
+  const redeemFromPendingBasket = await dtfProgram.methods
+    .redeemFromPendingBasket(tokens.map((token) => token.amount))
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
@@ -520,7 +520,7 @@ export async function redeemFromBurnFolioToken(
     )
     .instruction();
 
-  await pSendAndConfirmTxn(dtfProgram, [redeemFromBurnFolioToken], [], {
+  await pSendAndConfirmTxn(dtfProgram, [redeemFromPendingBasket], [], {
     skipPreflight: SKIP_PREFLIGHT,
   });
 }

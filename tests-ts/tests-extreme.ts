@@ -11,7 +11,7 @@ import {
   addToBasket,
   finalizeBasket,
   initDtfSigner,
-  initOrAddMintFolioToken,
+  addToPendingBasket,
   mintFolioToken,
 } from "../utils/dtf-helper";
 import {
@@ -131,7 +131,7 @@ describe("DTFs Tests", () => {
         amount: new BN(100 * 10 ** token.decimals),
       }));
 
-      await initOrAddMintFolioToken(connection, userKeypair, folioPDA, batch);
+      await addToPendingBasket(connection, userKeypair, folioPDA, batch);
     }
 
     const shares = new BN(3).mul(new BN(10 ** 8));

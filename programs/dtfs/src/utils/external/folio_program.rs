@@ -4,15 +4,15 @@ use shared::structs::FeeRecipient;
 use shared::structs::Role;
 
 use crate::AddToBasket;
+use crate::AddToPendingBasket;
 use crate::BurnFolioToken;
 use crate::ClosePendingTokenAmount;
 use crate::FinalizeBasket;
-use crate::InitOrAddMintFolioToken;
 use crate::InitOrUpdateActor;
 use crate::MintFolioToken;
-use crate::RedeemFromBurnFolioToken;
+use crate::RedeemFromPendingBasket;
 use crate::RemoveActor;
-use crate::RemoveFromMintFolioToken;
+use crate::RemoveFromPendingBasket;
 use crate::ResizeFolio;
 use crate::UpdateFolio;
 
@@ -236,13 +236,13 @@ impl FolioProgram {
         Ok(())
     }
 
-    pub fn init_or_add_mint_folio_token<'info>(
-        ctx: Context<'_, '_, 'info, 'info, InitOrAddMintFolioToken<'info>>,
+    pub fn add_to_pending_basket<'info>(
+        ctx: Context<'_, '_, 'info, 'info, AddToPendingBasket<'info>>,
         amounts: Vec<u64>,
     ) -> Result<()> {
         let cpi_program = ctx.accounts.folio_program.to_account_info();
 
-        let cpi_accounts = folio::cpi::accounts::InitOrAddMintFolioToken {
+        let cpi_accounts = folio::cpi::accounts::AddToPendingBasket {
             system_program: ctx.accounts.system_program.to_account_info(),
             rent: ctx.accounts.rent.to_account_info(),
             token_program: ctx.accounts.token_program.to_account_info(),
@@ -269,18 +269,18 @@ impl FolioProgram {
 
         let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
 
-        folio::cpi::init_or_add_mint_folio_token(cpi_ctx, amounts)?;
+        folio::cpi::add_to_pending_basket(cpi_ctx, amounts)?;
 
         Ok(())
     }
 
-    pub fn remove_from_mint_folio_token<'info>(
-        ctx: Context<'_, '_, 'info, 'info, RemoveFromMintFolioToken<'info>>,
+    pub fn remove_from_pending_basket<'info>(
+        ctx: Context<'_, '_, 'info, 'info, RemoveFromPendingBasket<'info>>,
         amounts: Vec<u64>,
     ) -> Result<()> {
         let cpi_program = ctx.accounts.folio_program.to_account_info();
 
-        let cpi_accounts = folio::cpi::accounts::RemoveFromMintFolioToken {
+        let cpi_accounts = folio::cpi::accounts::RemoveFromPendingBasket {
             system_program: ctx.accounts.system_program.to_account_info(),
             token_program: ctx.accounts.token_program.to_account_info(),
             user: ctx.accounts.user.to_account_info(),
@@ -306,7 +306,7 @@ impl FolioProgram {
 
         let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
 
-        folio::cpi::remove_from_mint_folio_token(cpi_ctx, amounts)?;
+        folio::cpi::remove_from_pending_basket(cpi_ctx, amounts)?;
 
         Ok(())
     }
@@ -422,13 +422,13 @@ impl FolioProgram {
         Ok(())
     }
 
-    pub fn redeem_from_burn_folio_token<'info>(
-        ctx: Context<'_, '_, 'info, 'info, RedeemFromBurnFolioToken<'info>>,
+    pub fn redeem_from_pending_basket<'info>(
+        ctx: Context<'_, '_, 'info, 'info, RedeemFromPendingBasket<'info>>,
         amounts: Vec<u64>,
     ) -> Result<()> {
         let cpi_program = ctx.accounts.folio_program.to_account_info();
 
-        let cpi_accounts = folio::cpi::accounts::RedeemFromBurnFolioToken {
+        let cpi_accounts = folio::cpi::accounts::RedeemFromPendingBasket {
             system_program: ctx.accounts.system_program.to_account_info(),
             rent: ctx.accounts.rent.to_account_info(),
             token_program: ctx.accounts.token_program.to_account_info(),
@@ -455,7 +455,7 @@ impl FolioProgram {
 
         let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
 
-        folio::cpi::redeem_from_burn_folio_token(cpi_ctx, amounts)?;
+        folio::cpi::redeem_from_pending_basket(cpi_ctx, amounts)?;
 
         Ok(())
     }

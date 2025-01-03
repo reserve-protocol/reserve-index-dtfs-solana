@@ -7,7 +7,7 @@ use crate::{state::DtfProgramSigner, FolioProgram};
 use folio::ID as FOLIO_ID;
 
 #[derive(Accounts)]
-pub struct RedeemFromBurnFolioToken<'info> {
+pub struct RedeemFromPendingBasket<'info> {
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
     pub token_program: Interface<'info, TokenInterface>,
@@ -67,19 +67,19 @@ pub struct RedeemFromBurnFolioToken<'info> {
      */
 }
 
-impl RedeemFromBurnFolioToken<'_> {
+impl RedeemFromPendingBasket<'_> {
     pub fn validate(&self) -> Result<()> {
         Ok(())
     }
 }
 
 pub fn handler<'info>(
-    ctx: Context<'_, '_, 'info, 'info, RedeemFromBurnFolioToken<'info>>,
+    ctx: Context<'_, '_, 'info, 'info, RedeemFromPendingBasket<'info>>,
     amounts: Vec<u64>,
 ) -> Result<()> {
     ctx.accounts.validate()?;
 
-    FolioProgram::redeem_from_burn_folio_token(ctx, amounts)?;
+    FolioProgram::redeem_from_pending_basket(ctx, amounts)?;
 
     Ok(())
 }

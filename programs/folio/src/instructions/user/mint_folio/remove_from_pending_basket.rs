@@ -14,7 +14,7 @@ use shared::{errors::ErrorCode, structs::FolioStatus};
 use crate::state::{Folio, PendingBasket, ProgramRegistrar};
 
 #[derive(Accounts)]
-pub struct RemoveFromMintFolioToken<'info> {
+pub struct RemoveFromPendingBasket<'info> {
     pub system_program: Program<'info, System>,
     pub token_program: Interface<'info, TokenInterface>,
 
@@ -69,7 +69,7 @@ pub struct RemoveFromMintFolioToken<'info> {
      */
 }
 
-impl RemoveFromMintFolioToken<'_> {
+impl RemoveFromPendingBasket<'_> {
     pub fn validate(&self, folio: &Folio) -> Result<()> {
         folio.validate_folio_program_post_init(
             &self.folio.key(),
@@ -86,7 +86,7 @@ impl RemoveFromMintFolioToken<'_> {
 }
 
 pub fn handler<'info>(
-    ctx: Context<'_, '_, 'info, 'info, RemoveFromMintFolioToken<'info>>,
+    ctx: Context<'_, '_, 'info, 'info, RemoveFromPendingBasket<'info>>,
     amounts: Vec<u64>,
 ) -> Result<()> {
     let folio_info = ctx.accounts.folio.to_account_info();

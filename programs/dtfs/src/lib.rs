@@ -80,18 +80,18 @@ pub mod dtfs {
     /*
     User functions
      */
-    pub fn init_or_add_mint_folio_token<'info>(
-        ctx: Context<'_, '_, 'info, 'info, InitOrAddMintFolioToken<'info>>,
+    pub fn add_to_pending_basket<'info>(
+        ctx: Context<'_, '_, 'info, 'info, AddToPendingBasket<'info>>,
         amounts: Vec<u64>,
     ) -> Result<()> {
-        init_or_add_mint_folio_token::handler(ctx, amounts)
+        add_to_pending_basket::handler(ctx, amounts)
     }
 
-    pub fn remove_from_mint_folio_token<'info>(
-        ctx: Context<'_, '_, 'info, 'info, RemoveFromMintFolioToken<'info>>,
+    pub fn remove_from_pending_basket<'info>(
+        ctx: Context<'_, '_, 'info, 'info, RemoveFromPendingBasket<'info>>,
         amounts: Vec<u64>,
     ) -> Result<()> {
-        remove_from_mint_folio_token::handler(ctx, amounts)
+        remove_from_pending_basket::handler(ctx, amounts)
     }
 
     pub fn mint_folio_token<'info>(
@@ -108,11 +108,11 @@ pub mod dtfs {
         burn_folio_token::handler(ctx, amount_to_burn)
     }
 
-    pub fn redeem_from_burn_folio_token<'info>(
-        ctx: Context<'_, '_, 'info, 'info, RedeemFromBurnFolioToken<'info>>,
+    pub fn redeem_from_pending_basket<'info>(
+        ctx: Context<'_, '_, 'info, 'info, RedeemFromPendingBasket<'info>>,
         amounts: Vec<u64>,
     ) -> Result<()> {
-        redeem_from_burn_folio_token::handler(ctx, amounts)
+        redeem_from_pending_basket::handler(ctx, amounts)
     }
 
     pub fn close_pending_token_amount<'info>(

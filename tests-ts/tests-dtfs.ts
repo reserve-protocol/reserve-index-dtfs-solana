@@ -28,11 +28,11 @@ import {
   burnFolioToken,
   finalizeBasket,
   initDtfSigner,
-  initOrAddMintFolioToken,
+  addToPendingBasket,
   mintFolioToken,
-  redeemFromBurnFolioToken,
+  redeemFromPendingBasket,
   removeActor,
-  removeFromMintFolioToken,
+  removeFromPendingBasket,
   resizeFolio,
   updateFolio,
 } from "../utils/dtf-helper";
@@ -557,7 +557,7 @@ describe("DTFs Tests", () => {
   });
 
   it("should allow user to init mint folio tokens", async () => {
-    await initOrAddMintFolioToken(connection, userKeypair, folioPDA, [
+    await addToPendingBasket(connection, userKeypair, folioPDA, [
       {
         mint: tokenMints[0].mint.publicKey,
         amount: new BN(100 * 10 ** tokenMints[0].decimals),
@@ -605,7 +605,7 @@ describe("DTFs Tests", () => {
       folioPendingBasketPDA
     );
 
-    await initOrAddMintFolioToken(connection, userKeypair, folioPDA, [
+    await addToPendingBasket(connection, userKeypair, folioPDA, [
       {
         mint: tokenMints[1].mint.publicKey,
         amount: new BN(100 * 10 ** tokenMints[1].decimals),
@@ -763,7 +763,7 @@ describe("DTFs Tests", () => {
       folioPendingBasketPDA
     );
 
-    await removeFromMintFolioToken(connection, userKeypair, folioPDA, [
+    await removeFromPendingBasket(connection, userKeypair, folioPDA, [
       {
         mint: tokenMints[3].mint.publicKey,
         amount: new BN(100 * 10 ** tokenMints[3].decimals),
@@ -792,7 +792,7 @@ describe("DTFs Tests", () => {
   });
 
   it("should allow user to mint folio token (after adding 5th token)", async () => {
-    await initOrAddMintFolioToken(connection, userKeypair, folioPDA, [
+    await addToPendingBasket(connection, userKeypair, folioPDA, [
       {
         mint: tokenMints[4].mint.publicKey,
         amount: new BN(100 * 10 ** tokenMints[4].decimals),
@@ -1025,7 +1025,7 @@ describe("DTFs Tests", () => {
       folioPendingBasketPDA
     );
 
-    await redeemFromBurnFolioToken(
+    await redeemFromPendingBasket(
       connection,
       userKeypair,
       folioPDA,

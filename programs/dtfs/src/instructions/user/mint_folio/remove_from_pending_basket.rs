@@ -7,9 +7,8 @@ use crate::{state::DtfProgramSigner, FolioProgram};
 use folio::ID as FOLIO_ID;
 
 #[derive(Accounts)]
-pub struct InitOrAddMintFolioToken<'info> {
+pub struct RemoveFromPendingBasket<'info> {
     pub system_program: Program<'info, System>,
-    pub rent: Sysvar<'info, Rent>,
     pub token_program: Interface<'info, TokenInterface>,
 
     #[account(mut)]
@@ -62,24 +61,22 @@ pub struct InitOrAddMintFolioToken<'info> {
 
     Remaining accounts will have as many as possible of the following (always in the same order):
         - Token Mint (read)
-        - Sender Token Account (needs to be owned by user) (mut)
-        - Receiver Token Account (needs to be owned by folio) (this is expected to be the ATA and already exist, to save on compute) (mut)
+        - Sender Token Account (needs to be owned by folio) (mut)
+        - Receiver Token Account (needs to be owned by user) (mut)
      */
 }
 
-impl InitOrAddMintFolioToken<'_> {
+impl RemoveFromPendingBasket<'_> {
     pub fn validate(&self) -> Result<()> {
         Ok(())
     }
 }
 
 pub fn handler<'info>(
-    ctx: Context<'_, '_, 'info, 'info, InitOrAddMintFolioToken<'info>>,
+    ctx: Context<'_, '_, 'info, 'info, RemoveFromPendingBasket<'info>>,
     amounts: Vec<u64>,
 ) -> Result<()> {
-    ctx.accounts.validate()?;
-
-    FolioProgram::init_or_add_mint_folio_token(ctx, amounts)?;
+    FolioProgram::remove_from_pending_basket(ctx, amounts)?;
 
     Ok(())
 }

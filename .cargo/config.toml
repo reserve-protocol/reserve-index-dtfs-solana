@@ -5,3 +5,13 @@ rustflags = [
 
 [lock]
 version = "3"
+
+[target.'cfg(coverage)']
+rustflags = [
+    "-Cinstrument-coverage",
+    "-Clink-dead-code",
+    "-Ccodegen-units=1",
+]
+
+[env]
+CARGO_LLVM_COV = "1"

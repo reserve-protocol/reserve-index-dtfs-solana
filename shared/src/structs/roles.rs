@@ -3,7 +3,7 @@ use anchor_lang::prelude::*;
 #[derive(AnchorSerialize, AnchorDeserialize, Debug)]
 pub enum Role {
     Owner = 0b0000_0001,
-    TradeApprover = 0b0000_0010,
+    TradeProposer = 0b0000_0010,
     PriceCurator = 0b0000_0100,
 }
 

@@ -127,13 +127,12 @@ describe("Folio Tests", () => {
 
     const folio = await program.account.folio.fetch(folioPDA);
 
-    const feeRecipients =
-      await program.account.folioFeeRecipients.fetchNullable(
-        getFolioFeeRecipientsPDA(folioPDA)
-      );
+    const feeRecipients = await program.account.feeRecipients.fetchNullable(
+      getFolioFeeRecipientsPDA(folioPDA)
+    );
 
     assert.notEqual(folio.bump, 0);
-    assert.equal(folio.feePerSecond.toNumber(), 100);
+    assert.equal(folio.folioFee.toNumber(), 100);
     assert.deepEqual(folio.programVersion, DTF_PROGRAM_ID);
     assert.deepEqual(folio.folioTokenMint, folioTokenMint.publicKey);
     assert.equal(feeRecipients, null);

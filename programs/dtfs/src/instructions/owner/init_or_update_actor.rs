@@ -28,8 +28,8 @@ pub struct InitOrUpdateActor<'info> {
     pub new_actor: UncheckedAccount<'info>,
 
     /*
-    Accounts for validation
-     */
+    DTF Program Accounts
+    */
     #[account(
         seeds = [DTF_PROGRAM_SIGNER_SEEDS],
         bump = dtf_program_signer.bump
@@ -48,6 +48,9 @@ pub struct InitOrUpdateActor<'info> {
     )]
     pub dtf_program_data: UncheckedAccount<'info>,
 
+    /*
+    Folio Program Accounts
+    */
     /// CHECK: Folio Program
     #[account(address = FOLIO_ID)]
     pub folio_program: UncheckedAccount<'info>,

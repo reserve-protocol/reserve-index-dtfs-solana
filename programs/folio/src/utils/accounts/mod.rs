@@ -1,5 +1,5 @@
 pub mod actor;
+pub mod fee_recipients;
 pub mod folio;
-pub mod folio_fee_recipients;
-pub mod pending_token_amounts;
+pub mod pending_basket;
 pub mod program_registrar;

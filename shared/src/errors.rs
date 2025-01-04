@@ -36,7 +36,7 @@ pub enum ErrorCode {
     InvalidFeePerSecond,
 
     #[msg("Invalid Fee Recipient Shares")]
-    InvalidFeeRecipientShares,
+    InvalidFeeRecipientPortion,
 
     #[msg("Folio Not Initialized")]
     FolioNotInitialized,
@@ -66,7 +66,7 @@ pub enum ErrorCode {
     InvalidFolioTokenMint,
 
     #[msg("Pending Token Amounts Is Not Empty")]
-    PendingTokenAmountsIsNotEmpty,
+    PendingBasketIsNotEmpty,
 }
 
 #[macro_export]

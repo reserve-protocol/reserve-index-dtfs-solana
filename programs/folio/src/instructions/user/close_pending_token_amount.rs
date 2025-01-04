@@ -2,11 +2,11 @@ use anchor_lang::prelude::*;
 use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 use shared::{
     check_condition,
-    constants::{PENDING_TOKEN_AMOUNTS_SEEDS, PROGRAM_REGISTRAR_SEEDS},
+    constants::{PENDING_BASKET_SEEDS, PROGRAM_REGISTRAR_SEEDS},
 };
 use shared::{errors::ErrorCode, structs::FolioStatus};
 
-use crate::state::{Folio, PendingTokenAmounts, ProgramRegistrar};
+use crate::state::{Folio, PendingBasket, ProgramRegistrar};
 
 #[derive(Accounts)]
 pub struct ClosePendingTokenAmount<'info> {
@@ -15,20 +15,23 @@ pub struct ClosePendingTokenAmount<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
+    #[account()]
+    pub folio: AccountLoader<'info, Folio>,
+
+    #[account(mut,
+        seeds = [PENDING_BASKET_SEEDS, folio.key().as_ref(), user.key().as_ref()],
+        bump
+    )]
+    pub user_pending_basket: AccountLoader<'info, PendingBasket>,
+
+    /*
+    Accounts to validate
+    */
     #[account(
         seeds = [PROGRAM_REGISTRAR_SEEDS],
         bump = program_registrar.bump
     )]
     pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
-
-    #[account()]
-    pub folio: AccountLoader<'info, Folio>,
-
-    #[account(mut,
-        seeds = [PENDING_TOKEN_AMOUNTS_SEEDS, folio.key().as_ref(), user.key().as_ref()],
-        bump
-    )]
-    pub user_pending_token_amounts: AccountLoader<'info, PendingTokenAmounts>,
 
     /// CHECK: DTF program used for creating owner record
     #[account()]
@@ -68,19 +71,16 @@ pub fn handler<'info>(
     ctx.accounts.validate()?;
 
     {
-        let pending_token_amounts = &mut ctx.accounts.user_pending_token_amounts.load_mut()?;
+        let pending_basket = &mut ctx.accounts.user_pending_basket.load_mut()?;
 
-        check_condition!(
-            pending_token_amounts.is_empty(),
-            PendingTokenAmountsIsNotEmpty
-        );
+        check_condition!(pending_basket.is_empty(), PendingBasketIsNotEmpty);
 
         // To prevent re-init attacks, we re-init the actor with default values
-        pending_token_amounts.reset();
+        pending_basket.reset();
     }
 
     ctx.accounts
-        .user_pending_token_amounts
+        .user_pending_basket
         .close(ctx.accounts.user.to_account_info())?;
 
     Ok(())

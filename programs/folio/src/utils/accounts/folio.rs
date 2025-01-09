@@ -171,7 +171,7 @@ impl Folio {
             return Ok(());
         }
 
-        let (dao_pending_fee_shares, fee_recipients_pending_fee) = self.get_pending_fee_shares(
+        let (fee_recipients_pending_fee, dao_pending_fee_shares) = self.get_pending_fee_shares(
             folio_token_supply,
             current_time,
             dao_fee_numerator,

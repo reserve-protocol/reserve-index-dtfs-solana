@@ -41,6 +41,7 @@ const SKIP_PREFLIGHT = true;
 
 export const MAX_FOLIO_FEE = new BN(13284);
 export const MIN_DAO_MINTING_FEE = new BN(500000);
+export const SCALAR = new BN(1_000_000_000);
 
 export function getDtfProgram(
   connection: Connection,

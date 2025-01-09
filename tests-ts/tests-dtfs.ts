@@ -12,6 +12,7 @@ import {
   initFolio,
   initFolioSigner,
   initProgramRegistrar,
+  pokeFolio,
 } from "../utils/folio-helper";
 import * as assert from "assert";
 import {
@@ -39,6 +40,7 @@ import {
   setDaoFeeConfig,
   MAX_FOLIO_FEE,
   MIN_DAO_MINTING_FEE,
+  SCALAR,
 } from "../utils/dtf-helper";
 import {
   DEFAULT_DECIMALS_MUL,
@@ -64,7 +66,7 @@ describe("DTFs Tests", () => {
   let folioPDA: PublicKey;
 
   let feeRecipient: PublicKey = Keypair.generate().publicKey;
-  let feeRecipientNumerator: BN = new BN(1);
+  let feeRecipientNumerator: BN = new BN(600_000_000); //60%
 
   let folioTestHelper: TestHelper;
 
@@ -78,6 +80,8 @@ describe("DTFs Tests", () => {
     { mint: Keypair.generate(), decimals: 9 },
     { mint: Keypair.generate(), decimals: 9 },
   ];
+
+  let folioInitTime: number;
 
   before(async () => {
     ({
@@ -106,8 +110,11 @@ describe("DTFs Tests", () => {
       connection,
       folioOwnerKeypair,
       MAX_FOLIO_FEE,
-      MIN_DAO_MINTING_FEE
+      MIN_DAO_MINTING_FEE.mul(new BN(2))
     ));
+
+    // To track how much time is passing, so we can calculate fees
+    folioInitTime = new Date().getTime() / 1000;
 
     // Create the tokens that can be included in the folio
     for (const tokenMint of tokenMints) {
@@ -755,6 +762,8 @@ describe("DTFs Tests", () => {
       false
     );
 
+    const folioBefore = await program.account.folio.fetch(folioPDA);
+
     await mintFolioToken(
       connection,
       userKeypair,
@@ -767,10 +776,21 @@ describe("DTFs Tests", () => {
       new BN(3).mul(new BN(DEFAULT_DECIMALS_MUL))
     );
 
+    const folioAfter = await program.account.folio.fetch(folioPDA);
+
     const afterSnapshot = await folioTestHelper.getBalanceSnapshot(
       true,
       true,
       false
+    );
+
+    assert.equal(
+      folioAfter.daoPendingFeeShares.toNumber(),
+      folioBefore.daoPendingFeeShares.toNumber() + 1800000
+    );
+    assert.equal(
+      folioAfter.feeRecipientsPendingFeeShares.toNumber(),
+      folioBefore.feeRecipientsPendingFeeShares.toNumber() + 1200000
     );
 
     // Take 30% (3 tokens and 10 is the supply)
@@ -783,7 +803,7 @@ describe("DTFs Tests", () => {
       ]),
       [],
       // Receives a bit less than 3 tokens because of the fees
-      [0, 2.9985],
+      [0, 2.997],
       [0, 1, 2, 3, 4]
     );
   });
@@ -817,13 +837,14 @@ describe("DTFs Tests", () => {
       beforeSnapshot,
       afterSnapshot,
       Array.from({ length: 5 }).map((_, i) => [
-        20.0023 * 10 ** tokenMints[i].decimals,
-        20.0023 * 10 ** tokenMints[i].decimals,
+        20.004616449 * 10 ** tokenMints[i].decimals,
+        20.004616449 * 10 ** tokenMints[i].decimals,
       ]),
       [],
       [0, -2],
       [0, 1, 2, 3, 4],
-      "amountForRedeeming"
+      "amountForRedeeming",
+      true
     );
   });
 
@@ -867,6 +888,65 @@ describe("DTFs Tests", () => {
       [],
       [0, 1, 2, 3, 4],
       "amountForRedeeming"
+    );
+  });
+
+  it("should allow user to poke folio and update pending fees", async () => {
+    const folioBefore = await program.account.folio.fetch(folioPDA);
+    let timeOfPoke = new Date().getTime() / 1000;
+
+    const elapsedTime = timeOfPoke - folioInitTime;
+
+    // MAX_FOLIO_FEE is 13284 in D9 (0.000013284 or about 50% APY)
+    const feePerSecond = MAX_FOLIO_FEE.toNumber();
+
+    const estimatedFeeRate = elapsedTime * feePerSecond;
+
+    const totalSupply = folioBefore.daoPendingFeeShares
+      .add(folioBefore.feeRecipientsPendingFeeShares)
+      .add(
+        new BN(
+          (
+            await connection.getTokenSupply(folioTokenMint.publicKey)
+          ).value.amount
+        )
+      );
+
+    const estimatedFeeShares = totalSupply.muln(estimatedFeeRate).div(SCALAR);
+
+    await pokeFolio(
+      connection,
+      userKeypair,
+      folioPDA,
+      folioTokenMint.publicKey
+    );
+
+    const folioAfter = await program.account.folio.fetch(folioPDA);
+
+    const daoFeeDiff = folioAfter.daoPendingFeeShares
+      .sub(folioBefore.daoPendingFeeShares)
+      .toNumber();
+    const recipientFeeDiff = folioAfter.feeRecipientsPendingFeeShares
+      .sub(folioBefore.feeRecipientsPendingFeeShares)
+      .toNumber();
+
+    const totalFeeDiff = daoFeeDiff + recipientFeeDiff;
+    assert.equal(
+      Math.abs(totalFeeDiff - estimatedFeeShares.toNumber()) <
+        totalFeeDiff * 0.2, // 20% tolerance
+      true
+    );
+
+    assert.equal(
+      // 60% of the estimated fee shares
+      Math.abs(estimatedFeeShares.toNumber() * 0.6 - daoFeeDiff) <
+        daoFeeDiff * 0.2,
+      true
+    );
+    assert.equal(
+      Math.abs(estimatedFeeShares.toNumber() * 0.4 - recipientFeeDiff) <
+        recipientFeeDiff * 0.2,
+      true
     );
   });
 });

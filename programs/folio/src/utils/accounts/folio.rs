@@ -6,9 +6,10 @@ use crate::{
 use anchor_lang::prelude::*;
 use shared::{
     check_condition,
-    constants::{FOLIO_SEEDS, MIN_DAO_MINTING_FEE},
+    constants::{FOLIO_SEEDS, MIN_DAO_MINTING_FEE, SCALAR, SCALAR_U128},
     errors::ErrorCode,
-    structs::{DecimalValue, FolioStatus, Role},
+    structs::{FolioStatus, Role},
+    util::math_util::{RoundingMode, SafeArithmetic},
 };
 
 impl Folio {
@@ -105,38 +106,44 @@ impl Folio {
     /// Returns the total number of shares to remove from the mint, and updates the ones on the folio
     pub fn calculate_fees_for_minting(
         &mut self,
-        user_shares: DecimalValue,
-        dao_fee_config: &AccountInfo,
-    ) -> Result<DecimalValue> {
-        let (dao_fee_numerator, dao_fee_denominator, _) =
-            DtfProgram::get_dao_fee_config(dao_fee_config)?;
-
-        let minting_fee = self
-            .minting_fee
-            .add_sub(&DecimalValue::SCALAR, &DecimalValue::ONE)
-            .unwrap();
-
+        user_shares: u64,
+        dao_fee_numerator: u64,
+        dao_fee_denominator: u64,
+    ) -> Result<u64> {
         let mut total_fee_shares = user_shares
-            .mul_div(&minting_fee, &DecimalValue::SCALAR)
+            .mul_precision_to_u128(self.minting_fee)
+            .checked_add(SCALAR_U128)
+            .unwrap()
+            .checked_sub(1)
+            .unwrap()
+            .checked_div(SCALAR_U128)
             .unwrap();
+
+        println!("total_fee_shares: {}", total_fee_shares);
 
         let mut dao_fee_shares = total_fee_shares
-            .mul_div(
-                &dao_fee_numerator
-                    .add_sub(&dao_fee_denominator, &DecimalValue::ONE)
-                    .unwrap(),
-                &dao_fee_denominator,
-            )
+            .checked_mul(dao_fee_numerator as u128)
+            .unwrap()
+            .checked_add(dao_fee_denominator as u128)
+            .unwrap()
+            .checked_sub(1)
+            .unwrap()
+            .checked_div(dao_fee_denominator as u128)
             .unwrap();
 
-        let min_dao_shares = user_shares
-            .mul_div(
-                &MIN_DAO_MINTING_FEE
-                    .add_sub(&DecimalValue::SCALAR, &DecimalValue::ONE)
-                    .unwrap(),
-                &DecimalValue::SCALAR,
-            )
-            .unwrap();
+        println!("total_fee_shares: {}", total_fee_shares);
+        println!("dao_fee_shares: {}", dao_fee_shares);
+
+        let min_dao_shares =
+            SafeArithmetic::mul_precision_to_u128(user_shares, MIN_DAO_MINTING_FEE)
+                .checked_add(SCALAR_U128)
+                .unwrap()
+                .checked_sub(1)
+                .unwrap()
+                .checked_div(SCALAR_U128)
+                .unwrap();
+
+        println!("min_dao_shares: {}", min_dao_shares);
 
         if dao_fee_shares < min_dao_shares {
             dao_fee_shares = min_dao_shares;
@@ -146,33 +153,45 @@ impl Folio {
             total_fee_shares = dao_fee_shares;
         }
 
-        self.dao_pending_fee_shares = self.dao_pending_fee_shares.add(&dao_fee_shares).unwrap();
+        let total_fee_shares = total_fee_shares as u64;
+
+        self.dao_pending_fee_shares = self
+            .dao_pending_fee_shares
+            .checked_add(dao_fee_shares as u64)
+            .unwrap();
         self.fee_recipients_pending_fee_shares = self
             .fee_recipients_pending_fee_shares
-            .add(&total_fee_shares.sub(&dao_fee_shares).unwrap())
+            .checked_add(total_fee_shares.checked_sub(dao_fee_shares as u64).unwrap())
             .unwrap();
 
         Ok(total_fee_shares)
     }
 
-    pub fn poke(&mut self, folio_token_supply: u64, dao_fee_config: &AccountInfo) -> Result<()> {
-        let current_time = Clock::get()?.unix_timestamp;
-
-        // Already updated
+    pub fn poke(
+        &mut self,
+        folio_token_supply: u64,
+        current_time: i64,
+        dao_fee_numerator: u64,
+        dao_fee_denominator: u64,
+    ) -> Result<()> {
         if current_time - self.last_poke == 0 {
             return Ok(());
         }
 
-        let (dao_pending_fee_shares, fee_recipients_pending_fee) =
-            self.get_pending_fee_shares(folio_token_supply, current_time, dao_fee_config)?;
+        let (dao_pending_fee_shares, fee_recipients_pending_fee) = self.get_pending_fee_shares(
+            folio_token_supply,
+            current_time,
+            dao_fee_numerator,
+            dao_fee_denominator,
+        )?;
 
         self.dao_pending_fee_shares = self
             .dao_pending_fee_shares
-            .add(&dao_pending_fee_shares)
+            .checked_add(dao_pending_fee_shares)
             .unwrap();
         self.fee_recipients_pending_fee_shares = self
             .fee_recipients_pending_fee_shares
-            .add(&fee_recipients_pending_fee)
+            .checked_add(fee_recipients_pending_fee)
             .unwrap();
 
         self.last_poke = current_time;
@@ -180,52 +199,56 @@ impl Folio {
         Ok(())
     }
 
-    pub fn get_total_supply(&self, folio_token_supply: u64) -> DecimalValue {
-        DecimalValue::from_u64(folio_token_supply)
-            .add(&self.dao_pending_fee_shares)
+    pub fn get_total_supply(&self, folio_token_supply: u64) -> u64 {
+        folio_token_supply
+            .checked_add(self.dao_pending_fee_shares)
             .unwrap()
-            .add(&self.fee_recipients_pending_fee_shares)
+            .checked_add(self.fee_recipients_pending_fee_shares)
             .unwrap()
     }
 
-    fn get_pending_fee_shares(
+    pub fn get_pending_fee_shares(
         &self,
         folio_token_supply: u64,
         current_time: i64,
-        dao_fee_config: &AccountInfo,
-    ) -> Result<(DecimalValue, DecimalValue)> {
-        let (dao_fee_numerator, dao_fee_denominator, _) =
-            DtfProgram::get_dao_fee_config(dao_fee_config)?;
-
+        dao_fee_numerator: u64,
+        dao_fee_denominator: u64,
+    ) -> Result<(u64, u64)> {
         let total_supply = self.get_total_supply(folio_token_supply);
-
         let elapsed = current_time - self.last_poke;
 
-        let denominator = DecimalValue::SCALAR
-            .sub(&self.folio_fee)
-            .unwrap()
-            .pow(elapsed as u128)
-            .unwrap();
+        println!("SCALAR: {}", SCALAR);
+        println!("self.folio_fee: {}", self.folio_fee);
+        println!("elapsed: {}", elapsed);
+        println!("total_supply: {}", total_supply);
 
-        let fee_shares = total_supply
-            .mul_div(&DecimalValue::SCALAR, &denominator)
-            .unwrap()
-            .sub(&total_supply)
-            .unwrap();
+        // Calculate compound factor using our new method
+        let compound_factor = <u64 as SafeArithmetic>::compound_interest(
+            self.folio_fee,
+            elapsed as u64,
+            RoundingMode::Floor,
+        );
+        println!("compound_factor: {}", compound_factor);
 
-        // TODO : dao fee shares?
+        // Calculate fee shares
+        // Instead of division by denominator and subtraction, multiply by (1 - compound_factor)
+        let fee_shares = total_supply.mul_div_precision(
+            SCALAR - compound_factor, // This gives us the fee portion
+            SCALAR,
+            RoundingMode::Floor,
+        );
 
-        let dao_shares = DecimalValue::ONE
-            .mul_div(
-                &fee_shares
-                    .mul(&dao_fee_numerator)
-                    .unwrap()
-                    .add_sub(&dao_fee_denominator, &DecimalValue::ONE)
-                    .unwrap(),
-                &dao_fee_denominator,
-            )
-            .unwrap();
+        println!("fee_shares: {}", fee_shares);
 
-        Ok((fee_shares.sub(&dao_shares).unwrap(), dao_shares))
+        // Calculate DAO's portion of the fees
+        let dao_shares = fee_shares.mul_div_precision(
+            dao_fee_numerator,
+            dao_fee_denominator,
+            RoundingMode::Floor,
+        );
+
+        println!("dao_shares: {}", dao_shares);
+
+        Ok((fee_shares.checked_sub(dao_shares).unwrap(), dao_shares))
     }
 }

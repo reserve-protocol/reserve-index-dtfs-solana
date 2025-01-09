@@ -16,7 +16,7 @@ import {
   getFolioSignerPDA,
   getProgramRegistrarPDA,
 } from "../utils/pda-helper";
-import { DecimalValue } from "../utils/decimal-util";
+import { MAX_FOLIO_FEE, MIN_DAO_MINTING_FEE } from "../utils/dtf-helper";
 
 describe("Folio Tests", () => {
   let connection: Connection;
@@ -109,8 +109,8 @@ describe("Folio Tests", () => {
     ({ folioTokenMint, folioPDA } = await initFolio(
       connection,
       folioOwnerKeypair,
-      DecimalValue.MAX_FOLIO_FEE,
-      DecimalValue.MIN_DAO_MINTING_FEE
+      MAX_FOLIO_FEE,
+      MIN_DAO_MINTING_FEE
     ));
 
     const folio = await program.account.folio.fetch(folioPDA);
@@ -120,11 +120,8 @@ describe("Folio Tests", () => {
     );
 
     assert.notEqual(folio.bump, 0);
-    assert.equal(
-      new DecimalValue(folio.folioFee).toBN(),
-      DecimalValue.MAX_FOLIO_FEE.toBN()
-    );
-    assert.equal(folio.mintingFee, DecimalValue.MIN_DAO_MINTING_FEE);
+    assert.equal(folio.folioFee.toNumber(), MAX_FOLIO_FEE.toNumber());
+    assert.equal(folio.mintingFee.toNumber(), MIN_DAO_MINTING_FEE.toNumber());
     assert.deepEqual(folio.programVersion, DTF_PROGRAM_ID);
     assert.deepEqual(folio.folioTokenMint, folioTokenMint.publicKey);
     assert.equal(feeRecipients, null);

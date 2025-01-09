@@ -1,4 +1,4 @@
-import { AnchorProvider, Program } from "@coral-xyz/anchor";
+import { AnchorProvider, BN, Program } from "@coral-xyz/anchor";
 import { Folio } from "../target/types/folio";
 import {
   Connection,
@@ -22,7 +22,6 @@ import {
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import { DTF_PROGRAM_ID } from "./pda-helper";
-import { DecimalValue } from "./decimal-util";
 
 let folioProgram: Program<Folio> = null;
 
@@ -130,8 +129,8 @@ export async function updateProgramRegistrar(
 export async function initFolio(
   connection: Connection,
   folioOwner: Keypair,
-  folioFee: DecimalValue,
-  mintingFee: DecimalValue
+  folioFee: BN,
+  mintingFee: BN
 ): Promise<{ folioTokenMint: Keypair; folioPDA: PublicKey }> {
   const folioProgram = getFolioProgram(connection, folioOwner);
 

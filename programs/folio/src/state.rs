@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use shared::{
     constants::{MAX_FEE_RECIPIENTS, MAX_TOKEN_AMOUNTS},
-    structs::{DecimalValue, FeeRecipient, TokenAmount},
+    structs::{FeeRecipient, TokenAmount},
 };
 
 /// PDA Seeds ["folio_program_signer"]
@@ -53,7 +53,7 @@ All numbers for calculations are u64 (up to 9 "decimals")
 
 /// PDA Seeds ["folio", folio token pubkey]
 #[account(zero_copy)]
-#[derive(InitSpace)]
+#[derive(Default, InitSpace)]
 pub struct Folio {
     pub bump: u8,
 
@@ -73,11 +73,11 @@ pub struct Folio {
     /*
     Fee related properties
      */
-    pub folio_fee: DecimalValue,
-    pub minting_fee: DecimalValue,
+    pub folio_fee: u64,
+    pub minting_fee: u64,
     pub last_poke: i64,
-    pub dao_pending_fee_shares: DecimalValue,
-    pub fee_recipients_pending_fee_shares: DecimalValue,
+    pub dao_pending_fee_shares: u64,
+    pub fee_recipients_pending_fee_shares: u64,
 
     /*
     Trade related properties

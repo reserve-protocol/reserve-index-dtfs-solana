@@ -5,6 +5,7 @@ use shared::constants::DAO_FEE_CONFIG_SEEDS;
 use shared::{errors::ErrorCode, structs::FolioStatus};
 
 use crate::state::Folio;
+use crate::DtfProgram;
 
 #[derive(Accounts)]
 pub struct PokeFolio<'info> {
@@ -63,9 +64,16 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, PokeFolio<'info>>) -> R
 
     ctx.accounts.validate(folio)?;
 
+    let (dao_fee_numerator, dao_fee_denominator, _) =
+        DtfProgram::get_dao_fee_config(&ctx.accounts.dao_fee_config.to_account_info())?;
+
+    let current_time = Clock::get()?.unix_timestamp;
+
     folio.poke(
         ctx.accounts.folio_token_mint.supply,
-        &ctx.accounts.dao_fee_config.to_account_info(),
+        current_time,
+        dao_fee_numerator,
+        dao_fee_denominator,
     )?;
 
     Ok(())

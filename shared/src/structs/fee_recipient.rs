@@ -1,8 +1,6 @@
 use anchor_lang::prelude::*;
 use bytemuck::{Pod, Zeroable};
 
-use super::DecimalValue;
-
 #[derive(
     AnchorSerialize,
     AnchorDeserialize,
@@ -18,5 +16,5 @@ use super::DecimalValue;
 #[repr(C)]
 pub struct FeeRecipient {
     pub receiver: Pubkey,
-    pub portion: DecimalValue,
+    pub portion: u64,
 }

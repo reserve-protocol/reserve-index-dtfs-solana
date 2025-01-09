@@ -1,6 +1,5 @@
 use anchor_lang::prelude::*;
 use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
-use shared::structs::DecimalValue;
 use shared::structs::FeeRecipient;
 use shared::structs::Role;
 
@@ -54,8 +53,8 @@ impl FolioProgram {
         ctx: Context<UpdateFolio>,
         program_version: Option<Pubkey>,
         program_deployment_slot: Option<u64>,
-        folio_fee: Option<DecimalValue>,
-        minting_fee: Option<DecimalValue>,
+        folio_fee: Option<u64>,
+        minting_fee: Option<u64>,
         fee_recipients_to_add: Vec<FeeRecipient>,
         fee_recipients_to_remove: Vec<Pubkey>,
     ) -> Result<()> {
@@ -347,7 +346,7 @@ impl FolioProgram {
 
     pub fn mint_folio_token<'info>(
         ctx: Context<'_, '_, 'info, 'info, MintFolioToken<'info>>,
-        shares: DecimalValue,
+        shares: u64,
     ) -> Result<()> {
         let cpi_program = ctx.accounts.folio_program.to_account_info();
 
@@ -388,7 +387,7 @@ impl FolioProgram {
 
     pub fn burn_folio_token<'info>(
         ctx: Context<'_, '_, 'info, 'info, BurnFolioToken<'info>>,
-        shares: DecimalValue,
+        shares: u64,
     ) -> Result<()> {
         let cpi_program = ctx.accounts.folio_program.to_account_info();
 

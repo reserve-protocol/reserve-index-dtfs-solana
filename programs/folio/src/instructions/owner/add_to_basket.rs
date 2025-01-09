@@ -155,8 +155,6 @@ pub fn handler<'info>(
 
         added_mints.push(TokenAmount {
             mint: token_mint.key(),
-            decimals: mint.decimals,
-            _padding: [0; 7],
             amount_for_minting: 0,
             amount_for_redeeming: 0,
         });

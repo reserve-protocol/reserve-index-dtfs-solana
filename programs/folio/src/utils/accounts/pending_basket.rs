@@ -8,7 +8,8 @@ use shared::constants::{PendingBasketType, MAX_TOKEN_AMOUNTS};
 use shared::errors::ErrorCode;
 use shared::errors::ErrorCode::InvalidAddedTokenMints;
 use shared::errors::ErrorCode::*;
-use shared::structs::{DecimalValue, Rounding, TokenAmount};
+use shared::structs::TokenAmount;
+use shared::util::math_util::{RoundingMode, SafeArithmetic};
 
 use crate::state::PendingBasket;
 
@@ -85,7 +86,6 @@ impl PendingBasket {
                             .find(|ta| ta.mint == Pubkey::default())
                         {
                             slot.mint = token_amount.mint;
-                            slot.decimals = token_amount.decimals;
                             slot.amount_for_minting = token_amount.amount_for_minting;
                         } else {
                             // No available slot found, return an error
@@ -114,7 +114,6 @@ impl PendingBasket {
                             .find(|ta| ta.mint == Pubkey::default())
                         {
                             slot.mint = token_amount.mint;
-                            slot.decimals = token_amount.decimals;
                             slot.amount_for_redeeming = token_amount.amount_for_redeeming;
                         } else {
                             // No available slot found, return an error
@@ -215,11 +214,11 @@ impl PendingBasket {
     #[allow(clippy::too_many_arguments)]
     pub fn to_assets(
         &mut self,
-        shares: DecimalValue,
+        shares: u64,
         folio_key: &Pubkey,
         token_program_id: &Pubkey,
         folio_pending_basket: &mut RefMut<'_, PendingBasket>,
-        decimal_total_supply_folio_token: &DecimalValue,
+        total_supply_folio_token: u64,
         pending_basket_type: PendingBasketType,
         included_tokens: &&[AccountInfo<'_>],
     ) -> Result<()> {
@@ -248,16 +247,13 @@ impl PendingBasket {
             let folio_token_balance =
                 PendingBasket::get_clean_token_balance(folio_token_account.amount, related_mint);
 
-            let decimal_folio_token_balance =
-                DecimalValue::from_token_amount(folio_token_balance, related_mint.decimals);
-
             match pending_basket_type {
                 PendingBasketType::MintProcess => {
                     PendingBasket::to_assets_for_minting(
                         user_amount,
                         related_mint,
-                        decimal_total_supply_folio_token,
-                        &decimal_folio_token_balance,
+                        total_supply_folio_token,
+                        folio_token_balance,
                         shares,
                     )?;
                 }
@@ -265,8 +261,8 @@ impl PendingBasket {
                     PendingBasket::to_assets_for_redeeming(
                         user_amount,
                         related_mint,
-                        decimal_total_supply_folio_token,
-                        &decimal_folio_token_balance,
+                        total_supply_folio_token,
+                        folio_token_balance,
                         shares,
                     )?;
                 }
@@ -276,30 +272,26 @@ impl PendingBasket {
         Ok(())
     }
 
-    fn to_assets_for_minting(
+    pub fn to_assets_for_minting(
         user_amount: &mut TokenAmount,
         related_mint: &mut TokenAmount,
-        decimal_total_supply_folio_token: &DecimalValue,
-        decimal_folio_token_balance: &DecimalValue,
-        shares: DecimalValue,
+        total_supply_folio_token: u64,
+        folio_token_balance: u64,
+        shares: u64,
     ) -> Result<()> {
-        let calculated_shares =
-            DecimalValue::from_token_amount(user_amount.amount_for_minting, related_mint.decimals)
-                .mul_div(
-                    decimal_total_supply_folio_token,
-                    decimal_folio_token_balance,
-                )
-                .unwrap();
+        let calculated_shares = user_amount.amount_for_minting.mul_div_precision(
+            total_supply_folio_token,
+            folio_token_balance,
+            RoundingMode::Floor,
+        );
 
         check_condition!(calculated_shares >= shares, InvalidShareAmountProvided);
 
-        let user_amount_taken = shares
-            .mul_div(
-                decimal_folio_token_balance,
-                decimal_total_supply_folio_token,
-            )
-            .unwrap()
-            .to_token_amount(related_mint.decimals, Rounding::Ceil);
+        let user_amount_taken = shares.mul_div_precision(
+            folio_token_balance,
+            total_supply_folio_token,
+            RoundingMode::Ceil,
+        );
 
         // Remove from both pending amounts
         user_amount.amount_for_minting = user_amount
@@ -314,20 +306,18 @@ impl PendingBasket {
         Ok(())
     }
 
-    fn to_assets_for_redeeming(
+    pub fn to_assets_for_redeeming(
         user_amount: &mut TokenAmount,
         related_mint: &mut TokenAmount,
-        decimal_total_supply_folio_token: &DecimalValue,
-        decimal_folio_token_balance: &DecimalValue,
-        shares: DecimalValue,
+        total_supply_folio_token: u64,
+        folio_token_balance: u64,
+        shares: u64,
     ) -> Result<()> {
-        let amount_to_give_to_user = shares
-            .mul_div(
-                decimal_folio_token_balance,
-                decimal_total_supply_folio_token,
-            )
-            .unwrap()
-            .to_token_amount(related_mint.decimals, Rounding::Floor);
+        let amount_to_give_to_user = shares.mul_div_precision(
+            folio_token_balance,
+            total_supply_folio_token,
+            RoundingMode::Floor,
+        );
 
         // Add to both pending amounts for redeeming
         user_amount.amount_for_redeeming = user_amount

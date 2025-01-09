@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
 use folio::ID as FOLIO_ID;
 use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
-use shared::structs::{DecimalValue, FeeRecipient};
+use shared::structs::FeeRecipient;
 
 use crate::state::DtfProgramSigner;
 use crate::utils::external::folio_program::FolioProgram;
@@ -71,8 +71,8 @@ pub fn handler(
     ctx: Context<UpdateFolio>,
     program_version: Option<Pubkey>,
     program_deployment_slot: Option<u64>,
-    folio_fee: Option<DecimalValue>,
-    minting_fee: Option<DecimalValue>,
+    folio_fee: Option<u64>,
+    minting_fee: Option<u64>,
     fee_recipients_to_add: Vec<FeeRecipient>,
     fee_recipients_to_remove: Vec<Pubkey>,
 ) -> Result<()> {

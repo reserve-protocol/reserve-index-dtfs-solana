@@ -1,8 +1,6 @@
 use anchor_lang::{prelude::*, solana_program::bpf_loader_upgradeable};
 
-use shared::{
-    check_condition, constants::DAO_FEE_DENOMINATOR, errors::ErrorCode, structs::DecimalValue,
-};
+use shared::{check_condition, constants::DAO_FEE_DENOMINATOR, errors::ErrorCode};
 
 pub struct DtfProgram;
 
@@ -11,7 +9,7 @@ Because the 2 programs call each other, we can't have a circular dependency. The
 include the folio program as a dependency, so we need to do it manually for the folio to the dtf program.
 */
 
-type DtfFeeConfig = (DecimalValue, DecimalValue, Pubkey);
+type DtfFeeConfig = (u64, u64, Pubkey);
 
 impl DtfProgram {
     pub fn get_program_deployment_slot(
@@ -47,11 +45,11 @@ impl DtfProgram {
     pub fn get_dao_fee_config(dao_fee_config: &AccountInfo) -> Result<DtfFeeConfig> {
         let data = dao_fee_config.try_borrow_data()?;
 
-        check_condition!(dao_fee_config.data_len() >= 57, InvalidAccountData);
+        check_condition!(dao_fee_config.data_len() >= 49, InvalidAccountData);
 
         // Discriminator takes 8 bytes and bump 1
         let fee_recipient = Pubkey::try_from_slice(&data[9..41])?;
-        let fee_recipient_numerator = DecimalValue::try_from_slice(&data[41..57])?;
+        let fee_recipient_numerator = u64::try_from_slice(&data[41..49])?;
 
         Ok((fee_recipient_numerator, DAO_FEE_DENOMINATOR, fee_recipient))
     }

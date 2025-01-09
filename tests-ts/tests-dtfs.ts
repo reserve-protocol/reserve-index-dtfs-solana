@@ -37,6 +37,8 @@ import {
   resizeFolio,
   updateFolio,
   setDaoFeeConfig,
+  MAX_FOLIO_FEE,
+  MIN_DAO_MINTING_FEE,
 } from "../utils/dtf-helper";
 import {
   DEFAULT_DECIMALS_MUL,
@@ -44,7 +46,6 @@ import {
   mintToken,
 } from "../utils/token-helper";
 import { TestHelper } from "../utils/test-helper";
-import { DecimalValue } from "../utils/decimal-util";
 
 describe("DTFs Tests", () => {
   let connection: Connection;
@@ -63,7 +64,7 @@ describe("DTFs Tests", () => {
   let folioPDA: PublicKey;
 
   let feeRecipient: PublicKey = Keypair.generate().publicKey;
-  let feeRecipientNumerator: DecimalValue = DecimalValue.ONE;
+  let feeRecipientNumerator: BN = new BN(1);
 
   let folioTestHelper: TestHelper;
 
@@ -104,8 +105,8 @@ describe("DTFs Tests", () => {
     ({ folioTokenMint, folioPDA } = await initFolio(
       connection,
       folioOwnerKeypair,
-      DecimalValue.MAX_FOLIO_FEE,
-      DecimalValue.MIN_DAO_MINTING_FEE
+      MAX_FOLIO_FEE,
+      MIN_DAO_MINTING_FEE
     ));
 
     // Create the tokens that can be included in the folio
@@ -172,10 +173,8 @@ describe("DTFs Tests", () => {
     assert.notEqual(daoFeeConfig.bump, 0);
     assert.deepEqual(daoFeeConfig.feeRecipient, feeRecipient);
     assert.deepEqual(
-      new DecimalValue(daoFeeConfig.feeRecipientNumerator).eq(
-        feeRecipientNumerator
-      ),
-      true
+      daoFeeConfig.feeRecipientNumerator.toNumber(),
+      feeRecipientNumerator.toNumber()
     );
   });
 
@@ -297,7 +296,7 @@ describe("DTFs Tests", () => {
       folioPDA,
       null,
       null,
-      new DecimalValue(folioBefore.folioFee).sub(DecimalValue.ONE),
+      new BN(folioBefore.folioFee.toNumber() - 1),
       null,
       [],
       []
@@ -314,10 +313,8 @@ describe("DTFs Tests", () => {
       folioBefore.programDeploymentSlot.toNumber()
     );
     assert.equal(
-      new DecimalValue(folioAfter.folioFee).eq(
-        new DecimalValue(folioBefore.folioFee).sub(DecimalValue.ONE)
-      ),
-      true
+      folioAfter.folioFee.toNumber(),
+      folioBefore.folioFee.toNumber() - 1
     );
     assert.equal(null, feeRecipientsBefore);
     assert.notEqual(null, feeRecipientsAfter);
@@ -329,7 +326,7 @@ describe("DTFs Tests", () => {
       folioPDA,
       null,
       null,
-      new DecimalValue(folioBefore.folioFee),
+      folioBefore.folioFee,
       null,
       [],
       []
@@ -345,11 +342,11 @@ describe("DTFs Tests", () => {
     let newFeeRecipient = [
       {
         receiver: Keypair.generate().publicKey,
-        portion: new BN(6).mul(DecimalValue.MULTIPLIER).div(new BN(10)),
+        portion: new BN(6).mul(new BN(DEFAULT_DECIMALS_MUL)).div(new BN(10)),
       },
       {
         receiver: Keypair.generate().publicKey,
-        portion: new BN(4).mul(DecimalValue.MULTIPLIER).div(new BN(10)),
+        portion: new BN(4).mul(new BN(DEFAULT_DECIMALS_MUL)).div(new BN(10)),
       },
     ];
 
@@ -376,10 +373,8 @@ describe("DTFs Tests", () => {
       folioBefore.programDeploymentSlot.toNumber()
     );
     assert.equal(
-      new DecimalValue(folioAfter.folioFee).eq(
-        new DecimalValue(folioBefore.folioFee)
-      ),
-      true
+      folioAfter.folioFee.toNumber(),
+      folioBefore.folioFee.toNumber()
     );
 
     assert.deepEqual(
@@ -679,10 +674,7 @@ describe("DTFs Tests", () => {
             mint: token.mint.publicKey,
             amount: new BN(0),
           })),
-          new DecimalValue({
-            whole: new BN(1),
-            fractional: new BN(0),
-          })
+          new BN(1)
         ),
       "MintMismatch",
       "Should fail when mint mismatch"
@@ -763,11 +755,6 @@ describe("DTFs Tests", () => {
       false
     );
 
-    const shares = new DecimalValue({
-      whole: new BN(3),
-      fractional: new BN(0),
-    });
-
     await mintFolioToken(
       connection,
       userKeypair,
@@ -777,7 +764,7 @@ describe("DTFs Tests", () => {
         mint: token.mint.publicKey,
         amount: new BN(0),
       })),
-      shares
+      new BN(3).mul(new BN(DEFAULT_DECIMALS_MUL))
     );
 
     const afterSnapshot = await folioTestHelper.getBalanceSnapshot(
@@ -795,7 +782,8 @@ describe("DTFs Tests", () => {
         -30 * 10 ** tokenMints[i].decimals,
       ]),
       [],
-      [0, 3],
+      // Receives a bit less than 3 tokens because of the fees
+      [0, 2.9985],
       [0, 1, 2, 3, 4]
     );
   });
@@ -812,10 +800,7 @@ describe("DTFs Tests", () => {
       userKeypair,
       folioPDA,
       folioTokenMint.publicKey,
-      new DecimalValue({
-        whole: new BN(2),
-        fractional: new BN(0),
-      }),
+      new BN(2).mul(new BN(DEFAULT_DECIMALS_MUL)),
       tokenMints.map((token) => ({
         mint: token.mint.publicKey,
         amount: new BN(0),
@@ -832,8 +817,8 @@ describe("DTFs Tests", () => {
       beforeSnapshot,
       afterSnapshot,
       Array.from({ length: 5 }).map((_, i) => [
-        20 * 10 ** tokenMints[i].decimals,
-        20 * 10 ** tokenMints[i].decimals,
+        20.0023 * 10 ** tokenMints[i].decimals,
+        20.0023 * 10 ** tokenMints[i].decimals,
       ]),
       [],
       [0, -2],

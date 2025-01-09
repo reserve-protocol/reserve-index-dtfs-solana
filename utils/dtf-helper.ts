@@ -34,11 +34,13 @@ import {
   getAtaAddress,
   getOrCreateAtaAddress,
 } from "./token-helper";
-import { DecimalValue } from "./decimal-util";
 
 let dtfProgram: Program<Dtfs> = null;
 
 const SKIP_PREFLIGHT = true;
+
+export const MAX_FOLIO_FEE = new BN(13284);
+export const MIN_DAO_MINTING_FEE = new BN(500000);
 
 export function getDtfProgram(
   connection: Connection,
@@ -62,7 +64,7 @@ export async function setDaoFeeConfig(
   connection: Connection,
   adminKeypair: Keypair,
   feeRecipient: PublicKey,
-  feeRecipientNumerator: DecimalValue
+  feeRecipientNumerator: BN
 ) {
   const dtfProgram = getDtfProgram(connection, adminKeypair);
 
@@ -145,35 +147,20 @@ export async function updateFolio(
   folio: PublicKey,
   programVersion: PublicKey | null,
   programDeploymentSlot: BN | null,
-  folioFee: DecimalValue | null,
-  mintingFee: DecimalValue | null,
+  folioFee: BN | null,
+  mintingFee: BN | null,
   feeRecipientsToAdd: { receiver: PublicKey; portion: BN }[],
   feeRecipientsToRemove: PublicKey[]
 ) {
   const dtfProgram = getDtfProgram(connection, folioOwnerKeypair);
 
-  const folioFeeDecimals =
-    folioFee === null
-      ? null
-      : { whole: folioFee.whole, fractional: folioFee.fractional };
-
-  const mintingFeeDecimals =
-    mintingFee === null
-      ? null
-      : { whole: mintingFee.whole, fractional: mintingFee.fractional };
-
-  const feeRecipientsToAddDecimals = feeRecipientsToAdd.map((feeRecipient) => ({
-    receiver: feeRecipient.receiver,
-    portion: { whole: new BN(0), fractional: feeRecipient.portion },
-  }));
-
   const updateFolio = await dtfProgram.methods
     .updateFolio(
       programVersion,
       programDeploymentSlot,
-      folioFeeDecimals,
-      mintingFeeDecimals,
-      feeRecipientsToAddDecimals,
+      folioFee,
+      mintingFee,
+      feeRecipientsToAdd,
       feeRecipientsToRemove
     )
     .accountsPartial({
@@ -429,11 +416,11 @@ export async function mintFolioToken(
   folio: PublicKey,
   folioTokenMint: PublicKey,
   tokens: { mint: PublicKey; amount: BN }[],
-  shares: DecimalValue
+  shares: BN
 ) {
   const dtfProgram = getDtfProgram(connection, userKeypair);
   const mintFolioToken = await dtfProgram.methods
-    .mintFolioToken({ whole: shares.whole, fractional: shares.fractional })
+    .mintFolioToken(shares)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
@@ -482,16 +469,13 @@ export async function burnFolioToken(
   userKeypair: Keypair,
   folio: PublicKey,
   folioTokenMint: PublicKey,
-  amountToBurn: DecimalValue,
+  amountToBurn: BN,
   tokens: { mint: PublicKey; amount: BN }[]
 ) {
   const dtfProgram = getDtfProgram(connection, userKeypair);
 
   const burnFolioTokenIx = await dtfProgram.methods
-    .burnFolioToken({
-      whole: amountToBurn.whole,
-      fractional: amountToBurn.fractional,
-    })
+    .burnFolioToken(amountToBurn)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,

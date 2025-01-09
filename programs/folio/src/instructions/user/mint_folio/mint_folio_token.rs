@@ -4,18 +4,20 @@ use anchor_spl::{
     token,
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
+use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 use shared::{
     check_condition,
     constants::{
         PendingBasketType, DAO_FEE_CONFIG_SEEDS, FOLIO_SEEDS, PENDING_BASKET_SEEDS,
         PROGRAM_REGISTRAR_SEEDS,
     },
-    structs::DecimalValue,
 };
-use shared::{constants::DTF_PROGRAM_SIGNER_SEEDS, structs::Rounding};
 use shared::{errors::ErrorCode, structs::FolioStatus};
 
-use crate::state::{Folio, PendingBasket, ProgramRegistrar};
+use crate::{
+    state::{Folio, PendingBasket, ProgramRegistrar},
+    DtfProgram,
+};
 
 #[derive(Accounts)]
 pub struct MintFolioToken<'info> {
@@ -117,7 +119,7 @@ user amount / balance folio * total supply = share
 */
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, MintFolioToken<'info>>,
-    shares: DecimalValue,
+    shares: u64,
 ) -> Result<()> {
     let folio_bump = {
         let folio = &mut ctx.accounts.folio.load_mut()?;
@@ -137,31 +139,27 @@ pub fn handler<'info>(
     let token_amounts_user = &mut ctx.accounts.user_pending_basket.load_mut()?;
     token_amounts_user.reorder_token_amounts(&folio_pending_basket.token_amounts)?;
 
-    let decimal_total_supply_folio_token = DecimalValue::from_token_amount(
-        ctx.accounts.folio_token_mint.supply,
-        ctx.accounts.folio_token_mint.decimals,
-    );
-
     token_amounts_user.to_assets(
         shares,
         &folio_key,
         &token_program_id,
         folio_pending_basket,
-        &decimal_total_supply_folio_token,
+        ctx.accounts.folio_token_mint.supply,
         PendingBasketType::MintProcess,
         remaining_accounts,
     )?;
 
     // Mint folio token to user based on shares
-    // TODO put back in next commit
-    // let fee_shares =
-    //     folio.calculate_fees_for_minting(shares, &ctx.accounts.dao_fee_config.to_account_info())?;
-    let fee_shares = DecimalValue::ZERO;
+    let (dao_fee_numerator, dao_fee_denominator, _) =
+        DtfProgram::get_dao_fee_config(&ctx.accounts.dao_fee_config.to_account_info())?;
 
-    let folio_token_amount_to_mint = shares
-        .sub(&fee_shares)
-        .unwrap()
-        .to_token_amount(ctx.accounts.folio_token_mint.decimals, Rounding::Ceil);
+    let fee_shares = ctx.accounts.folio.load_mut()?.calculate_fees_for_minting(
+        shares,
+        dao_fee_numerator,
+        dao_fee_denominator,
+    )?;
+
+    let folio_token_amount_to_mint = shares.checked_sub(fee_shares).unwrap();
 
     let signer_seeds = &[FOLIO_SEEDS, token_mint_key.as_ref(), &[folio_bump]];
 

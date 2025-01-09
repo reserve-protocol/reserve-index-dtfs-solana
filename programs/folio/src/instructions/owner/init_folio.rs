@@ -14,7 +14,7 @@ use shared::{
         ACTOR_SEEDS, FOLIO_SEEDS, MAX_FOLIO_FEE, MAX_MINTING_FEE, MIN_DAO_MINTING_FEE,
         PROGRAM_REGISTRAR_SEEDS,
     },
-    structs::{DecimalValue, FolioStatus, Role},
+    structs::{FolioStatus, Role},
 };
 
 use crate::state::ProgramRegistrar;
@@ -82,7 +82,7 @@ pub struct InitFolio<'info> {
 }
 
 impl InitFolio<'_> {
-    pub fn validate(&self, folio_fee: DecimalValue, minting_fee: DecimalValue) -> Result<()> {
+    pub fn validate(&self, folio_fee: u64, minting_fee: u64) -> Result<()> {
         Folio::validate_folio_program_for_init(&self.program_registrar, &self.dtf_program)?;
 
         check_condition!(folio_fee <= MAX_FOLIO_FEE, InvalidFeePerSecond);
@@ -96,11 +96,7 @@ impl InitFolio<'_> {
     }
 }
 
-pub fn handler(
-    ctx: Context<InitFolio>,
-    folio_fee: DecimalValue,
-    minting_fee: DecimalValue,
-) -> Result<()> {
+pub fn handler(ctx: Context<InitFolio>, folio_fee: u64, minting_fee: u64) -> Result<()> {
     ctx.accounts.validate(folio_fee, minting_fee)?;
 
     {
@@ -120,8 +116,8 @@ pub fn handler(
         folio.minting_fee = minting_fee;
         folio.status = FolioStatus::Initializing as u8;
         folio.last_poke = Clock::get()?.unix_timestamp;
-        folio.dao_pending_fee_shares = DecimalValue::ZERO;
-        folio.fee_recipients_pending_fee_shares = DecimalValue::ZERO;
+        folio.dao_pending_fee_shares = 0;
+        folio.fee_recipients_pending_fee_shares = 0;
     }
 
     let actor = &mut ctx.accounts.actor;

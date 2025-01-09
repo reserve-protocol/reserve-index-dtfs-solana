@@ -1,7 +1,6 @@
 use anchor_lang::prelude::*;
 use shared::check_condition;
 use shared::errors::ErrorCode;
-use shared::structs::DecimalValue;
 
 use crate::state::DAOFeeConfig;
 
@@ -10,7 +9,7 @@ impl DAOFeeConfig {
         dao_fee_config: &mut Account<DAOFeeConfig>,
         context_bump: u8,
         fee_recipient: Option<Pubkey>,
-        fee_recipient_numerator: Option<DecimalValue>,
+        fee_recipient_numerator: Option<u64>,
     ) -> Result<()> {
         let account_info_dao_fee_config = dao_fee_config.to_account_info();
 

@@ -1,7 +1,6 @@
 use anchor_lang::prelude::*;
 
 use instructions::*;
-use shared::structs::DecimalValue;
 use shared::structs::FeeRecipient;
 use shared::structs::Role;
 use utils::*;
@@ -27,7 +26,7 @@ pub mod dtfs {
     pub fn set_dao_fee_config(
         ctx: Context<SetDAOFeeConfig>,
         fee_recipient: Option<Pubkey>,
-        fee_recipient_numerator: Option<DecimalValue>,
+        fee_recipient_numerator: Option<u64>,
     ) -> Result<()> {
         set_dao_fee_config::handler(ctx, fee_recipient, fee_recipient_numerator)
     }
@@ -43,8 +42,8 @@ pub mod dtfs {
         ctx: Context<UpdateFolio>,
         program_version: Option<Pubkey>,
         program_deployment_slot: Option<u64>,
-        folio_fee: Option<DecimalValue>,
-        minting_fee: Option<DecimalValue>,
+        folio_fee: Option<u64>,
+        minting_fee: Option<u64>,
         fee_recipients_to_add: Vec<FeeRecipient>,
         fee_recipients_to_remove: Vec<Pubkey>,
     ) -> Result<()> {
@@ -107,14 +106,14 @@ pub mod dtfs {
 
     pub fn mint_folio_token<'info>(
         ctx: Context<'_, '_, 'info, 'info, MintFolioToken<'info>>,
-        shares: DecimalValue,
+        shares: u64,
     ) -> Result<()> {
         mint_folio_token::handler(ctx, shares)
     }
 
     pub fn burn_folio_token<'info>(
         ctx: Context<'_, '_, 'info, 'info, BurnFolioToken<'info>>,
-        shares: DecimalValue,
+        shares: u64,
     ) -> Result<()> {
         burn_folio_token::handler(ctx, shares)
     }

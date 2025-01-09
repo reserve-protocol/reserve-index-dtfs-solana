@@ -3,10 +3,7 @@ use anchor_spl::{
     associated_token::AssociatedToken,
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
-use shared::{
-    constants::{DAO_FEE_CONFIG_SEEDS, DTF_PROGRAM_SIGNER_SEEDS},
-    structs::DecimalValue,
-};
+use shared::constants::{DAO_FEE_CONFIG_SEEDS, DTF_PROGRAM_SIGNER_SEEDS};
 
 use crate::{state::DAOFeeConfig, ID as DTF_PROGRAM_ID};
 use crate::{state::DtfProgramSigner, FolioProgram};
@@ -90,7 +87,7 @@ impl MintFolioToken<'_> {
 }
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, MintFolioToken<'info>>,
-    shares: DecimalValue,
+    shares: u64,
 ) -> Result<()> {
     ctx.accounts.validate()?;
 

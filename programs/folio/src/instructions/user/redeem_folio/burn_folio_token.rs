@@ -4,12 +4,11 @@ use anchor_spl::{
     token,
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
+use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 use shared::{
     check_condition,
     constants::{PendingBasketType, PENDING_BASKET_SEEDS, PROGRAM_REGISTRAR_SEEDS},
-    structs::Rounding,
 };
-use shared::{constants::DTF_PROGRAM_SIGNER_SEEDS, structs::DecimalValue};
 use shared::{errors::ErrorCode, structs::FolioStatus};
 
 use crate::state::{Folio, PendingBasket, ProgramRegistrar};
@@ -101,7 +100,7 @@ impl BurnFolioToken<'_> {
 
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, BurnFolioToken<'info>>,
-    shares: DecimalValue,
+    shares: u64,
 ) -> Result<()> {
     let folio = ctx.accounts.folio.load()?;
 
@@ -118,17 +117,12 @@ pub fn handler<'info>(
     let token_amounts_user = &mut ctx.accounts.user_pending_basket.load_mut()?;
     token_amounts_user.reorder_token_amounts(&folio_pending_basket.token_amounts)?;
 
-    let decimal_total_supply_folio_token = DecimalValue::from_token_amount(
-        ctx.accounts.folio_token_mint.supply,
-        ctx.accounts.folio_token_mint.decimals,
-    );
-
     token_amounts_user.to_assets(
         shares,
         &folio_key,
         &token_program_id,
         folio_pending_basket,
-        &decimal_total_supply_folio_token,
+        ctx.accounts.folio_token_mint.supply,
         PendingBasketType::RedeemProcess,
         remaining_accounts,
     )?;
@@ -143,7 +137,7 @@ pub fn handler<'info>(
                 authority: ctx.accounts.user.to_account_info(),
             },
         ),
-        shares.to_token_amount(ctx.accounts.folio_token_mint.decimals, Rounding::Floor),
+        shares,
     )?;
 
     Ok(())

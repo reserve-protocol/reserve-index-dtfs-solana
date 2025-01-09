@@ -13,13 +13,14 @@ import {
   initDtfSigner,
   addToPendingBasket,
   mintFolioToken,
+  MAX_FOLIO_FEE,
+  MIN_DAO_MINTING_FEE,
 } from "../utils/dtf-helper";
 import {
   DEFAULT_DECIMALS_MUL,
   initToken,
   mintToken,
 } from "../utils/token-helper";
-import { DecimalValue } from "../utils/decimal-util";
 
 describe("Extrme DTFs Tests", () => {
   let connection: Connection;
@@ -65,8 +66,8 @@ describe("Extrme DTFs Tests", () => {
     ({ folioTokenMint, folioPDA } = await initFolio(
       connection,
       folioOwnerKeypair,
-      DecimalValue.MAX_FOLIO_FEE,
-      DecimalValue.MIN_DAO_MINTING_FEE
+      MAX_FOLIO_FEE,
+      MIN_DAO_MINTING_FEE
     ));
 
     // Init dtf related accounts
@@ -136,11 +137,6 @@ describe("Extrme DTFs Tests", () => {
       await addToPendingBasket(connection, userKeypair, folioPDA, batch);
     }
 
-    const shares = new DecimalValue({
-      whole: new BN(3),
-      fractional: new BN(0),
-    });
-
     await mintFolioToken(
       connection,
       userKeypair,
@@ -150,7 +146,7 @@ describe("Extrme DTFs Tests", () => {
         mint: token.mint.publicKey,
         amount: new BN(0),
       })),
-      shares
+      new BN(3 * DEFAULT_DECIMALS_MUL)
     );
   });
 });

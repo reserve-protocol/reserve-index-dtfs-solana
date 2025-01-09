@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 use instructions::*;
-use shared::structs::{DecimalValue, FeeRecipient, Role};
+use shared::structs::{FeeRecipient, Role};
 use utils::*;
 
 pub mod events;
@@ -41,11 +41,7 @@ pub mod folio {
     /*
     Folio functions
     */
-    pub fn init_folio(
-        ctx: Context<InitFolio>,
-        folio_fee: DecimalValue,
-        minting_fee: DecimalValue,
-    ) -> Result<()> {
+    pub fn init_folio(ctx: Context<InitFolio>, folio_fee: u64, minting_fee: u64) -> Result<()> {
         init_folio::handler(ctx, folio_fee, minting_fee)
     }
 
@@ -57,8 +53,8 @@ pub mod folio {
         ctx: Context<UpdateFolio>,
         program_version: Option<Pubkey>,
         program_deployment_slot: Option<u64>,
-        folio_fee: Option<DecimalValue>,
-        minting_fee: Option<DecimalValue>,
+        folio_fee: Option<u64>,
+        minting_fee: Option<u64>,
         fee_recipients_to_add: Vec<FeeRecipient>,
         fee_recipients_to_remove: Vec<Pubkey>,
     ) -> Result<()> {
@@ -119,14 +115,14 @@ pub mod folio {
 
     pub fn mint_folio_token<'info>(
         ctx: Context<'_, '_, 'info, 'info, MintFolioToken<'info>>,
-        shares: DecimalValue,
+        shares: u64,
     ) -> Result<()> {
         mint_folio_token::handler(ctx, shares)
     }
 
     pub fn burn_folio_token<'info>(
         ctx: Context<'_, '_, 'info, 'info, BurnFolioToken<'info>>,
-        shares: DecimalValue,
+        shares: u64,
     ) -> Result<()> {
         burn_folio_token::handler(ctx, shares)
     }

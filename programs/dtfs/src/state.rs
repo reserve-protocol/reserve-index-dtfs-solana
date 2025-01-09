@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-use shared::structs::DecimalValue;
 
 /// PDA Seeds ["dtf_program_signer"]
 #[account]
@@ -20,7 +19,7 @@ pub struct DAOFeeConfig {
     pub bump: u8,
 
     pub fee_recipient: Pubkey,
-    pub fee_recipient_numerator: DecimalValue,
+    pub fee_recipient_numerator: u64,
 }
 
 impl DAOFeeConfig {

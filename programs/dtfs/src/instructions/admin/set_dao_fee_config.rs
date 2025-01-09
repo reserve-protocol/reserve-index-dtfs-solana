@@ -4,7 +4,6 @@ use shared::check_condition;
 use shared::constants::common::ADMIN;
 use shared::constants::DAO_FEE_CONFIG_SEEDS;
 use shared::errors::ErrorCode;
-use shared::structs::DecimalValue;
 
 #[derive(Accounts)]
 pub struct SetDAOFeeConfig<'info> {
@@ -35,7 +34,7 @@ impl SetDAOFeeConfig<'_> {
 pub fn handler(
     ctx: Context<SetDAOFeeConfig>,
     fee_recipient: Option<Pubkey>,
-    fee_recipient_numerator: Option<DecimalValue>,
+    fee_recipient_numerator: Option<u64>,
 ) -> Result<()> {
     ctx.accounts.validate()?;
 

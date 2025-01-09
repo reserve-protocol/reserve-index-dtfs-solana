@@ -4,7 +4,7 @@ use shared::constants::{
     FEE_RECIPIENTS_SEEDS, MAX_FOLIO_FEE, MAX_MINTING_FEE, MIN_DAO_MINTING_FEE,
 };
 use shared::errors::ErrorCode;
-use shared::structs::{DecimalValue, FeeRecipient};
+use shared::structs::FeeRecipient;
 use shared::{
     check_condition,
     constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, PROGRAM_REGISTRAR_SEEDS},
@@ -83,8 +83,8 @@ pub fn handler(
     ctx: Context<UpdateFolio>,
     program_version: Option<Pubkey>,
     program_deployment_slot: Option<u64>,
-    folio_fee: Option<DecimalValue>,
-    minting_fee: Option<DecimalValue>,
+    folio_fee: Option<u64>,
+    minting_fee: Option<u64>,
     fee_recipients_to_add: Vec<FeeRecipient>,
     fee_recipients_to_remove: Vec<Pubkey>,
 ) -> Result<()> {

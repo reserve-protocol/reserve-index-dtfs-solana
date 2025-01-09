@@ -1,10 +1,9 @@
 use anchor_lang::prelude::*;
-use shared::structs::DecimalValue;
 
 #[event]
 pub struct FolioCreated {
     pub folio_token_mint: Pubkey,
-    pub folio_fee: DecimalValue,
+    pub folio_fee: u64,
 }
 
 #[event]

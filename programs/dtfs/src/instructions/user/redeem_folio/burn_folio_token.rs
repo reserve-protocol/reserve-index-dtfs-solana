@@ -3,7 +3,7 @@ use anchor_spl::{
     associated_token::AssociatedToken,
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
-use shared::{constants::DTF_PROGRAM_SIGNER_SEEDS, structs::DecimalValue};
+use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 
 use crate::ID as DTF_PROGRAM_ID;
 use crate::{state::DtfProgramSigner, FolioProgram};
@@ -82,7 +82,7 @@ impl BurnFolioToken<'_> {
 
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, BurnFolioToken<'info>>,
-    shares: DecimalValue,
+    shares: u64,
 ) -> Result<()> {
     ctx.accounts.validate()?;
 

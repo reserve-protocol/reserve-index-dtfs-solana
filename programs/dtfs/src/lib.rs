@@ -23,6 +23,14 @@ pub mod dtfs {
         init_dtf_signer::handler(ctx)
     }
 
+    pub fn set_dao_fee_config(
+        ctx: Context<SetDAOFeeConfig>,
+        fee_recipient: Option<Pubkey>,
+        fee_recipient_numerator: Option<u64>,
+    ) -> Result<()> {
+        set_dao_fee_config::handler(ctx, fee_recipient, fee_recipient_numerator)
+    }
+
     /*
     Folio Program functions
      */
@@ -35,6 +43,7 @@ pub mod dtfs {
         program_version: Option<Pubkey>,
         program_deployment_slot: Option<u64>,
         folio_fee: Option<u64>,
+        minting_fee: Option<u64>,
         fee_recipients_to_add: Vec<FeeRecipient>,
         fee_recipients_to_remove: Vec<Pubkey>,
     ) -> Result<()> {
@@ -43,6 +52,7 @@ pub mod dtfs {
             program_version,
             program_deployment_slot,
             folio_fee,
+            minting_fee,
             fee_recipients_to_add,
             fee_recipients_to_remove,
         )
@@ -103,9 +113,9 @@ pub mod dtfs {
 
     pub fn burn_folio_token<'info>(
         ctx: Context<'_, '_, 'info, 'info, BurnFolioToken<'info>>,
-        amount_to_burn: u64,
+        shares: u64,
     ) -> Result<()> {
-        burn_folio_token::handler(ctx, amount_to_burn)
+        burn_folio_token::handler(ctx, shares)
     }
 
     pub fn redeem_from_pending_basket<'info>(

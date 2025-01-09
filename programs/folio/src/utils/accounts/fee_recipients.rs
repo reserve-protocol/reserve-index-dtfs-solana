@@ -1,6 +1,6 @@
 use crate::state::FeeRecipients;
 use anchor_lang::prelude::*;
-use shared::constants::PRECISION_FACTOR;
+use shared::constants::SCALAR;
 use shared::errors::ErrorCode;
 use shared::{check_condition, constants::MAX_FEE_RECIPIENTS, structs::FeeRecipient};
 
@@ -64,7 +64,7 @@ impl FeeRecipients {
 
     pub fn validate_fee_recipient_total_portions(&self) -> Result<()> {
         check_condition!(
-            self.fee_recipients.iter().map(|r| r.portion).sum::<u64>() == PRECISION_FACTOR,
+            self.fee_recipients.iter().map(|r| r.portion).sum::<u64>() == SCALAR,
             InvalidFeeRecipientPortion
         );
 

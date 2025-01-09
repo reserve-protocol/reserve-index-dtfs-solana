@@ -13,6 +13,8 @@ import {
   initDtfSigner,
   addToPendingBasket,
   mintFolioToken,
+  MAX_FOLIO_FEE,
+  MIN_DAO_MINTING_FEE,
 } from "../utils/dtf-helper";
 import {
   DEFAULT_DECIMALS_MUL,
@@ -20,7 +22,7 @@ import {
   mintToken,
 } from "../utils/token-helper";
 
-describe("DTFs Tests", () => {
+describe("Extrme DTFs Tests", () => {
   let connection: Connection;
   let keys: any;
 
@@ -37,7 +39,7 @@ describe("DTFs Tests", () => {
   /*
   Tokens that can be included in the folio
   */
-  const NUMBER_OF_TOKENS = 18;
+  const NUMBER_OF_TOKENS = 16;
 
   let tokenMints = Array.from({ length: NUMBER_OF_TOKENS }, () => ({
     mint: Keypair.generate(),
@@ -64,7 +66,8 @@ describe("DTFs Tests", () => {
     ({ folioTokenMint, folioPDA } = await initFolio(
       connection,
       folioOwnerKeypair,
-      new BN(100)
+      MAX_FOLIO_FEE,
+      MIN_DAO_MINTING_FEE
     ));
 
     // Init dtf related accounts
@@ -134,8 +137,6 @@ describe("DTFs Tests", () => {
       await addToPendingBasket(connection, userKeypair, folioPDA, batch);
     }
 
-    const shares = new BN(3).mul(new BN(10 ** 8));
-
     await mintFolioToken(
       connection,
       userKeypair,
@@ -145,7 +146,7 @@ describe("DTFs Tests", () => {
         mint: token.mint.publicKey,
         amount: new BN(0),
       })),
-      shares
+      new BN(3 * DEFAULT_DECIMALS_MUL)
     );
   });
 });

@@ -11,6 +11,7 @@ mod tests {
         let mut pending = PendingBasket::default();
         let token = TokenAmount {
             mint: Pubkey::new_unique(),
+
             amount_for_minting: 100,
             amount_for_redeeming: 0,
         };
@@ -28,6 +29,7 @@ mod tests {
         let mut pending = PendingBasket::default();
         let token = TokenAmount {
             mint: Pubkey::new_unique(),
+
             amount_for_minting: 100,
             amount_for_redeeming: 0,
         };
@@ -35,6 +37,7 @@ mod tests {
 
         let add_amount = TokenAmount {
             mint: token.mint,
+
             amount_for_minting: 50,
             amount_for_redeeming: 0,
         };
@@ -75,6 +78,7 @@ mod tests {
         let mut pending = PendingBasket::default();
         let token = TokenAmount {
             mint: Pubkey::new_unique(),
+
             amount_for_minting: 100,
             amount_for_redeeming: 0,
         };
@@ -82,6 +86,7 @@ mod tests {
 
         let remove_amount = TokenAmount {
             mint: token.mint,
+
             amount_for_minting: 50,
             amount_for_redeeming: 0,
         };
@@ -101,6 +106,7 @@ mod tests {
         let mut pending = PendingBasket::default();
         let token = TokenAmount {
             mint: Pubkey::new_unique(),
+
             amount_for_minting: 50,
             amount_for_redeeming: 0,
         };
@@ -108,6 +114,7 @@ mod tests {
 
         let remove_amount = TokenAmount {
             mint: token.mint,
+
             amount_for_minting: 100,
             amount_for_redeeming: 0,
         };
@@ -130,6 +137,7 @@ mod tests {
         let mut pending = PendingBasket::default();
         let remove_amount = TokenAmount {
             mint: Pubkey::new_unique(),
+
             amount_for_minting: 100,
             amount_for_redeeming: 0,
         };
@@ -152,6 +160,7 @@ mod tests {
         let mut pending = PendingBasket::default();
         let remove_amount = TokenAmount {
             mint: Pubkey::new_unique(),
+
             amount_for_minting: 100,
             amount_for_redeeming: 0,
         };
@@ -170,11 +179,13 @@ mod tests {
         let mut pending = PendingBasket::default();
         let token1 = TokenAmount {
             mint: Pubkey::new_unique(),
+
             amount_for_minting: 100,
             amount_for_redeeming: 0,
         };
         let token2 = TokenAmount {
             mint: Pubkey::new_unique(),
+
             amount_for_minting: 200,
             amount_for_redeeming: 0,
         };
@@ -194,6 +205,7 @@ mod tests {
         let mut pending = PendingBasket::default();
         let token = TokenAmount {
             mint: Pubkey::new_unique(),
+
             amount_for_minting: 100,
             amount_for_redeeming: 0,
         };
@@ -206,5 +218,149 @@ mod tests {
             result.unwrap_err(),
             ErrorCode::InvalidAddedTokenMints.into()
         );
+    }
+
+    #[test]
+    fn test_to_assets_for_minting() {
+        let mut user_amount = TokenAmount {
+            mint: Pubkey::new_unique(),
+
+            amount_for_minting: 1_000_000,
+            amount_for_redeeming: 0,
+        };
+
+        let mut folio_amount = TokenAmount {
+            mint: user_amount.mint,
+
+            amount_for_minting: 100_000_000,
+            amount_for_redeeming: 0,
+        };
+
+        // Total supply: 100 tokens
+        // Folio balance: 100 tokens
+        // Shares to mint: 1 tokens
+        let decimal_total_supply = 100_000_000;
+        let decimal_folio_balance = 100_000_000;
+        let shares = 1_000_000;
+
+        let result = PendingBasket::to_assets_for_minting(
+            &mut user_amount,
+            &mut folio_amount,
+            decimal_total_supply,
+            decimal_folio_balance,
+            shares,
+        );
+
+        assert!(result.is_ok());
+
+        assert_eq!(user_amount.amount_for_minting, 0);
+        assert_eq!(folio_amount.amount_for_minting, 99_000_000);
+    }
+
+    #[test]
+    fn test_to_assets_for_minting_insufficient_shares() {
+        let mut user_amount = TokenAmount {
+            mint: Pubkey::new_unique(),
+
+            amount_for_minting: 100_000,
+            amount_for_redeeming: 0,
+        };
+
+        let mut related_mint = TokenAmount {
+            mint: user_amount.mint,
+
+            amount_for_minting: 100_000,
+            amount_for_redeeming: 0,
+        };
+
+        let decimal_total_supply = 100_000_000;
+        let decimal_folio_balance = 50_000_000;
+        let shares = 1_000_000; // Trying to mint more shares than possible
+
+        let result = PendingBasket::to_assets_for_minting(
+            &mut user_amount,
+            &mut related_mint,
+            decimal_total_supply,
+            decimal_folio_balance,
+            shares,
+        );
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            ErrorCode::InvalidShareAmountProvided.into()
+        );
+    }
+
+    #[test]
+    fn test_to_assets_for_redeeming() {
+        let mut user_amount = TokenAmount {
+            mint: Pubkey::new_unique(),
+
+            amount_for_minting: 0,
+            amount_for_redeeming: 0,
+        };
+
+        let mut related_mint = TokenAmount {
+            mint: user_amount.mint,
+
+            amount_for_minting: 0,
+            amount_for_redeeming: 0,
+        };
+
+        // Total supply: 100 tokens
+        // Folio balance: 50 tokens
+        // Shares to redeem: 10 tokens
+        let decimal_total_supply = 100_000_000;
+        let decimal_folio_balance = 50_000_000;
+        let shares = 10_000_000;
+
+        let result = PendingBasket::to_assets_for_redeeming(
+            &mut user_amount,
+            &mut related_mint,
+            decimal_total_supply,
+            decimal_folio_balance,
+            shares,
+        );
+
+        assert!(result.is_ok());
+
+        // Should receive 5 tokens (10% of 50 tokens)
+        assert_eq!(user_amount.amount_for_redeeming, 5_000_000);
+        assert_eq!(related_mint.amount_for_redeeming, 5_000_000);
+    }
+
+    #[test]
+    fn test_to_assets_for_redeeming_rounding() {
+        let mut user_amount = TokenAmount {
+            mint: Pubkey::new_unique(),
+
+            amount_for_minting: 0,
+            amount_for_redeeming: 0,
+        };
+
+        let mut related_mint = TokenAmount {
+            mint: user_amount.mint,
+
+            amount_for_minting: 0,
+            amount_for_redeeming: 0,
+        };
+
+        let decimal_total_supply = 3_000_000;
+        let decimal_folio_balance = 1_000_000;
+        let shares = 1_000_000;
+
+        let result = PendingBasket::to_assets_for_redeeming(
+            &mut user_amount,
+            &mut related_mint,
+            decimal_total_supply,
+            decimal_folio_balance,
+            shares,
+        );
+
+        assert!(result.is_ok());
+
+        assert_eq!(user_amount.amount_for_redeeming, 333_333);
+        assert_eq!(related_mint.amount_for_redeeming, 333_333);
     }
 }

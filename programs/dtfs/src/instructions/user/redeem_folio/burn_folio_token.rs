@@ -82,11 +82,11 @@ impl BurnFolioToken<'_> {
 
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, BurnFolioToken<'info>>,
-    amount_to_burn: u64,
+    shares: u64,
 ) -> Result<()> {
     ctx.accounts.validate()?;
 
-    FolioProgram::burn_folio_token(ctx, amount_to_burn)?;
+    FolioProgram::burn_folio_token(ctx, shares)?;
 
     Ok(())
 }

@@ -1,16 +1,14 @@
-use std::cmp::max;
-
 use anchor_lang::prelude::*;
 use anchor_spl::{
-    associated_token::{get_associated_token_address_with_program_id, AssociatedToken},
+    associated_token::AssociatedToken,
     token,
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
+use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 use shared::{
     check_condition,
-    constants::{PENDING_BASKET_SEEDS, PRECISION_FACTOR, PROGRAM_REGISTRAR_SEEDS},
+    constants::{PendingBasketType, PENDING_BASKET_SEEDS, PROGRAM_REGISTRAR_SEEDS},
 };
-use shared::{constants::DTF_PROGRAM_SIGNER_SEEDS, util::math_util::SafeArithmetic};
 use shared::{errors::ErrorCode, structs::FolioStatus};
 
 use crate::state::{Folio, PendingBasket, ProgramRegistrar};
@@ -102,7 +100,7 @@ impl BurnFolioToken<'_> {
 
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, BurnFolioToken<'info>>,
-    amount_to_burn: u64,
+    shares: u64,
 ) -> Result<()> {
     let folio = ctx.accounts.folio.load()?;
 
@@ -117,54 +115,17 @@ pub fn handler<'info>(
 
     // Reorder the user's token amounts to match the folio's token amounts, for efficiency
     let token_amounts_user = &mut ctx.accounts.user_pending_basket.load_mut()?;
-
     token_amounts_user.reorder_token_amounts(&folio_pending_basket.token_amounts)?;
 
-    // Calculate share of the folio the user "owns"
-    let shares = amount_to_burn.mul_div_precision(
-        PRECISION_FACTOR,
-        max(ctx.accounts.folio_token_mint.supply, 1),
-    );
-
-    for (index, folio_token_account) in remaining_accounts.iter().enumerate() {
-        let related_mint = &mut folio_pending_basket.token_amounts[index];
-
-        // Validate the provided token account is the ATA of the folio (to calculate balances)
-        check_condition!(
-            folio_token_account.key()
-                == get_associated_token_address_with_program_id(
-                    &folio_key,
-                    &related_mint.mint,
-                    &token_program_id,
-                ),
-            InvalidReceiverTokenAccount
-        );
-
-        // Calculate how much the user gets
-        let user_amount = &mut token_amounts_user.token_amounts[index];
-
-        check_condition!(user_amount.mint == related_mint.mint, MintMismatch);
-
-        // Get token balance for folio
-        let data = folio_token_account.try_borrow_data()?;
-        let folio_token_account = TokenAccount::try_deserialize(&mut &data[..])?;
-
-        let folio_token_balance =
-            PendingBasket::get_clean_token_balance(folio_token_account.amount, related_mint);
-
-        let amount_to_give_to_user =
-            folio_token_balance.mul_div_precision(shares, PRECISION_FACTOR);
-
-        // Add to both pending amounts for redeeming
-        user_amount.amount_for_redeeming = user_amount
-            .amount_for_redeeming
-            .checked_add(amount_to_give_to_user)
-            .unwrap();
-        related_mint.amount_for_redeeming = related_mint
-            .amount_for_redeeming
-            .checked_add(amount_to_give_to_user)
-            .unwrap();
-    }
+    token_amounts_user.to_assets(
+        shares,
+        &folio_key,
+        &token_program_id,
+        folio_pending_basket,
+        ctx.accounts.folio_token_mint.supply,
+        PendingBasketType::RedeemProcess,
+        remaining_accounts,
+    )?;
 
     // Burn folio token from user's folio token account
     token::burn(
@@ -176,7 +137,7 @@ pub fn handler<'info>(
                 authority: ctx.accounts.user.to_account_info(),
             },
         ),
-        amount_to_burn,
+        shares,
     )?;
 
     Ok(())

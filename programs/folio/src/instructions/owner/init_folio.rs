@@ -10,8 +10,11 @@ use anchor_spl::{
 };
 use shared::{
     check_condition,
-    constants::{ACTOR_SEEDS, FOLIO_SEEDS, MAX_FOLIO_FEE, PROGRAM_REGISTRAR_SEEDS},
-    structs::Role,
+    constants::{
+        ACTOR_SEEDS, FOLIO_SEEDS, MAX_FOLIO_FEE, MAX_MINTING_FEE, MIN_DAO_MINTING_FEE,
+        PROGRAM_REGISTRAR_SEEDS,
+    },
+    structs::{FolioStatus, Role},
 };
 
 use crate::state::ProgramRegistrar;
@@ -79,17 +82,22 @@ pub struct InitFolio<'info> {
 }
 
 impl InitFolio<'_> {
-    pub fn validate(&self, folio_fee: u64) -> Result<()> {
+    pub fn validate(&self, folio_fee: u64, minting_fee: u64) -> Result<()> {
         Folio::validate_folio_program_for_init(&self.program_registrar, &self.dtf_program)?;
 
         check_condition!(folio_fee <= MAX_FOLIO_FEE, InvalidFeePerSecond);
+
+        check_condition!(
+            (MIN_DAO_MINTING_FEE..=MAX_MINTING_FEE).contains(&minting_fee),
+            InvalidMintingFee
+        );
 
         Ok(())
     }
 }
 
-pub fn handler(ctx: Context<InitFolio>, folio_fee: u64) -> Result<()> {
-    ctx.accounts.validate(folio_fee)?;
+pub fn handler(ctx: Context<InitFolio>, folio_fee: u64, minting_fee: u64) -> Result<()> {
+    ctx.accounts.validate(folio_fee, minting_fee)?;
 
     {
         let folio = &mut ctx.accounts.folio.load_init()?;
@@ -105,6 +113,11 @@ pub fn handler(ctx: Context<InitFolio>, folio_fee: u64) -> Result<()> {
         folio.program_deployment_slot = deployment_slot;
         folio.folio_token_mint = ctx.accounts.folio_token_mint.key();
         folio.folio_fee = folio_fee;
+        folio.minting_fee = minting_fee;
+        folio.status = FolioStatus::Initializing as u8;
+        folio.last_poke = Clock::get()?.unix_timestamp;
+        folio.dao_pending_fee_shares = 0;
+        folio.fee_recipients_pending_fee_shares = 0;
     }
 
     let actor = &mut ctx.accounts.actor;

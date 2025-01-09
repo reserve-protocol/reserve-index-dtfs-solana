@@ -23,6 +23,7 @@ import {
   getFolioFeeRecipientsPDA,
   getFolioPendingBasketPDA,
   getUserPendingBasketPDA,
+  getDAOFeeConfigPDA,
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -37,6 +38,10 @@ import {
 let dtfProgram: Program<Dtfs> = null;
 
 const SKIP_PREFLIGHT = true;
+
+export const MAX_FOLIO_FEE = new BN(13284);
+export const MIN_DAO_MINTING_FEE = new BN(500000);
+export const SCALAR = new BN(1_000_000_000);
 
 export function getDtfProgram(
   connection: Connection,
@@ -54,6 +59,29 @@ export function getDtfProgram(
   }
 
   return dtfProgram;
+}
+
+export async function setDaoFeeConfig(
+  connection: Connection,
+  adminKeypair: Keypair,
+  feeRecipient: PublicKey,
+  feeRecipientNumerator: BN
+) {
+  const dtfProgram = getDtfProgram(connection, adminKeypair);
+
+  const setDaoFeeConfig = await dtfProgram.methods
+    .setDaoFeeConfig(feeRecipient, feeRecipientNumerator)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      rent: SYSVAR_RENT_PUBKEY,
+      admin: adminKeypair.publicKey,
+      daoFeeConfig: getDAOFeeConfigPDA(),
+    })
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [setDaoFeeConfig], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
 }
 
 export async function initDtfSigner(
@@ -121,6 +149,7 @@ export async function updateFolio(
   programVersion: PublicKey | null,
   programDeploymentSlot: BN | null,
   folioFee: BN | null,
+  mintingFee: BN | null,
   feeRecipientsToAdd: { receiver: PublicKey; portion: BN }[],
   feeRecipientsToRemove: PublicKey[]
 ) {
@@ -131,6 +160,7 @@ export async function updateFolio(
       programVersion,
       programDeploymentSlot,
       folioFee,
+      mintingFee,
       feeRecipientsToAdd,
       feeRecipientsToRemove
     )
@@ -150,7 +180,7 @@ export async function updateFolio(
 
   await pSendAndConfirmTxn(
     dtfProgram,
-    [...getComputeLimitInstruction(), updateFolio],
+    [...getComputeLimitInstruction(600_000), updateFolio],
     [],
     {
       skipPreflight: SKIP_PREFLIGHT,
@@ -480,9 +510,14 @@ export async function burnFolioToken(
     )
     .instruction();
 
-  await pSendAndConfirmTxn(dtfProgram, [burnFolioTokenIx], [], {
-    skipPreflight: SKIP_PREFLIGHT,
-  });
+  await pSendAndConfirmTxn(
+    dtfProgram,
+    [...getComputeLimitInstruction(600_000), burnFolioTokenIx],
+    [],
+    {
+      skipPreflight: SKIP_PREFLIGHT,
+    }
+  );
 }
 
 export async function redeemFromPendingBasket(

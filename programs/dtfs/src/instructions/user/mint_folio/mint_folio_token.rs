@@ -3,9 +3,9 @@ use anchor_spl::{
     associated_token::AssociatedToken,
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
-use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
+use shared::constants::{DAO_FEE_CONFIG_SEEDS, DTF_PROGRAM_SIGNER_SEEDS};
 
-use crate::ID as DTF_PROGRAM_ID;
+use crate::{state::DAOFeeConfig, ID as DTF_PROGRAM_ID};
 use crate::{state::DtfProgramSigner, FolioProgram};
 use folio::ID as FOLIO_ID;
 
@@ -26,6 +26,12 @@ pub struct MintFolioToken<'info> {
         bump = dtf_program_signer.bump
     )]
     pub dtf_program_signer: Account<'info, DtfProgramSigner>,
+
+    #[account(
+        seeds = [DAO_FEE_CONFIG_SEEDS],
+        bump = dao_fee_config.bump
+    )]
+    pub dao_fee_config: Account<'info, DAOFeeConfig>,
 
     /// CHECK: DTF Program
     #[account(address = DTF_PROGRAM_ID)]
@@ -79,12 +85,6 @@ impl MintFolioToken<'_> {
         Ok(())
     }
 }
-
-/*
-Shares is how much share the user wants, all the pending token amounts need to be AT LEAST valid for the amount of shares the user wants
-
-Shares follows the precision PRECISION_FACTOR
-*/
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, MintFolioToken<'info>>,
     shares: u64,

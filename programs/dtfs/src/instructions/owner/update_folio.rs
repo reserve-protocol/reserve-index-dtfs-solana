@@ -72,6 +72,7 @@ pub fn handler(
     program_version: Option<Pubkey>,
     program_deployment_slot: Option<u64>,
     folio_fee: Option<u64>,
+    minting_fee: Option<u64>,
     fee_recipients_to_add: Vec<FeeRecipient>,
     fee_recipients_to_remove: Vec<Pubkey>,
 ) -> Result<()> {
@@ -82,6 +83,7 @@ pub fn handler(
         program_version,
         program_deployment_slot,
         folio_fee,
+        minting_fee,
         fee_recipients_to_add,
         fee_recipients_to_remove,
     )?;

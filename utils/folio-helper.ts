@@ -12,7 +12,7 @@ import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 import { pSendAndConfirmTxn } from "./program-helper";
 import {
   getActorPDA,
-  getCommunityPDA,
+  getDAOFeeConfigPDA,
   getFolioPDA,
   getFolioSignerPDA,
   getProgramDataPDA,
@@ -76,29 +76,6 @@ export async function initFolioSigner(
   });
 }
 
-export async function initOrUpdateCommunity(
-  connection: Connection,
-  adminKeypair: Keypair,
-  communityReceiver: PublicKey
-) {
-  const folioProgram = getFolioProgram(connection, adminKeypair);
-
-  const initCommunity = await folioProgram.methods
-    .initOrUpdateCommunity()
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      rent: SYSVAR_RENT_PUBKEY,
-      admin: adminKeypair.publicKey,
-      community: getCommunityPDA(),
-      communityReceiver: communityReceiver,
-    })
-    .instruction();
-
-  await pSendAndConfirmTxn(folioProgram, [initCommunity], [], {
-    skipPreflight: SKIP_PREFLIGHT,
-  });
-}
-
 export async function initProgramRegistrar(
   connection: Connection,
   adminKeypair: Keypair,
@@ -153,7 +130,8 @@ export async function updateProgramRegistrar(
 export async function initFolio(
   connection: Connection,
   folioOwner: Keypair,
-  folioFee: BN
+  folioFee: BN,
+  mintingFee: BN
 ): Promise<{ folioTokenMint: Keypair; folioPDA: PublicKey }> {
   const folioProgram = getFolioProgram(connection, folioOwner);
 
@@ -162,7 +140,7 @@ export async function initFolio(
   let folioPDA = getFolioPDA(folioTokenMint.publicKey);
 
   const initFolio = await folioProgram.methods
-    .initFolio(folioFee)
+    .initFolio(folioFee, mintingFee)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
@@ -183,4 +161,29 @@ export async function initFolio(
   });
 
   return { folioTokenMint, folioPDA };
+}
+
+export async function pokeFolio(
+  connection: Connection,
+  userKeypair: Keypair,
+  folioPDA: PublicKey,
+  folioTokenMint: PublicKey
+) {
+  const folioProgram = getFolioProgram(connection, userKeypair);
+
+  const pokeFolio = await folioProgram.methods
+    .pokeFolio()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      user: userKeypair.publicKey,
+      folio: folioPDA,
+      folioTokenMint: folioTokenMint,
+      dtfProgram: DTF_PROGRAM_ID,
+      daoFeeConfig: getDAOFeeConfigPDA(),
+    })
+    .instruction();
+
+  await pSendAndConfirmTxn(folioProgram, [pokeFolio], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
 }

@@ -32,6 +32,12 @@ pub enum ErrorCode {
     #[msg("Invalid Fee Recipient Count")]
     InvalidFeeRecipientCount,
 
+    #[msg("Invalid Fee Recipient")]
+    InvalidFeeRecipient,
+
+    #[msg("Invalid Fee Recipient Numerator")]
+    InvalidFeeRecipientNumerator,
+
     #[msg("Invalid Fee Per Second")]
     InvalidFeePerSecond,
 
@@ -67,6 +73,9 @@ pub enum ErrorCode {
 
     #[msg("Pending Token Amounts Is Not Empty")]
     PendingBasketIsNotEmpty,
+
+    #[msg("Invalid Minting Fee")]
+    InvalidMintingFee,
 }
 
 #[macro_export]

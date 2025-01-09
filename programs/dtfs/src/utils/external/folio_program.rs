@@ -54,6 +54,7 @@ impl FolioProgram {
         program_version: Option<Pubkey>,
         program_deployment_slot: Option<u64>,
         folio_fee: Option<u64>,
+        minting_fee: Option<u64>,
         fee_recipients_to_add: Vec<FeeRecipient>,
         fee_recipients_to_remove: Vec<Pubkey>,
     ) -> Result<()> {
@@ -87,6 +88,7 @@ impl FolioProgram {
             program_version,
             program_deployment_slot,
             folio_fee,
+            minting_fee,
             fee_recipients_to_add,
             fee_recipients_to_remove,
         )?;
@@ -355,6 +357,7 @@ impl FolioProgram {
             user: ctx.accounts.user.to_account_info(),
             program_registrar: ctx.accounts.program_registrar.to_account_info(),
             dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
+            dao_fee_config: ctx.accounts.dao_fee_config.to_account_info(),
             folio: ctx.accounts.folio.to_account_info(),
             folio_pending_basket: ctx.accounts.folio_pending_basket.to_account_info(),
             user_pending_basket: ctx.accounts.user_pending_basket.to_account_info(),
@@ -384,7 +387,7 @@ impl FolioProgram {
 
     pub fn burn_folio_token<'info>(
         ctx: Context<'_, '_, 'info, 'info, BurnFolioToken<'info>>,
-        amount_to_burn: u64,
+        shares: u64,
     ) -> Result<()> {
         let cpi_program = ctx.accounts.folio_program.to_account_info();
 
@@ -417,7 +420,7 @@ impl FolioProgram {
 
         let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
 
-        folio::cpi::burn_folio_token(cpi_ctx, amount_to_burn)?;
+        folio::cpi::burn_folio_token(cpi_ctx, shares)?;
 
         Ok(())
     }

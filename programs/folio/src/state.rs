@@ -15,19 +15,6 @@ impl FolioProgramSigner {
     pub const SIZE: usize = 8 + FolioProgramSigner::INIT_SPACE;
 }
 
-/// PDA Seeds ["community"]
-#[account]
-#[derive(Default, InitSpace)]
-pub struct Community {
-    pub bump: u8,
-
-    pub community_receiver: Pubkey,
-}
-
-impl Community {
-    pub const SIZE: usize = 8 + Community::INIT_SPACE;
-}
-
 /// PDA Seeds ["program_registrar"]
 #[account]
 #[derive(Default, InitSpace)]
@@ -66,7 +53,7 @@ All numbers for calculations are u64 (up to 9 "decimals")
 
 /// PDA Seeds ["folio", folio token pubkey]
 #[account(zero_copy)]
-#[derive(InitSpace)]
+#[derive(Default, InitSpace)]
 pub struct Folio {
     pub bump: u8,
 
@@ -83,8 +70,18 @@ pub struct Folio {
     // The mint of the folio token (Circulating supply is stored in the token mint automatically)
     pub folio_token_mint: Pubkey,
 
+    /*
+    Fee related properties
+     */
     pub folio_fee: u64,
+    pub minting_fee: u64,
+    pub last_poke: i64,
+    pub dao_pending_fee_shares: u64,
+    pub fee_recipients_pending_fee_shares: u64,
 
+    /*
+    Trade related properties
+     */
     pub trade_delay: u64,
     pub auction_length: u64,
 }

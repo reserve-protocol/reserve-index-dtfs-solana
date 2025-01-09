@@ -212,7 +212,8 @@ impl PendingBasket {
             .unwrap()
     }
 
-    pub fn to_assets<'info>(
+    #[allow(clippy::too_many_arguments)]
+    pub fn to_assets(
         &mut self,
         shares: DecimalValue,
         folio_key: &Pubkey,
@@ -220,7 +221,7 @@ impl PendingBasket {
         folio_pending_basket: &mut RefMut<'_, PendingBasket>,
         decimal_total_supply_folio_token: &DecimalValue,
         pending_basket_type: PendingBasketType,
-        included_tokens: &&[AccountInfo<'info>],
+        included_tokens: &&[AccountInfo<'_>],
     ) -> Result<()> {
         for (index, folio_token_account) in included_tokens.iter().enumerate() {
             let related_mint = &mut folio_pending_basket.token_amounts[index];
@@ -228,9 +229,9 @@ impl PendingBasket {
             check_condition!(
                 folio_token_account.key()
                     == get_associated_token_address_with_program_id(
-                        &folio_key,
+                        folio_key,
                         &related_mint.mint,
-                        &token_program_id,
+                        token_program_id,
                     ),
                 InvalidReceiverTokenAccount
             );
@@ -285,8 +286,8 @@ impl PendingBasket {
         let calculated_shares =
             DecimalValue::from_token_amount(user_amount.amount_for_minting, related_mint.decimals)
                 .mul_div(
-                    &decimal_total_supply_folio_token,
-                    &decimal_folio_token_balance,
+                    decimal_total_supply_folio_token,
+                    decimal_folio_token_balance,
                 )
                 .unwrap();
 
@@ -322,8 +323,8 @@ impl PendingBasket {
     ) -> Result<()> {
         let amount_to_give_to_user = shares
             .mul_div(
-                &decimal_folio_token_balance,
-                &decimal_total_supply_folio_token,
+                decimal_folio_token_balance,
+                decimal_total_supply_folio_token,
             )
             .unwrap()
             .to_token_amount(related_mint.decimals, Rounding::Floor);

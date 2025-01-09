@@ -1,6 +1,6 @@
 import { airdrop, getConnectors } from "../utils/program-helper";
 import { Folio } from "../target/types/folio";
-import { BN, Program } from "@coral-xyz/anchor";
+import { Program } from "@coral-xyz/anchor";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import {
   initFolio,

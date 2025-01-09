@@ -1,6 +1,8 @@
 use crate::state::{Actor, FeeRecipients, Folio, ProgramRegistrar};
 use anchor_lang::prelude::*;
-use shared::constants::{FEE_RECIPIENTS_SEEDS, MAX_FOLIO_FEE, MAX_MINTING_FEE, MIN_DAO_MINTING_FEE};
+use shared::constants::{
+    FEE_RECIPIENTS_SEEDS, MAX_FOLIO_FEE, MAX_MINTING_FEE, MIN_DAO_MINTING_FEE,
+};
 use shared::errors::ErrorCode;
 use shared::structs::{DecimalValue, FeeRecipient};
 use shared::{

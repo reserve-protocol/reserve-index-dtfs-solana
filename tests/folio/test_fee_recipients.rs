@@ -3,14 +3,19 @@ mod tests {
     use anchor_lang::prelude::Pubkey;
     use folio::state::FeeRecipients;
     use shared::errors::ErrorCode;
-    use shared::{constants::PRECISION_FACTOR, structs::FeeRecipient};
+    use shared::structs::{DecimalValue, FeeRecipient};
+
+    const DECIMAL_HALF: DecimalValue = DecimalValue {
+        whole: 0,
+        fractional: 500000000000000000,
+    };
 
     #[test]
     fn test_update_fee_recipients_add_new() {
         let mut folio = FeeRecipients::default();
         let recipient1 = FeeRecipient {
             receiver: Pubkey::new_unique(),
-            portion: PRECISION_FACTOR,
+            portion: DecimalValue::ONE,
         };
 
         let result = folio.update_fee_recipients(vec![recipient1], vec![]);
@@ -25,7 +30,7 @@ mod tests {
         let mut folio = FeeRecipients::default();
         let recipient1 = FeeRecipient {
             receiver: Pubkey::new_unique(),
-            portion: PRECISION_FACTOR,
+            portion: DecimalValue::ONE,
         };
         folio.fee_recipients[0] = recipient1;
 
@@ -43,11 +48,11 @@ mod tests {
         let mut folio = FeeRecipients::default();
         let old_recipient = FeeRecipient {
             receiver: Pubkey::new_unique(),
-            portion: PRECISION_FACTOR / 2,
+            portion: DecimalValue::ONE,
         };
         let new_recipient = FeeRecipient {
             receiver: Pubkey::new_unique(),
-            portion: PRECISION_FACTOR,
+            portion: DecimalValue::ONE,
         };
         folio.fee_recipients[0] = old_recipient;
 
@@ -64,7 +69,9 @@ mod tests {
         let recipients: Vec<FeeRecipient> = (0..65)
             .map(|_| FeeRecipient {
                 receiver: Pubkey::new_unique(),
-                portion: PRECISION_FACTOR / 65,
+                portion: DecimalValue::ONE
+                    .div(&DecimalValue::from_token_amount(65, 18))
+                    .unwrap(),
             })
             .collect();
 
@@ -82,18 +89,18 @@ mod tests {
         let mut folio = FeeRecipients::default();
         let recipient1 = FeeRecipient {
             receiver: Pubkey::new_unique(),
-            portion: PRECISION_FACTOR / 2,
+            portion: DECIMAL_HALF,
         };
         let recipient2 = FeeRecipient {
             receiver: Pubkey::new_unique(),
-            portion: PRECISION_FACTOR / 2,
+            portion: DECIMAL_HALF,
         };
         folio.fee_recipients[0] = recipient1;
         folio.fee_recipients[1] = recipient2;
 
         let new_recipient = FeeRecipient {
             receiver: Pubkey::new_unique(),
-            portion: PRECISION_FACTOR / 2,
+            portion: DECIMAL_HALF,
         };
 
         let result = folio.update_fee_recipients(vec![new_recipient], vec![recipient1.receiver]);
@@ -108,7 +115,7 @@ mod tests {
         let mut folio = FeeRecipients::default();
         let recipient = FeeRecipient {
             receiver: Pubkey::new_unique(),
-            portion: PRECISION_FACTOR,
+            portion: DecimalValue::ONE,
         };
         folio.fee_recipients[0] = recipient;
 
@@ -126,13 +133,13 @@ mod tests {
         let mut folio = FeeRecipients::default();
         let recipient = FeeRecipient {
             receiver: Pubkey::default(),
-            portion: PRECISION_FACTOR,
+            portion: DecimalValue::ONE,
         };
         folio.fee_recipients[0] = recipient;
 
         let new_recipient = FeeRecipient {
             receiver: Pubkey::new_unique(),
-            portion: PRECISION_FACTOR,
+            portion: DecimalValue::ONE,
         };
 
         let result = folio.update_fee_recipients(vec![new_recipient], vec![]);
@@ -146,11 +153,11 @@ mod tests {
         let mut folio = FeeRecipients::default();
         folio.fee_recipients[0] = FeeRecipient {
             receiver: Pubkey::new_unique(),
-            portion: PRECISION_FACTOR / 2,
+            portion: DECIMAL_HALF,
         };
         folio.fee_recipients[1] = FeeRecipient {
             receiver: Pubkey::new_unique(),
-            portion: PRECISION_FACTOR / 2,
+            portion: DECIMAL_HALF,
         };
 
         let result = folio.validate_fee_recipient_total_portions();
@@ -162,11 +169,15 @@ mod tests {
         let mut folio = FeeRecipients::default();
         folio.fee_recipients[0] = FeeRecipient {
             receiver: Pubkey::new_unique(),
-            portion: PRECISION_FACTOR / 4,
+            portion: DecimalValue::ONE
+                .div(&DecimalValue::from_token_amount(4, 18))
+                .unwrap(),
         };
         folio.fee_recipients[1] = FeeRecipient {
             receiver: Pubkey::new_unique(),
-            portion: PRECISION_FACTOR / 4,
+            portion: DecimalValue::ONE
+                .div(&DecimalValue::from_token_amount(4, 18))
+                .unwrap(),
         };
 
         let result = folio.validate_fee_recipient_total_portions();

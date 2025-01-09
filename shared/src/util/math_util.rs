@@ -1,3 +1,5 @@
+use crate::constants::SCALAR_U128;
+
 #[derive(Copy, Clone)]
 pub enum RoundingMode {
     Floor,
@@ -76,40 +78,30 @@ impl SafeArithmetic for u64 {
     }
 
     fn compound_interest(fee_per_second: u64, elapsed: u64, rounding: RoundingMode) -> u64 {
-        const PRECISION: u128 = 1_000_000_000; // D9
-
-        // If no time has elapsed, return 1.0 (in D9)
         if elapsed == 0 {
-            return PRECISION as u64;
+            return SCALAR_U128 as u64;
         }
 
-        let one = PRECISION;
         let fee = fee_per_second as u128;
+        let base = SCALAR_U128.checked_sub(fee).unwrap();
 
-        // Calculate (1 - fee_per_second) in D9
-        let base = one.checked_sub(fee).unwrap();
-
-        // Use binary exponentiation for efficient power calculation
-        let mut result = one;
+        let mut result = SCALAR_U128;
         let mut current_base = base;
         let mut exp = elapsed;
 
         while exp > 0 {
             if exp & 1 == 1 {
-                // result = (result * current_base) / PRECISION to maintain D9
-                result = result.checked_mul(current_base).unwrap() / PRECISION;
+                result = (result * current_base + SCALAR_U128 / 2) / SCALAR_U128;
             }
-            // current_base = (current_base * current_base) / PRECISION to maintain D9
-            current_base = current_base.checked_mul(current_base).unwrap() / PRECISION;
+            current_base = (current_base * current_base + SCALAR_U128 / 2) / SCALAR_U128;
             exp >>= 1;
         }
 
-        // Convert back to u64 with proper rounding
         match rounding {
             RoundingMode::Floor => result as u64,
             RoundingMode::Ceil => {
-                if result % PRECISION > 0 {
-                    (result / PRECISION + 1) as u64
+                if result % SCALAR_U128 > 0 {
+                    ((result + SCALAR_U128 - 1) / SCALAR_U128 * SCALAR_U128) as u64
                 } else {
                     result as u64
                 }

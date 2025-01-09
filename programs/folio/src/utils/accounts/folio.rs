@@ -119,8 +119,6 @@ impl Folio {
             .checked_div(SCALAR_U128)
             .unwrap();
 
-        println!("total_fee_shares: {}", total_fee_shares);
-
         let mut dao_fee_shares = total_fee_shares
             .checked_mul(dao_fee_numerator as u128)
             .unwrap()
@@ -131,9 +129,6 @@ impl Folio {
             .checked_div(dao_fee_denominator as u128)
             .unwrap();
 
-        println!("total_fee_shares: {}", total_fee_shares);
-        println!("dao_fee_shares: {}", dao_fee_shares);
-
         let min_dao_shares =
             SafeArithmetic::mul_precision_to_u128(user_shares, MIN_DAO_MINTING_FEE)
                 .checked_add(SCALAR_U128)
@@ -142,8 +137,6 @@ impl Folio {
                 .unwrap()
                 .checked_div(SCALAR_U128)
                 .unwrap();
-
-        println!("min_dao_shares: {}", min_dao_shares);
 
         if dao_fee_shares < min_dao_shares {
             dao_fee_shares = min_dao_shares;
@@ -217,37 +210,24 @@ impl Folio {
         let total_supply = self.get_total_supply(folio_token_supply);
         let elapsed = current_time - self.last_poke;
 
-        println!("SCALAR: {}", SCALAR);
-        println!("self.folio_fee: {}", self.folio_fee);
-        println!("elapsed: {}", elapsed);
-        println!("total_supply: {}", total_supply);
-
-        // Calculate compound factor using our new method
-        let compound_factor = <u64 as SafeArithmetic>::compound_interest(
+        let denominator = <u64 as SafeArithmetic>::compound_interest(
             self.folio_fee,
             elapsed as u64,
             RoundingMode::Floor,
         );
-        println!("compound_factor: {}", compound_factor);
 
-        // Calculate fee shares
-        // Instead of division by denominator and subtraction, multiply by (1 - compound_factor)
-        let fee_shares = total_supply.mul_div_precision(
-            SCALAR - compound_factor, // This gives us the fee portion
-            SCALAR,
-            RoundingMode::Floor,
-        );
+        let fee_shares = total_supply
+            .mul_precision_to_u128(SCALAR)
+            .checked_div(denominator as u128)
+            .unwrap()
+            .checked_sub(total_supply as u128)
+            .unwrap() as u64;
 
-        println!("fee_shares: {}", fee_shares);
-
-        // Calculate DAO's portion of the fees
         let dao_shares = fee_shares.mul_div_precision(
             dao_fee_numerator,
             dao_fee_denominator,
             RoundingMode::Floor,
         );
-
-        println!("dao_shares: {}", dao_shares);
 
         Ok((fee_shares.checked_sub(dao_shares).unwrap(), dao_shares))
     }

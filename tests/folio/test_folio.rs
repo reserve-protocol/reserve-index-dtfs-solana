@@ -154,8 +154,6 @@ mod tests {
             .checked_div(total_fees)
             .unwrap();
 
-        println!("dao_portion: {}", dao_portion);
-        println!("total_fees: {}", total_fees);
         // Should be close to 50% (allowing for some rounding)
         assert!(dao_portion >= 490_000_000); // 49%
         assert!(dao_portion <= 510_000_000); // 51%

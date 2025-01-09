@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use shared::{
     constants::{MAX_FEE_RECIPIENTS, MAX_TOKEN_AMOUNTS},
-    structs::{FeeRecipient, TokenAmount},
+    structs::{DecimalValue, FeeRecipient, TokenAmount},
 };
 
 /// PDA Seeds ["folio_program_signer"]
@@ -13,19 +13,6 @@ pub struct FolioProgramSigner {
 
 impl FolioProgramSigner {
     pub const SIZE: usize = 8 + FolioProgramSigner::INIT_SPACE;
-}
-
-/// PDA Seeds ["community"]
-#[account]
-#[derive(Default, InitSpace)]
-pub struct Community {
-    pub bump: u8,
-
-    pub community_receiver: Pubkey,
-}
-
-impl Community {
-    pub const SIZE: usize = 8 + Community::INIT_SPACE;
 }
 
 /// PDA Seeds ["program_registrar"]
@@ -83,8 +70,18 @@ pub struct Folio {
     // The mint of the folio token (Circulating supply is stored in the token mint automatically)
     pub folio_token_mint: Pubkey,
 
-    pub folio_fee: u64,
+    /*
+    Fee related properties
+     */
+    pub folio_fee: DecimalValue,
+    pub minting_fee: DecimalValue,
+    pub last_poke: i64,
+    pub dao_pending_fee_shares: DecimalValue,
+    pub fee_recipients_pending_fee_shares: DecimalValue,
 
+    /*
+    Trade related properties
+     */
     pub trade_delay: u64,
     pub auction_length: u64,
 }

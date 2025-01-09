@@ -11,6 +11,8 @@ mod tests {
         let mut pending = PendingBasket::default();
         let token = TokenAmount {
             mint: Pubkey::new_unique(),
+            decimals: 6,
+            _padding: [0; 7],
             amount_for_minting: 100,
             amount_for_redeeming: 0,
         };
@@ -28,6 +30,8 @@ mod tests {
         let mut pending = PendingBasket::default();
         let token = TokenAmount {
             mint: Pubkey::new_unique(),
+            decimals: 6,
+            _padding: [0; 7],
             amount_for_minting: 100,
             amount_for_redeeming: 0,
         };
@@ -35,6 +39,8 @@ mod tests {
 
         let add_amount = TokenAmount {
             mint: token.mint,
+            decimals: 6,
+            _padding: [0; 7],
             amount_for_minting: 50,
             amount_for_redeeming: 0,
         };
@@ -55,6 +61,8 @@ mod tests {
         let tokens: Vec<TokenAmount> = (0..65)
             .map(|_| TokenAmount {
                 mint: Pubkey::new_unique(),
+                decimals: 6,
+                _padding: [0; 7],
                 amount_for_minting: 100,
                 amount_for_redeeming: 0,
             })
@@ -75,6 +83,8 @@ mod tests {
         let mut pending = PendingBasket::default();
         let token = TokenAmount {
             mint: Pubkey::new_unique(),
+            decimals: 6,
+            _padding: [0; 7],
             amount_for_minting: 100,
             amount_for_redeeming: 0,
         };
@@ -82,6 +92,8 @@ mod tests {
 
         let remove_amount = TokenAmount {
             mint: token.mint,
+            decimals: 6,
+            _padding: [0; 7],
             amount_for_minting: 50,
             amount_for_redeeming: 0,
         };
@@ -101,6 +113,8 @@ mod tests {
         let mut pending = PendingBasket::default();
         let token = TokenAmount {
             mint: Pubkey::new_unique(),
+            decimals: 6,
+            _padding: [0; 7],
             amount_for_minting: 50,
             amount_for_redeeming: 0,
         };
@@ -108,6 +122,8 @@ mod tests {
 
         let remove_amount = TokenAmount {
             mint: token.mint,
+            decimals: 6,
+            _padding: [0; 7],
             amount_for_minting: 100,
             amount_for_redeeming: 0,
         };
@@ -130,6 +146,8 @@ mod tests {
         let mut pending = PendingBasket::default();
         let remove_amount = TokenAmount {
             mint: Pubkey::new_unique(),
+            decimals: 6,
+            _padding: [0; 7],
             amount_for_minting: 100,
             amount_for_redeeming: 0,
         };
@@ -152,6 +170,8 @@ mod tests {
         let mut pending = PendingBasket::default();
         let remove_amount = TokenAmount {
             mint: Pubkey::new_unique(),
+            decimals: 6,
+            _padding: [0; 7],
             amount_for_minting: 100,
             amount_for_redeeming: 0,
         };
@@ -170,11 +190,15 @@ mod tests {
         let mut pending = PendingBasket::default();
         let token1 = TokenAmount {
             mint: Pubkey::new_unique(),
+            decimals: 6,
+            _padding: [0; 7],
             amount_for_minting: 100,
             amount_for_redeeming: 0,
         };
         let token2 = TokenAmount {
             mint: Pubkey::new_unique(),
+            decimals: 6,
+            _padding: [0; 7],
             amount_for_minting: 200,
             amount_for_redeeming: 0,
         };
@@ -194,6 +218,8 @@ mod tests {
         let mut pending = PendingBasket::default();
         let token = TokenAmount {
             mint: Pubkey::new_unique(),
+            decimals: 6,
+            _padding: [0; 7],
             amount_for_minting: 100,
             amount_for_redeeming: 0,
         };

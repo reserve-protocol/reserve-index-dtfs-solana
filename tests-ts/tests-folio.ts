@@ -3,7 +3,6 @@ import { Folio } from "../target/types/folio";
 import { BN, Program } from "@coral-xyz/anchor";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import {
-  initOrUpdateCommunity,
   initFolio,
   initFolioSigner,
   initProgramRegistrar,
@@ -13,11 +12,11 @@ import * as assert from "assert";
 import {
   DTF_PROGRAM_ID,
   getActorPDA,
-  getCommunityPDA,
   getFolioFeeRecipientsPDA,
   getFolioSignerPDA,
   getProgramRegistrarPDA,
 } from "../utils/pda-helper";
+import { DecimalValue } from "../utils/decimal-util";
 
 describe("Folio Tests", () => {
   let connection: Connection;
@@ -32,7 +31,6 @@ describe("Folio Tests", () => {
   let folioTokenMint: Keypair;
   let folioPDA: PublicKey;
   let randomProgramId: PublicKey = Keypair.generate().publicKey;
-  let communityReceiver: PublicKey = Keypair.generate().publicKey;
 
   before(async () => {
     ({ connection, programFolio: program, keys } = await getConnectors());
@@ -58,17 +56,6 @@ describe("Folio Tests", () => {
     );
 
     assert.notEqual(folioSigner.bump, 0);
-  });
-
-  it("should initialize a community", async () => {
-    await initOrUpdateCommunity(connection, adminKeypair, communityReceiver);
-
-    const communityPDA = getCommunityPDA();
-
-    const community = await program.account.community.fetch(communityPDA);
-
-    assert.notEqual(community.bump, 0);
-    assert.deepEqual(community.communityReceiver, communityReceiver);
   });
 
   it("should initialize program registrar", async () => {
@@ -122,7 +109,8 @@ describe("Folio Tests", () => {
     ({ folioTokenMint, folioPDA } = await initFolio(
       connection,
       folioOwnerKeypair,
-      new BN(100)
+      DecimalValue.MAX_FOLIO_FEE,
+      DecimalValue.MIN_DAO_MINTING_FEE
     ));
 
     const folio = await program.account.folio.fetch(folioPDA);
@@ -132,7 +120,11 @@ describe("Folio Tests", () => {
     );
 
     assert.notEqual(folio.bump, 0);
-    assert.equal(folio.folioFee.toNumber(), 100);
+    assert.equal(
+      new DecimalValue(folio.folioFee).toBN(),
+      DecimalValue.MAX_FOLIO_FEE.toBN()
+    );
+    assert.equal(folio.mintingFee, DecimalValue.MIN_DAO_MINTING_FEE);
     assert.deepEqual(folio.programVersion, DTF_PROGRAM_ID);
     assert.deepEqual(folio.folioTokenMint, folioTokenMint.publicKey);
     assert.equal(feeRecipients, null);

@@ -23,6 +23,7 @@ import {
   getFolioFeeRecipientsPDA,
   getFolioPendingBasketPDA,
   getUserPendingBasketPDA,
+  getDAOFeeConfigPDA,
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -33,6 +34,7 @@ import {
   getAtaAddress,
   getOrCreateAtaAddress,
 } from "./token-helper";
+import { DecimalValue } from "./decimal-util";
 
 let dtfProgram: Program<Dtfs> = null;
 
@@ -54,6 +56,29 @@ export function getDtfProgram(
   }
 
   return dtfProgram;
+}
+
+export async function setDaoFeeConfig(
+  connection: Connection,
+  adminKeypair: Keypair,
+  feeRecipient: PublicKey,
+  feeRecipientNumerator: DecimalValue
+) {
+  const dtfProgram = getDtfProgram(connection, adminKeypair);
+
+  const setDaoFeeConfig = await dtfProgram.methods
+    .setDaoFeeConfig(feeRecipient, feeRecipientNumerator)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      rent: SYSVAR_RENT_PUBKEY,
+      admin: adminKeypair.publicKey,
+      daoFeeConfig: getDAOFeeConfigPDA(),
+    })
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [setDaoFeeConfig], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
 }
 
 export async function initDtfSigner(
@@ -120,18 +145,35 @@ export async function updateFolio(
   folio: PublicKey,
   programVersion: PublicKey | null,
   programDeploymentSlot: BN | null,
-  folioFee: BN | null,
+  folioFee: DecimalValue | null,
+  mintingFee: DecimalValue | null,
   feeRecipientsToAdd: { receiver: PublicKey; portion: BN }[],
   feeRecipientsToRemove: PublicKey[]
 ) {
   const dtfProgram = getDtfProgram(connection, folioOwnerKeypair);
 
+  const folioFeeDecimals =
+    folioFee === null
+      ? null
+      : { whole: folioFee.whole, fractional: folioFee.fractional };
+
+  const mintingFeeDecimals =
+    mintingFee === null
+      ? null
+      : { whole: mintingFee.whole, fractional: mintingFee.fractional };
+
+  const feeRecipientsToAddDecimals = feeRecipientsToAdd.map((feeRecipient) => ({
+    receiver: feeRecipient.receiver,
+    portion: { whole: new BN(0), fractional: feeRecipient.portion },
+  }));
+
   const updateFolio = await dtfProgram.methods
     .updateFolio(
       programVersion,
       programDeploymentSlot,
-      folioFee,
-      feeRecipientsToAdd,
+      folioFeeDecimals,
+      mintingFeeDecimals,
+      feeRecipientsToAddDecimals,
       feeRecipientsToRemove
     )
     .accountsPartial({
@@ -150,7 +192,7 @@ export async function updateFolio(
 
   await pSendAndConfirmTxn(
     dtfProgram,
-    [...getComputeLimitInstruction(), updateFolio],
+    [...getComputeLimitInstruction(600_000), updateFolio],
     [],
     {
       skipPreflight: SKIP_PREFLIGHT,
@@ -387,11 +429,11 @@ export async function mintFolioToken(
   folio: PublicKey,
   folioTokenMint: PublicKey,
   tokens: { mint: PublicKey; amount: BN }[],
-  shares: BN
+  shares: DecimalValue
 ) {
   const dtfProgram = getDtfProgram(connection, userKeypair);
   const mintFolioToken = await dtfProgram.methods
-    .mintFolioToken(shares)
+    .mintFolioToken({ whole: shares.whole, fractional: shares.fractional })
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
@@ -440,13 +482,16 @@ export async function burnFolioToken(
   userKeypair: Keypair,
   folio: PublicKey,
   folioTokenMint: PublicKey,
-  amountToBurn: BN,
+  amountToBurn: DecimalValue,
   tokens: { mint: PublicKey; amount: BN }[]
 ) {
   const dtfProgram = getDtfProgram(connection, userKeypair);
 
   const burnFolioTokenIx = await dtfProgram.methods
-    .burnFolioToken(amountToBurn)
+    .burnFolioToken({
+      whole: amountToBurn.whole,
+      fractional: amountToBurn.fractional,
+    })
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
@@ -480,9 +525,14 @@ export async function burnFolioToken(
     )
     .instruction();
 
-  await pSendAndConfirmTxn(dtfProgram, [burnFolioTokenIx], [], {
-    skipPreflight: SKIP_PREFLIGHT,
-  });
+  await pSendAndConfirmTxn(
+    dtfProgram,
+    [...getComputeLimitInstruction(600_000), burnFolioTokenIx],
+    [],
+    {
+      skipPreflight: SKIP_PREFLIGHT,
+    }
+  );
 }
 
 export async function redeemFromPendingBasket(

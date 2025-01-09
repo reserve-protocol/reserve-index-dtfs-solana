@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 use instructions::*;
-use shared::structs::{FeeRecipient, Role};
+use shared::structs::{DecimalValue, FeeRecipient, Role};
 use utils::*;
 
 pub mod events;
@@ -23,10 +23,6 @@ pub mod folio {
         init_folio_signer::handler(ctx)
     }
 
-    pub fn init_or_update_community(ctx: Context<InitOrUpdateCommunity>) -> Result<()> {
-        init_or_update_community::handler(ctx)
-    }
-
     pub fn init_program_registrar(
         ctx: Context<InitProgramRegistrar>,
         program_id: Pubkey,
@@ -45,8 +41,12 @@ pub mod folio {
     /*
     Folio functions
     */
-    pub fn init_folio(ctx: Context<InitFolio>, folio_fee: u64) -> Result<()> {
-        init_folio::handler(ctx, folio_fee)
+    pub fn init_folio(
+        ctx: Context<InitFolio>,
+        folio_fee: DecimalValue,
+        minting_fee: DecimalValue,
+    ) -> Result<()> {
+        init_folio::handler(ctx, folio_fee, minting_fee)
     }
 
     pub fn resize_folio(ctx: Context<ResizeFolio>, new_size: u64) -> Result<()> {
@@ -57,7 +57,8 @@ pub mod folio {
         ctx: Context<UpdateFolio>,
         program_version: Option<Pubkey>,
         program_deployment_slot: Option<u64>,
-        folio_fee: Option<u64>,
+        folio_fee: Option<DecimalValue>,
+        minting_fee: Option<DecimalValue>,
         fee_recipients_to_add: Vec<FeeRecipient>,
         fee_recipients_to_remove: Vec<Pubkey>,
     ) -> Result<()> {
@@ -66,6 +67,7 @@ pub mod folio {
             program_version,
             program_deployment_slot,
             folio_fee,
+            minting_fee,
             fee_recipients_to_add,
             fee_recipients_to_remove,
         )
@@ -117,16 +119,16 @@ pub mod folio {
 
     pub fn mint_folio_token<'info>(
         ctx: Context<'_, '_, 'info, 'info, MintFolioToken<'info>>,
-        shares: u64,
+        shares: DecimalValue,
     ) -> Result<()> {
         mint_folio_token::handler(ctx, shares)
     }
 
     pub fn burn_folio_token<'info>(
         ctx: Context<'_, '_, 'info, 'info, BurnFolioToken<'info>>,
-        amount_to_burn: u64,
+        shares: DecimalValue,
     ) -> Result<()> {
-        burn_folio_token::handler(ctx, amount_to_burn)
+        burn_folio_token::handler(ctx, shares)
     }
 
     pub fn redeem_from_pending_basket<'info>(
@@ -140,5 +142,12 @@ pub mod folio {
         ctx: Context<'_, '_, 'info, 'info, ClosePendingTokenAmount<'info>>,
     ) -> Result<()> {
         close_pending_token_amount::handler(ctx)
+    }
+
+    /*
+    Crank functions
+    */
+    pub fn poke_folio<'info>(ctx: Context<'_, '_, 'info, 'info, PokeFolio<'info>>) -> Result<()> {
+        poke_folio::handler(ctx)
     }
 }

@@ -19,8 +19,9 @@ import {
   initToken,
   mintToken,
 } from "../utils/token-helper";
+import { DecimalValue } from "../utils/decimal-util";
 
-describe("DTFs Tests", () => {
+describe("Extrme DTFs Tests", () => {
   let connection: Connection;
   let keys: any;
 
@@ -37,7 +38,7 @@ describe("DTFs Tests", () => {
   /*
   Tokens that can be included in the folio
   */
-  const NUMBER_OF_TOKENS = 18;
+  const NUMBER_OF_TOKENS = 16;
 
   let tokenMints = Array.from({ length: NUMBER_OF_TOKENS }, () => ({
     mint: Keypair.generate(),
@@ -64,7 +65,8 @@ describe("DTFs Tests", () => {
     ({ folioTokenMint, folioPDA } = await initFolio(
       connection,
       folioOwnerKeypair,
-      new BN(100)
+      DecimalValue.MAX_FOLIO_FEE,
+      DecimalValue.MIN_DAO_MINTING_FEE
     ));
 
     // Init dtf related accounts
@@ -134,7 +136,10 @@ describe("DTFs Tests", () => {
       await addToPendingBasket(connection, userKeypair, folioPDA, batch);
     }
 
-    const shares = new BN(3).mul(new BN(10 ** 8));
+    const shares = new DecimalValue({
+      whole: new BN(3),
+      fractional: new BN(0),
+    });
 
     await mintFolioToken(
       connection,

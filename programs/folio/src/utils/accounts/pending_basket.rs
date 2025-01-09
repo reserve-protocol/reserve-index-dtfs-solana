@@ -1,10 +1,14 @@
+use std::cell::RefMut;
+
 use anchor_lang::prelude::*;
+use anchor_spl::associated_token::get_associated_token_address_with_program_id;
+use anchor_spl::token::TokenAccount;
 use shared::check_condition;
 use shared::constants::{PendingBasketType, MAX_TOKEN_AMOUNTS};
 use shared::errors::ErrorCode;
 use shared::errors::ErrorCode::InvalidAddedTokenMints;
 use shared::errors::ErrorCode::*;
-use shared::structs::TokenAmount;
+use shared::structs::{DecimalValue, Rounding, TokenAmount};
 
 use crate::state::PendingBasket;
 
@@ -81,6 +85,7 @@ impl PendingBasket {
                             .find(|ta| ta.mint == Pubkey::default())
                         {
                             slot.mint = token_amount.mint;
+                            slot.decimals = token_amount.decimals;
                             slot.amount_for_minting = token_amount.amount_for_minting;
                         } else {
                             // No available slot found, return an error
@@ -109,6 +114,7 @@ impl PendingBasket {
                             .find(|ta| ta.mint == Pubkey::default())
                         {
                             slot.mint = token_amount.mint;
+                            slot.decimals = token_amount.decimals;
                             slot.amount_for_redeeming = token_amount.amount_for_redeeming;
                         } else {
                             // No available slot found, return an error
@@ -204,5 +210,134 @@ impl PendingBasket {
             // Since can be rolled back, can't take them into account, needs to be removed
             .checked_sub(token_amounts.amount_for_minting)
             .unwrap()
+    }
+
+    pub fn to_assets<'info>(
+        &mut self,
+        shares: DecimalValue,
+        folio_key: &Pubkey,
+        token_program_id: &Pubkey,
+        folio_pending_basket: &mut RefMut<'_, PendingBasket>,
+        decimal_total_supply_folio_token: &DecimalValue,
+        pending_basket_type: PendingBasketType,
+        included_tokens: &&[AccountInfo<'info>],
+    ) -> Result<()> {
+        for (index, folio_token_account) in included_tokens.iter().enumerate() {
+            let related_mint = &mut folio_pending_basket.token_amounts[index];
+
+            check_condition!(
+                folio_token_account.key()
+                    == get_associated_token_address_with_program_id(
+                        &folio_key,
+                        &related_mint.mint,
+                        &token_program_id,
+                    ),
+                InvalidReceiverTokenAccount
+            );
+
+            // Get user amount (validate mint)
+            let user_amount = &mut self.token_amounts[index];
+
+            check_condition!(user_amount.mint == related_mint.mint, MintMismatch);
+
+            // Get token balance for folio
+            let data = folio_token_account.try_borrow_data()?;
+            let folio_token_account = TokenAccount::try_deserialize(&mut &data[..])?;
+
+            let folio_token_balance =
+                PendingBasket::get_clean_token_balance(folio_token_account.amount, related_mint);
+
+            let decimal_folio_token_balance =
+                DecimalValue::from_token_amount(folio_token_balance, related_mint.decimals);
+
+            match pending_basket_type {
+                PendingBasketType::MintProcess => {
+                    PendingBasket::to_assets_for_minting(
+                        user_amount,
+                        related_mint,
+                        decimal_total_supply_folio_token,
+                        &decimal_folio_token_balance,
+                        shares,
+                    )?;
+                }
+                PendingBasketType::RedeemProcess => {
+                    PendingBasket::to_assets_for_redeeming(
+                        user_amount,
+                        related_mint,
+                        decimal_total_supply_folio_token,
+                        &decimal_folio_token_balance,
+                        shares,
+                    )?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn to_assets_for_minting(
+        user_amount: &mut TokenAmount,
+        related_mint: &mut TokenAmount,
+        decimal_total_supply_folio_token: &DecimalValue,
+        decimal_folio_token_balance: &DecimalValue,
+        shares: DecimalValue,
+    ) -> Result<()> {
+        let calculated_shares =
+            DecimalValue::from_token_amount(user_amount.amount_for_minting, related_mint.decimals)
+                .mul_div(
+                    &decimal_total_supply_folio_token,
+                    &decimal_folio_token_balance,
+                )
+                .unwrap();
+
+        check_condition!(calculated_shares >= shares, InvalidShareAmountProvided);
+
+        let user_amount_taken = shares
+            .mul_div(
+                decimal_folio_token_balance,
+                decimal_total_supply_folio_token,
+            )
+            .unwrap()
+            .to_token_amount(related_mint.decimals, Rounding::Ceil);
+
+        // Remove from both pending amounts
+        user_amount.amount_for_minting = user_amount
+            .amount_for_minting
+            .checked_sub(user_amount_taken)
+            .unwrap();
+        related_mint.amount_for_minting = related_mint
+            .amount_for_minting
+            .checked_sub(user_amount_taken)
+            .unwrap();
+
+        Ok(())
+    }
+
+    fn to_assets_for_redeeming(
+        user_amount: &mut TokenAmount,
+        related_mint: &mut TokenAmount,
+        decimal_total_supply_folio_token: &DecimalValue,
+        decimal_folio_token_balance: &DecimalValue,
+        shares: DecimalValue,
+    ) -> Result<()> {
+        let amount_to_give_to_user = shares
+            .mul_div(
+                &decimal_folio_token_balance,
+                &decimal_total_supply_folio_token,
+            )
+            .unwrap()
+            .to_token_amount(related_mint.decimals, Rounding::Floor);
+
+        // Add to both pending amounts for redeeming
+        user_amount.amount_for_redeeming = user_amount
+            .amount_for_redeeming
+            .checked_add(amount_to_give_to_user)
+            .unwrap();
+        related_mint.amount_for_redeeming = related_mint
+            .amount_for_redeeming
+            .checked_add(amount_to_give_to_user)
+            .unwrap();
+
+        Ok(())
     }
 }

@@ -160,6 +160,8 @@ pub fn handler<'info>(
 
         removed_mints.push(TokenAmount {
             mint: token_mint.key(),
+            decimals: mint.decimals,
+            _padding: [0; 7],
             amount_for_minting: amount,
             amount_for_redeeming: 0,
         });

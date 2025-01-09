@@ -12,7 +12,6 @@ import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 import { pSendAndConfirmTxn } from "./program-helper";
 import {
   getActorPDA,
-  getCommunityPDA,
   getFolioPDA,
   getFolioSignerPDA,
   getProgramDataPDA,
@@ -23,6 +22,7 @@ import {
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import { DTF_PROGRAM_ID } from "./pda-helper";
+import { DecimalValue } from "./decimal-util";
 
 let folioProgram: Program<Folio> = null;
 
@@ -72,29 +72,6 @@ export async function initFolioSigner(
     .instruction();
 
   await pSendAndConfirmTxn(folioProgram, [initFolioSigner], [], {
-    skipPreflight: SKIP_PREFLIGHT,
-  });
-}
-
-export async function initOrUpdateCommunity(
-  connection: Connection,
-  adminKeypair: Keypair,
-  communityReceiver: PublicKey
-) {
-  const folioProgram = getFolioProgram(connection, adminKeypair);
-
-  const initCommunity = await folioProgram.methods
-    .initOrUpdateCommunity()
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      rent: SYSVAR_RENT_PUBKEY,
-      admin: adminKeypair.publicKey,
-      community: getCommunityPDA(),
-      communityReceiver: communityReceiver,
-    })
-    .instruction();
-
-  await pSendAndConfirmTxn(folioProgram, [initCommunity], [], {
     skipPreflight: SKIP_PREFLIGHT,
   });
 }
@@ -153,7 +130,8 @@ export async function updateProgramRegistrar(
 export async function initFolio(
   connection: Connection,
   folioOwner: Keypair,
-  folioFee: BN
+  folioFee: DecimalValue,
+  mintingFee: DecimalValue
 ): Promise<{ folioTokenMint: Keypair; folioPDA: PublicKey }> {
   const folioProgram = getFolioProgram(connection, folioOwner);
 
@@ -162,7 +140,7 @@ export async function initFolio(
   let folioPDA = getFolioPDA(folioTokenMint.publicKey);
 
   const initFolio = await folioProgram.methods
-    .initFolio(folioFee)
+    .initFolio(folioFee, mintingFee)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,

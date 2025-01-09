@@ -1,8 +1,8 @@
 use crate::state::{Actor, FeeRecipients, Folio, ProgramRegistrar};
 use anchor_lang::prelude::*;
-use shared::constants::{FEE_RECIPIENTS_SEEDS, MAX_FOLIO_FEE};
+use shared::constants::{FEE_RECIPIENTS_SEEDS, MAX_FOLIO_FEE, MAX_MINTING_FEE, MIN_DAO_MINTING_FEE};
 use shared::errors::ErrorCode;
-use shared::structs::FeeRecipient;
+use shared::structs::{DecimalValue, FeeRecipient};
 use shared::{
     check_condition,
     constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, PROGRAM_REGISTRAR_SEEDS},
@@ -81,7 +81,8 @@ pub fn handler(
     ctx: Context<UpdateFolio>,
     program_version: Option<Pubkey>,
     program_deployment_slot: Option<u64>,
-    folio_fee: Option<u64>,
+    folio_fee: Option<DecimalValue>,
+    minting_fee: Option<DecimalValue>,
     fee_recipients_to_add: Vec<FeeRecipient>,
     fee_recipients_to_remove: Vec<Pubkey>,
 ) -> Result<()> {
@@ -114,6 +115,14 @@ pub fn handler(
         check_condition!(folio_fee <= MAX_FOLIO_FEE, InvalidFeePerSecond);
 
         folio.folio_fee = folio_fee;
+    }
+
+    if let Some(minting_fee) = minting_fee {
+        check_condition!(
+            MIN_DAO_MINTING_FEE <= minting_fee && minting_fee <= MAX_MINTING_FEE,
+            InvalidMintingFee
+        );
+        folio.minting_fee = minting_fee;
     }
 
     if !fee_recipients_to_add.is_empty() || !fee_recipients_to_remove.is_empty() {

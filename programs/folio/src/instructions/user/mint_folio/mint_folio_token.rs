@@ -1,16 +1,18 @@
-use std::cmp::max;
-
 use anchor_lang::prelude::*;
 use anchor_spl::{
-    associated_token::{get_associated_token_address_with_program_id, AssociatedToken},
+    associated_token::AssociatedToken,
     token,
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
 use shared::{
     check_condition,
-    constants::{FOLIO_SEEDS, PENDING_BASKET_SEEDS, PRECISION_FACTOR, PROGRAM_REGISTRAR_SEEDS},
+    constants::{
+        PendingBasketType, DAO_FEE_CONFIG_SEEDS, FOLIO_SEEDS, PENDING_BASKET_SEEDS,
+        PROGRAM_REGISTRAR_SEEDS,
+    },
+    structs::DecimalValue,
 };
-use shared::{constants::DTF_PROGRAM_SIGNER_SEEDS, util::math_util::SafeArithmetic};
+use shared::{constants::DTF_PROGRAM_SIGNER_SEEDS, structs::Rounding};
 use shared::{errors::ErrorCode, structs::FolioStatus};
 
 use crate::state::{Folio, PendingBasket, ProgramRegistrar};
@@ -71,6 +73,14 @@ pub struct MintFolioToken<'info> {
         seeds::program = dtf_program.key(),
     )]
     pub dtf_program_signer: Signer<'info>,
+
+    /// CHECK: DAO fee config to get fee for minting
+    #[account(
+        seeds = [DAO_FEE_CONFIG_SEEDS],
+        bump,
+        seeds::program = dtf_program.key(),
+    )]
+    pub dao_fee_config: UncheckedAccount<'info>,
     /*
     The remaining accounts need to match the order of amounts as parameter
 
@@ -101,117 +111,59 @@ impl MintFolioToken<'_> {
 }
 
 /*
-Shares is how much share the user wants, all the pending token amounts need to be AT LEAST valid for the amount of shares the user wants
 
-Shares follows the precision PRECISION_FACTOR
+user amount = share * balance folio / total supply
+user amount / balance folio * total supply = share
 */
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, MintFolioToken<'info>>,
-
-    // Represents the shares of the folio token the user wants to mint
-    shares: u64,
+    shares: DecimalValue,
 ) -> Result<()> {
-    //TODO calculate fee
-
-    let folio = ctx.accounts.folio.load()?;
-
-    ctx.accounts.validate(&folio)?;
+    let folio_bump = {
+        let folio = &mut ctx.accounts.folio.load_mut()?;
+        ctx.accounts.validate(folio)?;
+        folio.bump
+    };
 
     let remaining_accounts = &ctx.remaining_accounts;
 
     let folio_key = ctx.accounts.folio.key();
+    let token_mint_key = ctx.accounts.folio_token_mint.key();
     let token_program_id = ctx.accounts.token_program.key();
 
     let folio_pending_basket = &mut ctx.accounts.folio_pending_basket.load_mut()?;
 
     // Reorder the user's token amounts to match the folio's token amounts, for efficiency
     let token_amounts_user = &mut ctx.accounts.user_pending_basket.load_mut()?;
-
     token_amounts_user.reorder_token_amounts(&folio_pending_basket.token_amounts)?;
 
-    for (index, folio_token_account) in remaining_accounts.iter().enumerate() {
-        let related_mint = &mut folio_pending_basket.token_amounts[index];
-
-        // Validate the receiver token account is the ATA of the folio
-        check_condition!(
-            folio_token_account.key()
-                == get_associated_token_address_with_program_id(
-                    &folio_key,
-                    &related_mint.mint,
-                    &token_program_id,
-                ),
-            InvalidReceiverTokenAccount
-        );
-
-        // Get user amount (validate mint)
-        let user_amount = &mut token_amounts_user.token_amounts[index];
-
-        check_condition!(user_amount.mint == related_mint.mint, MintMismatch);
-
-        // Get token balance for folio
-        let data = folio_token_account.try_borrow_data()?;
-        let folio_token_account = TokenAccount::try_deserialize(&mut &data[..])?;
-
-        let folio_token_balance =
-            PendingBasket::get_clean_token_balance(folio_token_account.amount, related_mint);
-
-        /*
-        Calculate if share is respected, by making sure the user has enough tokens compared to the folio's balance.
-
-        I.E. user has put 100 tokens in pending, total folio balance is 2 000 tokens, then user can only ask for 5% max of what
-        the folio token supply is.
-
-        5% is 100 tokens, 100 is the full amount of tokens the user has, so 50 000 000 shares (since based on 9 precision)
-
-        Needs to be respected for every token in the folio.
-
-        So here user has 100 000 000 000 * 1 000 000 000 / 2 000 000 000 000 = 50 000 000, which is >=
-         */
-
-        check_condition!(
-            user_amount
-                .amount_for_minting
-                .mul_div_precision(PRECISION_FACTOR, folio_token_balance)
-                >= shares,
-            InvalidShareAmountProvided
-        );
-
-        /*
-        Calculate how many tokens of the user we take, based on the shares the user wants.
-
-        If user want's 5%, so would be 50 000 000 shares as the number, so would take 100 tokens from the user.
-
-        i.e. shares is 50 000 000 * 2000 000 000 000 / 1 000 000 000 = 100,000,000,000 (so 100 tokens with 9 decimals)
-         */
-        let user_amount_taken = shares.mul_div_precision(folio_token_balance, PRECISION_FACTOR);
-
-        // Remove from both pending amounts
-        user_amount.amount_for_minting = user_amount
-            .amount_for_minting
-            .checked_sub(user_amount_taken)
-            .unwrap();
-        related_mint.amount_for_minting = related_mint
-            .amount_for_minting
-            .checked_sub(user_amount_taken)
-            .unwrap();
-    }
-
-    // Mint folio token to user based on shares
-    let token_mint_key = ctx.accounts.folio_token_mint.key();
-
-    /*
-    Calculate how many tokens for the user we mint, based on the shares the user wants.
-
-    I.E. user want's 5% of total supply, so would be 50 000 000 shares as the number, so would mint:
-
-    50 000 000 * 2000 000 000 000 / 1 000 000 000 = 100,000,000,000 (so 100 tokens with 9 decimals)
-     */
-    let folio_token_amount_to_mint = shares.mul_div_precision(
-        max(ctx.accounts.folio_token_mint.supply, 1),
-        PRECISION_FACTOR,
+    let decimal_total_supply_folio_token = DecimalValue::from_token_amount(
+        ctx.accounts.folio_token_mint.supply,
+        ctx.accounts.folio_token_mint.decimals,
     );
 
-    let signer_seeds = &[FOLIO_SEEDS, token_mint_key.as_ref(), &[folio.bump]];
+    token_amounts_user.to_assets(
+        shares,
+        &folio_key,
+        &token_program_id,
+        folio_pending_basket,
+        &decimal_total_supply_folio_token,
+        PendingBasketType::MintProcess,
+        remaining_accounts,
+    )?;
+
+    // Mint folio token to user based on shares
+    // TODO put back in next commit
+    // let fee_shares =
+    //     folio.calculate_fees_for_minting(shares, &ctx.accounts.dao_fee_config.to_account_info())?;
+    let fee_shares = DecimalValue::ZERO;
+
+    let folio_token_amount_to_mint = shares
+        .sub(&fee_shares)
+        .unwrap()
+        .to_token_amount(ctx.accounts.folio_token_mint.decimals, Rounding::Ceil);
+
+    let signer_seeds = &[FOLIO_SEEDS, token_mint_key.as_ref(), &[folio_bump]];
 
     token::mint_to(
         CpiContext::new_with_signer(

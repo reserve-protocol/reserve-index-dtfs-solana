@@ -50,10 +50,10 @@ export function getDtfSignerPDA() {
   )[0];
 }
 
-export function getCommunityPDA() {
+export function getDAOFeeConfigPDA() {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("community")],
-    FOLIO_PROGRAM_ID
+    [Buffer.from("dao_fee_config")],
+    DTF_PROGRAM_ID
   )[0];
 }
 

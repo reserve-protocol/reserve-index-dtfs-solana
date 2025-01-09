@@ -88,7 +88,7 @@ impl InitFolio<'_> {
         check_condition!(folio_fee <= MAX_FOLIO_FEE, InvalidFeePerSecond);
 
         check_condition!(
-            MIN_DAO_MINTING_FEE <= minting_fee && minting_fee <= MAX_MINTING_FEE,
+            (MIN_DAO_MINTING_FEE..=MAX_MINTING_FEE).contains(&minting_fee),
             InvalidMintingFee
         );
 

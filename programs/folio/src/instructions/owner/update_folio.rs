@@ -121,7 +121,7 @@ pub fn handler(
 
     if let Some(minting_fee) = minting_fee {
         check_condition!(
-            MIN_DAO_MINTING_FEE <= minting_fee && minting_fee <= MAX_MINTING_FEE,
+            (MIN_DAO_MINTING_FEE..=MAX_MINTING_FEE).contains(&minting_fee),
             InvalidMintingFee
         );
         folio.minting_fee = minting_fee;

@@ -7,8 +7,8 @@ use crate::AddToBasket;
 use crate::AddToPendingBasket;
 use crate::BurnFolioToken;
 use crate::ClosePendingTokenAmount;
-use crate::FinalizeBasket;
 use crate::InitOrUpdateActor;
+use crate::KillFolio;
 use crate::MintFolioToken;
 use crate::RedeemFromPendingBasket;
 use crate::RemoveActor;
@@ -49,12 +49,15 @@ impl FolioProgram {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn update_folio_account(
         ctx: Context<UpdateFolio>,
         program_version: Option<Pubkey>,
         program_deployment_slot: Option<u64>,
         folio_fee: Option<u64>,
         minting_fee: Option<u64>,
+        trade_delay: Option<u64>,
+        auction_length: Option<u64>,
         fee_recipients_to_add: Vec<FeeRecipient>,
         fee_recipients_to_remove: Vec<Pubkey>,
     ) -> Result<()> {
@@ -89,6 +92,8 @@ impl FolioProgram {
             program_deployment_slot,
             folio_fee,
             minting_fee,
+            trade_delay,
+            auction_length,
             fee_recipients_to_add,
             fee_recipients_to_remove,
         )?;
@@ -170,18 +175,22 @@ impl FolioProgram {
     pub fn add_to_basket<'info>(
         ctx: Context<'_, '_, 'info, 'info, AddToBasket<'info>>,
         amounts: Vec<u64>,
+        initial_shares: Option<u64>,
     ) -> Result<()> {
         let cpi_program = ctx.accounts.folio_program.to_account_info();
 
         let cpi_accounts = folio::cpi::accounts::AddToBasket {
             system_program: ctx.accounts.system_program.to_account_info(),
             token_program: ctx.accounts.token_program.to_account_info(),
+            associated_token_program: ctx.accounts.associated_token_program.to_account_info(),
             folio_owner: ctx.accounts.folio_owner.to_account_info(),
             actor: ctx.accounts.actor.to_account_info(),
             dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
             program_registrar: ctx.accounts.program_registrar.to_account_info(),
             folio: ctx.accounts.folio.to_account_info(),
             folio_pending_basket: ctx.accounts.folio_pending_basket.to_account_info(),
+            owner_folio_token_account: ctx.accounts.owner_folio_token_account.to_account_info(),
+            folio_token_mint: ctx.accounts.folio_token_mint.to_account_info(),
             dtf_program: ctx.accounts.dtf_program.to_account_info(),
             dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
         };
@@ -199,26 +208,21 @@ impl FolioProgram {
 
         let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
 
-        folio::cpi::add_to_basket(cpi_ctx, amounts)?;
+        folio::cpi::add_to_basket(cpi_ctx, amounts, initial_shares)?;
 
         Ok(())
     }
 
-    pub fn finalize_basket(ctx: Context<FinalizeBasket>, initial_shares: u64) -> Result<()> {
+    pub fn kill_folio(ctx: Context<KillFolio>) -> Result<()> {
         let cpi_program = ctx.accounts.folio_program.to_account_info();
 
-        let cpi_accounts = folio::cpi::accounts::FinalizeBasket {
+        let cpi_accounts = folio::cpi::accounts::KillFolio {
             system_program: ctx.accounts.system_program.to_account_info(),
-            token_program: ctx.accounts.token_program.to_account_info(),
-            associated_token_program: ctx.accounts.associated_token_program.to_account_info(),
             folio_owner: ctx.accounts.folio_owner.to_account_info(),
             actor: ctx.accounts.actor.to_account_info(),
-            owner_folio_token_account: ctx.accounts.owner_folio_token_account.to_account_info(),
             dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
             program_registrar: ctx.accounts.program_registrar.to_account_info(),
             folio: ctx.accounts.folio.to_account_info(),
-            folio_token_mint: ctx.accounts.folio_token_mint.to_account_info(),
-            folio_token_account: ctx.accounts.folio_token_account.to_account_info(),
             dtf_program: ctx.accounts.dtf_program.to_account_info(),
             dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
         };
@@ -233,7 +237,7 @@ impl FolioProgram {
 
         let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
 
-        folio::cpi::finalize_basket(cpi_ctx, initial_shares)?;
+        folio::cpi::kill_folio(cpi_ctx)?;
 
         Ok(())
     }

@@ -9,6 +9,7 @@ import {
   updateProgramRegistrar,
 } from "../utils/folio-helper";
 import * as assert from "assert";
+
 import {
   DTF_PROGRAM_ID,
   getActorPDA,
@@ -16,7 +17,12 @@ import {
   getFolioSignerPDA,
   getProgramRegistrarPDA,
 } from "../utils/pda-helper";
-import { MAX_FOLIO_FEE, MIN_DAO_MINTING_FEE } from "../utils/dtf-helper";
+import {
+  MAX_AUCTION_LENGTH,
+  MAX_FOLIO_FEE,
+  MAX_TRADE_DELAY,
+  MIN_DAO_MINTING_FEE,
+} from "../utils/dtf-helper";
 
 describe("Folio Tests", () => {
   let connection: Connection;
@@ -110,7 +116,11 @@ describe("Folio Tests", () => {
       connection,
       folioOwnerKeypair,
       MAX_FOLIO_FEE,
-      MIN_DAO_MINTING_FEE
+      MIN_DAO_MINTING_FEE,
+      MAX_TRADE_DELAY,
+      MAX_AUCTION_LENGTH,
+      "Test Folio",
+      "TFOL"
     ));
 
     const folio = await program.account.folio.fetch(folioPDA);
@@ -125,6 +135,8 @@ describe("Folio Tests", () => {
     assert.deepEqual(folio.programVersion, DTF_PROGRAM_ID);
     assert.deepEqual(folio.folioTokenMint, folioTokenMint.publicKey);
     assert.equal(feeRecipients, null);
+    assert.equal(folio.tradeDelay.toNumber(), MAX_TRADE_DELAY.toNumber());
+    assert.equal(folio.auctionLength.toNumber(), MAX_AUCTION_LENGTH.toNumber());
 
     const ownerActorPDA = getActorPDA(folioOwnerKeypair.publicKey, folioPDA);
 

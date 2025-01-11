@@ -1,7 +1,7 @@
 use crate::{
     events::FolioCreated,
     state::{Actor, Folio},
-    DtfProgram,
+    CreateMetadataAccount, DtfProgram, Metaplex,
 };
 use anchor_lang::prelude::*;
 use anchor_spl::{
@@ -11,7 +11,8 @@ use anchor_spl::{
 use shared::{
     check_condition,
     constants::{
-        ACTOR_SEEDS, FOLIO_SEEDS, MAX_FOLIO_FEE, MAX_MINTING_FEE, MIN_DAO_MINTING_FEE,
+        ACTOR_SEEDS, FOLIO_SEEDS, MAX_AUCTION_LENGTH, MAX_FOLIO_FEE, MAX_MINTING_FEE,
+        MAX_TRADE_DELAY, METADATA_SEEDS, MIN_AUCTION_LENGTH, MIN_DAO_MINTING_FEE,
         PROGRAM_REGISTRAR_SEEDS,
     },
     structs::{FolioStatus, Role},
@@ -79,10 +80,36 @@ pub struct InitFolio<'info> {
     /// CHECK: DTF program data to validate program deployment slot
     #[account()]
     pub dtf_program_data: UncheckedAccount<'info>,
+
+    /*
+    Metaplex accounts for metadata
+     */
+    /// CHECK: Token metadata program
+    #[account(address = mpl_token_metadata::ID)]
+    pub token_metadata_program: UncheckedAccount<'info>,
+
+    /// CHECK: Metadata account
+    #[account(
+        mut,
+        seeds = [
+            METADATA_SEEDS,
+            mpl_token_metadata::ID.as_ref(),
+            folio_token_mint.key().as_ref()
+        ],
+        seeds::program = mpl_token_metadata::ID,
+        bump
+    )]
+    pub metadata: UncheckedAccount<'info>,
 }
 
 impl InitFolio<'_> {
-    pub fn validate(&self, folio_fee: u64, minting_fee: u64) -> Result<()> {
+    pub fn validate(
+        &self,
+        folio_fee: u64,
+        minting_fee: u64,
+        trade_delay: u64,
+        auction_length: u64,
+    ) -> Result<()> {
         Folio::validate_folio_program_for_init(&self.program_registrar, &self.dtf_program)?;
 
         check_condition!(folio_fee <= MAX_FOLIO_FEE, InvalidFeePerSecond);
@@ -92,13 +119,46 @@ impl InitFolio<'_> {
             InvalidMintingFee
         );
 
+        check_condition!(trade_delay <= MAX_TRADE_DELAY, InvalidTradeDelay);
+        check_condition!(
+            (MIN_AUCTION_LENGTH..=MAX_AUCTION_LENGTH).contains(&auction_length),
+            InvalidAuctionLength
+        );
+
         Ok(())
     }
 }
 
-pub fn handler(ctx: Context<InitFolio>, folio_fee: u64, minting_fee: u64) -> Result<()> {
-    ctx.accounts.validate(folio_fee, minting_fee)?;
+impl<'info> CreateMetadataAccount<'info> {
+    pub fn from_init_folio(
+        ctx: &Context<InitFolio<'info>>,
+    ) -> Result<CreateMetadataAccount<'info>> {
+        Ok(CreateMetadataAccount {
+            system_program: ctx.accounts.system_program.to_account_info(),
+            rent: ctx.accounts.rent.to_account_info(),
+            mint: ctx.accounts.folio_token_mint.to_account_info(),
+            mint_authority: ctx.accounts.folio.to_account_info(),
+            payer: ctx.accounts.folio_owner.to_account_info(),
+            update_authority: ctx.accounts.folio.to_account_info(),
+            metadata: ctx.accounts.metadata.to_account_info(),
+            token_metadata_program: ctx.accounts.token_metadata_program.to_account_info(),
+        })
+    }
+}
 
+pub fn handler(
+    ctx: Context<InitFolio>,
+    folio_fee: u64,
+    minting_fee: u64,
+    trade_delay: u64,
+    auction_length: u64,
+    name: String,
+    symbol: String,
+) -> Result<()> {
+    ctx.accounts
+        .validate(folio_fee, minting_fee, trade_delay, auction_length)?;
+
+    let folio_token_mint_key = ctx.accounts.folio_token_mint.key();
     {
         let folio = &mut ctx.accounts.folio.load_init()?;
 
@@ -111,13 +171,16 @@ pub fn handler(ctx: Context<InitFolio>, folio_fee: u64, minting_fee: u64) -> Res
         folio.bump = ctx.bumps.folio;
         folio.program_version = ctx.accounts.dtf_program.key();
         folio.program_deployment_slot = deployment_slot;
-        folio.folio_token_mint = ctx.accounts.folio_token_mint.key();
+        folio.folio_token_mint = folio_token_mint_key;
         folio.folio_fee = folio_fee;
         folio.minting_fee = minting_fee;
         folio.status = FolioStatus::Initializing as u8;
         folio.last_poke = Clock::get()?.unix_timestamp;
         folio.dao_pending_fee_shares = 0;
         folio.fee_recipients_pending_fee_shares = 0;
+        folio.trade_delay = trade_delay;
+        folio.auction_length = auction_length;
+        folio.current_trade_id = 0;
     }
 
     let actor = &mut ctx.accounts.actor;
@@ -125,6 +188,16 @@ pub fn handler(ctx: Context<InitFolio>, folio_fee: u64, minting_fee: u64) -> Res
     actor.authority = ctx.accounts.folio_owner.key();
     actor.folio = ctx.accounts.folio.key();
     Role::add_role(&mut actor.roles, Role::Owner);
+
+    let bump = ctx.bumps.folio;
+    let signer_seeds = &[FOLIO_SEEDS, folio_token_mint_key.as_ref(), &[bump]];
+
+    Metaplex::create_metadata_account(
+        &CreateMetadataAccount::from_init_folio(&ctx)?,
+        name,
+        symbol,
+        &[&signer_seeds[..]],
+    )?;
 
     emit!(FolioCreated {
         folio_token_mint: ctx.accounts.folio_token_mint.key(),

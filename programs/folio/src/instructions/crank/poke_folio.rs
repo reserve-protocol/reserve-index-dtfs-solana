@@ -42,7 +42,7 @@ impl PokeFolio<'_> {
             None,
             None,
             None,
-            Some(FolioStatus::Initialized),
+            Some(vec![FolioStatus::Initialized]),
         )?;
 
         check_condition!(

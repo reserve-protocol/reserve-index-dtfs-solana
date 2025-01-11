@@ -76,6 +76,12 @@ pub enum ErrorCode {
 
     #[msg("Invalid Minting Fee")]
     InvalidMintingFee,
+
+    #[msg("Invalid Trade Delay")]
+    InvalidTradeDelay,
+
+    #[msg("Invalid Auction Length")]
+    InvalidAuctionLength,
 }
 
 #[macro_export]

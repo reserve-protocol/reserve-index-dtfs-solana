@@ -80,7 +80,7 @@ impl RedeemFromPendingBasket<'_> {
             Some(&self.dtf_program_data),
             None,
             None,
-            Some(FolioStatus::Initialized),
+            Some(vec![FolioStatus::Initialized, FolioStatus::Killed]),
         )?;
 
         Ok(())

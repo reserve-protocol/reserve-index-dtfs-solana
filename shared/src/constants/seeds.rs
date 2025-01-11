@@ -7,3 +7,6 @@ pub const TRADE_SEEDS: &[u8] = b"trade";
 pub const DAO_FEE_CONFIG_SEEDS: &[u8] = b"dao_fee_config";
 pub const FEE_RECIPIENTS_SEEDS: &[u8] = b"fee_recipients";
 pub const PENDING_BASKET_SEEDS: &[u8] = b"pending_basket";
+
+// Metaplex
+pub const METADATA_SEEDS: &[u8] = b"metadata";

@@ -84,6 +84,8 @@ pub struct Folio {
      */
     pub trade_delay: u64,
     pub auction_length: u64,
+
+    pub current_trade_id: u64,
 }
 
 impl Folio {

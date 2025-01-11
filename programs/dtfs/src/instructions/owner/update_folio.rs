@@ -67,12 +67,15 @@ impl UpdateFolio<'_> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn handler(
     ctx: Context<UpdateFolio>,
     program_version: Option<Pubkey>,
     program_deployment_slot: Option<u64>,
     folio_fee: Option<u64>,
     minting_fee: Option<u64>,
+    trade_delay: Option<u64>,
+    auction_length: Option<u64>,
     fee_recipients_to_add: Vec<FeeRecipient>,
     fee_recipients_to_remove: Vec<Pubkey>,
 ) -> Result<()> {
@@ -84,6 +87,8 @@ pub fn handler(
         program_deployment_slot,
         folio_fee,
         minting_fee,
+        trade_delay,
+        auction_length,
         fee_recipients_to_add,
         fee_recipients_to_remove,
     )?;

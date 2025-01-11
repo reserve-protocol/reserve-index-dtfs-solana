@@ -34,7 +34,7 @@ impl Folio {
         dtf_program_data: Option<&AccountInfo<'info>>,
         actor: Option<&Account<'info, Actor>>,
         required_role: Option<Role>,
-        expected_status: Option<FolioStatus>,
+        expected_statuses: Option<Vec<FolioStatus>>,
     ) -> Result<()> {
         /*
         Validate program is in registrar and has same deployment slot
@@ -62,8 +62,11 @@ impl Folio {
         }
 
         // Validate folio status is initialized
-        if let Some(expected_status) = expected_status {
-            check_condition!(self.status == expected_status as u8, FolioNotInitialized);
+        if let Some(expected_statuses) = expected_statuses {
+            check_condition!(
+                expected_statuses.contains(&FolioStatus::from(self.status)),
+                FolioNotInitialized
+            );
         }
 
         Ok(())

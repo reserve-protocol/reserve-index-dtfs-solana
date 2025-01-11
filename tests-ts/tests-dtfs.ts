@@ -28,7 +28,6 @@ import {
   addOrUpdateActor,
   addToBasket,
   burnFolioToken,
-  finalizeBasket,
   initDtfSigner,
   addToPendingBasket,
   mintFolioToken,
@@ -41,6 +40,8 @@ import {
   MAX_FOLIO_FEE,
   MIN_DAO_MINTING_FEE,
   SCALAR,
+  MAX_AUCTION_LENGTH,
+  MAX_TRADE_DELAY,
 } from "../utils/dtf-helper";
 import {
   DEFAULT_DECIMALS_MUL,
@@ -110,7 +111,11 @@ describe("DTFs Tests", () => {
       connection,
       folioOwnerKeypair,
       MAX_FOLIO_FEE,
-      MIN_DAO_MINTING_FEE.mul(new BN(2))
+      MIN_DAO_MINTING_FEE.mul(new BN(2)),
+      MAX_TRADE_DELAY,
+      MAX_AUCTION_LENGTH,
+      "Test Folio",
+      "TFOL"
     ));
 
     // To track how much time is passing, so we can calculate fees
@@ -305,6 +310,8 @@ describe("DTFs Tests", () => {
       null,
       new BN(folioBefore.folioFee.toNumber() - 1),
       null,
+      null,
+      null,
       [],
       []
     );
@@ -335,6 +342,9 @@ describe("DTFs Tests", () => {
       null,
       folioBefore.folioFee,
       null,
+      null,
+
+      null,
       [],
       []
     );
@@ -361,6 +371,8 @@ describe("DTFs Tests", () => {
       connection,
       folioOwnerKeypair,
       folioPDA,
+      null,
+      null,
       null,
       null,
       null,
@@ -482,12 +494,19 @@ describe("DTFs Tests", () => {
       true
     );
 
-    await addToBasket(connection, folioOwnerKeypair, folioPDA, [
-      {
-        mint: tokenMints[0].mint.publicKey,
-        amount: new BN(100 * 10 ** tokenMints[0].decimals),
-      },
-    ]);
+    await addToBasket(
+      connection,
+      folioOwnerKeypair,
+      folioPDA,
+      [
+        {
+          mint: tokenMints[0].mint.publicKey,
+          amount: new BN(100 * 10 ** tokenMints[0].decimals),
+        },
+      ],
+      null,
+      folioTokenMint.publicKey
+    );
 
     const afterSnapshot = await folioTestHelper.getBalanceSnapshot(
       false,
@@ -511,9 +530,11 @@ describe("DTFs Tests", () => {
       amount: new BN(100 * 10 ** token.decimals),
     }));
 
+    folioTestHelper.setUserPubkey(folioOwnerKeypair.publicKey);
+
     const beforeSnapshot = await folioTestHelper.getBalanceSnapshot(
       false,
-      false,
+      true,
       true
     );
 
@@ -521,62 +542,34 @@ describe("DTFs Tests", () => {
       connection,
       folioOwnerKeypair,
       folioPDA,
-      tokenAmountsToAdd
+      tokenAmountsToAdd,
+      new BN(10 * DEFAULT_DECIMALS_MUL), //10 shares, mint decimals for folio token is 9
+      folioTokenMint.publicKey
     );
 
     const afterSnapshot = await folioTestHelper.getBalanceSnapshot(
       false,
-      false,
+      true,
       true
     );
+
+    const folioAfter = await program.account.folio.fetch(folioPDA);
+
+    assert.equal(folioAfter.status, 1);
 
     folioTestHelper.assertBalanceSnapshot(
       beforeSnapshot,
       afterSnapshot,
       [],
       [[], [0, 100], [0, 100], [0, 100], [0, 100]],
-      [],
+      [0, 10],
       [1, 2, 3, 4]
     );
   });
 
-  it("should finalize the folio", async () => {
-    folioTestHelper.setUserPubkey(folioOwnerKeypair.publicKey);
-    const beforeSnapshot = await folioTestHelper.getBalanceSnapshot(
-      false,
-      true,
-      false
-    );
-
-    await finalizeBasket(
-      connection,
-      folioOwnerKeypair,
-      folioPDA,
-      folioTokenMint.publicKey,
-      new BN(10 * DEFAULT_DECIMALS_MUL) //10 shares, mint decimals for folio token is 9
-    );
-
-    const folioAfter = await program.account.folio.fetch(folioPDA);
-
-    const afterSnapshot = await folioTestHelper.getBalanceSnapshot(
-      false,
-      true,
-      false
-    );
-
-    folioTestHelper.assertBalanceSnapshot(
-      beforeSnapshot,
-      afterSnapshot,
-      [],
-      [],
-      [0, 10],
-      []
-    );
-
-    assert.equal(folioAfter.status, 1);
-  });
-
   it("should allow user to init mint folio tokens", async () => {
+    folioTestHelper.setUserPubkey(userKeypair.publicKey);
+
     await addToPendingBasket(connection, userKeypair, folioPDA, [
       {
         mint: tokenMints[0].mint.publicKey,

@@ -82,7 +82,7 @@ impl AddToPendingBasket<'_> {
             Some(&self.dtf_program_data),
             None,
             None,
-            Some(FolioStatus::Initialized),
+            Some(vec![FolioStatus::Initialized]),
         )?;
 
         Ok(())

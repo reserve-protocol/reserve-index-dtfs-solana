@@ -1,9 +1,10 @@
 use crate::state::{Actor, Folio, PendingBasket, ProgramRegistrar};
 use anchor_lang::prelude::*;
-use anchor_spl::associated_token::get_associated_token_address_with_program_id;
-use anchor_spl::token_interface::{self, Mint, TokenInterface, TransferChecked};
+use anchor_spl::associated_token::{get_associated_token_address_with_program_id, AssociatedToken};
+use anchor_spl::token;
+use anchor_spl::token_interface::{self, Mint, TokenAccount, TokenInterface, TransferChecked};
 use shared::check_condition;
-use shared::constants::PENDING_BASKET_SEEDS;
+use shared::constants::{FOLIO_SEEDS, PENDING_BASKET_SEEDS};
 use shared::errors::ErrorCode;
 use shared::structs::{FolioStatus, TokenAmount};
 use shared::{
@@ -15,6 +16,7 @@ use shared::{
 pub struct AddToBasket<'info> {
     pub system_program: Program<'info, System>,
     pub token_program: Interface<'info, TokenInterface>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
 
     #[account(mut)]
     pub folio_owner: Signer<'info>,
@@ -35,6 +37,15 @@ pub struct AddToBasket<'info> {
         bump
     )]
     pub folio_pending_basket: AccountLoader<'info, PendingBasket>,
+
+    #[account(mut)]
+    pub folio_token_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    #[account(mut,
+        associated_token::mint = folio_token_mint,
+        associated_token::authority = folio_owner,
+    )]
+    pub owner_folio_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
     /*
     Account to validate
@@ -69,8 +80,7 @@ pub struct AddToBasket<'info> {
 }
 
 impl AddToBasket<'_> {
-    pub fn validate(&self) -> Result<()> {
-        let folio = self.folio.load()?;
+    pub fn validate(&self, folio: &Folio) -> Result<()> {
         folio.validate_folio_program_post_init(
             &self.folio.key(),
             Some(&self.program_registrar),
@@ -78,23 +88,71 @@ impl AddToBasket<'_> {
             Some(&self.dtf_program_data),
             Some(&self.actor),
             Some(Role::Owner),
-            Some(FolioStatus::Initializing), // Can only add new tokens while it's initializing
+            Some(vec![FolioStatus::Initializing, FolioStatus::Initialized]),
         )?;
 
         Ok(())
     }
 }
 
+fn mint_initial_shares<'info>(
+    ctx: &Context<'_, '_, 'info, 'info, AddToBasket<'info>>,
+    initial_shares: Option<u64>,
+) -> Result<()> {
+    let token_mint_key = ctx.accounts.folio_token_mint.key();
+
+    {
+        let folio = ctx.accounts.folio.load()?;
+
+        if folio.status == FolioStatus::Initializing as u8 {
+            let bump = folio.bump;
+            let signer_seeds = &[FOLIO_SEEDS, token_mint_key.as_ref(), &[bump]];
+
+            let cpi_accounts = token::MintTo {
+                mint: ctx.accounts.folio_token_mint.to_account_info(),
+                to: ctx.accounts.owner_folio_token_account.to_account_info(),
+                authority: ctx.accounts.folio.to_account_info(),
+            };
+
+            token::mint_to(
+                CpiContext::new_with_signer(
+                    ctx.accounts.token_program.to_account_info(),
+                    cpi_accounts,
+                    &[signer_seeds],
+                ),
+                initial_shares.unwrap(),
+            )?;
+        }
+    }
+
+    {
+        let mut folio = ctx.accounts.folio.load_mut()?;
+
+        folio.status = FolioStatus::Initialized as u8;
+    }
+
+    Ok(())
+}
+
+/*
+Initial shares should only be non null for  the first time the folio is "finalized", meaning first time the owner
+creates the folio and is done adding the initial list of tokens for the folio.
+*/
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, AddToBasket<'info>>,
     amounts: Vec<u64>,
+    initial_shares: Option<u64>,
 ) -> Result<()> {
-    ctx.accounts.validate()?;
+    {
+        let folio = ctx.accounts.folio.load()?;
+        ctx.accounts.validate(&folio)?;
+    }
+
+    let folio_key = ctx.accounts.folio.key();
 
     let remaining_accounts = &ctx.remaining_accounts;
     let mut remaining_accounts_iter = remaining_accounts.iter();
 
-    let folio_key = ctx.accounts.folio.key();
     let token_program_id = ctx.accounts.token_program.key();
     let folio_owner = ctx.accounts.folio_owner.to_account_info();
 
@@ -163,11 +221,15 @@ pub fn handler<'info>(
     PendingBasket::process_init_if_needed(
         &mut ctx.accounts.folio_pending_basket,
         ctx.bumps.folio_pending_basket,
-        &ctx.accounts.folio.key(),
-        &ctx.accounts.folio.key(),
+        &folio_key,
+        &folio_key,
         &added_mints,
         true,
     )?;
+
+    if initial_shares.is_some() {
+        mint_initial_shares(&ctx, initial_shares)?;
+    }
 
     Ok(())
 }

@@ -8,6 +8,10 @@ export const BPF_LOADER_PROGRAM_ID = new PublicKey(
   "BPFLoaderUpgradeab1e11111111111111111111111"
 );
 
+export const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
+  "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
+);
+
 export function getFolioSignerPDA() {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("folio_program_signer")],
@@ -75,5 +79,16 @@ export function getUserPendingBasketPDA(folio: PublicKey, user: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("pending_basket"), folio.toBuffer(), user.toBuffer()],
     FOLIO_PROGRAM_ID
+  )[0];
+}
+
+export function getMetadataPDA(mint: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("metadata"),
+      TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+      mint.toBuffer(),
+    ],
+    TOKEN_METADATA_PROGRAM_ID
   )[0];
 }

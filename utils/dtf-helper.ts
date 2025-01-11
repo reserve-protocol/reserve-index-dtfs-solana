@@ -29,11 +29,7 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import {
-  buildRemainingAccounts,
-  getAtaAddress,
-  getOrCreateAtaAddress,
-} from "./token-helper";
+import { buildRemainingAccounts, getOrCreateAtaAddress } from "./token-helper";
 
 let dtfProgram: Program<Dtfs> = null;
 

@@ -136,4 +136,18 @@ pub mod dtfs {
     ) -> Result<()> {
         close_pending_token_amount::handler(ctx)
     }
+
+    pub fn distribute_fees<'info>(
+        ctx: Context<'_, '_, 'info, 'info, DistributeFees<'info>>,
+        index: u64,
+    ) -> Result<()> {
+        distribute_fees::handler(ctx, index)
+    }
+
+    pub fn crank_fee_distribution<'info>(
+        ctx: Context<'_, '_, 'info, 'info, CrankFeeDistribution<'info>>,
+        indices: Vec<u64>,
+    ) -> Result<()> {
+        crank_fee_distribution::handler(ctx, indices)
+    }
 }

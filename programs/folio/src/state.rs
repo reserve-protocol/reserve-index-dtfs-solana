@@ -99,6 +99,8 @@ pub struct FeeRecipients {
     pub bump: u8,
     pub _padding: [u8; 7],
 
+    pub distribution_index: u64,
+
     pub folio: Pubkey,
 
     // Max 64 fee recipients, default pubkey means not set
@@ -114,8 +116,46 @@ impl Default for FeeRecipients {
         Self {
             bump: 0,
             _padding: [0; 7],
+            distribution_index: 0,
             folio: Pubkey::default(),
             fee_recipients: [FeeRecipient::default(); MAX_FEE_RECIPIENTS],
+        }
+    }
+}
+
+/// PDA Seeds ["fee_distribution", folio pubkey, index]
+#[account(zero_copy)]
+#[derive(InitSpace)]
+pub struct FeeDistribution {
+    pub bump: u8,
+    pub _padding: [u8; 7],
+
+    pub index: u64,
+
+    pub folio: Pubkey,
+
+    // Person who cranked the distribute, tracking to reimburse rent
+    pub cranker: Pubkey,
+
+    pub amount_to_distribute: u64,
+
+    pub fee_recipients_state: [FeeRecipient; MAX_FEE_RECIPIENTS],
+}
+
+impl FeeDistribution {
+    pub const SIZE: usize = 8 + FeeDistribution::INIT_SPACE;
+}
+
+impl Default for FeeDistribution {
+    fn default() -> Self {
+        Self {
+            bump: 0,
+            _padding: [0; 7],
+            index: 0,
+            folio: Pubkey::default(),
+            cranker: Pubkey::default(),
+            amount_to_distribute: 0,
+            fee_recipients_state: [FeeRecipient::default(); MAX_FEE_RECIPIENTS],
         }
     }
 }

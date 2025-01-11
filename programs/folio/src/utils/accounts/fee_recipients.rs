@@ -25,6 +25,7 @@ impl FeeRecipients {
             let fee_recipients = &mut account_loader_fee_recipients.load_init()?;
             fee_recipients.bump = context_bump;
             fee_recipients.folio = *folio;
+            fee_recipients.distribution_index = 0;
             fee_recipients.fee_recipients = [FeeRecipient::default(); MAX_FEE_RECIPIENTS];
         } else {
             let account_bump = account_loader_fee_recipients.load()?.bump;

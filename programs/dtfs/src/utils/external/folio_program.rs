@@ -7,6 +7,8 @@ use crate::AddToBasket;
 use crate::AddToPendingBasket;
 use crate::BurnFolioToken;
 use crate::ClosePendingTokenAmount;
+use crate::CrankFeeDistribution;
+use crate::DistributeFees;
 use crate::InitOrUpdateActor;
 use crate::KillFolio;
 use crate::MintFolioToken;
@@ -463,6 +465,83 @@ impl FolioProgram {
         let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
 
         folio::cpi::redeem_from_pending_basket(cpi_ctx, amounts)?;
+
+        Ok(())
+    }
+
+    pub fn crank_fee_distribution<'info>(
+        ctx: Context<'_, '_, 'info, 'info, CrankFeeDistribution<'info>>,
+        indices: Vec<u64>,
+    ) -> Result<()> {
+        let cpi_program = ctx.accounts.folio_program.to_account_info();
+
+        let cpi_accounts = folio::cpi::accounts::CrankFeeDistribution {
+            system_program: ctx.accounts.system_program.to_account_info(),
+            rent: ctx.accounts.rent.to_account_info(),
+            token_program: ctx.accounts.token_program.to_account_info(),
+            user: ctx.accounts.user.to_account_info(),
+            cranker: ctx.accounts.cranker.to_account_info(),
+            folio: ctx.accounts.folio.to_account_info(),
+            folio_token_mint: ctx.accounts.folio_token_mint.to_account_info(),
+            fee_distribution: ctx.accounts.fee_distribution.to_account_info(),
+            program_registrar: ctx.accounts.program_registrar.to_account_info(),
+            dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
+            dtf_program: ctx.accounts.dtf_program.to_account_info(),
+            dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
+        };
+
+        let remaining_accounts = ctx.remaining_accounts.to_vec();
+
+        let cpi_ctx =
+            CpiContext::new(cpi_program, cpi_accounts).with_remaining_accounts(remaining_accounts);
+
+        let seeds = &[
+            DTF_PROGRAM_SIGNER_SEEDS,
+            &[ctx.accounts.dtf_program_signer.bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
+
+        let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
+
+        folio::cpi::crank_fee_distribution(cpi_ctx, indices)?;
+
+        Ok(())
+    }
+
+    pub fn distribute_fees<'info>(
+        ctx: Context<'_, '_, 'info, 'info, DistributeFees<'info>>,
+        index: u64,
+    ) -> Result<()> {
+        let cpi_program = ctx.accounts.folio_program.to_account_info();
+
+        let cpi_accounts = folio::cpi::accounts::DistributeFees {
+            system_program: ctx.accounts.system_program.to_account_info(),
+            rent: ctx.accounts.rent.to_account_info(),
+            token_program: ctx.accounts.token_program.to_account_info(),
+            user: ctx.accounts.user.to_account_info(),
+            folio: ctx.accounts.folio.to_account_info(),
+            folio_token_mint: ctx.accounts.folio_token_mint.to_account_info(),
+            fee_recipients: ctx.accounts.fee_recipients.to_account_info(),
+            fee_distribution: ctx.accounts.fee_distribution.to_account_info(),
+            dao_fee_recipient: ctx.accounts.dao_fee_recipient.to_account_info(),
+            program_registrar: ctx.accounts.program_registrar.to_account_info(),
+            dtf_program: ctx.accounts.dtf_program.to_account_info(),
+            dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
+            dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
+            dao_fee_config: ctx.accounts.dao_fee_config.to_account_info(),
+        };
+
+        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+
+        let seeds = &[
+            DTF_PROGRAM_SIGNER_SEEDS,
+            &[ctx.accounts.dtf_program_signer.bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
+
+        let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
+
+        folio::cpi::distribute_fees(cpi_ctx, index)?;
 
         Ok(())
     }

@@ -24,6 +24,7 @@ import {
   getFolioPendingBasketPDA,
   getUserPendingBasketPDA,
   getDAOFeeConfigPDA,
+  getFeeDistributionPDA,
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -560,6 +561,87 @@ export async function redeemFromPendingBasket(
     .instruction();
 
   await pSendAndConfirmTxn(dtfProgram, [redeemFromPendingBasket], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+}
+
+export async function distributeFees(
+  connection: Connection,
+  userKeypair: Keypair,
+  folio: PublicKey,
+  folioTokenMint: PublicKey,
+  daoFeeRecipient: PublicKey,
+  index: BN
+) {
+  const dtfProgram = getDtfProgram(connection, userKeypair);
+
+  const distributeFees = await dtfProgram.methods
+    .distributeFees(index)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      rent: SYSVAR_RENT_PUBKEY,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      user: userKeypair.publicKey,
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      daoFeeConfig: getDAOFeeConfigPDA(),
+      folioProgram: FOLIO_PROGRAM_ID,
+      folio: folio,
+      folioTokenMint,
+      feeRecipients: getFolioFeeRecipientsPDA(folio),
+      feeDistribution: getFeeDistributionPDA(folio, index),
+      daoFeeRecipient,
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [distributeFees], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+}
+
+export async function crankFeeDistribution(
+  connection: Connection,
+  userKeypair: Keypair,
+  folio: PublicKey,
+  folioTokenMint: PublicKey,
+  cranker: PublicKey,
+  feeDistributionIndex: BN,
+  indices: BN[],
+  feeRecipients: PublicKey[]
+) {
+  const dtfProgram = getDtfProgram(connection, userKeypair);
+
+  const remainingAccounts = feeRecipients.map((recipient) => {
+    return {
+      isWritable: true,
+      isSigner: false,
+      pubkey: recipient,
+    };
+  });
+
+  const crankFeeDistribution = await dtfProgram.methods
+    .crankFeeDistribution(indices)
+    .accountsPartial({
+      rent: SYSVAR_RENT_PUBKEY,
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      user: userKeypair.publicKey,
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      folioProgram: FOLIO_PROGRAM_ID,
+      folio: folio,
+      folioTokenMint,
+      cranker,
+      feeDistribution: getFeeDistributionPDA(folio, feeDistributionIndex),
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .remainingAccounts(remainingAccounts)
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [crankFeeDistribution], [], {
     skipPreflight: SKIP_PREFLIGHT,
   });
 }

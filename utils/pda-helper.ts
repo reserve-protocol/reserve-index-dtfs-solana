@@ -1,6 +1,7 @@
 import { PublicKey } from "@solana/web3.js";
 import idlFolio from "../target/idl/folio.json";
 import idlDtfs from "../target/idl/dtfs.json";
+import BN from "bn.js";
 
 export const DTF_PROGRAM_ID = new PublicKey(idlDtfs.address);
 export const FOLIO_PROGRAM_ID = new PublicKey(idlFolio.address);
@@ -90,5 +91,16 @@ export function getMetadataPDA(mint: PublicKey) {
       mint.toBuffer(),
     ],
     TOKEN_METADATA_PROGRAM_ID
+  )[0];
+}
+
+export function getFeeDistributionPDA(folio: PublicKey, index: BN) {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("fee_distribution"),
+      folio.toBuffer(),
+      index.toBuffer("le", 8),
+    ],
+    FOLIO_PROGRAM_ID
   )[0];
 }

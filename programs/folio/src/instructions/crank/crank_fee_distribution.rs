@@ -108,8 +108,8 @@ pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, CrankFeeDistribution<'info>>,
     indices: Vec<u64>,
 ) -> Result<()> {
-    let mut folio_bump = 0;
-    let mut total_amount_to_distribute = 0;
+    let folio_bump: u8;
+    let total_amount_to_distribute: u64;
 
     let token_mint_key = ctx.accounts.folio_token_mint.key();
 

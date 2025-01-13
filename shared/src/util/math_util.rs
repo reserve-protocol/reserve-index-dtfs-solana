@@ -89,11 +89,13 @@ impl SafeArithmetic for u64 {
         let mut current_base = base;
         let mut exp = elapsed;
 
+        let scalar_u128_half = SCALAR_U128 / 2;
+
         while exp > 0 {
             if exp & 1 == 1 {
-                result = (result * current_base + SCALAR_U128 / 2) / SCALAR_U128;
+                result = (result * current_base + scalar_u128_half) / SCALAR_U128;
             }
-            current_base = (current_base * current_base + SCALAR_U128 / 2) / SCALAR_U128;
+            current_base = (current_base * current_base + scalar_u128_half) / SCALAR_U128;
             exp >>= 1;
         }
 

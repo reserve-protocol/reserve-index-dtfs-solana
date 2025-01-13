@@ -1,3 +1,4 @@
+#![allow(clippy::too_many_arguments)]
 use anchor_lang::prelude::*;
 
 use instructions::*;
@@ -41,6 +42,7 @@ pub mod folio {
     /*
     Folio functions
     */
+    #[allow(clippy::too_many_arguments)]
     pub fn init_folio(
         ctx: Context<InitFolio>,
         folio_fee: u64,

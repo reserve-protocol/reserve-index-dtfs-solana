@@ -3,11 +3,7 @@ use crate::{
     state::{Folio, Trade},
 };
 use anchor_lang::prelude::*;
-use shared::{
-    check_condition,
-    constants::PROGRAM_REGISTRAR_SEEDS,
-    structs::FolioStatus,
-};
+use shared::{check_condition, constants::PROGRAM_REGISTRAR_SEEDS, structs::FolioStatus};
 
 use crate::state::ProgramRegistrar;
 use shared::errors::ErrorCode;

@@ -6,10 +6,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::Mint;
 use shared::{
     check_condition,
-    constants::{
-        ACTOR_SEEDS, MAX_RATE, MAX_TTL,
-        PROGRAM_REGISTRAR_SEEDS, TRADE_SEEDS,
-    },
+    constants::{ACTOR_SEEDS, MAX_RATE, MAX_TTL, PROGRAM_REGISTRAR_SEEDS, TRADE_SEEDS},
     structs::{FolioStatus, Range, Role},
 };
 

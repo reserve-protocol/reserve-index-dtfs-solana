@@ -4,10 +4,7 @@ use crate::{
 };
 use anchor_lang::prelude::*;
 use shared::{
-    constants::{
-        ACTOR_SEEDS,
-        PROGRAM_REGISTRAR_SEEDS,
-    },
+    constants::{ACTOR_SEEDS, PROGRAM_REGISTRAR_SEEDS},
     structs::{FolioStatus, Role},
 };
 

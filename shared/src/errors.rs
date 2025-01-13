@@ -50,6 +50,9 @@ pub enum ErrorCode {
     #[msg("Invalid Receiver Token Account")]
     InvalidReceiverTokenAccount,
 
+    #[msg("Invalid Dao Fee Recipient")]
+    InvalidDaoFeeRecipient,
+
     #[msg("Invalid Number of Remaining Accounts")]
     InvalidNumberOfRemainingAccounts,
 
@@ -76,6 +79,21 @@ pub enum ErrorCode {
 
     #[msg("Invalid Minting Fee")]
     InvalidMintingFee,
+
+    #[msg("Invalid Fee Distribution")]
+    InvalidFeeDistribution,
+
+    #[msg("Invalid Trade Delay")]
+    InvalidTradeDelay,
+
+    #[msg("Invalid Auction Length")]
+    InvalidAuctionLength,
+
+    #[msg("Invalid Distribution Index")]
+    InvalidDistributionIndex,
+
+    #[msg("Invalid Cranker")]
+    InvalidCranker,
 }
 
 #[macro_export]

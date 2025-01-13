@@ -1,11 +1,16 @@
 import { PublicKey } from "@solana/web3.js";
 import idlFolio from "../target/idl/folio.json";
 import idlDtfs from "../target/idl/dtfs.json";
+import BN from "bn.js";
 
 export const DTF_PROGRAM_ID = new PublicKey(idlDtfs.address);
 export const FOLIO_PROGRAM_ID = new PublicKey(idlFolio.address);
 export const BPF_LOADER_PROGRAM_ID = new PublicKey(
   "BPFLoaderUpgradeab1e11111111111111111111111"
+);
+
+export const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
+  "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
 );
 
 export function getFolioSignerPDA() {
@@ -74,6 +79,28 @@ export function getFolioPendingBasketPDA(folio: PublicKey) {
 export function getUserPendingBasketPDA(folio: PublicKey, user: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("pending_basket"), folio.toBuffer(), user.toBuffer()],
+    FOLIO_PROGRAM_ID
+  )[0];
+}
+
+export function getMetadataPDA(mint: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("metadata"),
+      TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+      mint.toBuffer(),
+    ],
+    TOKEN_METADATA_PROGRAM_ID
+  )[0];
+}
+
+export function getFeeDistributionPDA(folio: PublicKey, index: BN) {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("fee_distribution"),
+      folio.toBuffer(),
+      index.toBuffer("le", 8),
+    ],
     FOLIO_PROGRAM_ID
   )[0];
 }

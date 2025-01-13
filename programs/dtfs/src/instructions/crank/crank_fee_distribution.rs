@@ -1,24 +1,19 @@
-use anchor_lang::prelude::*;
-use anchor_lang::solana_program::bpf_loader_upgradeable;
-use folio::ID as FOLIO_ID;
+use anchor_lang::{prelude::*, solana_program::bpf_loader_upgradeable};
+use anchor_spl::token_interface::TokenInterface;
 use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
-use shared::structs::FeeRecipient;
 
-use crate::state::DtfProgramSigner;
-use crate::utils::external::folio_program::FolioProgram;
 use crate::ID as DTF_PROGRAM_ID;
+use crate::{state::DtfProgramSigner, FolioProgram};
+use folio::ID as FOLIO_ID;
 
 #[derive(Accounts)]
-pub struct UpdateFolio<'info> {
-    pub system_program: Program<'info, System>,
+pub struct CrankFeeDistribution<'info> {
     pub rent: Sysvar<'info, Rent>,
+    pub system_program: Program<'info, System>,
+    pub token_program: Interface<'info, TokenInterface>,
 
     #[account(mut)]
-    pub folio_owner: Signer<'info>,
-
-    /// CHECK: Done within the folio program
-    #[account(mut)]
-    pub actor: UncheckedAccount<'info>,
+    pub user: Signer<'info>,
 
     /*
     DTF Program Accounts
@@ -49,49 +44,42 @@ pub struct UpdateFolio<'info> {
     pub folio_program: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
-    #[account(mut)]
+    #[account()]
     pub folio: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
     #[account(mut)]
-    pub fee_recipients: UncheckedAccount<'info>,
+    pub folio_token_mint: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
-    #[account()]
+    #[account(mut)]
+    pub cranker: UncheckedAccount<'info>,
+
+    /// CHECK: Done within the folio program
+    #[account(mut)]
+    pub fee_distribution: UncheckedAccount<'info>,
+
+    /// CHECK: Done within the folio program
     pub program_registrar: UncheckedAccount<'info>,
+    /*
+    Remaining accounts will be the token accounts of the fee recipients, needs to follow the
+    order of the indices passed as parameters.
+     */
 }
 
-impl UpdateFolio<'_> {
+impl CrankFeeDistribution<'_> {
     pub fn validate(&self) -> Result<()> {
         Ok(())
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn handler(
-    ctx: Context<UpdateFolio>,
-    program_version: Option<Pubkey>,
-    program_deployment_slot: Option<u64>,
-    folio_fee: Option<u64>,
-    minting_fee: Option<u64>,
-    trade_delay: Option<u64>,
-    auction_length: Option<u64>,
-    fee_recipients_to_add: Vec<FeeRecipient>,
-    fee_recipients_to_remove: Vec<Pubkey>,
+pub fn handler<'info>(
+    ctx: Context<'_, '_, 'info, 'info, CrankFeeDistribution<'info>>,
+    indices: Vec<u64>,
 ) -> Result<()> {
     ctx.accounts.validate()?;
 
-    FolioProgram::update_folio_account(
-        ctx,
-        program_version,
-        program_deployment_slot,
-        folio_fee,
-        minting_fee,
-        trade_delay,
-        auction_length,
-        fee_recipients_to_add,
-        fee_recipients_to_remove,
-    )?;
+    FolioProgram::crank_fee_distribution(ctx, indices)?;
 
     Ok(())
 }

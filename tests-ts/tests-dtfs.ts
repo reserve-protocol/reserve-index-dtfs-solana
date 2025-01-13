@@ -20,6 +20,7 @@ import {
   getActorPDA,
   getDAOFeeConfigPDA,
   getDtfSignerPDA,
+  getFeeDistributionPDA,
   getFolioFeeRecipientsPDA,
   getFolioPendingBasketPDA,
   getUserPendingBasketPDA,
@@ -28,7 +29,6 @@ import {
   addOrUpdateActor,
   addToBasket,
   burnFolioToken,
-  finalizeBasket,
   initDtfSigner,
   addToPendingBasket,
   mintFolioToken,
@@ -41,9 +41,15 @@ import {
   MAX_FOLIO_FEE,
   MIN_DAO_MINTING_FEE,
   SCALAR,
+  MAX_AUCTION_LENGTH,
+  MAX_TRADE_DELAY,
+  distributeFees,
+  crankFeeDistribution,
 } from "../utils/dtf-helper";
 import {
   DEFAULT_DECIMALS_MUL,
+  getOrCreateAtaAddress,
+  getTokenBalance,
   initToken,
   mintToken,
 } from "../utils/token-helper";
@@ -67,6 +73,17 @@ describe("DTFs Tests", () => {
 
   let feeRecipient: PublicKey = Keypair.generate().publicKey;
   let feeRecipientNumerator: BN = new BN(600_000_000); //60%
+
+  let newFeeRecipient = [
+    {
+      receiver: Keypair.generate().publicKey,
+      portion: new BN(6).mul(new BN(DEFAULT_DECIMALS_MUL)).div(new BN(10)),
+    },
+    {
+      receiver: Keypair.generate().publicKey,
+      portion: new BN(4).mul(new BN(DEFAULT_DECIMALS_MUL)).div(new BN(10)),
+    },
+  ];
 
   let folioTestHelper: TestHelper;
 
@@ -110,7 +127,11 @@ describe("DTFs Tests", () => {
       connection,
       folioOwnerKeypair,
       MAX_FOLIO_FEE,
-      MIN_DAO_MINTING_FEE.mul(new BN(2))
+      MIN_DAO_MINTING_FEE.mul(new BN(2)),
+      MAX_TRADE_DELAY,
+      MAX_AUCTION_LENGTH,
+      "Test Folio",
+      "TFOL"
     ));
 
     // To track how much time is passing, so we can calculate fees
@@ -305,6 +326,8 @@ describe("DTFs Tests", () => {
       null,
       new BN(folioBefore.folioFee.toNumber() - 1),
       null,
+      null,
+      null,
       [],
       []
     );
@@ -335,6 +358,9 @@ describe("DTFs Tests", () => {
       null,
       folioBefore.folioFee,
       null,
+      null,
+
+      null,
       [],
       []
     );
@@ -346,21 +372,12 @@ describe("DTFs Tests", () => {
       getFolioFeeRecipientsPDA(folioPDA)
     );
 
-    let newFeeRecipient = [
-      {
-        receiver: Keypair.generate().publicKey,
-        portion: new BN(6).mul(new BN(DEFAULT_DECIMALS_MUL)).div(new BN(10)),
-      },
-      {
-        receiver: Keypair.generate().publicKey,
-        portion: new BN(4).mul(new BN(DEFAULT_DECIMALS_MUL)).div(new BN(10)),
-      },
-    ];
-
     await updateFolio(
       connection,
       folioOwnerKeypair,
       folioPDA,
+      null,
+      null,
       null,
       null,
       null,
@@ -482,12 +499,19 @@ describe("DTFs Tests", () => {
       true
     );
 
-    await addToBasket(connection, folioOwnerKeypair, folioPDA, [
-      {
-        mint: tokenMints[0].mint.publicKey,
-        amount: new BN(100 * 10 ** tokenMints[0].decimals),
-      },
-    ]);
+    await addToBasket(
+      connection,
+      folioOwnerKeypair,
+      folioPDA,
+      [
+        {
+          mint: tokenMints[0].mint.publicKey,
+          amount: new BN(100 * 10 ** tokenMints[0].decimals),
+        },
+      ],
+      null,
+      folioTokenMint.publicKey
+    );
 
     const afterSnapshot = await folioTestHelper.getBalanceSnapshot(
       false,
@@ -511,9 +535,11 @@ describe("DTFs Tests", () => {
       amount: new BN(100 * 10 ** token.decimals),
     }));
 
+    folioTestHelper.setUserPubkey(folioOwnerKeypair.publicKey);
+
     const beforeSnapshot = await folioTestHelper.getBalanceSnapshot(
       false,
-      false,
+      true,
       true
     );
 
@@ -521,62 +547,34 @@ describe("DTFs Tests", () => {
       connection,
       folioOwnerKeypair,
       folioPDA,
-      tokenAmountsToAdd
+      tokenAmountsToAdd,
+      new BN(10 * DEFAULT_DECIMALS_MUL), //10 shares, mint decimals for folio token is 9
+      folioTokenMint.publicKey
     );
 
     const afterSnapshot = await folioTestHelper.getBalanceSnapshot(
       false,
-      false,
-      true
-    );
-
-    folioTestHelper.assertBalanceSnapshot(
-      beforeSnapshot,
-      afterSnapshot,
-      [],
-      [[], [0, 100], [0, 100], [0, 100], [0, 100]],
-      [],
-      [1, 2, 3, 4]
-    );
-  });
-
-  it("should finalize the folio", async () => {
-    folioTestHelper.setUserPubkey(folioOwnerKeypair.publicKey);
-    const beforeSnapshot = await folioTestHelper.getBalanceSnapshot(
-      false,
       true,
-      false
-    );
-
-    await finalizeBasket(
-      connection,
-      folioOwnerKeypair,
-      folioPDA,
-      folioTokenMint.publicKey,
-      new BN(10 * DEFAULT_DECIMALS_MUL) //10 shares, mint decimals for folio token is 9
+      true
     );
 
     const folioAfter = await program.account.folio.fetch(folioPDA);
 
-    const afterSnapshot = await folioTestHelper.getBalanceSnapshot(
-      false,
-      true,
-      false
-    );
+    assert.equal(folioAfter.status, 1);
 
     folioTestHelper.assertBalanceSnapshot(
       beforeSnapshot,
       afterSnapshot,
       [],
-      [],
+      [[], [-100, 100], [-100, 100], [-100, 100], [-100, 100]],
       [0, 10],
-      []
+      [1, 2, 3, 4]
     );
-
-    assert.equal(folioAfter.status, 1);
   });
 
   it("should allow user to init mint folio tokens", async () => {
+    folioTestHelper.setUserPubkey(userKeypair.publicKey);
+
     await addToPendingBasket(connection, userKeypair, folioPDA, [
       {
         mint: tokenMints[0].mint.publicKey,
@@ -948,5 +946,151 @@ describe("DTFs Tests", () => {
         recipientFeeDiff * 0.2,
       true
     );
+  });
+
+  it("should allow user to distribute fees", async () => {
+    const daoFeeConfig = await programDtf.account.daoFeeConfig.fetch(
+      getDAOFeeConfigPDA()
+    );
+
+    const folioBefore = await program.account.folio.fetch(folioPDA);
+
+    const feeRecipientBefore = await program.account.feeRecipients.fetch(
+      getFolioFeeRecipientsPDA(folioPDA)
+    );
+
+    const daoFeeRecipientATA = await getOrCreateAtaAddress(
+      connection,
+      folioTokenMint.publicKey,
+      userKeypair,
+      daoFeeConfig.feeRecipient
+    );
+
+    const balanceDaoFeeRecipientBefore = await getTokenBalance(
+      connection,
+      daoFeeRecipientATA
+    );
+
+    await distributeFees(
+      connection,
+      userKeypair,
+      folioPDA,
+      folioTokenMint.publicKey,
+      daoFeeRecipientATA,
+      new BN(1)
+    );
+
+    const feeDistribution = await program.account.feeDistribution.fetch(
+      getFeeDistributionPDA(folioPDA, new BN(1))
+    );
+
+    const folioAfter = await program.account.folio.fetch(folioPDA);
+
+    const feeRecipientAfter = await program.account.feeRecipients.fetch(
+      getFolioFeeRecipientsPDA(folioPDA)
+    );
+
+    const balanceDaoFeeRecipientAfter = await getTokenBalance(
+      connection,
+      daoFeeRecipientATA
+    );
+
+    // Balance of dao fee recipient should be increased by the amount of fees distributed
+    // TODO more precise check
+    assert.equal(
+      balanceDaoFeeRecipientAfter > balanceDaoFeeRecipientBefore,
+      true
+    );
+
+    // Folio fees should be as 0 (distributed)
+    assert.equal(
+      folioBefore.feeRecipientsPendingFeeShares.toNumber() > 0,
+      true
+    );
+    assert.equal(folioAfter.feeRecipientsPendingFeeShares.toNumber(), 0);
+    assert.equal(folioAfter.daoPendingFeeShares.toNumber(), 0);
+
+    // Fee recipient's index should be updated
+    assert.equal(
+      feeRecipientAfter.distributionIndex.toNumber(),
+      feeRecipientBefore.distributionIndex.toNumber() + 1
+    );
+
+    // Folio distribution should be created
+    // TODO more precise check
+    assert.equal(feeDistribution.index.toNumber(), 1);
+    assert.equal(feeDistribution.amountToDistribute.toNumber() > 0, true);
+    assert.deepEqual(feeDistribution.folio, folioPDA);
+    assert.deepEqual(feeDistribution.cranker, userKeypair.publicKey);
+    assert.equal(
+      feeDistribution.feeRecipientsState[0].receiver.toBase58(),
+      newFeeRecipient[0].receiver.toBase58()
+    );
+    assert.equal(
+      feeDistribution.feeRecipientsState[1].receiver.toBase58(),
+      newFeeRecipient[1].receiver.toBase58()
+    );
+  });
+
+  it("should allow user to crank fee distribution", async () => {
+    const newRecipient1ATA = await getOrCreateAtaAddress(
+      connection,
+      folioTokenMint.publicKey,
+      userKeypair,
+      newFeeRecipient[0].receiver
+    );
+    const newRecipient2ATA = await getOrCreateAtaAddress(
+      connection,
+      folioTokenMint.publicKey,
+      userKeypair,
+      newFeeRecipient[1].receiver
+    );
+
+    const feeDistributionBefore = await program.account.feeDistribution.fetch(
+      getFeeDistributionPDA(folioPDA, new BN(1))
+    );
+
+    const balanceNewRecipient1Before = await getTokenBalance(
+      connection,
+      newRecipient1ATA
+    );
+    const balanceNewRecipient2Before = await getTokenBalance(
+      connection,
+      newRecipient2ATA
+    );
+
+    await crankFeeDistribution(
+      connection,
+      userKeypair,
+      folioPDA,
+      folioTokenMint.publicKey,
+      userKeypair.publicKey,
+      new BN(1),
+      [new BN(0), new BN(1)],
+      [newRecipient1ATA, newRecipient2ATA]
+    );
+
+    const balanceNewRecipient1After = await getTokenBalance(
+      connection,
+      newRecipient1ATA
+    );
+    const balanceNewRecipient2After = await getTokenBalance(
+      connection,
+      newRecipient2ATA
+    );
+
+    const feeDistributionAfter =
+      await program.account.feeDistribution.fetchNullable(
+        getFeeDistributionPDA(folioPDA, new BN(1))
+      );
+
+    // Balances should be updated for both fee recipients
+    // TODO more precise check
+    assert.equal(balanceNewRecipient1After > balanceNewRecipient1Before, true);
+    assert.equal(balanceNewRecipient2After > balanceNewRecipient2Before, true);
+
+    // Fee distribution should be closed
+    assert.notEqual(feeDistributionBefore, null);
+    assert.equal(feeDistributionAfter, null);
   });
 });

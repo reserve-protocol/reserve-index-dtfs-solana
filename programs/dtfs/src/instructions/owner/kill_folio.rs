@@ -2,16 +2,14 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
 use folio::ID as FOLIO_ID;
 use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
-use shared::structs::FeeRecipient;
 
 use crate::state::DtfProgramSigner;
 use crate::utils::external::folio_program::FolioProgram;
 use crate::ID as DTF_PROGRAM_ID;
 
 #[derive(Accounts)]
-pub struct UpdateFolio<'info> {
+pub struct KillFolio<'info> {
     pub system_program: Program<'info, System>,
-    pub rent: Sysvar<'info, Rent>,
 
     #[account(mut)]
     pub folio_owner: Signer<'info>,
@@ -53,45 +51,19 @@ pub struct UpdateFolio<'info> {
     pub folio: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
-    #[account(mut)]
-    pub fee_recipients: UncheckedAccount<'info>,
-
-    /// CHECK: Done within the folio program
-    #[account()]
     pub program_registrar: UncheckedAccount<'info>,
 }
 
-impl UpdateFolio<'_> {
+impl KillFolio<'_> {
     pub fn validate(&self) -> Result<()> {
         Ok(())
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn handler(
-    ctx: Context<UpdateFolio>,
-    program_version: Option<Pubkey>,
-    program_deployment_slot: Option<u64>,
-    folio_fee: Option<u64>,
-    minting_fee: Option<u64>,
-    trade_delay: Option<u64>,
-    auction_length: Option<u64>,
-    fee_recipients_to_add: Vec<FeeRecipient>,
-    fee_recipients_to_remove: Vec<Pubkey>,
-) -> Result<()> {
+pub fn handler(ctx: Context<KillFolio>) -> Result<()> {
     ctx.accounts.validate()?;
 
-    FolioProgram::update_folio_account(
-        ctx,
-        program_version,
-        program_deployment_slot,
-        folio_fee,
-        minting_fee,
-        trade_delay,
-        auction_length,
-        fee_recipients_to_add,
-        fee_recipients_to_remove,
-    )?;
+    FolioProgram::kill_folio(ctx)?;
 
     Ok(())
 }

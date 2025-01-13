@@ -24,16 +24,13 @@ import {
   getFolioPendingBasketPDA,
   getUserPendingBasketPDA,
   getDAOFeeConfigPDA,
+  getFeeDistributionPDA,
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import {
-  buildRemainingAccounts,
-  getAtaAddress,
-  getOrCreateAtaAddress,
-} from "./token-helper";
+import { buildRemainingAccounts, getOrCreateAtaAddress } from "./token-helper";
 
 let dtfProgram: Program<Dtfs> = null;
 
@@ -42,6 +39,10 @@ const SKIP_PREFLIGHT = true;
 export const MAX_FOLIO_FEE = new BN(13284);
 export const MIN_DAO_MINTING_FEE = new BN(500000);
 export const SCALAR = new BN(1_000_000_000);
+
+export const MIN_AUCTION_LENGTH = new BN(60);
+export const MAX_AUCTION_LENGTH = new BN(604800);
+export const MAX_TRADE_DELAY = new BN(604800);
 
 export function getDtfProgram(
   connection: Connection,
@@ -150,6 +151,8 @@ export async function updateFolio(
   programDeploymentSlot: BN | null,
   folioFee: BN | null,
   mintingFee: BN | null,
+  tradeDelay: BN | null,
+  auctionLength: BN | null,
   feeRecipientsToAdd: { receiver: PublicKey; portion: BN }[],
   feeRecipientsToRemove: PublicKey[]
 ) {
@@ -161,6 +164,8 @@ export async function updateFolio(
       programDeploymentSlot,
       folioFee,
       mintingFee,
+      tradeDelay,
+      auctionLength,
       feeRecipientsToAdd,
       feeRecipientsToRemove
     )
@@ -257,12 +262,17 @@ export async function addToBasket(
   connection: Connection,
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
-  tokens: { mint: PublicKey; amount: BN }[]
+  tokens: { mint: PublicKey; amount: BN }[],
+  initialShares: BN,
+  folioTokenMint: PublicKey
 ) {
   const dtfProgram = getDtfProgram(connection, folioOwnerKeypair);
 
   const addToBasket = await dtfProgram.methods
-    .addToBasket(tokens.map((token) => token.amount))
+    .addToBasket(
+      tokens.map((token) => token.amount),
+      initialShares
+    )
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
@@ -273,6 +283,13 @@ export async function addToBasket(
       dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
       folioProgram: FOLIO_PROGRAM_ID,
       folio: folio,
+      folioTokenMint,
+      ownerFolioTokenAccount: await getOrCreateAtaAddress(
+        connection,
+        folioTokenMint,
+        folioOwnerKeypair,
+        folioOwnerKeypair.publicKey
+      ),
       folioPendingBasket: getFolioPendingBasketPDA(folio),
       programRegistrar: getProgramRegistrarPDA(),
     })
@@ -292,21 +309,17 @@ export async function addToBasket(
   });
 }
 
-export async function finalizeBasket(
+export async function killFolio(
   connection: Connection,
   folioOwnerKeypair: Keypair,
-  folio: PublicKey,
-  folioTokenMint: PublicKey,
-  initialShares: BN
+  folio: PublicKey
 ) {
   const dtfProgram = getDtfProgram(connection, folioOwnerKeypair);
 
-  const finalizeBasket = await dtfProgram.methods
-    .finalizeBasket(initialShares)
+  const killFolio = await dtfProgram.methods
+    .killFolio()
     .accountsPartial({
       systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       folioOwner: folioOwnerKeypair.publicKey,
       actor: getActorPDA(folioOwnerKeypair.publicKey, folio),
       dtfProgramSigner: getDtfSignerPDA(),
@@ -314,19 +327,11 @@ export async function finalizeBasket(
       dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
       folioProgram: FOLIO_PROGRAM_ID,
       folio: folio,
-      folioTokenMint,
-      folioTokenAccount: await getAtaAddress(folioTokenMint, folio),
       programRegistrar: getProgramRegistrarPDA(),
-      ownerFolioTokenAccount: await getOrCreateAtaAddress(
-        connection,
-        folioTokenMint,
-        folioOwnerKeypair,
-        folioOwnerKeypair.publicKey
-      ),
     })
     .instruction();
 
-  await pSendAndConfirmTxn(dtfProgram, [finalizeBasket], [], {
+  await pSendAndConfirmTxn(dtfProgram, [killFolio], [], {
     skipPreflight: SKIP_PREFLIGHT,
   });
 }
@@ -556,6 +561,87 @@ export async function redeemFromPendingBasket(
     .instruction();
 
   await pSendAndConfirmTxn(dtfProgram, [redeemFromPendingBasket], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+}
+
+export async function distributeFees(
+  connection: Connection,
+  userKeypair: Keypair,
+  folio: PublicKey,
+  folioTokenMint: PublicKey,
+  daoFeeRecipient: PublicKey,
+  index: BN
+) {
+  const dtfProgram = getDtfProgram(connection, userKeypair);
+
+  const distributeFees = await dtfProgram.methods
+    .distributeFees(index)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      rent: SYSVAR_RENT_PUBKEY,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      user: userKeypair.publicKey,
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      daoFeeConfig: getDAOFeeConfigPDA(),
+      folioProgram: FOLIO_PROGRAM_ID,
+      folio: folio,
+      folioTokenMint,
+      feeRecipients: getFolioFeeRecipientsPDA(folio),
+      feeDistribution: getFeeDistributionPDA(folio, index),
+      daoFeeRecipient,
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [distributeFees], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+}
+
+export async function crankFeeDistribution(
+  connection: Connection,
+  userKeypair: Keypair,
+  folio: PublicKey,
+  folioTokenMint: PublicKey,
+  cranker: PublicKey,
+  feeDistributionIndex: BN,
+  indices: BN[],
+  feeRecipients: PublicKey[]
+) {
+  const dtfProgram = getDtfProgram(connection, userKeypair);
+
+  const remainingAccounts = feeRecipients.map((recipient) => {
+    return {
+      isWritable: true,
+      isSigner: false,
+      pubkey: recipient,
+    };
+  });
+
+  const crankFeeDistribution = await dtfProgram.methods
+    .crankFeeDistribution(indices)
+    .accountsPartial({
+      rent: SYSVAR_RENT_PUBKEY,
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      user: userKeypair.publicKey,
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      folioProgram: FOLIO_PROGRAM_ID,
+      folio: folio,
+      folioTokenMint,
+      cranker,
+      feeDistribution: getFeeDistributionPDA(folio, feeDistributionIndex),
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .remainingAccounts(remainingAccounts)
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [crankFeeDistribution], [], {
     skipPreflight: SKIP_PREFLIGHT,
   });
 }

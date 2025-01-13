@@ -38,12 +38,15 @@ pub mod dtfs {
         resize_folio::handler(ctx, new_size)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn update_folio(
         ctx: Context<UpdateFolio>,
         program_version: Option<Pubkey>,
         program_deployment_slot: Option<u64>,
         folio_fee: Option<u64>,
         minting_fee: Option<u64>,
+        trade_delay: Option<u64>,
+        auction_length: Option<u64>,
         fee_recipients_to_add: Vec<FeeRecipient>,
         fee_recipients_to_remove: Vec<Pubkey>,
     ) -> Result<()> {
@@ -53,6 +56,8 @@ pub mod dtfs {
             program_deployment_slot,
             folio_fee,
             minting_fee,
+            trade_delay,
+            auction_length,
             fee_recipients_to_add,
             fee_recipients_to_remove,
         )
@@ -79,12 +84,13 @@ pub mod dtfs {
     pub fn add_to_basket<'info>(
         ctx: Context<'_, '_, 'info, 'info, AddToBasket<'info>>,
         amounts: Vec<u64>,
+        initial_shares: Option<u64>,
     ) -> Result<()> {
-        add_to_basket::handler(ctx, amounts)
+        add_to_basket::handler(ctx, amounts, initial_shares)
     }
 
-    pub fn finalize_basket(ctx: Context<FinalizeBasket>, initial_shares: u64) -> Result<()> {
-        finalize_basket::handler(ctx, initial_shares)
+    pub fn kill_folio(ctx: Context<KillFolio>) -> Result<()> {
+        kill_folio::handler(ctx)
     }
 
     /*
@@ -129,5 +135,19 @@ pub mod dtfs {
         ctx: Context<'_, '_, 'info, 'info, ClosePendingTokenAmount<'info>>,
     ) -> Result<()> {
         close_pending_token_amount::handler(ctx)
+    }
+
+    pub fn distribute_fees<'info>(
+        ctx: Context<'_, '_, 'info, 'info, DistributeFees<'info>>,
+        index: u64,
+    ) -> Result<()> {
+        distribute_fees::handler(ctx, index)
+    }
+
+    pub fn crank_fee_distribution<'info>(
+        ctx: Context<'_, '_, 'info, 'info, CrankFeeDistribution<'info>>,
+        indices: Vec<u64>,
+    ) -> Result<()> {
+        crank_fee_distribution::handler(ctx, indices)
     }
 }

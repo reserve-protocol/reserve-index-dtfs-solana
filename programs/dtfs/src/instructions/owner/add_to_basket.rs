@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
+use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token_interface::TokenInterface;
 use folio::ID as FOLIO_ID;
 use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
@@ -12,6 +13,7 @@ use crate::ID as DTF_PROGRAM_ID;
 pub struct AddToBasket<'info> {
     pub system_program: Program<'info, System>,
     pub token_program: Interface<'info, TokenInterface>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
 
     #[account(mut)]
     pub folio_owner: Signer<'info>,
@@ -57,6 +59,14 @@ pub struct AddToBasket<'info> {
     pub folio_pending_basket: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
+    #[account(mut)]
+    pub folio_token_mint: UncheckedAccount<'info>,
+
+    /// CHECK: Done within the folio program
+    #[account(mut)]
+    pub owner_folio_token_account: UncheckedAccount<'info>,
+
+    /// CHECK: Done within the folio program
     #[account()]
     pub program_registrar: UncheckedAccount<'info>,
     /*
@@ -78,10 +88,11 @@ impl AddToBasket<'_> {
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, AddToBasket<'info>>,
     amounts: Vec<u64>,
+    initial_shares: Option<u64>,
 ) -> Result<()> {
     ctx.accounts.validate()?;
 
-    FolioProgram::add_to_basket(ctx, amounts)?;
+    FolioProgram::add_to_basket(ctx, amounts, initial_shares)?;
 
     Ok(())
 }

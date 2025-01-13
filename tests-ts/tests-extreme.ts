@@ -9,12 +9,13 @@ import {
 import { DTF_PROGRAM_ID } from "../utils/pda-helper";
 import {
   addToBasket,
-  finalizeBasket,
   initDtfSigner,
   addToPendingBasket,
   mintFolioToken,
   MAX_FOLIO_FEE,
   MIN_DAO_MINTING_FEE,
+  MIN_AUCTION_LENGTH,
+  MAX_TRADE_DELAY,
 } from "../utils/dtf-helper";
 import {
   DEFAULT_DECIMALS_MUL,
@@ -33,8 +34,6 @@ describe("Extrme DTFs Tests", () => {
   let folioOwnerKeypair: Keypair;
   let folioTokenMint: Keypair;
   let folioPDA: PublicKey;
-
-  // let folioTestHelper: TestHelper;
 
   /*
   Tokens that can be included in the folio
@@ -67,7 +66,11 @@ describe("Extrme DTFs Tests", () => {
       connection,
       folioOwnerKeypair,
       MAX_FOLIO_FEE,
-      MIN_DAO_MINTING_FEE
+      MIN_DAO_MINTING_FEE,
+      MAX_TRADE_DELAY,
+      MIN_AUCTION_LENGTH,
+      "Test Folio",
+      "TFOL"
     ));
 
     // Init dtf related accounts
@@ -105,26 +108,27 @@ describe("Extrme DTFs Tests", () => {
         amount: new BN(100 * 10 ** token.decimals),
       }));
 
-      await addToBasket(connection, folioOwnerKeypair, folioPDA, batch);
+      if (i + 5 < tokenMints.length) {
+        await addToBasket(
+          connection,
+          folioOwnerKeypair,
+          folioPDA,
+          batch,
+          null,
+          folioTokenMint.publicKey
+        );
+      } else {
+        //10 shares, mint decimals for folio token is 9
+        await addToBasket(
+          connection,
+          folioOwnerKeypair,
+          folioPDA,
+          batch,
+          new BN(10 * DEFAULT_DECIMALS_MUL),
+          folioTokenMint.publicKey
+        );
+      }
     }
-
-    await finalizeBasket(
-      connection,
-      folioOwnerKeypair,
-      folioPDA,
-      folioTokenMint.publicKey,
-      new BN(10 * DEFAULT_DECIMALS_MUL) //10 shares, mint decimals for folio token is 9
-    );
-
-    // folioTestHelper = new TestHelper(
-    //   connection,
-    //   payerKeypair,
-    //   program,
-    //   folioPDA,
-    //   folioTokenMint.publicKey,
-    //   userKeypair.publicKey,
-    //   tokenMints
-    // );
   });
 
   it("should allow user to init mint folio tokens and mint folio tokens with all token mints we have", async () => {

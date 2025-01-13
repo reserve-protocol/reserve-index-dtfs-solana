@@ -15,8 +15,10 @@ import {
   getDAOFeeConfigPDA,
   getFolioPDA,
   getFolioSignerPDA,
+  getMetadataPDA,
   getProgramDataPDA,
   getProgramRegistrarPDA,
+  TOKEN_METADATA_PROGRAM_ID,
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -131,7 +133,11 @@ export async function initFolio(
   connection: Connection,
   folioOwner: Keypair,
   folioFee: BN,
-  mintingFee: BN
+  mintingFee: BN,
+  tradeDelay: BN,
+  auctionLength: BN,
+  name: string,
+  symbol: string
 ): Promise<{ folioTokenMint: Keypair; folioPDA: PublicKey }> {
   const folioProgram = getFolioProgram(connection, folioOwner);
 
@@ -140,7 +146,7 @@ export async function initFolio(
   let folioPDA = getFolioPDA(folioTokenMint.publicKey);
 
   const initFolio = await folioProgram.methods
-    .initFolio(folioFee, mintingFee)
+    .initFolio(folioFee, mintingFee, tradeDelay, auctionLength, name, symbol)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
@@ -153,6 +159,8 @@ export async function initFolio(
       dtfProgram: DTF_PROGRAM_ID,
       dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
       actor: getActorPDA(folioOwner.publicKey, folioPDA),
+      tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
+      metadata: getMetadataPDA(folioTokenMint.publicKey),
     })
     .instruction();
 

@@ -11,11 +11,9 @@ use anchor_spl::{
 use shared::{
     check_condition,
     constants::{
-        ACTOR_SEEDS, FOLIO_SEEDS, MAX_AUCTION_LENGTH, MAX_FOLIO_FEE, MAX_MINTING_FEE,
-        MAX_TRADE_DELAY, METADATA_SEEDS, MIN_AUCTION_LENGTH, MIN_DAO_MINTING_FEE,
-        PROGRAM_REGISTRAR_SEEDS,
+        ACTOR_SEEDS, FOLIO_SEEDS, MAX_AUCTION_LENGTH, MAX_CONCURRENT_TRADES, MAX_FOLIO_FEE, MAX_MINTING_FEE, MAX_TRADE_DELAY, METADATA_SEEDS, MIN_AUCTION_LENGTH, MIN_DAO_MINTING_FEE, PROGRAM_REGISTRAR_SEEDS
     },
-    structs::{FolioStatus, Role},
+    structs::{FolioStatus, Role, TradeEnd},
 };
 
 use crate::state::ProgramRegistrar;
@@ -181,6 +179,7 @@ pub fn handler(
         folio.trade_delay = trade_delay;
         folio.auction_length = auction_length;
         folio.current_trade_id = 0;
+        folio.trade_ends = [TradeEnd::default(); MAX_CONCURRENT_TRADES];
     }
 
     let actor = &mut ctx.accounts.actor;

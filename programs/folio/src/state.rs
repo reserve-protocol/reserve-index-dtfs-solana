@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use shared::{
-    constants::{MAX_FEE_RECIPIENTS, MAX_TOKEN_AMOUNTS},
-    structs::{FeeRecipient, TokenAmount},
+    constants::{MAX_CONCURRENT_TRADES, MAX_FEE_RECIPIENTS, MAX_TOKEN_AMOUNTS},
+    structs::{FeeRecipient, Range, TokenAmount, TradeEnd},
 };
 
 /// PDA Seeds ["folio_program_signer"]
@@ -86,6 +86,8 @@ pub struct Folio {
     pub auction_length: u64,
 
     pub current_trade_id: u64,
+
+    pub trade_ends: [TradeEnd; MAX_CONCURRENT_TRADES],
 }
 
 impl Folio {
@@ -201,4 +203,38 @@ impl Default for PendingBasket {
             token_amounts: [TokenAmount::default(); MAX_TOKEN_AMOUNTS],
         }
     }
+}
+
+/// PDA Seeds ["trade", folio pubkey, trade id]
+#[account(zero_copy)]
+#[derive(Default, InitSpace)]
+pub struct Trade {
+    pub bump: u8,
+    pub _padding: [u8; 7],
+
+    pub id: u64,
+
+    pub folio: Pubkey,
+
+    // Auction related data
+    pub sell: Pubkey,
+    pub buy: Pubkey,
+
+    pub sell_limit: Range,
+    pub buy_limit: Range,
+
+    pub start_price: u64,
+    pub end_price: u64,
+
+    pub available_at: u64,
+    pub launch_timeout: u64,
+
+    pub start: u64,
+    pub end: u64,
+
+    pub k: u64,
+}
+
+impl Trade {
+    pub const SIZE: usize = 8 + Trade::INIT_SPACE;
 }

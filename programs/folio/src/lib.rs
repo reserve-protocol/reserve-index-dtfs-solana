@@ -2,7 +2,7 @@
 use anchor_lang::prelude::*;
 
 use instructions::*;
-use shared::structs::{FeeRecipient, Role};
+use shared::structs::{FeeRecipient, Range, Role};
 use utils::*;
 
 pub mod events;
@@ -122,7 +122,6 @@ pub mod folio {
     /*
     User functions
      */
-
     pub fn add_to_pending_basket<'info>(
         ctx: Context<'_, '_, 'info, 'info, AddToPendingBasket<'info>>,
         amounts: Vec<u64>,
@@ -183,5 +182,48 @@ pub mod folio {
         indices: Vec<u64>,
     ) -> Result<()> {
         crank_fee_distribution::handler(ctx, indices)
+    }
+
+    /*
+    Trade functions
+     */
+    pub fn approve_trade<'info>(
+        ctx: Context<'_, '_, 'info, 'info, ApproveTrade<'info>>,
+        trade_id: u64,
+        sell_limit: Range,
+        buy_limit: Range,
+        start_price: u64,
+        end_price: u64,
+        ttl: u64,
+    ) -> Result<()> {
+        approve_trade::handler(
+            ctx,
+            trade_id,
+            sell_limit,
+            buy_limit,
+            start_price,
+            end_price,
+            ttl,
+        )
+    }
+
+    pub fn open_trade<'info>(
+        ctx: Context<'_, '_, 'info, 'info, OpenTrade<'info>>,
+        sell_limit: u64,
+        buy_limit: u64,
+        start_price: u64,
+        end_price: u64,
+    ) -> Result<()> {
+        open_trade::handler(ctx, sell_limit, buy_limit, start_price, end_price)
+    }
+
+    pub fn kill_trade<'info>(ctx: Context<'_, '_, 'info, 'info, KillTrade<'info>>) -> Result<()> {
+        kill_trade::handler(ctx)
+    }
+
+    pub fn open_trade_permissionless<'info>(
+        ctx: Context<'_, '_, 'info, 'info, OpenTradePermissionless<'info>>,
+    ) -> Result<()> {
+        open_trade_permissionless::handler(ctx)
     }
 }

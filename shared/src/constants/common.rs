@@ -25,10 +25,12 @@ pub const MIN_AUCTION_LENGTH: u64 = 60; // 1 minute
 pub const MAX_AUCTION_LENGTH: u64 = 604800; // 1 week
 pub const MAX_TRADE_DELAY: u64 = 604800; // 1 week
 pub const MAX_TTL: u64 = 604800 * 4; // 4 weeks
+pub const MAX_RATE: u64 = 1_000_000_000; // 1e9
+pub const MAX_PRICE_RANGE: u64 = 1_000_000_000; // 1e9
 
 pub const MAX_FEE_RECIPIENTS: usize = 64;
 pub const MAX_TOKEN_AMOUNTS: usize = 16;
-
+pub const MAX_CONCURRENT_TRADES: usize = 16; // TODO
 pub enum PendingBasketType {
     MintProcess,
     RedeemProcess,

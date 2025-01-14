@@ -7,7 +7,7 @@ mod tests {
     fn test_role_bits() {
         assert_eq!(Role::Owner as u8, 0b0000_0001);
         assert_eq!(Role::TradeProposer as u8, 0b0000_0010);
-        assert_eq!(Role::PriceCurator as u8, 0b0000_0100);
+        assert_eq!(Role::TradeLauncher as u8, 0b0000_0100);
     }
 
     #[test]
@@ -17,12 +17,12 @@ mod tests {
         Role::add_role(&mut roles, Role::Owner);
         assert!(Role::has_role(roles, Role::Owner));
         assert!(!Role::has_role(roles, Role::TradeProposer));
-        assert!(!Role::has_role(roles, Role::PriceCurator));
+        assert!(!Role::has_role(roles, Role::TradeLauncher));
 
         Role::add_role(&mut roles, Role::TradeProposer);
         assert!(Role::has_role(roles, Role::Owner));
         assert!(Role::has_role(roles, Role::TradeProposer));
-        assert!(!Role::has_role(roles, Role::PriceCurator));
+        assert!(!Role::has_role(roles, Role::TradeLauncher));
     }
 
     #[test]
@@ -38,7 +38,7 @@ mod tests {
         Role::add_role(&mut roles, Role::Owner);
         assert_eq!(roles, 0b0000_0011);
 
-        Role::add_role(&mut roles, Role::PriceCurator);
+        Role::add_role(&mut roles, Role::TradeLauncher);
         assert_eq!(roles, 0b0000_0111);
     }
 
@@ -58,7 +58,7 @@ mod tests {
         Role::remove_role(&mut roles, Role::Owner);
         assert_eq!(roles, 0b0000_0100);
 
-        Role::remove_role(&mut roles, Role::PriceCurator);
+        Role::remove_role(&mut roles, Role::TradeLauncher);
         assert_eq!(roles, 0);
     }
 

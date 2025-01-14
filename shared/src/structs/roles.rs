@@ -4,8 +4,8 @@ use anchor_lang::prelude::*;
 pub enum Role {
     Owner = 0b0000_0001,
     TradeProposer = 0b0000_0010,
-    PriceCurator = 0b0000_0100,
-    BrandManager = 0b0000_1000,
+    TradeLauncher = 0b0000_0100,
+    VibeOfficer = 0b0000_1000,
 }
 
 impl Role {

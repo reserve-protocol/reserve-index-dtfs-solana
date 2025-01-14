@@ -94,6 +94,36 @@ pub enum ErrorCode {
 
     #[msg("Invalid Cranker")]
     InvalidCranker,
+
+    #[msg("Invalid Trade Id")]
+    InvalidTradeId,
+
+    #[msg("Mint Can't Be Equal")]
+    MintCantBeEqual,
+
+    #[msg("Invalid Sell Limit")]
+    InvalidSellLimit,
+
+    #[msg("Invalid Buy Limit")]
+    InvalidBuyLimit,
+
+    #[msg("Invalid Prices")]
+    InvalidPrices,
+
+    #[msg("Invalid TTL")]
+    InvalidTtl,
+
+    #[msg("Trade Cannot Be Opened")]
+    TradeCannotBeOpened,
+
+    #[msg("Trade Timeout")]
+    TradeTimeout,
+
+    #[msg("Trade Collision")]
+    TradeCollision,
+
+    #[msg("Trade Cannot Be Opened Permissionlessly Yet")]
+    TradeCannotBeOpenedPermissionlesslyYet,
 }
 
 #[macro_export]

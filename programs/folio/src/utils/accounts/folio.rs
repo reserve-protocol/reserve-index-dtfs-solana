@@ -8,7 +8,7 @@ use shared::{
     check_condition,
     constants::{FOLIO_SEEDS, MIN_DAO_MINTING_FEE, SCALAR, SCALAR_U128},
     errors::ErrorCode,
-    structs::{FolioStatus, Role},
+    structs::{FolioStatus, Role, TradeEnd},
     util::math_util::{RoundingMode, SafeArithmetic},
 };
 
@@ -233,5 +233,52 @@ impl Folio {
         );
 
         Ok((fee_shares.checked_sub(dao_shares).unwrap(), dao_shares))
+    }
+
+    pub fn get_trade_end_for_mint(
+        &self,
+        sell_mint: &Pubkey,
+        buy_mint: &Pubkey,
+    ) -> Result<(Option<&TradeEnd>, Option<&TradeEnd>)> {
+        let mut sell_trade = None;
+        let mut buy_trade = None;
+
+        for trade_end in self.trade_ends.iter() {
+            if trade_end.mint == *sell_mint {
+                sell_trade = Some(trade_end);
+            } else if trade_end.mint == *buy_mint {
+                buy_trade = Some(trade_end);
+            }
+
+            if sell_trade.is_some() && buy_trade.is_some() {
+                break;
+            }
+        }
+
+        Ok((sell_trade, buy_trade))
+    }
+
+    pub fn set_trade_end_for_mints(
+        &mut self,
+        sell_mint: &Pubkey,
+        buy_mint: &Pubkey,
+        end_time: u64,
+    ) {
+        let mut found_sell_trade = false;
+        let mut found_buy_trade = false;
+
+        for trade_end in self.trade_ends.iter_mut() {
+            if trade_end.mint == *sell_mint {
+                found_sell_trade = true;
+                trade_end.end_time = end_time;
+            } else if trade_end.mint == *buy_mint {
+                found_buy_trade = true;
+                trade_end.end_time = end_time;
+            }
+
+            if found_sell_trade && found_buy_trade {
+                break;
+            }
+        }
     }
 }

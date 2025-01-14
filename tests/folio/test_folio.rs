@@ -4,7 +4,10 @@ mod tests {
 
     use anchor_lang::prelude::*;
     use folio::state::{Folio, ProgramRegistrar};
-    use shared::constants::{DAO_FEE_DENOMINATOR, MAX_DAO_FEE, MAX_FOLIO_FEE, MAX_MINTING_FEE};
+    use shared::{
+        constants::{DAO_FEE_DENOMINATOR, MAX_DAO_FEE, MAX_FOLIO_FEE, MAX_MINTING_FEE},
+        structs::TradeEnd,
+    };
 
     fn setup_folio() -> Folio {
         let mut folio = Folio::default();
@@ -157,5 +160,51 @@ mod tests {
         // Should be close to 50% (allowing for some rounding)
         assert!(dao_portion >= 490_000_000); // 49%
         assert!(dao_portion <= 510_000_000); // 51%
+    }
+
+    #[test]
+    fn test_get_trade_end_for_mint() {
+        let mut folio = setup_folio();
+        let mint_a = Pubkey::new_unique();
+        let mint_b = Pubkey::new_unique();
+        let mint_c = Pubkey::new_unique();
+
+        folio.trade_ends[0] = TradeEnd {
+            mint: mint_a,
+            end_time: 100,
+        };
+        folio.trade_ends[4] = TradeEnd {
+            mint: mint_b,
+            end_time: 200,
+        };
+
+        let (sell_trade, buy_trade) = folio.get_trade_end_for_mint(&mint_a, &mint_b).unwrap();
+        assert_eq!(sell_trade.unwrap().end_time, 100);
+        assert_eq!(buy_trade.unwrap().end_time, 200);
+
+        let (sell_trade, buy_trade) = folio.get_trade_end_for_mint(&mint_c, &mint_b).unwrap();
+        assert!(sell_trade.is_none());
+        assert_eq!(buy_trade.unwrap().end_time, 200);
+    }
+
+    #[test]
+    fn test_set_trade_end_for_mints() {
+        let mut folio = setup_folio();
+        let mint_a = Pubkey::new_unique();
+        let mint_b = Pubkey::new_unique();
+
+        folio.trade_ends[0] = TradeEnd {
+            mint: mint_a,
+            end_time: 100,
+        };
+        folio.trade_ends[4] = TradeEnd {
+            mint: mint_b,
+            end_time: 200,
+        };
+
+        folio.set_trade_end_for_mints(&mint_a, &mint_b, 300);
+
+        assert_eq!(folio.trade_ends[0].end_time, 300);
+        assert_eq!(folio.trade_ends[4].end_time, 300);
     }
 }

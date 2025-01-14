@@ -25,6 +25,7 @@ import {
   getUserPendingBasketPDA,
   getDAOFeeConfigPDA,
   getFeeDistributionPDA,
+  getTradePDA,
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -642,6 +643,135 @@ export async function crankFeeDistribution(
     .instruction();
 
   await pSendAndConfirmTxn(dtfProgram, [crankFeeDistribution], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+}
+
+export async function approveTrade(
+  connection: Connection,
+  tradeProposerKeypair: Keypair,
+  folio: PublicKey,
+  buyMint: PublicKey,
+  sellMint: PublicKey,
+  tradeId: BN,
+  sellLimit: { spot: BN; low: BN; high: BN },
+  buyLimit: { spot: BN; low: BN; high: BN },
+  startPrice: BN,
+  endPrice: BN,
+  ttl: BN
+) {
+  const dtfProgram = getDtfProgram(connection, tradeProposerKeypair);
+
+  const approveTrade = await dtfProgram.methods
+    .approveTrade(tradeId, sellLimit, buyLimit, startPrice, endPrice, ttl)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      rent: SYSVAR_RENT_PUBKEY,
+      tradeProposer: tradeProposerKeypair.publicKey,
+      actor: getActorPDA(tradeProposerKeypair.publicKey, folio),
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      folioProgram: FOLIO_PROGRAM_ID,
+      folio,
+      trade: getTradePDA(folio, tradeId),
+      buyMint: buyMint,
+      sellMint: sellMint,
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [approveTrade], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+}
+
+export async function openTrade(
+  connection: Connection,
+  tradeLauncherKeypair: Keypair,
+  folio: PublicKey,
+  trade: PublicKey,
+  sellLimit: BN,
+  buyLimit: BN,
+  startPrice: BN,
+  endPrice: BN
+) {
+  const dtfProgram = getDtfProgram(connection, tradeLauncherKeypair);
+
+  const openTrade = await dtfProgram.methods
+    .openTrade(sellLimit, buyLimit, startPrice, endPrice)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tradeLauncher: tradeLauncherKeypair.publicKey,
+      actor: getActorPDA(tradeLauncherKeypair.publicKey, folio),
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      folioProgram: FOLIO_PROGRAM_ID,
+      folio,
+      trade,
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [openTrade], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+}
+
+export async function openTradePermissionless(
+  connection: Connection,
+  userKeypair: Keypair,
+  folio: PublicKey,
+  trade: PublicKey
+) {
+  const dtfProgram = getDtfProgram(connection, userKeypair);
+
+  const openTradePermissionless = await dtfProgram.methods
+    .openTradePermissionless()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      user: userKeypair.publicKey,
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      folioProgram: FOLIO_PROGRAM_ID,
+      folio,
+      trade,
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [openTradePermissionless], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+}
+
+export async function killTrade(
+  connection: Connection,
+  tradeActorKeypair: Keypair,
+  folio: PublicKey,
+  trade: PublicKey
+) {
+  const dtfProgram = getDtfProgram(connection, tradeActorKeypair);
+
+  const killTrade = await dtfProgram.methods
+    .killTrade()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tradeActor: tradeActorKeypair.publicKey,
+      actor: getActorPDA(tradeActorKeypair.publicKey, folio),
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      folioProgram: FOLIO_PROGRAM_ID,
+      folio,
+      trade,
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [killTrade], [], {
     skipPreflight: SKIP_PREFLIGHT,
   });
 }

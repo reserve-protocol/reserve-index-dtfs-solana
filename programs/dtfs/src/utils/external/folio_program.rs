@@ -1,17 +1,22 @@
 use anchor_lang::prelude::*;
 use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 use shared::structs::FeeRecipient;
+use shared::structs::Range;
 use shared::structs::Role;
 
 use crate::AddToBasket;
 use crate::AddToPendingBasket;
+use crate::ApproveTrade;
 use crate::BurnFolioToken;
 use crate::ClosePendingTokenAmount;
 use crate::CrankFeeDistribution;
 use crate::DistributeFees;
 use crate::InitOrUpdateActor;
 use crate::KillFolio;
+use crate::KillTrade;
 use crate::MintFolioToken;
+use crate::OpenTrade;
+use crate::OpenTradePermissionless;
 use crate::RedeemFromPendingBasket;
 use crate::RemoveActor;
 use crate::RemoveFromPendingBasket;
@@ -542,6 +547,146 @@ impl FolioProgram {
         let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
 
         folio::cpi::distribute_fees(cpi_ctx, index)?;
+
+        Ok(())
+    }
+
+    pub fn approve_trade(
+        ctx: Context<ApproveTrade>,
+        trade_id: u64,
+        sell_limit: Range,
+        buy_limit: Range,
+        start_price: u64,
+        end_price: u64,
+        ttl: u64,
+    ) -> Result<()> {
+        let cpi_program = ctx.accounts.folio_program.to_account_info();
+
+        let cpi_accounts = folio::cpi::accounts::ApproveTrade {
+            system_program: ctx.accounts.system_program.to_account_info(),
+            rent: ctx.accounts.rent.to_account_info(),
+            trade_proposer: ctx.accounts.trade_proposer.to_account_info(),
+            actor: ctx.accounts.actor.to_account_info(),
+            folio: ctx.accounts.folio.to_account_info(),
+            trade: ctx.accounts.trade.to_account_info(),
+            buy_mint: ctx.accounts.buy_mint.to_account_info(),
+            sell_mint: ctx.accounts.sell_mint.to_account_info(),
+            program_registrar: ctx.accounts.program_registrar.to_account_info(),
+            dtf_program: ctx.accounts.dtf_program.to_account_info(),
+            dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
+        };
+
+        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+
+        let seeds = &[
+            DTF_PROGRAM_SIGNER_SEEDS,
+            &[ctx.accounts.dtf_program_signer.bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
+
+        let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
+
+        folio::cpi::approve_trade(
+            cpi_ctx,
+            trade_id,
+            sell_limit,
+            buy_limit,
+            start_price,
+            end_price,
+            ttl,
+        )?;
+
+        Ok(())
+    }
+
+    pub fn kill_trade(ctx: Context<KillTrade>) -> Result<()> {
+        let cpi_program = ctx.accounts.folio_program.to_account_info();
+
+        let cpi_accounts = folio::cpi::accounts::KillTrade {
+            system_program: ctx.accounts.system_program.to_account_info(),
+            trade_actor: ctx.accounts.trade_actor.to_account_info(),
+            actor: ctx.accounts.actor.to_account_info(),
+            folio: ctx.accounts.folio.to_account_info(),
+            trade: ctx.accounts.trade.to_account_info(),
+            program_registrar: ctx.accounts.program_registrar.to_account_info(),
+            dtf_program: ctx.accounts.dtf_program.to_account_info(),
+            dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
+        };
+
+        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+
+        let seeds = &[
+            DTF_PROGRAM_SIGNER_SEEDS,
+            &[ctx.accounts.dtf_program_signer.bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
+
+        let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
+
+        folio::cpi::kill_trade(cpi_ctx)?;
+
+        Ok(())
+    }
+
+    pub fn open_trade(
+        ctx: Context<OpenTrade>,
+        sell_limit: u64,
+        buy_limit: u64,
+        start_price: u64,
+        end_price: u64,
+    ) -> Result<()> {
+        let cpi_program = ctx.accounts.folio_program.to_account_info();
+
+        let cpi_accounts = folio::cpi::accounts::OpenTrade {
+            system_program: ctx.accounts.system_program.to_account_info(),
+            trade_launcher: ctx.accounts.trade_launcher.to_account_info(),
+            actor: ctx.accounts.actor.to_account_info(),
+            folio: ctx.accounts.folio.to_account_info(),
+            trade: ctx.accounts.trade.to_account_info(),
+            program_registrar: ctx.accounts.program_registrar.to_account_info(),
+            dtf_program: ctx.accounts.dtf_program.to_account_info(),
+            dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
+        };
+
+        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+
+        let seeds = &[
+            DTF_PROGRAM_SIGNER_SEEDS,
+            &[ctx.accounts.dtf_program_signer.bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
+
+        let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
+
+        folio::cpi::open_trade(cpi_ctx, sell_limit, buy_limit, start_price, end_price)?;
+
+        Ok(())
+    }
+
+    pub fn open_trade_permissionless(ctx: Context<OpenTradePermissionless>) -> Result<()> {
+        let cpi_program = ctx.accounts.folio_program.to_account_info();
+
+        let cpi_accounts = folio::cpi::accounts::OpenTradePermissionless {
+            system_program: ctx.accounts.system_program.to_account_info(),
+            user: ctx.accounts.user.to_account_info(),
+            folio: ctx.accounts.folio.to_account_info(),
+            trade: ctx.accounts.trade.to_account_info(),
+            program_registrar: ctx.accounts.program_registrar.to_account_info(),
+            dtf_program: ctx.accounts.dtf_program.to_account_info(),
+            dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
+        };
+
+        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+
+        let seeds = &[
+            DTF_PROGRAM_SIGNER_SEEDS,
+            &[ctx.accounts.dtf_program_signer.bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
+
+        let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
+
+        folio::cpi::open_trade_permissionless(cpi_ctx)?;
 
         Ok(())
     }

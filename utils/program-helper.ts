@@ -203,3 +203,10 @@ export async function assertThrows(
     assert.fail(message || `Expected error code ${expectedErrorCode}`);
   }
 }
+
+export async function getSolanaCurrentTime(
+  connection: Connection
+): Promise<number> {
+  const currentSlot = await connection.getSlot();
+  return connection.getBlockTime(currentSlot);
+}

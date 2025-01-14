@@ -104,3 +104,10 @@ export function getFeeDistributionPDA(folio: PublicKey, index: BN) {
     FOLIO_PROGRAM_ID
   )[0];
 }
+
+export function getTradePDA(folio: PublicKey, tradeId: BN) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("trade"), folio.toBuffer(), tradeId.toBuffer("le", 8)],
+    FOLIO_PROGRAM_ID
+  )[0];
+}

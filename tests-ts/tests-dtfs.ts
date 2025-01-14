@@ -2,6 +2,7 @@ import {
   airdrop,
   assertThrows,
   getConnectors,
+  getSolanaCurrentTime,
   wait,
 } from "../utils/program-helper";
 import { Dtfs } from "../target/types/dtfs";
@@ -23,6 +24,7 @@ import {
   getFeeDistributionPDA,
   getFolioFeeRecipientsPDA,
   getFolioPendingBasketPDA,
+  getTradePDA,
   getUserPendingBasketPDA,
 } from "../utils/pda-helper";
 import {
@@ -45,6 +47,9 @@ import {
   MAX_TRADE_DELAY,
   distributeFees,
   crankFeeDistribution,
+  approveTrade,
+  openTrade,
+  killTrade,
 } from "../utils/dtf-helper";
 import {
   DEFAULT_DECIMALS_MUL,
@@ -65,6 +70,7 @@ describe("DTFs Tests", () => {
   let adminKeypair: Keypair;
   let userKeypair: Keypair;
 
+  let tradeLauncherKeypair: Keypair;
   let tradeProposerKeypair: Keypair;
 
   let folioOwnerKeypair: Keypair;
@@ -114,11 +120,14 @@ describe("DTFs Tests", () => {
     folioOwnerKeypair = Keypair.generate();
     userKeypair = Keypair.generate();
     tradeProposerKeypair = Keypair.generate();
+    tradeLauncherKeypair = Keypair.generate();
 
     await airdrop(connection, payerKeypair.publicKey, 1000);
     await airdrop(connection, adminKeypair.publicKey, 1000);
     await airdrop(connection, folioOwnerKeypair.publicKey, 1000);
     await airdrop(connection, userKeypair.publicKey, 1000);
+    await airdrop(connection, tradeProposerKeypair.publicKey, 1000);
+    await airdrop(connection, tradeLauncherKeypair.publicKey, 1000);
 
     // Init folio related accounts
     await initFolioSigner(connection, payerKeypair);
@@ -415,7 +424,7 @@ describe("DTFs Tests", () => {
     );
   });
 
-  it("should add trade approver", async () => {
+  it("should add trade proposer", async () => {
     await addOrUpdateActor(
       connection,
       folioOwnerKeypair,
@@ -436,14 +445,35 @@ describe("DTFs Tests", () => {
     assert.notEqual(actor.bump, 0);
   });
 
-  it("should update trade approver to also have price curator role", async () => {
+  it("should add trade launcher", async () => {
+    await addOrUpdateActor(
+      connection,
+      folioOwnerKeypair,
+      folioPDA,
+      tradeLauncherKeypair.publicKey,
+      {
+        tradeLauncher: {},
+      }
+    );
+
+    const actor = await program.account.actor.fetch(
+      getActorPDA(tradeLauncherKeypair.publicKey, folioPDA)
+    );
+
+    assert.deepEqual(actor.roles, 4); //  binary 100 = 4 for trade launcher
+    assert.deepEqual(actor.authority, tradeLauncherKeypair.publicKey);
+    assert.deepEqual(actor.folio, folioPDA);
+    assert.notEqual(actor.bump, 0);
+  });
+
+  it("should update trade proposer to also have trade launcher role", async () => {
     await addOrUpdateActor(
       connection,
       folioOwnerKeypair,
       folioPDA,
       tradeProposerKeypair.publicKey,
       {
-        priceCurator: {},
+        tradeLauncher: {},
       }
     );
 
@@ -451,20 +481,20 @@ describe("DTFs Tests", () => {
       getActorPDA(tradeProposerKeypair.publicKey, folioPDA)
     );
 
-    assert.deepEqual(actor.roles, 6); //  binary 110 = 6 for trade approver and price curator
+    assert.deepEqual(actor.roles, 6); //  binary 110 = 6 for trade approver and trade launcher
     assert.deepEqual(actor.authority, tradeProposerKeypair.publicKey);
     assert.deepEqual(actor.folio, folioPDA);
     assert.notEqual(actor.bump, 0);
   });
 
-  it("should remove trade approver", async () => {
+  it("should remove trade launcher", async () => {
     await removeActor(
       connection,
       folioOwnerKeypair,
       folioPDA,
-      tradeProposerKeypair.publicKey,
+      tradeLauncherKeypair.publicKey,
       {
-        tradeProposer: {},
+        tradeLauncher: {},
       },
       true
     );
@@ -472,21 +502,21 @@ describe("DTFs Tests", () => {
     await wait(2);
 
     const actor = await program.account.actor.fetchNullable(
-      getActorPDA(tradeProposerKeypair.publicKey, folioPDA)
+      getActorPDA(tradeLauncherKeypair.publicKey, folioPDA)
     );
 
     // Null since we closed it
     assert.equal(actor, null);
 
-    // // Just to test re-init attack, we'll re-init the actor and see the fields
+    // Just to test re-init attack, we'll re-init the actor and see the fields
     await airdrop(
       connection,
-      getActorPDA(tradeProposerKeypair.publicKey, folioPDA),
+      getActorPDA(tradeLauncherKeypair.publicKey, folioPDA),
       1000
     );
 
     const actorPostReinit = await program.account.actor.fetchNullable(
-      getActorPDA(tradeProposerKeypair.publicKey, folioPDA)
+      getActorPDA(tradeLauncherKeypair.publicKey, folioPDA)
     );
 
     assert.equal(actorPostReinit, null);
@@ -1092,5 +1122,145 @@ describe("DTFs Tests", () => {
     // Fee distribution should be closed
     assert.notEqual(feeDistributionBefore, null);
     assert.equal(feeDistributionAfter, null);
+  });
+
+  it("should allow user to approve trade", async () => {
+    let buyMint = tokenMints[0].mint.publicKey;
+    let sellMint = tokenMints[1].mint.publicKey;
+
+    const currentTimeOnSolana = await getSolanaCurrentTime(connection);
+    const folio = await program.account.folio.fetch(folioPDA);
+
+    const ttl = new BN(1000000000);
+
+    await approveTrade(
+      connection,
+      tradeProposerKeypair,
+      folioPDA,
+      buyMint,
+      sellMint,
+      new BN(1),
+      { spot: new BN(1), low: new BN(0), high: new BN(2) },
+      { spot: new BN(1), low: new BN(0), high: new BN(2) },
+      new BN(2),
+      new BN(1),
+      ttl
+    );
+
+    const trade = await program.account.trade.fetch(
+      getTradePDA(folioPDA, new BN(1))
+    );
+
+    assert.equal(trade.id.toNumber(), 1);
+    assert.equal(trade.folio.toBase58(), folioPDA.toBase58());
+    assert.equal(trade.sell.toBase58(), sellMint.toBase58());
+    assert.equal(trade.buy.toBase58(), buyMint.toBase58());
+    assert.equal(trade.sellLimit.spot.toNumber(), 1);
+    assert.equal(trade.sellLimit.low.toNumber(), 0);
+    assert.equal(trade.sellLimit.high.toNumber(), 2);
+    assert.equal(trade.buyLimit.spot.toNumber(), 1);
+    assert.equal(trade.buyLimit.low.toNumber(), 0);
+    assert.equal(trade.buyLimit.high.toNumber(), 2);
+    assert.equal(trade.startPrice.toNumber(), 2);
+    assert.equal(trade.endPrice.toNumber(), 1);
+    assert.equal(
+      trade.availableAt.toNumber() >=
+        currentTimeOnSolana + folio.tradeDelay.toNumber(),
+      true
+    );
+    assert.equal(
+      trade.launchTimeout.toNumber() >= currentTimeOnSolana + ttl.toNumber(),
+      true
+    );
+    assert.equal(trade.start.toNumber(), 0);
+    assert.equal(trade.end.toNumber(), 0);
+    assert.equal(trade.k.toNumber(), 0);
+  });
+
+  it("should allow user to open trade", async () => {
+    const tradePDA = getTradePDA(folioPDA, new BN(1));
+    const folio = await program.account.folio.fetch(folioPDA);
+
+    const currentTimeOnSolana = await getSolanaCurrentTime(connection);
+
+    await openTrade(
+      connection,
+      // Trade launcher is removed in the test above, but proposer gets the 2 roles
+      tradeProposerKeypair,
+      folioPDA,
+      tradePDA,
+      new BN(2),
+      new BN(2),
+      new BN(2),
+      new BN(1)
+    );
+
+    const trade = await program.account.trade.fetch(tradePDA);
+
+    // Update limits and prices
+    assert.equal(trade.sellLimit.spot.toNumber(), 2);
+    assert.equal(trade.buyLimit.spot.toNumber(), 2);
+    assert.equal(trade.startPrice.toNumber(), 2);
+    assert.equal(trade.endPrice.toNumber(), 1);
+
+    // Assert trade is opened
+    assert.equal(trade.start.toNumber() >= currentTimeOnSolana, true);
+    assert.equal(
+      trade.end.toNumber() >=
+        currentTimeOnSolana + folio.auctionLength.toNumber(),
+      true
+    );
+
+    assert.equal(trade.k.toNumber(), 1146);
+  });
+
+  it("should allow trade actor to kill trade", async () => {
+    const tradePDA = getTradePDA(folioPDA, new BN(1));
+    const trade = await program.account.trade.fetch(tradePDA);
+
+    const folioBefore = await program.account.folio.fetch(folioPDA);
+
+    const tradeEndBuyBefore = folioBefore.tradeEnds.find(
+      (tradeEnd) => tradeEnd.mint.toBase58() === trade.buy.toBase58()
+    );
+    const tradeEndSellBefore = folioBefore.tradeEnds.find(
+      (tradeEnd) => tradeEnd.mint.toBase58() === trade.sell.toBase58()
+    );
+
+    const currentTimeOnSolana = await getSolanaCurrentTime(connection);
+
+    await killTrade(connection, tradeProposerKeypair, folioPDA, tradePDA);
+
+    const folioAfter = await program.account.folio.fetch(folioPDA);
+
+    assert.equal(
+      (await program.account.trade.fetch(tradePDA)).end.toNumber(),
+      1
+    );
+
+    const tradeEndBuyAfter = folioAfter.tradeEnds.find(
+      (tradeEnd) => tradeEnd.mint.toBase58() === trade.buy.toBase58()
+    );
+    const tradeEndSellAfter = folioAfter.tradeEnds.find(
+      (tradeEnd) => tradeEnd.mint.toBase58() === trade.sell.toBase58()
+    );
+
+    assert.notEqual(
+      tradeEndBuyAfter!.endTime.toNumber(),
+      tradeEndBuyBefore!.endTime.toNumber()
+    );
+    assert.notEqual(
+      tradeEndSellAfter!.endTime.toNumber(),
+      tradeEndSellBefore!.endTime.toNumber()
+    );
+
+    assert.equal(
+      tradeEndBuyAfter!.endTime.toNumber() >= currentTimeOnSolana,
+      true
+    );
+    assert.equal(
+      tradeEndSellAfter!.endTime.toNumber() >= currentTimeOnSolana,
+      true
+    );
   });
 });

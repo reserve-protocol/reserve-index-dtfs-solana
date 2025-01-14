@@ -71,7 +71,7 @@ impl Trade {
         );
 
         // do not open trades that have timed out from ttl
-        check_condition!(self.launch_timeout <= current_time, TradeTimeout);
+        check_condition!(current_time <= self.launch_timeout, TradeTimeout);
 
         let (sell_trade_end, buy_trade_end) =
             folio.get_trade_end_for_mint(&self.sell, &self.buy)?;

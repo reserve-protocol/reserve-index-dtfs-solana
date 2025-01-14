@@ -144,6 +144,7 @@ pub fn handler(
 
     trade.bump = ctx.bumps.trade;
     trade.folio = folio_key;
+    trade.id = trade_id;
     trade.sell = ctx.accounts.sell_mint.key();
     trade.buy = ctx.accounts.buy_mint.key();
     trade.sell_limit = sell_limit;

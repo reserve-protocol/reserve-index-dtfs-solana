@@ -192,4 +192,20 @@ pub mod dtfs {
     pub fn open_trade_permissionless(ctx: Context<OpenTradePermissionless>) -> Result<()> {
         open_trade_permissionless::handler(ctx)
     }
+
+    pub fn bid<'info>(
+        ctx: Context<'_, '_, 'info, 'info, Bid<'info>>,
+        sell_amount: u64,
+        max_buy_amount: u64,
+        with_callback: bool,
+        callback_data: Vec<u8>,
+    ) -> Result<()> {
+        bid::handler(
+            ctx,
+            sell_amount,
+            max_buy_amount,
+            with_callback,
+            callback_data,
+        )
+    }
 }

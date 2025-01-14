@@ -124,6 +124,27 @@ pub enum ErrorCode {
 
     #[msg("Trade Cannot Be Opened Permissionlessly Yet")]
     TradeCannotBeOpenedPermissionlesslyYet,
+
+    #[msg("Trade Not Ongoing")]
+    TradeNotOngoing,
+
+    #[msg("Slippage Exceeded")]
+    SlippageExceeded,
+
+    #[msg("Invalid Trade Sell Token Mint")]
+    InvalidTradeSellTokenMint,
+
+    #[msg("Invalid Trade Buy Token Mint")]
+    InvalidTradeBuyTokenMint,
+
+    #[msg("Insufficient Balance")]
+    InsufficientBalance,
+
+    #[msg("Excessive Bid")]
+    ExcessiveBid,
+
+    #[msg("Insufficient Bid")]
+    InsufficientBid,
 }
 
 #[macro_export]

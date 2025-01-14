@@ -67,7 +67,7 @@ mod tests {
         let mut folio = Folio::default();
 
         folio.auction_length = 1000;
-        trade.launch_timeout = 1000;
+        trade.launch_timeout = 2000;
 
         let current_time = 1500;
 

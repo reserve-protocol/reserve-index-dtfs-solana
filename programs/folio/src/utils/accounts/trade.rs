@@ -140,11 +140,11 @@ impl Trade {
                     .k
                     .mul_precision_to_u128(current_time.checked_sub(self.start).unwrap());
 
-                let time_value_exponent = (time_value.checked_neg().unwrap() as f64).exp();
+                let scaled_time_value = (time_value as f64) / (SCALAR as f64);
 
-                let p = (self.start_price as u128)
-                    .checked_mul(time_value_exponent as u128)
-                    .unwrap();
+                let time_value_exponent = (-scaled_time_value).exp();
+
+                let p = (self.start_price as f64).mul(time_value_exponent) as u128;
 
                 if p < self.end_price as u128 {
                     Ok(self.end_price as u128)

@@ -1,4 +1,4 @@
-use crate::constants::{SCALAR, SCALAR_U128};
+use crate::constants::SCALAR_U128;
 
 #[derive(Copy, Clone)]
 pub enum RoundingMode {
@@ -23,7 +23,6 @@ pub trait SafeArithmetic {
         rounding: RoundingMode,
     ) -> u128;
     fn compound_interest(fee_per_second: u64, elapsed: u64, rounding: RoundingMode) -> u64;
-    fn natural_log(x: u64) -> u64;
 }
 
 impl SafeArithmetic for u64 {
@@ -110,50 +109,5 @@ impl SafeArithmetic for u64 {
                 }
             }
         }
-    }
-
-    // Natural log using Taylor series (ln(x))
-    fn natural_log(x: u64) -> u64 {
-        if x == SCALAR {
-            return 0;
-        }
-
-        let double_scalar = SCALAR_U128.checked_mul(2).unwrap();
-
-        let mut y = 0_u64;
-        let k = SCALAR;
-
-        let mut x = x.mul_precision_to_u128(SCALAR);
-
-        while x > double_scalar {
-            x = <u64 as SafeArithmetic>::mul_div_precision_from_u128(
-                x,
-                SCALAR_U128,
-                double_scalar,
-                RoundingMode::Floor,
-            );
-            y += k;
-        }
-
-        let z = x.checked_sub(SCALAR_U128).unwrap();
-        let z2 = <u64 as SafeArithmetic>::mul_div_precision_from_u128(
-            z,
-            z,
-            SCALAR_U128,
-            RoundingMode::Floor,
-        );
-
-        let term1 = z;
-        let term2 = z2.checked_div(2).unwrap();
-        let term3 = <u64 as SafeArithmetic>::mul_div_precision_from_u128(
-            z2,
-            z,
-            3 * SCALAR_U128,
-            RoundingMode::Floor,
-        );
-
-        y += (term1 - term2 + term3) as u64;
-
-        y
     }
 }

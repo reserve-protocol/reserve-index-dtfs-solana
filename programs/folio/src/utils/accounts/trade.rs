@@ -1,10 +1,11 @@
+use std::ops::{Div, Mul};
+
 use crate::program::Folio as FolioProgram;
 use crate::state::{Folio, Trade};
 use anchor_lang::prelude::*;
 use shared::constants::{MAX_PRICE_RANGE, MAX_RATE, SCALAR};
 use shared::errors::ErrorCode;
 
-use shared::util::math_util::{RoundingMode, SafeArithmetic};
 use shared::{check_condition, constants::TRADE_SEEDS, structs::TradeStatus};
 
 impl Trade {
@@ -49,9 +50,7 @@ impl Trade {
         Ok(())
     }
 
-    pub fn try_get_status(&self) -> Option<TradeStatus> {
-        let current_time = Clock::get().unwrap().unix_timestamp as u64;
-
+    pub fn try_get_status(&self, current_time: u64) -> Option<TradeStatus> {
         if self.start == 0 && self.end == 0 {
             Some(TradeStatus::APPROVED)
         } else if self.start <= current_time && self.end >= current_time {
@@ -63,10 +62,8 @@ impl Trade {
         }
     }
 
-    pub fn open_trade(&mut self, folio: &Folio) -> Result<()> {
-        let current_time = Clock::get()?.unix_timestamp as u64;
-
-        let trade_status = self.try_get_status();
+    pub fn open_trade(&mut self, folio: &Folio, current_time: u64) -> Result<()> {
+        let trade_status = self.try_get_status(current_time);
 
         check_condition!(
             trade_status.is_some() && trade_status.unwrap() == TradeStatus::APPROVED,
@@ -108,11 +105,20 @@ impl Trade {
     }
 
     pub fn calculate_k(&mut self, auction_length: u64) -> Result<()> {
-        let price_ratio =
-            self.start_price
-                .mul_div_precision(SCALAR, self.end_price, RoundingMode::Floor);
+        if self.start_price == self.end_price {
+            self.k = 0;
+            return Ok(());
+        }
 
-        let ln_result = <u64 as SafeArithmetic>::natural_log(price_ratio);
+        let price_ratio = (self.start_price as u128)
+            .checked_mul(SCALAR as u128)
+            .unwrap()
+            .checked_div(self.end_price as u128)
+            .unwrap();
+
+        let ln_result = ((price_ratio as f64).div(SCALAR as f64))
+            .ln()
+            .mul(SCALAR as f64) as u64;
 
         self.k = ln_result.checked_div(auction_length).unwrap();
 

@@ -75,7 +75,7 @@ pub fn handler(ctx: Context<KillTrade>) -> Result<()> {
 
     trade.end = 1;
 
-    folio.set_trade_end_for_mints(&trade.sell, &trade.buy, current_time)?;
+    folio.set_trade_end_for_mints(&trade.sell, &trade.buy, current_time);
 
     emit!(TradeKilled { trade_id: trade.id });
 

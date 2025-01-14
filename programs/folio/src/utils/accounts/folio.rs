@@ -263,7 +263,7 @@ impl Folio {
         sell_mint: &Pubkey,
         buy_mint: &Pubkey,
         end_time: u64,
-    ) -> Result<()> {
+    ) {
         let mut found_sell_trade = false;
         let mut found_buy_trade = false;
 
@@ -280,7 +280,5 @@ impl Folio {
                 break;
             }
         }
-
-        Ok(())
     }
 }

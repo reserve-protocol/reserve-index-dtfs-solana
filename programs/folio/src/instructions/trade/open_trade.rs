@@ -100,7 +100,8 @@ pub fn handler(
     trade.start_price = start_price;
     trade.end_price = end_price;
 
-    trade.open_trade(folio)?;
+    let current_time = Clock::get()?.unix_timestamp as u64;
+    trade.open_trade(folio, current_time)?;
 
     emit!(TradeOpened {
         trade_id: trade.id,

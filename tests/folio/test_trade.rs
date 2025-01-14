@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use anchor_lang::prelude::*;
+
     use folio::state::{Folio, Trade};
-    use shared::{constants::MAX_RATE, structs::TradeStatus};
+    use shared::structs::TradeStatus;
 
     fn setup_trade() -> Trade {
         let mut trade = Trade::default();

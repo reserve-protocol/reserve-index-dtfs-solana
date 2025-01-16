@@ -32,6 +32,7 @@ import {
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import { buildRemainingAccounts, getOrCreateAtaAddress } from "./token-helper";
+import { getFolioProgram } from "./folio-helper";
 
 let dtfProgram: Program<Dtfs> = null;
 
@@ -772,6 +773,77 @@ export async function killTrade(
     .instruction();
 
   await pSendAndConfirmTxn(dtfProgram, [killTrade], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+}
+
+export async function bid(
+  connection: Connection,
+  bidderKeypair: Keypair,
+  folio: PublicKey,
+  folioTokenMint: PublicKey,
+  trade: PublicKey,
+  sellAmount: BN,
+  maxBuyAmount: BN,
+  withCallback: boolean = false,
+  callbackData: Buffer = Buffer.from([]),
+  remainingAccountsForCallback: {
+    isWritable: boolean;
+    isSigner: boolean;
+    pubkey: PublicKey;
+  }[] = []
+) {
+  const dtfProgram = getDtfProgram(connection, bidderKeypair);
+  const folioProgram = getFolioProgram(connection, bidderKeypair);
+
+  const tradeFetched = await folioProgram.account.trade.fetch(trade);
+
+  const bid = await dtfProgram.methods
+    .bid(sellAmount, maxBuyAmount, withCallback, callbackData)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      bidder: bidderKeypair.publicKey,
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      folioProgram: FOLIO_PROGRAM_ID,
+      folio,
+      trade,
+      folioTokenMint,
+      tradeSellTokenMint: tradeFetched.sell,
+      tradeBuyTokenMint: tradeFetched.buy,
+      folioSellTokenAccount: await getOrCreateAtaAddress(
+        connection,
+        tradeFetched.sell,
+        bidderKeypair,
+        folio
+      ),
+      folioBuyTokenAccount: await getOrCreateAtaAddress(
+        connection,
+        tradeFetched.buy,
+        bidderKeypair,
+        folio
+      ),
+      bidderSellTokenAccount: await getOrCreateAtaAddress(
+        connection,
+        tradeFetched.sell,
+        bidderKeypair,
+        bidderKeypair.publicKey
+      ),
+      bidderBuyTokenAccount: await getOrCreateAtaAddress(
+        connection,
+        tradeFetched.buy,
+        bidderKeypair,
+        bidderKeypair.publicKey
+      ),
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .remainingAccounts(remainingAccountsForCallback)
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [bid], [], {
     skipPreflight: SKIP_PREFLIGHT,
   });
 }

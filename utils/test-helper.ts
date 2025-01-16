@@ -17,7 +17,7 @@ export class TestHelper {
     private folioPDA: PublicKey,
     private folioTokenMint: PublicKey,
     private userPubkey: PublicKey,
-    private tokenMints: { mint: Keypair; decimals: number }[]
+    private tokenMints: { mint: PublicKey; decimals: number }[]
   ) {
     this.connection = connection;
     this.payer = payer;
@@ -30,6 +30,10 @@ export class TestHelper {
 
   setUserPubkey(userPubkey: PublicKey) {
     this.userPubkey = userPubkey;
+  }
+
+  setTokenMints(tokenMints: { mint: PublicKey; decimals: number }[]) {
+    this.tokenMints = tokenMints;
   }
 
   async getBalanceSnapshot(
@@ -86,7 +90,7 @@ export class TestHelper {
       for (const token of this.tokenMints) {
         const userTokenAta = await getOrCreateAtaAddress(
           this.connection,
-          token.mint.publicKey,
+          token.mint,
           this.payer,
           this.userPubkey
         );
@@ -96,7 +100,7 @@ export class TestHelper {
 
         const folioTokenAta = await getOrCreateAtaAddress(
           this.connection,
-          token.mint.publicKey,
+          token.mint,
           this.payer,
           this.folioPDA
         );

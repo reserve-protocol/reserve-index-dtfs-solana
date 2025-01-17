@@ -828,7 +828,7 @@ impl FolioProgram {
             actor: ctx.accounts.actor.to_account_info(),
             folio: ctx.accounts.folio.to_account_info(),
             folio_reward_tokens: ctx.accounts.folio_reward_tokens.to_account_info(),
-            reward_token: ctx.accounts.reward_token.to_account_info(),
+
             program_registrar: ctx.accounts.program_registrar.to_account_info(),
             dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
             dtf_program: ctx.accounts.dtf_program.to_account_info(),

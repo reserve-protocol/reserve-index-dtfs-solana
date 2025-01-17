@@ -2,7 +2,6 @@ use crate::state::DtfProgramSigner;
 use crate::{FolioProgram, ID as DTF_PROGRAM_ID};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
-use anchor_spl::token_interface::Mint;
 use folio::ID as FOLIO_ID;
 use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 
@@ -52,10 +51,6 @@ pub struct InitOrSetRewardRatio<'info> {
     /// CHECK: Done within the folio program
     #[account(mut)]
     pub folio_reward_tokens: UncheckedAccount<'info>,
-
-    /// CHECK: Done within the folio program
-    #[account()]
-    pub reward_token: Box<InterfaceAccount<'info, Mint>>,
 
     /// CHECK: Done within the folio program
     pub program_registrar: UncheckedAccount<'info>,

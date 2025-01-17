@@ -24,6 +24,7 @@ import {
   getFeeDistributionPDA,
   getFolioFeeRecipientsPDA,
   getFolioPendingBasketPDA,
+  getFolioRewardTokensPDA,
   getTradePDA,
   getUserPendingBasketPDA,
 } from "../utils/pda-helper";
@@ -51,6 +52,9 @@ import {
   openTrade,
   killTrade,
   bid,
+  addRewardToken,
+  initOrSetRewardRatio,
+  removeRewardToken,
 } from "../utils/dtf-helper";
 import {
   DEFAULT_DECIMALS_MUL,
@@ -113,6 +117,11 @@ describe("DTFs Tests", () => {
   let folioInitTime: number;
 
   let buyMint: Keypair;
+
+  let rewardTokenMints = [
+    { mint: Keypair.generate(), decimals: 9 },
+    { mint: Keypair.generate(), decimals: 9 },
+  ];
 
   before(async () => {
     ({
@@ -196,6 +205,17 @@ describe("DTFs Tests", () => {
       1_000,
       adminKeypair.publicKey
     );
+
+    for (const rewardTokenMint of rewardTokenMints) {
+      await initToken(connection, adminKeypair, rewardTokenMint.mint, 9);
+      await mintToken(
+        connection,
+        adminKeypair,
+        rewardTokenMint.mint.publicKey,
+        1_000,
+        adminKeypair.publicKey
+      );
+    }
 
     folioTestHelper = new TestHelper(
       connection,
@@ -1411,6 +1431,64 @@ describe("DTFs Tests", () => {
       ],
       [],
       [0, 1]
+    );
+  });
+
+  it("should allow user to add reward token", async () => {
+    await addRewardToken(
+      connection,
+      folioOwnerKeypair,
+      folioPDA,
+      rewardTokenMints[0].mint.publicKey,
+      new BN(86400)
+    );
+
+    const folioRewardTokens = await program.account.folioRewardTokens.fetch(
+      getFolioRewardTokensPDA(folioPDA)
+    );
+
+    assert.equal(
+      folioRewardTokens.rewardTokens[0].toBase58(),
+      rewardTokenMints[0].mint.publicKey.toBase58()
+    );
+    assert.equal(folioRewardTokens.rewardRatio.toNumber(), 8022536812036);
+    assert.deepEqual(folioRewardTokens.folio, folioPDA);
+    assert.notEqual(folioRewardTokens.bump, 0);
+  });
+
+  it("should allow user to init or set reward ratio", async () => {
+    await initOrSetRewardRatio(
+      connection,
+      folioOwnerKeypair,
+      folioPDA,
+      new BN(604800)
+    );
+
+    const folioRewardTokensAfter =
+      await program.account.folioRewardTokens.fetch(
+        getFolioRewardTokensPDA(folioPDA)
+      );
+
+    assert.equal(folioRewardTokensAfter.rewardRatio.toNumber(), 1146076687433);
+  });
+
+  it("should allow user to remove reward token", async () => {
+    await removeRewardToken(
+      connection,
+      folioOwnerKeypair,
+      folioPDA,
+      rewardTokenMints[0].mint.publicKey
+    );
+
+    const folioRewardTokensAfter =
+      await program.account.folioRewardTokens.fetch(
+        getFolioRewardTokensPDA(folioPDA)
+      );
+
+    assert.deepEqual(folioRewardTokensAfter.rewardTokens[0], PublicKey.default);
+    assert.deepEqual(
+      folioRewardTokensAfter.disallowedToken[0],
+      rewardTokenMints[0].mint.publicKey
     );
   });
 });

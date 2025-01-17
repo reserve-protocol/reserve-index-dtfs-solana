@@ -10,7 +10,7 @@ impl FolioRewardTokens {
         account_loader_folio_reward_tokens: &mut AccountLoader<FolioRewardTokens>,
         context_bump: u8,
         folio: &Pubkey,
-        new_reward_token: &Pubkey,
+        new_reward_token: Option<&Pubkey>,
         reward_period: u64,
     ) -> Result<()> {
         let account_info_folio_reward_tokens = account_loader_folio_reward_tokens.to_account_info();
@@ -29,14 +29,18 @@ impl FolioRewardTokens {
 
             folio_reward_tokens.bump = context_bump;
             folio_reward_tokens.folio = *folio;
-            folio_reward_tokens.add_reward_token(new_reward_token)?;
+            if let Some(new_reward_token) = new_reward_token {
+                folio_reward_tokens.add_reward_token(new_reward_token)?;
+            }
             folio_reward_tokens.set_reward_ratio(reward_period)?;
         } else {
             let folio_reward_tokens = &mut account_loader_folio_reward_tokens.load_mut()?;
 
             check_condition!(folio_reward_tokens.bump == context_bump, InvalidBump);
 
-            folio_reward_tokens.add_reward_token(new_reward_token)?;
+            if let Some(new_reward_token) = new_reward_token {
+                folio_reward_tokens.add_reward_token(new_reward_token)?;
+            }
             folio_reward_tokens.set_reward_ratio(reward_period)?;
         }
 

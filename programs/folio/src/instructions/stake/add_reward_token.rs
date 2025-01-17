@@ -113,7 +113,7 @@ pub fn handler<'info>(
         &mut ctx.accounts.folio_reward_tokens,
         ctx.bumps.folio_reward_tokens,
         &folio_key,
-        &ctx.accounts.reward_token.key(),
+        Some(&ctx.accounts.reward_token.key()),
         reward_period,
     )?;
 

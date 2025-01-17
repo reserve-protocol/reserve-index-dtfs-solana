@@ -26,6 +26,8 @@ import {
   getDAOFeeConfigPDA,
   getFeeDistributionPDA,
   getTradePDA,
+  getFolioRewardTokensPDA,
+  getRewardInfoPDA,
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -844,6 +846,103 @@ export async function bid(
     .instruction();
 
   await pSendAndConfirmTxn(dtfProgram, [bid], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+}
+
+export async function addRewardToken(
+  connection: Connection,
+  ownerKeypair: Keypair,
+  folio: PublicKey,
+  rewardToken: PublicKey,
+  rewardPeriod: BN
+) {
+  const dtfProgram = getDtfProgram(connection, ownerKeypair);
+
+  const addRewardToken = await dtfProgram.methods
+    .addRewardToken(rewardPeriod)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      folioOwner: ownerKeypair.publicKey,
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      folioProgram: FOLIO_PROGRAM_ID,
+      actor: getActorPDA(ownerKeypair.publicKey, folio),
+      folio,
+      folioRewardTokens: getFolioRewardTokensPDA(folio),
+      rewardTokenRewardInfo: getRewardInfoPDA(folio, rewardToken),
+      rewardToken,
+      rewardTokenAccount: await getOrCreateAtaAddress(
+        connection,
+        rewardToken,
+        ownerKeypair,
+        ownerKeypair.publicKey
+      ),
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [addRewardToken], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+}
+
+export async function removeRewardToken(
+  connection: Connection,
+  ownerKeypair: Keypair,
+  folio: PublicKey,
+  rewardTokenToRemove: PublicKey
+) {
+  const dtfProgram = getDtfProgram(connection, ownerKeypair);
+
+  const removeRewardToken = await dtfProgram.methods
+    .removeRewardToken()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      folioOwner: ownerKeypair.publicKey,
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      folioProgram: FOLIO_PROGRAM_ID,
+      actor: getActorPDA(ownerKeypair.publicKey, folio),
+      folio,
+      folioRewardTokens: getFolioRewardTokensPDA(folio),
+      rewardTokenToRemove,
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [removeRewardToken], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+}
+
+export async function initOrSetRewardRatio(
+  connection: Connection,
+  ownerKeypair: Keypair,
+  folio: PublicKey,
+  rewardPeriod: BN,
+) {
+  const dtfProgram = getDtfProgram(connection, ownerKeypair);
+
+  const initOrSetRewardRatio = await dtfProgram.methods
+    .initOrSetRewardRatio(rewardPeriod)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      folioOwner: ownerKeypair.publicKey,
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      folioProgram: FOLIO_PROGRAM_ID,
+      actor: getActorPDA(ownerKeypair.publicKey, folio),
+      folio,
+      folioRewardTokens: getFolioRewardTokensPDA(folio),
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [initOrSetRewardRatio], [], {
     skipPreflight: SKIP_PREFLIGHT,
   });
 }

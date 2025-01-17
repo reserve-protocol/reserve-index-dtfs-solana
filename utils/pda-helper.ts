@@ -111,3 +111,35 @@ export function getTradePDA(folio: PublicKey, tradeId: BN) {
     FOLIO_PROGRAM_ID
   )[0];
 }
+
+export function getFolioRewardTokensPDA(folio: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("folio_reward_tokens"), folio.toBuffer()],
+    FOLIO_PROGRAM_ID
+  )[0];
+}
+
+export function getRewardInfoPDA(folio: PublicKey, rewardToken: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("reward_info"), folio.toBuffer(), rewardToken.toBuffer()],
+    FOLIO_PROGRAM_ID
+  )[0];
+}
+
+export function getUserRewardInfoPDA(
+  folio: PublicKey,
+  rewardToken: PublicKey,
+  user: PublicKey,
+  rewardIndex: BN
+) {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("user_reward_info"),
+      folio.toBuffer(),
+      rewardToken.toBuffer(),
+      user.toBuffer(),
+      rewardIndex.toBuffer("le", 8),
+    ],
+    FOLIO_PROGRAM_ID
+  )[0];
+}

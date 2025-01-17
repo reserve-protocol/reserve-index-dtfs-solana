@@ -1,9 +1,6 @@
 use crate::state::{Actor, Folio, FolioRewardTokens, ProgramRegistrar};
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::Mint;
-use shared::check_condition;
 use shared::constants::FOLIO_REWARD_TOKENS_SEEDS;
-use shared::errors::ErrorCode;
 use shared::structs::FolioStatus;
 use shared::{
     constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, PROGRAM_REGISTRAR_SEEDS},
@@ -33,9 +30,6 @@ pub struct InitOrSetRewardRatio<'info> {
         bump
     )]
     pub folio_reward_tokens: AccountLoader<'info, FolioRewardTokens>,
-
-    #[account()]
-    pub reward_token: Box<InterfaceAccount<'info, Mint>>,
 
     /*
     Account to validate
@@ -74,11 +68,6 @@ impl InitOrSetRewardRatio<'_> {
             Some(vec![FolioStatus::Initializing, FolioStatus::Initialized]),
         )?;
 
-        check_condition!(
-            self.reward_token.key() != folio.folio_token_mint,
-            InvalidRewardToken
-        );
-
         Ok(())
     }
 }
@@ -95,7 +84,7 @@ pub fn handler<'info>(
         &mut ctx.accounts.folio_reward_tokens,
         ctx.bumps.folio_reward_tokens,
         &folio_key,
-        &ctx.accounts.reward_token.key(),
+        None,
         reward_period,
     )?;
 

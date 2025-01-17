@@ -111,8 +111,6 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
 
     let signer_seeds = &[&folio_seeds[..]];
 
-    let folio_reward_tokens = ctx.accounts.folio_reward_tokens.load()?;
-
     check_condition!(
         ctx.remaining_accounts.len() % 5 == 0,
         InvalidNumberOfRemainingAccounts

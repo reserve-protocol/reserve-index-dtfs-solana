@@ -2,20 +2,9 @@ use crate::state::DtfProgramSigner;
 use crate::{FolioProgram, ID as DTF_PROGRAM_ID};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
-use anchor_spl::associated_token::{get_associated_token_address_with_program_id, AssociatedToken};
-use anchor_spl::token;
-use anchor_spl::token_interface::{self, Mint, TokenAccount, TokenInterface, TransferChecked};
+use anchor_spl::token_interface::{Mint, TokenAccount};
 use folio::ID as FOLIO_ID;
-use shared::check_condition;
-use shared::constants::{
-    FOLIO_REWARD_TOKENS_SEEDS, FOLIO_SEEDS, PENDING_BASKET_SEEDS, REWARD_INFO_SEEDS,
-};
-use shared::errors::ErrorCode;
-use shared::structs::{FolioStatus, TokenAmount};
-use shared::{
-    constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, PROGRAM_REGISTRAR_SEEDS},
-    structs::Role,
-};
+use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 
 #[derive(Accounts)]
 pub struct AddRewardToken<'info> {

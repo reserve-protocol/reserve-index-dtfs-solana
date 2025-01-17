@@ -1,15 +1,10 @@
-use crate::events::{RewardRatioSet, RewardTokenAdded};
-use crate::state::{Actor, Folio, FolioRewardTokens, PendingBasket, ProgramRegistrar, RewardInfo};
+use crate::state::{Actor, Folio, FolioRewardTokens, ProgramRegistrar};
 use anchor_lang::prelude::*;
-use anchor_spl::associated_token::{get_associated_token_address_with_program_id, AssociatedToken};
-use anchor_spl::token;
-use anchor_spl::token_interface::{self, Mint, TokenAccount, TokenInterface, TransferChecked};
+use anchor_spl::token_interface::Mint;
 use shared::check_condition;
-use shared::constants::{
-    FOLIO_REWARD_TOKENS_SEEDS, FOLIO_SEEDS, PENDING_BASKET_SEEDS, REWARD_INFO_SEEDS,
-};
+use shared::constants::FOLIO_REWARD_TOKENS_SEEDS;
 use shared::errors::ErrorCode;
-use shared::structs::{FolioStatus, TokenAmount};
+use shared::structs::FolioStatus;
 use shared::{
     constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, PROGRAM_REGISTRAR_SEEDS},
     structs::Role,

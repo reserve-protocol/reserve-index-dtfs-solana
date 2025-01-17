@@ -6,6 +6,7 @@ use anchor_lang::prelude::*;
 use shared::constants::{MAX_PRICE_RANGE, MAX_RATE, SCALAR};
 use shared::errors::ErrorCode;
 
+use shared::util::math_util::SafeArithmetic;
 use shared::{check_condition, constants::TRADE_SEEDS, structs::TradeStatus};
 
 impl Trade {
@@ -123,5 +124,34 @@ impl Trade {
         self.k = ln_result.checked_div(auction_length).unwrap();
 
         Ok(())
+    }
+
+    pub fn get_price(&self, current_time: u64) -> Result<u128> {
+        check_condition!(
+            self.start <= current_time && self.end >= current_time,
+            TradeNotOngoing
+        );
+
+        match current_time {
+            i if i == self.start => Ok(self.start_price as u128),
+            i if i == self.end => Ok(self.end_price as u128),
+            _ => {
+                let time_value = self
+                    .k
+                    .mul_precision_to_u128(current_time.checked_sub(self.start).unwrap());
+
+                let scaled_time_value = (time_value as f64) / (SCALAR as f64);
+
+                let time_value_exponent = (-scaled_time_value).exp();
+
+                let p = (self.start_price as f64).mul(time_value_exponent) as u128;
+
+                if p < self.end_price as u128 {
+                    Ok(self.end_price as u128)
+                } else {
+                    Ok(p)
+                }
+            }
+        }
     }
 }

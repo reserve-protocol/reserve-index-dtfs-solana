@@ -88,4 +88,46 @@ mod tests {
         assert!(trade.calculate_k(auction_length).is_ok());
         assert_eq!(trade.k, 0);
     }
+
+    #[test]
+    fn test_get_price_is_not_ongoing() {
+        let mut trade = setup_trade();
+        trade.start = 1000;
+
+        assert!(trade.get_price(500).is_err());
+    }
+
+    #[test]
+    fn test_get_price() {
+        let mut trade = setup_trade();
+        trade.start = 1000;
+        trade.end = 2000;
+        trade.start_price = 1_000_000;
+        trade.end_price = 900_000;
+        trade.calculate_k(1000).unwrap();
+
+        assert_eq!(trade.get_price(1000).unwrap(), 1_000_000);
+        assert_eq!(trade.get_price(2000).unwrap(), 900_000);
+
+        let mid_price = trade.get_price(1500).unwrap();
+        assert!(mid_price < 1_000_000);
+        assert!(mid_price > 900_000);
+
+        assert!(trade.get_price(500).is_err());
+        assert!(trade.get_price(2500).is_err());
+    }
+
+    #[test]
+    fn test_get_price_flat_rate() {
+        let mut trade = setup_trade();
+        trade.start = 1000;
+        trade.end = 2000;
+        trade.start_price = 1_000_000;
+        trade.end_price = 1_000_000;
+        trade.calculate_k(1000).unwrap();
+
+        assert_eq!(trade.get_price(1000).unwrap(), 1_000_000);
+        assert_eq!(trade.get_price(1500).unwrap(), 1_000_000);
+        assert_eq!(trade.get_price(2000).unwrap(), 1_000_000);
+    }
 }

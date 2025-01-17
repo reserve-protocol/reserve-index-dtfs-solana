@@ -60,5 +60,5 @@ pub struct TradeKilled {
 pub struct Bid {
     pub trade_id: u64,
     pub sell_amount: u64,
-    pub buy_amount: u64,
+    pub bought_amount: u64,
 }

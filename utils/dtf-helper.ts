@@ -922,7 +922,7 @@ export async function initOrSetRewardRatio(
   connection: Connection,
   ownerKeypair: Keypair,
   folio: PublicKey,
-  rewardPeriod: BN,
+  rewardPeriod: BN
 ) {
   const dtfProgram = getDtfProgram(connection, ownerKeypair);
 

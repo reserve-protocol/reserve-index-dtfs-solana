@@ -169,6 +169,21 @@ pub enum ErrorCode {
 
     #[msg("Invalid Reward Half Life")]
     InvalidRewardHalfLife,
+
+    #[msg("Invalid Reward Info")]
+    InvalidRewardInfo,
+
+    #[msg("Invalid User Reward Info")]
+    InvalidUserRewardInfo,
+
+    #[msg("Invalid Governance Account")]
+    InvalidGovernanceAccount,
+
+    #[msg("Invalid Fee Recipient Token Account")]
+    InvalidFeeRecipientTokenAccount,
+
+    #[msg("Invalid Folio Owner")]
+    InvalidFolioOwner,
 }
 
 #[macro_export]

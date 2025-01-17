@@ -228,4 +228,16 @@ pub mod dtfs {
     ) -> Result<()> {
         remove_reward_token::handler(ctx)
     }
+
+    pub fn claim_rewards<'info>(
+        ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>,
+    ) -> Result<()> {
+        claim_rewards::handler(ctx)
+    }
+
+    pub fn accrue_rewards<'info>(
+        ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>,
+    ) -> Result<()> {
+        accrue_rewards::handler(ctx)
+    }
 }

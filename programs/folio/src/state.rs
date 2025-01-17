@@ -281,14 +281,14 @@ pub struct RewardInfo {
     pub balance_accounted: u64,
     pub balance_last_known: u64,
 
-    pub total_claimed: u128,
+    pub total_claimed: u64,
 }
 
 impl RewardInfo {
     pub const SIZE: usize = 8 + RewardInfo::INIT_SPACE;
 }
 
-/// PDA Seeds ["user_reward_info", folio, folio_reward_token, user, reward index]
+/// PDA Seeds ["user_reward_info", folio, folio_reward_token, user]
 #[account]
 #[derive(Default, InitSpace)]
 pub struct UserRewardInfo {

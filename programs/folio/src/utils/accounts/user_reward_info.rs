@@ -87,8 +87,8 @@ impl UserRewardInfo {
     pub fn accrue_rewards(
         &mut self,
         reward_info: &Account<RewardInfo>,
-        user_balance: u64,
-        mint_decimals: u64,
+        _user_balance: u64,
+        _mint_decimals: u64,
     ) -> Result<()> {
         // TODO changing math class, will use proper calculation when that happens
         self.last_reward_index = reward_info.reward_index;

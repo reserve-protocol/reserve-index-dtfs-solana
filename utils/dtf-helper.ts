@@ -33,7 +33,12 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { buildRemainingAccounts, getOrCreateAtaAddress } from "./token-helper";
+import { getOrCreateAtaAddress } from "./token-helper";
+import {
+  buildRemainingAccounts,
+  buildRemainingAccountsForAccruesRewards,
+  buildRemainingAccountsForClaimRewards,
+} from "./remaining-accounts-helper";
 import { getFolioProgram } from "./folio-helper";
 
 let dtfProgram: Program<Dtfs> = null;
@@ -943,6 +948,88 @@ export async function initOrSetRewardRatio(
     .instruction();
 
   await pSendAndConfirmTxn(dtfProgram, [initOrSetRewardRatio], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+}
+
+export async function accrueRewards(
+  connection: Connection,
+  callerKeypair: Keypair,
+  folioOwner: PublicKey,
+  folio: PublicKey,
+  rewardTokens: PublicKey[],
+  extraUser: PublicKey = callerKeypair.publicKey
+) {
+  const dtfProgram = getDtfProgram(connection, callerKeypair);
+  const accrueRewards = await dtfProgram.methods
+    .accrueRewards()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      caller: callerKeypair.publicKey,
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      folioProgram: FOLIO_PROGRAM_ID,
+      folioOwner,
+      actor: getActorPDA(folioOwner, folio),
+      folio,
+      folioRewardTokens: getFolioRewardTokensPDA(folio),
+      user: extraUser,
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .remainingAccounts(
+      await buildRemainingAccountsForAccruesRewards(
+        connection,
+        callerKeypair,
+        folio,
+        folioOwner,
+        rewardTokens,
+        extraUser
+      )
+    )
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [accrueRewards], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+}
+
+export async function claimRewards(
+  connection: Connection,
+  userKeypair: Keypair,
+  folioOwner: PublicKey,
+  folio: PublicKey,
+  rewardTokens: PublicKey[]
+) {
+  const dtfProgram = getDtfProgram(connection, userKeypair);
+
+  const claimRewards = await dtfProgram.methods
+    .claimRewards()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      user: userKeypair.publicKey,
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      folioProgram: FOLIO_PROGRAM_ID,
+      folioOwner,
+      actor: getActorPDA(folioOwner, folio),
+      folio,
+      folioRewardTokens: getFolioRewardTokensPDA(folio),
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .remainingAccounts(
+      await buildRemainingAccountsForClaimRewards(
+        connection,
+        userKeypair,
+        folio,
+        rewardTokens
+      )
+    )
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [claimRewards], [], {
     skipPreflight: SKIP_PREFLIGHT,
   });
 }

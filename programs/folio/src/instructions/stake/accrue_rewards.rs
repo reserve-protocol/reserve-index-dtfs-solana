@@ -10,8 +10,8 @@ use shared::constants::{FOLIO_REWARD_TOKENS_SEEDS, REWARD_INFO_SEEDS, USER_REWAR
 use shared::errors::ErrorCode;
 use shared::structs::{FolioStatus, Role};
 
-const REMAINING_ACCOUNT_DIVIDER_FOR_CALLER: usize = 4;
-const REMAINING_ACCOUNT_DIVIDER_FOR_USER: usize = 6;
+const REMAINING_ACCOUNT_DIVIDER_FOR_CALLER: usize = 5;
+const REMAINING_ACCOUNT_DIVIDER_FOR_USER: usize = 7;
 
 #[derive(Accounts)]
 pub struct AccrueRewards<'info> {
@@ -193,18 +193,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
             mint.decimals as u64,
         )?;
 
-        // Create the user reward info if it doesn't exist
-        let mut caller_reward_info: Account<UserRewardInfo> =
-            Account::try_from(caller_reward_info)?;
-
-        UserRewardInfo::process_init_if_needed(
-            &mut caller_reward_info,
-            expected_pda_for_caller.1,
-            &folio_key,
-            &reward_token.key(),
-        )?;
-
-        // Accrue rewards on user reward info
+        // Init if needed and accrue rewards on user reward info
         let caller_governance_account_balance = GovernanceUtil::get_governance_account_balance(
             caller_governance_account,
             &realm_key,
@@ -212,7 +201,13 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
             &caller_key,
         )?;
 
-        caller_reward_info.accrue_rewards(
+        UserRewardInfo::process_init_if_needed(
+            caller_reward_info,
+            &ctx.accounts.system_program,
+            &ctx.accounts.caller,
+            expected_pda_for_caller.1,
+            &folio_key,
+            &reward_token.key(),
             &reward_info,
             caller_governance_account_balance,
             mint.decimals as u64,
@@ -238,18 +233,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
                 InvalidUserRewardInfo
             );
 
-            // Create the user reward info if it doesn't exist
-            let mut user_reward_info: Account<UserRewardInfo> =
-                Account::try_from(user_reward_info)?;
-
-            UserRewardInfo::process_init_if_needed(
-                &mut user_reward_info,
-                expected_pda_for_user.1,
-                &folio_key,
-                &reward_token.key(),
-            )?;
-
-            // Accrue rewards on user reward info
+            // Create the user reward info if it doesn't exist and accrue rewards on user reward info
             let user_governance_account_balance = GovernanceUtil::get_governance_account_balance(
                 user_governance_account,
                 &realm_key,
@@ -257,7 +241,13 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
                 &user_key,
             )?;
 
-            user_reward_info.accrue_rewards(
+            UserRewardInfo::process_init_if_needed(
+                user_reward_info,
+                &ctx.accounts.system_program,
+                &ctx.accounts.caller,
+                expected_pda_for_user.1,
+                &folio_key,
+                &reward_token.key(),
                 &reward_info,
                 user_governance_account_balance,
                 mint.decimals as u64,

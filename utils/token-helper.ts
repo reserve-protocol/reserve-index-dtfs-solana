@@ -8,7 +8,6 @@ import {
   TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
 import {
-  AccountMeta,
   Connection,
   Keypair,
   PublicKey,
@@ -159,51 +158,4 @@ export async function getTokenBalance(
     return await connection.getBalance(account);
   }
   return (await connection.getTokenAccountBalance(account)).value.uiAmount;
-}
-
-export async function buildRemainingAccounts(
-  connection: Connection,
-  payerKeypair: Keypair,
-  tokens: { mint: PublicKey; amount: BN }[],
-  senderAddress: PublicKey = null,
-  receiverAddress: PublicKey = null,
-  includeMint: boolean = true
-): Promise<AccountMeta[]> {
-  let remainingAccounts: AccountMeta[] = [];
-
-  for (const token of tokens) {
-    if (includeMint) {
-      remainingAccounts.push({
-        pubkey: token.mint,
-        isSigner: false,
-        isWritable: false,
-      });
-    }
-    if (senderAddress) {
-      remainingAccounts.push({
-        pubkey: await getOrCreateAtaAddress(
-          connection,
-          token.mint,
-          payerKeypair,
-          senderAddress
-        ),
-        isSigner: false,
-        isWritable: true,
-      });
-    }
-    if (receiverAddress) {
-      remainingAccounts.push({
-        pubkey: await getOrCreateAtaAddress(
-          connection,
-          token.mint,
-          payerKeypair,
-          receiverAddress
-        ),
-        isSigner: false,
-        isWritable: true,
-      });
-    }
-  }
-
-  return remainingAccounts;
 }

@@ -25,8 +25,10 @@ import {
   getFolioFeeRecipientsPDA,
   getFolioPendingBasketPDA,
   getFolioRewardTokensPDA,
+  getRewardInfoPDA,
   getTradePDA,
   getUserPendingBasketPDA,
+  getUserTokenRecordRealmsPDA,
 } from "../utils/pda-helper";
 import {
   addOrUpdateActor,
@@ -55,6 +57,7 @@ import {
   addRewardToken,
   initOrSetRewardRatio,
   removeRewardToken,
+  accrueRewards,
 } from "../utils/dtf-helper";
 import {
   DEFAULT_DECIMALS_MUL,
@@ -69,6 +72,7 @@ import {
   getMint,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
+import { createGovernanceAccounts } from "../utils/data-helper";
 
 describe("DTFs Tests", () => {
   let connection: Connection;
@@ -121,6 +125,7 @@ describe("DTFs Tests", () => {
   let rewardTokenMints = [
     { mint: Keypair.generate(), decimals: 9 },
     { mint: Keypair.generate(), decimals: 9 },
+    { mint: Keypair.generate(), decimals: 9 },
   ];
 
   before(async () => {
@@ -138,6 +143,15 @@ describe("DTFs Tests", () => {
     userKeypair = Keypair.generate();
     tradeProposerKeypair = Keypair.generate();
     tradeLauncherKeypair = Keypair.generate();
+
+    // Inject fake accounts in Amman for governance
+    const userTokenRecordPda = await getUserTokenRecordRealmsPDA(
+      connection,
+      folioOwnerKeypair.publicKey,
+      rewardTokenMints[1].mint.publicKey,
+      userKeypair.publicKey
+    );
+    await createGovernanceAccounts(connection, userTokenRecordPda, 1000);
 
     await airdrop(connection, payerKeypair.publicKey, 1000);
     await airdrop(connection, adminKeypair.publicKey, 1000);
@@ -1489,6 +1503,65 @@ describe("DTFs Tests", () => {
     assert.deepEqual(
       folioRewardTokensAfter.disallowedToken[0],
       rewardTokenMints[0].mint.publicKey
+    );
+  });
+
+  it("should allow user to accrue rewards, after adding 2 more reward tokens", async () => {
+    // Adding the tokens
+    await addRewardToken(
+      connection,
+      folioOwnerKeypair,
+      folioPDA,
+      rewardTokenMints[1].mint.publicKey,
+      new BN(86400)
+    );
+
+    const rewardInfoPDA = getRewardInfoPDA(
+      folioPDA,
+      rewardTokenMints[1].mint.publicKey
+    );
+    const rewardInfoBefore = await program.account.rewardInfo.fetch(
+      rewardInfoPDA
+    );
+
+    // Calling accrue rewards
+    await accrueRewards(
+      connection,
+      userKeypair,
+      folioOwnerKeypair.publicKey,
+      folioPDA,
+      [rewardTokenMints[1].mint.publicKey],
+      userKeypair.publicKey
+    );
+
+    const rewardInfoAfter = await program.account.rewardInfo.fetch(
+      rewardInfoPDA
+    );
+
+    // const userInfoRewardPDA = getUserRewardInfoPDA(
+    //   folioPDA,
+    //   rewardTokenMints[1].mint.publicKey,
+    //   userKeypair.publicKey
+    // );
+
+    // const userInfoRewardAfter = await program.account..fetch(
+    //   userInfoRewardPDA
+    // );
+
+    assert.equal(
+      rewardInfoAfter.rewardIndex.toNumber() >
+        rewardInfoBefore.rewardIndex.toNumber(),
+      true
+    );
+    assert.equal(
+      rewardInfoAfter.balanceAccounted.toNumber() >
+        rewardInfoBefore.balanceAccounted.toNumber(),
+      true
+    );
+    assert.equal(
+      rewardInfoAfter.payoutLastPaid.toNumber() >
+        rewardInfoBefore.payoutLastPaid.toNumber(),
+      true
     );
   });
 });

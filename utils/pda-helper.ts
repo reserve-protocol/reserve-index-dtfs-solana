@@ -1,12 +1,15 @@
-import { PublicKey } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js";
 import idlFolio from "../target/idl/folio.json";
 import idlDtfs from "../target/idl/dtfs.json";
 import BN from "bn.js";
-
+import { getGovernanceClient } from "./external/governance-helper";
 export const DTF_PROGRAM_ID = new PublicKey(idlDtfs.address);
 export const FOLIO_PROGRAM_ID = new PublicKey(idlFolio.address);
 export const BPF_LOADER_PROGRAM_ID = new PublicKey(
   "BPFLoaderUpgradeab1e11111111111111111111111"
+);
+export const SPL_GOVERNANCE_PROGRAM_ID = new PublicKey(
+  "GovER5Lthms3bLBqWub97yVrMmEogzX7xNjdXpPPCVZw"
 );
 
 export const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
@@ -129,8 +132,7 @@ export function getRewardInfoPDA(folio: PublicKey, rewardToken: PublicKey) {
 export function getUserRewardInfoPDA(
   folio: PublicKey,
   rewardToken: PublicKey,
-  user: PublicKey,
-  rewardIndex: BN
+  user: PublicKey
 ) {
   return PublicKey.findProgramAddressSync(
     [
@@ -138,8 +140,22 @@ export function getUserRewardInfoPDA(
       folio.toBuffer(),
       rewardToken.toBuffer(),
       user.toBuffer(),
-      rewardIndex.toBuffer("le", 8),
     ],
     FOLIO_PROGRAM_ID
   )[0];
+}
+
+export function getUserTokenRecordRealmsPDA(
+  connection: Connection,
+  folioOwner: PublicKey, // Is the realm
+  rewardToken: PublicKey,
+  user: PublicKey
+) {
+  let governanceClient = getGovernanceClient(connection);
+
+  return governanceClient.pda.tokenOwnerRecordAccount({
+    realmAccount: folioOwner,
+    governingTokenMintAccount: rewardToken,
+    governingTokenOwner: user,
+  }).publicKey;
 }

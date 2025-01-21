@@ -2,15 +2,16 @@ name: Solana Program CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 env:
   CARGO_TERM_COLOR: always
   SOLANA_VERSION: 1.18.18
   ANCHOR_VERSION: 0.30.1
   ADMIN_PUBKEY: 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+  SPL_GOVERNANCE_PROGRAM_ID: GovER5Lthms3bLBqWub97yVrMmEogzX7xNjdXpPPCVZw
 
 jobs:
   build-and-test:

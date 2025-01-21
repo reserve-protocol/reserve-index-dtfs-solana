@@ -13,6 +13,7 @@ pub const MAX_DAO_FEE: u64 = 500_000_000; // 50%
 
 pub const SCALAR: u64 = 1_000_000_000; // 1
 pub const SCALAR_U128: u128 = 1_000_000_000; // 1
+pub const SCALAR_18_DECIMALS: u128 = 1_000_000_000_000_000_000; // 1e18
 
 pub const DAO_FEE_DENOMINATOR: u64 = 1_000_000_000; // 1
 

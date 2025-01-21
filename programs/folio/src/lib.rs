@@ -277,4 +277,13 @@ pub mod folio {
     ) -> Result<()> {
         accrue_rewards::handler(ctx)
     }
+
+    /*
+    Dummy functions
+     */
+    pub fn idl_include_account<'info>(
+        ctx: Context<'_, '_, 'info, 'info, IdlIncludeAccount<'info>>,
+    ) -> Result<()> {
+        dummy_instruction::idl_include_account(ctx)
+    }
 }

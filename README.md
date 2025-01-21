@@ -109,4 +109,4 @@ Because of Solana's restrictions (transaction size, compute budget, etc.), the m
 ## Staked Rewards
 
 **We can't send the fees to the dao's token accounts, since we won't be able to sign from it, therefore we need our own token accounts
-owned by the folio itself, so we can sign**
+owned by the folio token rewards PDA itself, so we can sign**

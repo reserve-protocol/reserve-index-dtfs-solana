@@ -289,6 +289,7 @@ impl RewardInfo {
 }
 
 /// PDA Seeds ["user_reward_info", folio, folio_reward_token, user]
+#[doc = "Have to add it to a dummy instruction so that Anchor picks it up for IDL generation."]
 #[account]
 #[derive(Default, InitSpace)]
 pub struct UserRewardInfo {

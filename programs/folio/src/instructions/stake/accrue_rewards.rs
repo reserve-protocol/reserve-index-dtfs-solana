@@ -71,7 +71,7 @@ pub struct AccrueRewards<'info> {
 
     - Reward token mint
     - Reward info for the token mint (mut)
-    - Fee recipient token account (needs to be the FOLIO's token account, not the DAO's)
+    - Fee recipient token account (needs to be the FOLIO TOKEN REWARDS' token account, not the DAO's)
     - User reward info for CALLER (mut)
     - User governance account for staked amount
     - User reward info for USER **IF USER IS NOT CALLER** (mut)
@@ -97,8 +97,11 @@ impl AccrueRewards<'_> {
             InvalidFolioOwner
         );
 
+        // Leaving here to show it's not something I forgot, but it's already validateed when we get the deposit balances
+        // for the users claiming.
+        //
         // Validate that the folio owner is a realm
-        GovernanceUtil::folio_owner_is_realm(&self.folio_owner)?;
+        // GovernanceUtil::folio_owner_is_realm(&self.folio_owner)?;
 
         Ok(())
     }
@@ -108,6 +111,7 @@ impl AccrueRewards<'_> {
 // And because of the intense CU requirements, we might need to do it for a small subset of reward tokens
 pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) -> Result<()> {
     let folio_key = ctx.accounts.folio.key();
+    let folio_reward_tokens_key = ctx.accounts.folio_reward_tokens.key();
     let caller_key = ctx.accounts.caller.key();
     let user_key = ctx.accounts.user.key();
 
@@ -136,7 +140,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
     for _ in 0..ctx.remaining_accounts.len() / remaining_account_divider {
         let reward_token = remaining_accounts_iter.next().unwrap();
         let reward_info = remaining_accounts_iter.next().unwrap();
-        let fee_recipient_token_account = remaining_accounts_iter.next().unwrap();
+        let fee_recipient_token_account = remaining_accounts_iter.next().unwrap(); // Folio token rewards' token account
         let caller_reward_info = remaining_accounts_iter.next().unwrap();
         let caller_governance_account = remaining_accounts_iter.next().unwrap();
 
@@ -180,7 +184,10 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
 
         check_condition!(
             fee_recipient_token_account.key()
-                == associated_token::get_associated_token_address(&folio_key, &reward_token.key(),),
+                == associated_token::get_associated_token_address(
+                    &folio_reward_tokens_key,
+                    &reward_token.key(),
+                ),
             InvalidFeeRecipientTokenAccount
         );
 
@@ -253,6 +260,11 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
                 mint.decimals as u64,
             )?;
         }
+
+        // Serialize back all the accounts
+        let reward_info_account_info = reward_info.to_account_info();
+        let reward_info_data = &mut **reward_info_account_info.try_borrow_mut_data()?;
+        reward_info.try_serialize(&mut &mut reward_info_data[..])?;
     }
 
     Ok(())

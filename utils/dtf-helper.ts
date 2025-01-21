@@ -1002,7 +1002,28 @@ export async function claimRewards(
   rewardTokens: PublicKey[]
 ) {
   const dtfProgram = getDtfProgram(connection, userKeypair);
-
+  console.log({
+    systemProgram: SystemProgram.programId,
+    tokenProgram: TOKEN_PROGRAM_ID,
+    user: userKeypair.publicKey,
+    dtfProgramSigner: getDtfSignerPDA(),
+    dtfProgram: DTF_PROGRAM_ID,
+    dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+    folioProgram: FOLIO_PROGRAM_ID,
+    folioOwner,
+    actor: getActorPDA(folioOwner, folio),
+    folio,
+    folioRewardTokens: getFolioRewardTokensPDA(folio),
+    programRegistrar: getProgramRegistrarPDA(),
+  });
+  console.log(
+    await buildRemainingAccountsForClaimRewards(
+      connection,
+      userKeypair,
+      folio,
+      rewardTokens
+    )
+  );
   const claimRewards = await dtfProgram.methods
     .claimRewards()
     .accountsPartial({

@@ -28,6 +28,7 @@ import {
   getRewardInfoPDA,
   getTradePDA,
   getUserPendingBasketPDA,
+  getUserRewardInfoPDA,
   getUserTokenRecordRealmsPDA,
 } from "../utils/pda-helper";
 import {
@@ -58,6 +59,7 @@ import {
   initOrSetRewardRatio,
   removeRewardToken,
   accrueRewards,
+  claimRewards,
 } from "../utils/dtf-helper";
 import {
   DEFAULT_DECIMALS_MUL,
@@ -151,7 +153,10 @@ describe("DTFs Tests", () => {
       rewardTokenMints[1].mint.publicKey,
       userKeypair.publicKey
     );
+
     await createGovernanceAccounts(connection, userTokenRecordPda, 1000);
+
+    await wait(10);
 
     await airdrop(connection, payerKeypair.publicKey, 1000);
     await airdrop(connection, adminKeypair.publicKey, 1000);
@@ -1506,7 +1511,7 @@ describe("DTFs Tests", () => {
     );
   });
 
-  it("should allow user to accrue rewards, after adding 2 more reward tokens", async () => {
+  it("should allow user to accrue rewards, after adding 1 more reward tokens", async () => {
     // Adding the tokens
     await addRewardToken(
       connection,
@@ -1516,12 +1521,23 @@ describe("DTFs Tests", () => {
       new BN(86400)
     );
 
+    const folioRewardTokenPDA = getFolioRewardTokensPDA(folioPDA);
+
     const rewardInfoPDA = getRewardInfoPDA(
       folioPDA,
       rewardTokenMints[1].mint.publicKey
     );
     const rewardInfoBefore = await program.account.rewardInfo.fetch(
       rewardInfoPDA
+    );
+
+    // Mint some token to the folio (as if received fees)
+    await mintToken(
+      connection,
+      adminKeypair,
+      rewardTokenMints[1].mint.publicKey,
+      1_000,
+      folioRewardTokenPDA
     );
 
     // Calling accrue rewards
@@ -1538,15 +1554,15 @@ describe("DTFs Tests", () => {
       rewardInfoPDA
     );
 
-    // const userInfoRewardPDA = getUserRewardInfoPDA(
-    //   folioPDA,
-    //   rewardTokenMints[1].mint.publicKey,
-    //   userKeypair.publicKey
-    // );
+    const userInfoRewardPDA = getUserRewardInfoPDA(
+      folioPDA,
+      rewardTokenMints[1].mint.publicKey,
+      userKeypair.publicKey
+    );
 
-    // const userInfoRewardAfter = await program.account..fetch(
-    //   userInfoRewardPDA
-    // );
+    const userInfoRewardAfter = await program.account.userRewardInfo.fetch(
+      userInfoRewardPDA
+    );
 
     assert.equal(
       rewardInfoAfter.rewardIndex.toNumber() >
@@ -1563,5 +1579,51 @@ describe("DTFs Tests", () => {
         rewardInfoBefore.payoutLastPaid.toNumber(),
       true
     );
+
+    assert.equal(userInfoRewardAfter.folio.toBase58(), folioPDA.toBase58());
+    assert.equal(
+      userInfoRewardAfter.folioRewardToken.toBase58(),
+      rewardTokenMints[1].mint.publicKey.toBase58()
+    );
+    assert.notEqual(userInfoRewardAfter.bump, 0);
+    assert.equal(userInfoRewardAfter.accruedRewards.toNumber() > 0, true);
+    assert.equal(userInfoRewardAfter.lastRewardIndex.toNumber(), 1);
+  });
+
+  it("should allow user to claim rewards", async () => {
+    const rewardInfoPDA = getRewardInfoPDA(
+      folioPDA,
+      rewardTokenMints[1].mint.publicKey
+    );
+    const userRewardInfoPDA = getUserRewardInfoPDA(
+      folioPDA,
+      rewardTokenMints[1].mint.publicKey,
+      userKeypair.publicKey
+    );
+    const rewardInfoBefore = await program.account.rewardInfo.fetch(
+      rewardInfoPDA
+    );
+
+    await claimRewards(
+      connection,
+      userKeypair,
+      folioOwnerKeypair.publicKey,
+      folioPDA,
+      [rewardTokenMints[1].mint.publicKey]
+    );
+
+    const rewardInfoAfter = await program.account.rewardInfo.fetch(
+      rewardInfoPDA
+    );
+    const userRewardInfoAfter = await program.account.userRewardInfo.fetch(
+      userRewardInfoPDA
+    );
+
+    assert.equal(
+      rewardInfoAfter.totalClaimed.toNumber() >
+        rewardInfoBefore.totalClaimed.toNumber(),
+      true
+    );
+    assert.equal(userRewardInfoAfter.accruedRewards.toNumber(), 0);
   });
 });

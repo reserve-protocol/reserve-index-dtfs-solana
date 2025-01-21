@@ -1,6 +1,7 @@
 import { BN } from "@coral-xyz/anchor";
 import { AccountMeta, Connection, Keypair, PublicKey } from "@solana/web3.js";
 import {
+  getFolioRewardTokensPDA,
   getRewardInfoPDA,
   getUserRewardInfoPDA,
   getUserTokenRecordRealmsPDA,
@@ -64,6 +65,8 @@ export async function buildRemainingAccountsForAccruesRewards(
 ): Promise<AccountMeta[]> {
   let remainingAccounts: AccountMeta[] = [];
 
+  let folioRewardTokensPDA = getFolioRewardTokensPDA(folio);
+
   for (const token of rewardTokens) {
     remainingAccounts.push({
       pubkey: token,
@@ -82,7 +85,7 @@ export async function buildRemainingAccountsForAccruesRewards(
         connection,
         token,
         callerKeypair,
-        folio
+        folioRewardTokensPDA
       ),
       isSigner: false,
       isWritable: false,
@@ -135,6 +138,8 @@ export async function buildRemainingAccountsForClaimRewards(
 ): Promise<AccountMeta[]> {
   let remainingAccounts: AccountMeta[] = [];
 
+  let folioRewardTokensPDA = getFolioRewardTokensPDA(folio);
+
   for (const token of rewardTokens) {
     remainingAccounts.push({
       pubkey: token,
@@ -147,10 +152,10 @@ export async function buildRemainingAccountsForClaimRewards(
         connection,
         token,
         callerKeypair,
-        folio
+        folioRewardTokensPDA
       ),
       isSigner: false,
-      isWritable: false,
+      isWritable: true,
     });
 
     remainingAccounts.push({
@@ -173,7 +178,7 @@ export async function buildRemainingAccountsForClaimRewards(
         callerKeypair.publicKey
       ),
       isSigner: false,
-      isWritable: false,
+      isWritable: true,
     });
   }
 

@@ -242,4 +242,48 @@ pub mod folio {
             callback_data,
         )
     }
+
+    /*
+    Reward token functions
+     */
+    pub fn init_or_set_reward_ratio<'info>(
+        ctx: Context<'_, '_, 'info, 'info, InitOrSetRewardRatio<'info>>,
+        reward_period: u64,
+    ) -> Result<()> {
+        init_or_set_reward_ratio::handler(ctx, reward_period)
+    }
+
+    pub fn add_reward_token<'info>(
+        ctx: Context<'_, '_, 'info, 'info, AddRewardToken<'info>>,
+        reward_period: u64,
+    ) -> Result<()> {
+        add_reward_token::handler(ctx, reward_period)
+    }
+
+    pub fn remove_reward_token<'info>(
+        ctx: Context<'_, '_, 'info, 'info, RemoveRewardToken<'info>>,
+    ) -> Result<()> {
+        remove_reward_token::handler(ctx)
+    }
+
+    pub fn claim_rewards<'info>(
+        ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>,
+    ) -> Result<()> {
+        claim_rewards::handler(ctx)
+    }
+
+    pub fn accrue_rewards<'info>(
+        ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>,
+    ) -> Result<()> {
+        accrue_rewards::handler(ctx)
+    }
+
+    /*
+    Dummy functions
+     */
+    pub fn idl_include_account<'info>(
+        ctx: Context<'_, '_, 'info, 'info, IdlIncludeAccount<'info>>,
+    ) -> Result<()> {
+        dummy_instruction::idl_include_account(ctx)
+    }
 }

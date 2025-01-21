@@ -105,3 +105,8 @@ Because of Solana's restrictions (transaction size, compute budget, etc.), the m
 #### Redeem
 1. call ```burn_folio_token``` to burn the amount of folio token you want to redeem. **This can't be rolled back**. Will add the token amounts equal to your share of the total supply to your pending basket, so you can then redeem them by calling the following instruction
 2. call ```redeem_from_pending_basket``` with 1..N tokens that you want to redeem from your pending basket. (might take multiple calls with 1..5 i.e. tokens at a time, because of the restrictions)
+
+## Staked Rewards
+
+**We can't send the fees to the dao's token accounts, since we won't be able to sign from it, therefore we need our own token accounts
+owned by the folio token rewards PDA itself, so we can sign**

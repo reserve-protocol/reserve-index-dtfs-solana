@@ -13,6 +13,7 @@ pub const MAX_DAO_FEE: u64 = 500_000_000; // 50%
 
 pub const SCALAR: u64 = 1_000_000_000; // 1
 pub const SCALAR_U128: u128 = 1_000_000_000; // 1
+pub const SCALAR_18_DECIMALS: u128 = 1_000_000_000_000_000_000; // 1e18
 
 pub const DAO_FEE_DENOMINATOR: u64 = 1_000_000_000; // 1
 
@@ -31,6 +32,12 @@ pub const MAX_PRICE_RANGE: u64 = 1_000_000_000; // 1e9
 pub const MAX_FEE_RECIPIENTS: usize = 64;
 pub const MAX_TOKEN_AMOUNTS: usize = 16;
 pub const MAX_CONCURRENT_TRADES: usize = 16; // TODO
+pub const MAX_REWARD_TOKENS: usize = 30; // Isn't a hard limit, but to specify account size, we'll use it
+
+pub const MAX_REWARD_HALF_LIFE: u64 = 604800 * 2; // 2 weeks
+pub const MIN_REWARD_HALF_LIFE: u64 = 86400; // 1 day
+pub const LN_2: u128 = 693_147_180_559_945_309; //
+
 pub enum PendingBasketType {
     MintProcess,
     RedeemProcess,

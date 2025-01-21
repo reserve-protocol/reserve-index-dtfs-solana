@@ -4,14 +4,18 @@ use shared::structs::FeeRecipient;
 use shared::structs::Range;
 use shared::structs::Role;
 
+use crate::AccrueRewards;
+use crate::AddRewardToken;
 use crate::AddToBasket;
 use crate::AddToPendingBasket;
 use crate::ApproveTrade;
 use crate::Bid;
 use crate::BurnFolioToken;
+use crate::ClaimRewards;
 use crate::ClosePendingTokenAmount;
 use crate::CrankFeeDistribution;
 use crate::DistributeFees;
+use crate::InitOrSetRewardRatio;
 use crate::InitOrUpdateActor;
 use crate::KillFolio;
 use crate::KillTrade;
@@ -21,6 +25,7 @@ use crate::OpenTradePermissionless;
 use crate::RedeemFromPendingBasket;
 use crate::RemoveActor;
 use crate::RemoveFromPendingBasket;
+use crate::RemoveRewardToken;
 use crate::ResizeFolio;
 use crate::UpdateFolio;
 
@@ -740,6 +745,183 @@ impl FolioProgram {
             with_callback,
             callback_data,
         )?;
+
+        Ok(())
+    }
+
+    pub fn add_reward_token<'info>(
+        ctx: Context<'_, '_, 'info, 'info, AddRewardToken<'info>>,
+        reward_period: u64,
+    ) -> Result<()> {
+        let cpi_program = ctx.accounts.folio_program.to_account_info();
+
+        let cpi_accounts = folio::cpi::accounts::AddRewardToken {
+            system_program: ctx.accounts.system_program.to_account_info(),
+            folio_owner: ctx.accounts.folio_owner.to_account_info(),
+            actor: ctx.accounts.actor.to_account_info(),
+            folio: ctx.accounts.folio.to_account_info(),
+            folio_reward_tokens: ctx.accounts.folio_reward_tokens.to_account_info(),
+            reward_token: ctx.accounts.reward_token.to_account_info(),
+            reward_token_reward_info: ctx.accounts.reward_token_reward_info.to_account_info(),
+            reward_token_account: ctx.accounts.reward_token_account.to_account_info(),
+            program_registrar: ctx.accounts.program_registrar.to_account_info(),
+            dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
+            dtf_program: ctx.accounts.dtf_program.to_account_info(),
+            dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
+        };
+
+        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+
+        let seeds = &[
+            DTF_PROGRAM_SIGNER_SEEDS,
+            &[ctx.accounts.dtf_program_signer.bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
+
+        let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
+
+        folio::cpi::add_reward_token(cpi_ctx, reward_period)?;
+
+        Ok(())
+    }
+
+    pub fn remove_reward_token<'info>(
+        ctx: Context<'_, '_, 'info, 'info, RemoveRewardToken<'info>>,
+    ) -> Result<()> {
+        let cpi_program = ctx.accounts.folio_program.to_account_info();
+
+        let cpi_accounts = folio::cpi::accounts::RemoveRewardToken {
+            system_program: ctx.accounts.system_program.to_account_info(),
+            folio_owner: ctx.accounts.folio_owner.to_account_info(),
+            actor: ctx.accounts.actor.to_account_info(),
+            folio: ctx.accounts.folio.to_account_info(),
+            folio_reward_tokens: ctx.accounts.folio_reward_tokens.to_account_info(),
+            reward_token_to_remove: ctx.accounts.reward_token_to_remove.to_account_info(),
+            program_registrar: ctx.accounts.program_registrar.to_account_info(),
+            dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
+            dtf_program: ctx.accounts.dtf_program.to_account_info(),
+            dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
+        };
+
+        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+
+        let seeds = &[
+            DTF_PROGRAM_SIGNER_SEEDS,
+            &[ctx.accounts.dtf_program_signer.bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
+
+        let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
+
+        folio::cpi::remove_reward_token(cpi_ctx)?;
+
+        Ok(())
+    }
+
+    pub fn init_or_set_reward_ratio<'info>(
+        ctx: Context<'_, '_, 'info, 'info, InitOrSetRewardRatio<'info>>,
+        reward_period: u64,
+    ) -> Result<()> {
+        let cpi_program = ctx.accounts.folio_program.to_account_info();
+
+        let cpi_accounts = folio::cpi::accounts::InitOrSetRewardRatio {
+            system_program: ctx.accounts.system_program.to_account_info(),
+            folio_owner: ctx.accounts.folio_owner.to_account_info(),
+            actor: ctx.accounts.actor.to_account_info(),
+            folio: ctx.accounts.folio.to_account_info(),
+            folio_reward_tokens: ctx.accounts.folio_reward_tokens.to_account_info(),
+
+            program_registrar: ctx.accounts.program_registrar.to_account_info(),
+            dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
+            dtf_program: ctx.accounts.dtf_program.to_account_info(),
+            dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
+        };
+
+        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+
+        let seeds = &[
+            DTF_PROGRAM_SIGNER_SEEDS,
+            &[ctx.accounts.dtf_program_signer.bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
+
+        let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
+
+        folio::cpi::init_or_set_reward_ratio(cpi_ctx, reward_period)?;
+
+        Ok(())
+    }
+
+    pub fn accrue_rewards<'info>(
+        ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>,
+    ) -> Result<()> {
+        let cpi_program = ctx.accounts.folio_program.to_account_info();
+
+        let cpi_accounts = folio::cpi::accounts::AccrueRewards {
+            system_program: ctx.accounts.system_program.to_account_info(),
+            caller: ctx.accounts.caller.to_account_info(),
+            user: ctx.accounts.user.to_account_info(),
+            folio: ctx.accounts.folio.to_account_info(),
+            folio_owner: ctx.accounts.folio_owner.to_account_info(),
+            actor: ctx.accounts.actor.to_account_info(),
+            folio_reward_tokens: ctx.accounts.folio_reward_tokens.to_account_info(),
+            program_registrar: ctx.accounts.program_registrar.to_account_info(),
+            dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
+            dtf_program: ctx.accounts.dtf_program.to_account_info(),
+            dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
+        };
+
+        let remaining_accounts = ctx.remaining_accounts.to_vec();
+
+        let cpi_ctx =
+            CpiContext::new(cpi_program, cpi_accounts).with_remaining_accounts(remaining_accounts);
+
+        let seeds = &[
+            DTF_PROGRAM_SIGNER_SEEDS,
+            &[ctx.accounts.dtf_program_signer.bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
+
+        let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
+
+        folio::cpi::accrue_rewards(cpi_ctx)?;
+
+        Ok(())
+    }
+
+    pub fn claim_rewards<'info>(
+        ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>,
+    ) -> Result<()> {
+        let cpi_program = ctx.accounts.folio_program.to_account_info();
+
+        let cpi_accounts = folio::cpi::accounts::ClaimRewards {
+            system_program: ctx.accounts.system_program.to_account_info(),
+            token_program: ctx.accounts.token_program.to_account_info(),
+            user: ctx.accounts.user.to_account_info(),
+            folio: ctx.accounts.folio.to_account_info(),
+            folio_owner: ctx.accounts.folio_owner.to_account_info(),
+            actor: ctx.accounts.actor.to_account_info(),
+            folio_reward_tokens: ctx.accounts.folio_reward_tokens.to_account_info(),
+            program_registrar: ctx.accounts.program_registrar.to_account_info(),
+            dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
+            dtf_program: ctx.accounts.dtf_program.to_account_info(),
+            dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
+        };
+
+        let remaining_accounts = ctx.remaining_accounts.to_vec();
+
+        let cpi_ctx =
+            CpiContext::new(cpi_program, cpi_accounts).with_remaining_accounts(remaining_accounts);
+
+        let seeds = &[
+            DTF_PROGRAM_SIGNER_SEEDS,
+            &[ctx.accounts.dtf_program_signer.bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
+
+        let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
+
+        folio::cpi::claim_rewards(cpi_ctx)?;
 
         Ok(())
     }

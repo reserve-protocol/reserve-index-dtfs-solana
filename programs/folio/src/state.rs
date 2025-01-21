@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use shared::{
-    constants::{MAX_CONCURRENT_TRADES, MAX_FEE_RECIPIENTS, MAX_TOKEN_AMOUNTS},
+    constants::{MAX_CONCURRENT_TRADES, MAX_FEE_RECIPIENTS, MAX_REWARD_TOKENS, MAX_TOKEN_AMOUNTS},
     structs::{FeeRecipient, Range, TokenAmount, TradeEnd},
 };
 
@@ -237,4 +237,74 @@ pub struct Trade {
 
 impl Trade {
     pub const SIZE: usize = 8 + Trade::INIT_SPACE;
+}
+
+/// PDA Seeds ["folio_reward_tokens", folio]
+#[account(zero_copy)]
+#[derive(InitSpace)]
+pub struct FolioRewardTokens {
+    pub bump: u8,
+
+    pub _padding: [u8; 7],
+
+    /// Folio's pubkey
+    pub folio: Pubkey,
+
+    pub reward_ratio: u64,
+
+    // List of current reward tokens
+    pub reward_tokens: [Pubkey; MAX_REWARD_TOKENS],
+
+    /// Disallowed token
+    pub disallowed_token: [Pubkey; MAX_REWARD_TOKENS],
+}
+
+impl FolioRewardTokens {
+    pub const SIZE: usize = 8 + FolioRewardTokens::INIT_SPACE;
+}
+
+/// PDA Seeds ["reward_info", folio, folio_reward_token]
+#[account]
+#[derive(Default, InitSpace)]
+pub struct RewardInfo {
+    pub bump: u8,
+
+    /// Folio's pubkey
+    pub folio: Pubkey,
+
+    pub folio_reward_token: Pubkey,
+
+    pub payout_last_paid: u64,
+
+    pub reward_index: u64,
+
+    pub balance_accounted: u64,
+    pub balance_last_known: u64,
+
+    pub total_claimed: u64,
+}
+
+impl RewardInfo {
+    pub const SIZE: usize = 8 + RewardInfo::INIT_SPACE;
+}
+
+/// PDA Seeds ["user_reward_info", folio, folio_reward_token, user]
+#[doc = "Have to add it to a dummy instruction so that Anchor picks it up for IDL generation."]
+#[account]
+#[derive(Default, InitSpace)]
+pub struct UserRewardInfo {
+    pub bump: u8,
+
+    /// Folio's pubkey
+    pub folio: Pubkey,
+
+    pub folio_reward_token: Pubkey,
+
+    pub last_reward_index: u64,
+
+    pub accrued_rewards: u64,
+}
+
+impl UserRewardInfo {
+    pub const SIZE: usize = 8 + UserRewardInfo::INIT_SPACE;
 }

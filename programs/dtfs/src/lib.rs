@@ -208,4 +208,36 @@ pub mod dtfs {
             callback_data,
         )
     }
+
+    pub fn init_or_set_reward_ratio<'info>(
+        ctx: Context<'_, '_, 'info, 'info, InitOrSetRewardRatio<'info>>,
+        reward_period: u64,
+    ) -> Result<()> {
+        init_or_set_reward_ratio::handler(ctx, reward_period)
+    }
+
+    pub fn add_reward_token<'info>(
+        ctx: Context<'_, '_, 'info, 'info, AddRewardToken<'info>>,
+        reward_period: u64,
+    ) -> Result<()> {
+        add_reward_token::handler(ctx, reward_period)
+    }
+
+    pub fn remove_reward_token<'info>(
+        ctx: Context<'_, '_, 'info, 'info, RemoveRewardToken<'info>>,
+    ) -> Result<()> {
+        remove_reward_token::handler(ctx)
+    }
+
+    pub fn claim_rewards<'info>(
+        ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>,
+    ) -> Result<()> {
+        claim_rewards::handler(ctx)
+    }
+
+    pub fn accrue_rewards<'info>(
+        ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>,
+    ) -> Result<()> {
+        accrue_rewards::handler(ctx)
+    }
 }

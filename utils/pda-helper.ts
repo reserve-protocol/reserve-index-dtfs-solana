@@ -1,12 +1,15 @@
-import { PublicKey } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js";
 import idlFolio from "../target/idl/folio.json";
 import idlDtfs from "../target/idl/dtfs.json";
 import BN from "bn.js";
-
+import { getGovernanceClient } from "./external/governance-helper";
 export const DTF_PROGRAM_ID = new PublicKey(idlDtfs.address);
 export const FOLIO_PROGRAM_ID = new PublicKey(idlFolio.address);
 export const BPF_LOADER_PROGRAM_ID = new PublicKey(
   "BPFLoaderUpgradeab1e11111111111111111111111"
+);
+export const SPL_GOVERNANCE_PROGRAM_ID = new PublicKey(
+  "GovER5Lthms3bLBqWub97yVrMmEogzX7xNjdXpPPCVZw"
 );
 
 export const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
@@ -110,4 +113,49 @@ export function getTradePDA(folio: PublicKey, tradeId: BN) {
     [Buffer.from("trade"), folio.toBuffer(), tradeId.toBuffer("le", 8)],
     FOLIO_PROGRAM_ID
   )[0];
+}
+
+export function getFolioRewardTokensPDA(folio: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("folio_reward_tokens"), folio.toBuffer()],
+    FOLIO_PROGRAM_ID
+  )[0];
+}
+
+export function getRewardInfoPDA(folio: PublicKey, rewardToken: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("reward_info"), folio.toBuffer(), rewardToken.toBuffer()],
+    FOLIO_PROGRAM_ID
+  )[0];
+}
+
+export function getUserRewardInfoPDA(
+  folio: PublicKey,
+  rewardToken: PublicKey,
+  user: PublicKey
+) {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("user_reward_info"),
+      folio.toBuffer(),
+      rewardToken.toBuffer(),
+      user.toBuffer(),
+    ],
+    FOLIO_PROGRAM_ID
+  )[0];
+}
+
+export function getUserTokenRecordRealmsPDA(
+  connection: Connection,
+  folioOwner: PublicKey, // Is the realm
+  rewardToken: PublicKey,
+  user: PublicKey
+) {
+  let governanceClient = getGovernanceClient(connection);
+
+  return governanceClient.pda.tokenOwnerRecordAccount({
+    realmAccount: folioOwner,
+    governingTokenMintAccount: rewardToken,
+    governingTokenOwner: user,
+  }).publicKey;
 }

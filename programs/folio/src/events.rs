@@ -62,3 +62,19 @@ pub struct Bid {
     pub sell_amount: u64,
     pub bought_amount: u64,
 }
+
+#[event]
+pub struct RewardTokenAdded {
+    pub reward_token: Pubkey,
+}
+
+#[event]
+pub struct RewardRatioSet {
+    pub reward_ratio: u64,
+    pub reward_half_life: u64,
+}
+
+#[event]
+pub struct RewardTokenRemoved {
+    pub reward_token: Pubkey,
+}

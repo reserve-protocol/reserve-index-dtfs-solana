@@ -145,6 +145,45 @@ pub enum ErrorCode {
 
     #[msg("Insufficient Bid")]
     InsufficientBid,
+
+    #[msg("Invalid Reward Token")]
+    InvalidRewardToken,
+
+    #[msg("Disallowed Reward Token")]
+    DisallowedRewardToken,
+
+    #[msg("Reward Already Registered")]
+    RewardAlreadyRegistered,
+
+    #[msg("No More Room For New Reward Token")]
+    NoMoreRoomForNewRewardToken,
+
+    #[msg("No More Room For New Disallowed Token")]
+    NoMoreRoomForNewDisallowedToken,
+
+    #[msg("Reward Not Registered")]
+    RewardNotRegistered,
+
+    #[msg("Invalid Reward Mint")]
+    InvalidRewardMint,
+
+    #[msg("Invalid Reward Half Life")]
+    InvalidRewardHalfLife,
+
+    #[msg("Invalid Reward Info")]
+    InvalidRewardInfo,
+
+    #[msg("Invalid User Reward Info")]
+    InvalidUserRewardInfo,
+
+    #[msg("Invalid Governance Account")]
+    InvalidGovernanceAccount,
+
+    #[msg("Invalid Fee Recipient Token Account")]
+    InvalidFeeRecipientTokenAccount,
+
+    #[msg("Invalid Folio Owner")]
+    InvalidFolioOwner,
 }
 
 #[macro_export]

@@ -62,6 +62,9 @@ pub enum ErrorCode {
     #[msg("Invalid Removed Token Mints")]
     InvalidRemovedTokenMints,
 
+    #[msg("Max Number of Tokens Reached")]
+    MaxNumberOfTokensReached,
+
     #[msg("Mint Mismatch")]
     MintMismatch,
 

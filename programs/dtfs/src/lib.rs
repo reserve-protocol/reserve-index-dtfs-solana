@@ -90,6 +90,13 @@ pub mod dtfs {
         add_to_basket::handler(ctx, amounts, initial_shares)
     }
 
+    pub fn remove_from_basket<'info>(
+        ctx: Context<'_, '_, 'info, 'info, RemoveFromBasket<'info>>,
+        removed_mints: Vec<Pubkey>,
+    ) -> Result<()> {
+        remove_from_basket::handler(ctx, removed_mints)
+    }
+
     pub fn kill_folio(ctx: Context<KillFolio>) -> Result<()> {
         kill_folio::handler(ctx)
     }
@@ -132,10 +139,10 @@ pub mod dtfs {
         redeem_from_pending_basket::handler(ctx, amounts)
     }
 
-    pub fn close_pending_token_amount<'info>(
-        ctx: Context<'_, '_, 'info, 'info, ClosePendingTokenAmount<'info>>,
+    pub fn close_user_pending_token_amount<'info>(
+        ctx: Context<'_, '_, 'info, 'info, CloseUserPendingTokenAmount<'info>>,
     ) -> Result<()> {
-        close_pending_token_amount::handler(ctx)
+        close_user_pending_token_amount::handler(ctx)
     }
 
     pub fn distribute_fees<'info>(

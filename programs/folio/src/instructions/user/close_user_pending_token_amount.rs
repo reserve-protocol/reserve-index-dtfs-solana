@@ -2,14 +2,14 @@ use anchor_lang::prelude::*;
 use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 use shared::{
     check_condition,
-    constants::{PENDING_BASKET_SEEDS, PROGRAM_REGISTRAR_SEEDS},
+    constants::{PROGRAM_REGISTRAR_SEEDS, USER_PENDING_BASKET_SEEDS},
 };
 use shared::{errors::ErrorCode, structs::FolioStatus};
 
-use crate::state::{Folio, PendingBasket, ProgramRegistrar};
+use crate::state::{Folio, ProgramRegistrar, UserPendingBasket};
 
 #[derive(Accounts)]
-pub struct ClosePendingTokenAmount<'info> {
+pub struct CloseUserPendingTokenAmount<'info> {
     pub system_program: Program<'info, System>,
 
     #[account(mut)]
@@ -19,10 +19,10 @@ pub struct ClosePendingTokenAmount<'info> {
     pub folio: AccountLoader<'info, Folio>,
 
     #[account(mut,
-        seeds = [PENDING_BASKET_SEEDS, folio.key().as_ref(), user.key().as_ref()],
+        seeds = [USER_PENDING_BASKET_SEEDS, folio.key().as_ref(), user.key().as_ref()],
         bump
     )]
-    pub user_pending_basket: AccountLoader<'info, PendingBasket>,
+    pub user_pending_basket: AccountLoader<'info, UserPendingBasket>,
 
     /*
     Accounts to validate
@@ -49,7 +49,7 @@ pub struct ClosePendingTokenAmount<'info> {
     pub dtf_program_signer: Signer<'info>,
 }
 
-impl ClosePendingTokenAmount<'_> {
+impl CloseUserPendingTokenAmount<'_> {
     pub fn validate(&self) -> Result<()> {
         self.folio.load()?.validate_folio_program_post_init(
             &self.folio.key(),
@@ -66,17 +66,17 @@ impl ClosePendingTokenAmount<'_> {
 }
 
 pub fn handler<'info>(
-    ctx: Context<'_, '_, 'info, 'info, ClosePendingTokenAmount<'info>>,
+    ctx: Context<'_, '_, 'info, 'info, CloseUserPendingTokenAmount<'info>>,
 ) -> Result<()> {
     ctx.accounts.validate()?;
 
     {
-        let pending_basket = &mut ctx.accounts.user_pending_basket.load_mut()?;
+        let user_pending_basket = &mut ctx.accounts.user_pending_basket.load_mut()?;
 
-        check_condition!(pending_basket.is_empty(), PendingBasketIsNotEmpty);
+        check_condition!(user_pending_basket.is_empty(), PendingBasketIsNotEmpty);
 
         // To prevent re-init attacks, we re-init the actor with default values
-        pending_basket.reset();
+        user_pending_basket.reset();
     }
 
     ctx.accounts

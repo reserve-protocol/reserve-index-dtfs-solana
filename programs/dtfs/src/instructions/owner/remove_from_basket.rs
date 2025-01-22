@@ -1,20 +1,26 @@
-use anchor_lang::{prelude::*, solana_program::bpf_loader_upgradeable};
+use anchor_lang::prelude::*;
+use anchor_lang::solana_program::bpf_loader_upgradeable;
+use folio::ID as FOLIO_ID;
 use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 
+use crate::state::DtfProgramSigner;
+use crate::utils::external::folio_program::FolioProgram;
 use crate::ID as DTF_PROGRAM_ID;
-use crate::{state::DtfProgramSigner, FolioProgram};
-use folio::ID as FOLIO_ID;
 
 #[derive(Accounts)]
-pub struct ClosePendingTokenAmount<'info> {
+pub struct RemoveFromBasket<'info> {
     pub system_program: Program<'info, System>,
 
     #[account(mut)]
-    pub user: Signer<'info>,
+    pub folio_owner: Signer<'info>,
 
     /// CHECK: Done within the folio program
-    pub program_registrar: UncheckedAccount<'info>,
+    #[account()]
+    pub actor: UncheckedAccount<'info>,
 
+    /*
+    DTF Program Accounts
+    */
     #[account(
         seeds = [DTF_PROGRAM_SIGNER_SEEDS],
         bump = dtf_program_signer.bump
@@ -33,29 +39,39 @@ pub struct ClosePendingTokenAmount<'info> {
     )]
     pub dtf_program_data: UncheckedAccount<'info>,
 
+    /*
+    Folio Program Accounts
+    */
     /// CHECK: Folio Program
     #[account(address = FOLIO_ID)]
     pub folio_program: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
-    #[account(mut)]
+    #[account()]
     pub folio: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
     #[account(mut)]
-    pub user_pending_basket: UncheckedAccount<'info>,
+    pub folio_basket: UncheckedAccount<'info>,
+
+    /// CHECK: Done within the folio program
+    #[account()]
+    pub program_registrar: UncheckedAccount<'info>,
 }
 
-impl ClosePendingTokenAmount<'_> {
+impl RemoveFromBasket<'_> {
     pub fn validate(&self) -> Result<()> {
         Ok(())
     }
 }
 
 pub fn handler<'info>(
-    ctx: Context<'_, '_, 'info, 'info, ClosePendingTokenAmount<'info>>,
+    ctx: Context<'_, '_, 'info, 'info, RemoveFromBasket<'info>>,
+    removed_mints: Vec<Pubkey>,
 ) -> Result<()> {
-    FolioProgram::close_pending_token_amount(ctx)?;
+    ctx.accounts.validate()?;
+
+    FolioProgram::remove_from_basket(ctx, removed_mints)?;
 
     Ok(())
 }

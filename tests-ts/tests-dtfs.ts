@@ -23,7 +23,7 @@ import {
   getDtfSignerPDA,
   getFeeDistributionPDA,
   getFolioFeeRecipientsPDA,
-  getFolioPendingBasketPDA,
+  getFolioBasketPDA,
   getFolioRewardTokensPDA,
   getRewardInfoPDA,
   getTradePDA,
@@ -176,7 +176,8 @@ describe("DTFs Tests", () => {
       MAX_TRADE_DELAY,
       MAX_AUCTION_LENGTH,
       "Test Folio",
-      "TFOL"
+      "TFOL",
+      "https://test.com"
     ));
 
     // To track how much time is passing, so we can calculate fees
@@ -685,14 +686,14 @@ describe("DTFs Tests", () => {
       userKeypair.publicKey
     );
 
-    const folioPendingBasketPDA = getFolioPendingBasketPDA(folioPDA);
+    const folioBasketPDA = getFolioBasketPDA(folioPDA);
 
-    const userPendingBasket = await program.account.pendingBasket.fetch(
+    const userPendingBasket = await program.account.userPendingBasket.fetch(
       userPendingBasketPDA
     );
 
-    const folioPendingBasket = await program.account.pendingBasket.fetch(
-      folioPendingBasketPDA
+    const folioBasket = await program.account.folioBasket.fetch(
+      folioBasketPDA
     );
 
     assert.equal(
@@ -701,7 +702,7 @@ describe("DTFs Tests", () => {
     );
 
     assert.equal(
-      folioPendingBasket.tokenAmounts[0].amountForMinting.toNumber(),
+      folioBasket.tokenAmounts[0].amountForMinting.toNumber(),
       100 * 10 ** tokenMints[0].decimals
     );
   });

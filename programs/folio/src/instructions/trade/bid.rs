@@ -1,6 +1,6 @@
 use crate::{
     cpi_call,
-    state::{Folio, Trade},
+    state::{Folio, FolioBasket, Trade},
 };
 use anchor_lang::prelude::*;
 use anchor_spl::{
@@ -9,7 +9,7 @@ use anchor_spl::{
 };
 use shared::{
     check_condition,
-    constants::{FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS, SCALAR, SCALAR_U128},
+    constants::{FOLIO_BASKET_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS, SCALAR, SCALAR_U128},
     structs::FolioStatus,
     util::math_util::{RoundingMode, SafeArithmetic},
 };
@@ -28,6 +28,12 @@ pub struct Bid<'info> {
 
     #[account(mut)]
     pub folio: AccountLoader<'info, Folio>,
+
+    #[account(mut,
+    seeds = [FOLIO_BASKET_SEEDS, folio.key().as_ref()],
+    bump
+    )]
+    pub folio_basket: AccountLoader<'info, FolioBasket>,
 
     #[account(mut)]
     pub folio_token_mint: Box<InterfaceAccount<'info, Mint>>,
@@ -160,7 +166,8 @@ pub fn handler(
 
     check_condition!(sell_amount <= sell_available, InsufficientBalance);
 
-    //TODO put buy token in basket (when start tracking correctly)
+    let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
+    folio_basket.add_tokens_to_basket(&vec![trade.buy])?;
 
     // Transfer to the bidder
     let folio_bump = folio.bump;
@@ -190,13 +197,14 @@ pub fn handler(
     // Check if we sold out all the tokens of the sell mint
     ctx.accounts.folio_sell_token_account.reload()?;
     if ctx.accounts.folio_sell_token_account.amount == 0 {
-        // TODO remove from basket
         trade.end = current_time;
 
         {
             let folio = &mut ctx.accounts.folio.load_mut()?;
             folio.set_trade_end_for_mints(&trade.sell, &trade.buy, current_time);
         }
+
+        folio_basket.remove_tokens_from_basket(&vec![trade.sell])?;
     }
 
     // Check with the callback / collect payment

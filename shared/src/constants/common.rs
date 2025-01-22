@@ -30,7 +30,8 @@ pub const MAX_RATE: u64 = 1_000_000_000; // 1e9
 pub const MAX_PRICE_RANGE: u64 = 1_000_000_000; // 1e9
 
 pub const MAX_FEE_RECIPIENTS: usize = 64;
-pub const MAX_TOKEN_AMOUNTS: usize = 16;
+pub const MAX_FOLIO_TOKEN_AMOUNTS: usize = 16;
+pub const MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS: usize = 20; // Higher than our 16 maximum token, since they can have tokens that have been removed / added
 pub const MAX_CONCURRENT_TRADES: usize = 16; // TODO
 pub const MAX_REWARD_TOKENS: usize = 30; // Isn't a hard limit, but to specify account size, we'll use it
 

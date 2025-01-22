@@ -120,7 +120,8 @@ describe("Folio Tests", () => {
       MAX_TRADE_DELAY,
       MAX_AUCTION_LENGTH,
       "Test Folio",
-      "TFOL"
+      "TFOL",
+      "https://test.com"
     ));
 
     const folio = await program.account.folio.fetch(folioPDA);

@@ -4,18 +4,17 @@ use anchor_spl::{
     token,
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
-use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
+use shared::constants::{
+    PendingBasketType, DTF_PROGRAM_SIGNER_SEEDS, FOLIO_BASKET_SEEDS, USER_PENDING_BASKET_SEEDS,
+};
 use shared::{
     check_condition,
-    constants::{
-        PendingBasketType, DAO_FEE_CONFIG_SEEDS, FOLIO_SEEDS, PENDING_BASKET_SEEDS,
-        PROGRAM_REGISTRAR_SEEDS,
-    },
+    constants::{DAO_FEE_CONFIG_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS},
 };
 use shared::{errors::ErrorCode, structs::FolioStatus};
 
 use crate::{
-    state::{Folio, PendingBasket, ProgramRegistrar},
+    state::{Folio, FolioBasket, ProgramRegistrar, UserPendingBasket},
     DtfProgram,
 };
 
@@ -35,16 +34,16 @@ pub struct MintFolioToken<'info> {
     pub folio_token_mint: Box<InterfaceAccount<'info, Mint>>,
 
     #[account(mut,
-        seeds = [PENDING_BASKET_SEEDS, folio.key().as_ref()],
+        seeds = [FOLIO_BASKET_SEEDS, folio.key().as_ref()],
         bump
     )]
-    pub folio_pending_basket: AccountLoader<'info, PendingBasket>,
+    pub folio_basket: AccountLoader<'info, FolioBasket>,
 
     #[account(mut,
-        seeds = [PENDING_BASKET_SEEDS, folio.key().as_ref(), user.key().as_ref()],
+        seeds = [USER_PENDING_BASKET_SEEDS, folio.key().as_ref(), user.key().as_ref()],
         bump
     )]
-    pub user_pending_basket: AccountLoader<'info, PendingBasket>,
+    pub user_pending_basket: AccountLoader<'info, UserPendingBasket>,
 
     #[account(mut,
         associated_token::mint = folio_token_mint,
@@ -133,17 +132,17 @@ pub fn handler<'info>(
     let token_mint_key = ctx.accounts.folio_token_mint.key();
     let token_program_id = ctx.accounts.token_program.key();
 
-    let folio_pending_basket = &mut ctx.accounts.folio_pending_basket.load_mut()?;
+    let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
 
     // Reorder the user's token amounts to match the folio's token amounts, for efficiency
     let token_amounts_user = &mut ctx.accounts.user_pending_basket.load_mut()?;
-    token_amounts_user.reorder_token_amounts(&folio_pending_basket.token_amounts)?;
+    token_amounts_user.reorder_token_amounts(&folio_basket.token_amounts)?;
 
     token_amounts_user.to_assets(
         shares,
         &folio_key,
         &token_program_id,
-        folio_pending_basket,
+        folio_basket,
         ctx.accounts.folio_token_mint.supply,
         PendingBasketType::MintProcess,
         remaining_accounts,

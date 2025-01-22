@@ -1,6 +1,9 @@
 use anchor_lang::prelude::*;
 use shared::{
-    constants::{MAX_CONCURRENT_TRADES, MAX_FEE_RECIPIENTS, MAX_REWARD_TOKENS, MAX_TOKEN_AMOUNTS},
+    constants::{
+        MAX_CONCURRENT_TRADES, MAX_FEE_RECIPIENTS, MAX_FOLIO_TOKEN_AMOUNTS, MAX_REWARD_TOKENS,
+        MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
+    },
     structs::{FeeRecipient, Range, TokenAmount, TradeEnd},
 };
 
@@ -163,18 +166,51 @@ impl Default for FeeDistribution {
 }
 
 /*
-This is use to track the current user's "pending" token amounts, like when he's minting
-or burning and needs to do it in multiple steps.
-
-It's also used to tracked the "frozen" token amounts in the folio, like when a user is minting, so that
+This is used to track the "frozen" token amounts in the folio, like when a user is minting, so that
 those tokens aren't taken into account. It also will represent which tokens are in the folio (authorized tokens).
+
+Max of 16 tokens because of solana's restrictions
 */
 
-/// PDA Seeds ["pending_basket", folio] for the folio's pending token amounts
-/// PDA Seeds ["pending_basket", folio, wallet] for the wallet's pending token amounts
+/// PDA Seeds ["folio_basket", folio] for the folio's pending token amounts
 #[account(zero_copy)]
 #[derive(InitSpace)]
-pub struct PendingBasket {
+pub struct FolioBasket {
+    pub bump: u8,
+
+    pub _padding: [u8; 7],
+
+    /// Folio's pubkey
+    pub folio: Pubkey,
+
+    // Default pubkey means not set
+    pub token_amounts: [TokenAmount; MAX_FOLIO_TOKEN_AMOUNTS],
+}
+
+impl FolioBasket {
+    pub const SIZE: usize = 8 + FolioBasket::INIT_SPACE;
+}
+
+impl Default for FolioBasket {
+    fn default() -> Self {
+        Self {
+            bump: 0,
+            _padding: [0; 7],
+            folio: Pubkey::default(),
+            token_amounts: [TokenAmount::default(); MAX_FOLIO_TOKEN_AMOUNTS],
+        }
+    }
+}
+
+/*
+This is use to track the current user's "pending" token amounts, like when he's minting
+or burning and needs to do it in multiple steps.
+*/
+
+/// PDA Seeds ["user_pending_basket", folio, wallet] for the wallet's pending token amounts
+#[account(zero_copy)]
+#[derive(InitSpace)]
+pub struct UserPendingBasket {
     pub bump: u8,
 
     pub _padding: [u8; 7],
@@ -186,21 +222,21 @@ pub struct PendingBasket {
     pub folio: Pubkey,
 
     // Default pubkey means not set
-    pub token_amounts: [TokenAmount; MAX_TOKEN_AMOUNTS],
+    pub token_amounts: [TokenAmount; MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS],
 }
 
-impl PendingBasket {
-    pub const SIZE: usize = 8 + PendingBasket::INIT_SPACE;
+impl UserPendingBasket {
+    pub const SIZE: usize = 8 + UserPendingBasket::INIT_SPACE;
 }
 
-impl Default for PendingBasket {
+impl Default for UserPendingBasket {
     fn default() -> Self {
         Self {
             bump: 0,
             _padding: [0; 7],
             owner: Pubkey::default(),
             folio: Pubkey::default(),
-            token_amounts: [TokenAmount::default(); MAX_TOKEN_AMOUNTS],
+            token_amounts: [TokenAmount::default(); MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS],
         }
     }
 }

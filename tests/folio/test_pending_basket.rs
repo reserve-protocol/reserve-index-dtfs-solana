@@ -2,7 +2,7 @@
 mod tests {
     use anchor_lang::prelude::Pubkey;
     use folio::state::UserPendingBasket;
-    use shared::constants::UserPendingBasketType;
+    use shared::constants::PendingBasketType;
     use shared::errors::ErrorCode;
     use shared::structs::TokenAmount;
 
@@ -17,7 +17,7 @@ mod tests {
         };
 
         let result =
-            pending.add_token_amounts_to_folio(&vec![token], true, UserPendingBasketType::MintProcess);
+            pending.add_token_amounts_to_folio(&vec![token], true, PendingBasketType::MintProcess);
 
         assert!(result.is_ok());
         assert_eq!(pending.token_amounts[0], token);
@@ -45,7 +45,7 @@ mod tests {
         let result = pending.add_token_amounts_to_folio(
             &vec![add_amount],
             true,
-            UserPendingBasketType::MintProcess,
+            PendingBasketType::MintProcess,
         );
 
         assert!(result.is_ok());
@@ -64,7 +64,7 @@ mod tests {
             .collect();
 
         let result =
-            pending.add_token_amounts_to_folio(&tokens, true, UserPendingBasketType::MintProcess);
+            pending.add_token_amounts_to_folio(&tokens, true, PendingBasketType::MintProcess);
 
         assert!(result.is_err());
         assert_eq!(
@@ -94,7 +94,7 @@ mod tests {
         let result = pending.remove_token_amounts_from_folio(
             &vec![remove_amount],
             true,
-            UserPendingBasketType::MintProcess,
+            PendingBasketType::MintProcess,
         );
 
         assert!(result.is_ok());
@@ -122,7 +122,7 @@ mod tests {
         let result = pending.remove_token_amounts_from_folio(
             &vec![remove_amount],
             true,
-            UserPendingBasketType::MintProcess,
+            PendingBasketType::MintProcess,
         );
 
         assert!(result.is_err());
@@ -145,7 +145,7 @@ mod tests {
         let result = pending.remove_token_amounts_from_folio(
             &vec![remove_amount],
             true,
-            UserPendingBasketType::MintProcess,
+            PendingBasketType::MintProcess,
         );
 
         assert!(result.is_err());
@@ -168,7 +168,7 @@ mod tests {
         let result = pending.remove_token_amounts_from_folio(
             &vec![remove_amount],
             false,
-            UserPendingBasketType::MintProcess,
+            PendingBasketType::MintProcess,
         );
 
         assert!(result.is_ok());
@@ -211,7 +211,7 @@ mod tests {
         };
 
         let result =
-            pending.add_token_amounts_to_folio(&vec![token], false, UserPendingBasketType::MintProcess);
+            pending.add_token_amounts_to_folio(&vec![token], false, PendingBasketType::MintProcess);
 
         assert!(result.is_err());
         assert_eq!(

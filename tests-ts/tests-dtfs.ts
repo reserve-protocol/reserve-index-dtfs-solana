@@ -692,9 +692,7 @@ describe("DTFs Tests", () => {
       userPendingBasketPDA
     );
 
-    const folioBasket = await program.account.folioBasket.fetch(
-      folioBasketPDA
-    );
+    const folioBasket = await program.account.folioBasket.fetch(folioBasketPDA);
 
     assert.equal(
       userPendingBasket.tokenAmounts[0].amountForMinting.toNumber(),

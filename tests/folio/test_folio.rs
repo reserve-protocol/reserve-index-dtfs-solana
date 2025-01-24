@@ -124,7 +124,7 @@ mod tests {
         folio.dao_pending_fee_shares = 10_000_000;
         folio.fee_recipients_pending_fee_shares = 20_000_000;
 
-        let total_supply = folio.get_total_supply(initial_supply);
+        let total_supply = folio.get_total_supply(initial_supply).unwrap();
 
         assert_eq!(total_supply, 1_030_000_000);
     }

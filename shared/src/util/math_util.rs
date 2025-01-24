@@ -55,19 +55,35 @@ impl From<U256> for CustomPreciseNumber {
 
 impl CustomPreciseNumber {
     pub fn add(&self, other: &Self) -> Self {
-        CustomPreciseNumber(self.0.checked_add(&other.0).expect(&ErrorCode::MathOverflow.name()))
+        CustomPreciseNumber(
+            self.0
+                .checked_add(&other.0)
+                .expect(&ErrorCode::MathOverflow.name()),
+        )
     }
 
     pub fn sub(&self, other: &Self) -> Self {
-        CustomPreciseNumber(self.0.checked_sub(&other.0).expect(&ErrorCode::MathOverflow.name()))
+        CustomPreciseNumber(
+            self.0
+                .checked_sub(&other.0)
+                .expect(&ErrorCode::MathOverflow.name()),
+        )
     }
 
     pub fn mul(&self, other: &Self) -> Self {
-        CustomPreciseNumber(self.0.checked_mul(&other.0).expect(&ErrorCode::MathOverflow.name()))
+        CustomPreciseNumber(
+            self.0
+                .checked_mul(&other.0)
+                .expect(&ErrorCode::MathOverflow.name()),
+        )
     }
 
     pub fn div(&self, other: &Self) -> Self {
-        CustomPreciseNumber(self.0.checked_div(&other.0).expect(&ErrorCode::MathOverflow.name()))
+        CustomPreciseNumber(
+            self.0
+                .checked_div(&other.0)
+                .expect(&ErrorCode::MathOverflow.name()),
+        )
     }
 
     pub fn pow(&self, other: u64) -> Self {
@@ -95,19 +111,35 @@ impl CustomPreciseNumber {
     }
 
     pub fn to_u64_floor(&self) -> u64 {
-        self.0.floor().expect(&ErrorCode::MathOverflow.name()).to_imprecise().expect(&ErrorCode::MathOverflow.name()) as u64
+        self.0
+            .floor()
+            .expect(&ErrorCode::MathOverflow.name())
+            .to_imprecise()
+            .expect(&ErrorCode::MathOverflow.name()) as u64
     }
 
     pub fn to_u64_ceil(&self) -> u64 {
-        self.0.ceiling().expect(&ErrorCode::MathOverflow.name()).to_imprecise().expect(&ErrorCode::MathOverflow.name()) as u64
+        self.0
+            .ceiling()
+            .expect(&ErrorCode::MathOverflow.name())
+            .to_imprecise()
+            .expect(&ErrorCode::MathOverflow.name()) as u64
     }
 
     pub fn to_u128_floor(&self) -> u128 {
-        self.0.floor().expect(&ErrorCode::MathOverflow.name()).to_imprecise().expect(&ErrorCode::MathOverflow.name())
+        self.0
+            .floor()
+            .expect(&ErrorCode::MathOverflow.name())
+            .to_imprecise()
+            .expect(&ErrorCode::MathOverflow.name())
     }
 
     pub fn to_u128_ceil(&self) -> u128 {
-        self.0.ceiling().expect(&ErrorCode::MathOverflow.name()).to_imprecise().expect(&ErrorCode::MathOverflow.name())
+        self.0
+            .ceiling()
+            .expect(&ErrorCode::MathOverflow.name())
+            .to_imprecise()
+            .expect(&ErrorCode::MathOverflow.name())
     }
 }
 

@@ -2,7 +2,6 @@
 mod tests {
     use anchor_lang::prelude::Pubkey;
     use folio::state::FeeRecipients;
-    use shared::constants::SCALAR;
     use shared::errors::ErrorCode;
     use shared::structs::FeeRecipient;
 

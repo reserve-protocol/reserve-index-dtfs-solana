@@ -147,7 +147,7 @@ pub fn handler(
 
     check_condition!(bought_amount <= max_buy_amount, SlippageExceeded);
 
-    let folio_token_total_supply = folio.get_total_supply(folio_token_mint.supply);
+    let folio_token_total_supply = folio.get_total_supply(folio_token_mint.supply)?;
 
     // Sell related logic
     let sell_balance = ctx.accounts.folio_sell_token_account.amount;
@@ -219,7 +219,7 @@ pub fn handler(
                 .folio_buy_token_account
                 .amount
                 .checked_sub(folio_buy_balance_before)
-                .unwrap()
+                .ok_or(ErrorCode::MathOverflow)?
                 >= bought_amount,
             InsufficientBid
         );

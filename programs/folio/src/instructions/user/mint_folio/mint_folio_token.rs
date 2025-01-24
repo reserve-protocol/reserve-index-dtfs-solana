@@ -158,7 +158,9 @@ pub fn handler<'info>(
         dao_fee_denominator,
     )?;
 
-    let folio_token_amount_to_mint = shares.checked_sub(fee_shares).unwrap();
+    let folio_token_amount_to_mint = shares
+        .checked_sub(fee_shares)
+        .ok_or(ErrorCode::MathOverflow)?;
 
     let signer_seeds = &[FOLIO_SEEDS, token_mint_key.as_ref(), &[folio_bump]];
 

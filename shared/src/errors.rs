@@ -56,6 +56,9 @@ pub enum ErrorCode {
     #[msg("Invalid Number of Remaining Accounts")]
     InvalidNumberOfRemainingAccounts,
 
+    #[msg("Missing Remaining Account")]
+    MissingRemainingAccount,
+
     #[msg("Invalid Added Token Mints")]
     InvalidAddedTokenMints,
 
@@ -190,6 +193,9 @@ pub enum ErrorCode {
 
     #[msg("No Rewards To Claim")]
     NoRewardsToClaim,
+
+    #[msg("Math Overflow")]
+    MathOverflow,
 }
 
 #[macro_export]

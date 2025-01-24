@@ -99,13 +99,13 @@ impl FolioBasket {
                         slot_for_update.amount_for_minting = token_amount
                             .amount_for_minting
                             .checked_add(slot_for_update.amount_for_minting)
-                            .unwrap();
+                            .ok_or(ErrorCode::MathOverflow)?;
                     }
                     PendingBasketType::RedeemProcess => {
                         slot_for_update.amount_for_redeeming = token_amount
                             .amount_for_redeeming
                             .checked_add(slot_for_update.amount_for_redeeming)
-                            .unwrap();
+                            .ok_or(ErrorCode::MathOverflow)?;
                     }
                 }
             } else {
@@ -152,13 +152,13 @@ impl FolioBasket {
         Ok(())
     }
 
-    pub fn get_clean_token_balance(token_balance: u64, token_amounts: &TokenAmount) -> u64 {
+    pub fn get_clean_token_balance(token_balance: u64, token_amounts: &TokenAmount) -> Result<u64> {
         token_balance
             // Since can't be rolled back, we need to act as if those have already been withdrawn
             .checked_sub(token_amounts.amount_for_redeeming)
-            .unwrap()
+            .ok_or(ErrorCode::MathOverflow)?
             // Since can be rolled back, can't take them into account, needs to be removed
             .checked_sub(token_amounts.amount_for_minting)
-            .unwrap()
+            .ok_or(ErrorCode::MathOverflow.into())
     }
 }

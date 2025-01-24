@@ -114,7 +114,7 @@ impl Trade {
 
         self.k = price_ratio
             .ln()
-            .unwrap()
+            .ok_or(ErrorCode::MathOverflow)?
             .div_generic(auction_length)
             .to_u64_floor();
 
@@ -131,11 +131,14 @@ impl Trade {
             i if i == self.start => Ok(self.start_price),
             i if i == self.end => Ok(self.end_price),
             _ => {
-                let time_value = CustomPreciseNumber::from_u64(self.k)
-                    .mul_generic(current_time.checked_sub(self.start).unwrap());
+                let time_value = CustomPreciseNumber::from_u64(self.k).mul_generic(
+                    current_time
+                        .checked_sub(self.start)
+                        .ok_or(ErrorCode::MathOverflow)?,
+                );
 
                 //(-time_value).exp()
-                let time_value_exponent = time_value.exp(true).unwrap();
+                let time_value_exponent = time_value.exp(true).ok_or(ErrorCode::MathOverflow)?;
 
                 let p = CustomPreciseNumber::from_u128(self.start_price)
                     .mul_generic(time_value_exponent)

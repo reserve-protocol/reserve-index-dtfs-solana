@@ -79,7 +79,7 @@ impl UserPendingBasket {
                         slot_for_update.amount_for_minting = token_amount
                             .amount_for_minting
                             .checked_add(slot_for_update.amount_for_minting)
-                            .unwrap();
+                            .ok_or(ErrorCode::MathOverflow)?;
                     } else if can_add_new_mints {
                         if let Some(slot) = self
                             .token_amounts
@@ -107,7 +107,7 @@ impl UserPendingBasket {
                         slot_for_update.amount_for_redeeming = token_amount
                             .amount_for_redeeming
                             .checked_add(slot_for_update.amount_for_redeeming)
-                            .unwrap();
+                            .ok_or(ErrorCode::MathOverflow)?;
                     } else if can_add_new_mints {
                         if let Some(slot) = self
                             .token_amounts
@@ -220,7 +220,7 @@ impl UserPendingBasket {
             let folio_token_account = TokenAccount::try_deserialize(&mut &data[..])?;
 
             let folio_token_balance =
-                FolioBasket::get_clean_token_balance(folio_token_account.amount, related_mint);
+                FolioBasket::get_clean_token_balance(folio_token_account.amount, related_mint)?;
 
             match pending_basket_type {
                 PendingBasketType::MintProcess => {
@@ -270,11 +270,11 @@ impl UserPendingBasket {
         user_amount.amount_for_minting = user_amount
             .amount_for_minting
             .checked_sub(user_amount_taken)
-            .unwrap();
+            .ok_or(ErrorCode::MathOverflow)?;
         related_mint.amount_for_minting = related_mint
             .amount_for_minting
             .checked_sub(user_amount_taken)
-            .unwrap();
+            .ok_or(ErrorCode::MathOverflow)?;
 
         Ok(())
     }
@@ -295,11 +295,11 @@ impl UserPendingBasket {
         user_amount.amount_for_redeeming = user_amount
             .amount_for_redeeming
             .checked_add(amount_to_give_to_user)
-            .unwrap();
+            .ok_or(ErrorCode::MathOverflow)?;
         related_mint.amount_for_redeeming = related_mint
             .amount_for_redeeming
             .checked_add(amount_to_give_to_user)
-            .unwrap();
+            .ok_or(ErrorCode::MathOverflow)?;
 
         Ok(())
     }

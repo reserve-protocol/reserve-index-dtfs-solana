@@ -120,7 +120,7 @@ fn mint_initial_shares<'info>(
                     cpi_accounts,
                     &[signer_seeds],
                 ),
-                initial_shares.unwrap(),
+                initial_shares.ok_or(ErrorCode::MathOverflow)?,
             )?;
         }
     }

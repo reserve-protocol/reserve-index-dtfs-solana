@@ -138,11 +138,21 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
     let mut remaining_accounts_iter = ctx.remaining_accounts.iter();
 
     for _ in 0..ctx.remaining_accounts.len() / remaining_account_divider {
-        let reward_token = remaining_accounts_iter.next().unwrap();
-        let reward_info = remaining_accounts_iter.next().unwrap();
-        let fee_recipient_token_account = remaining_accounts_iter.next().unwrap(); // Folio token rewards' token account
-        let caller_reward_info = remaining_accounts_iter.next().unwrap();
-        let caller_governance_account = remaining_accounts_iter.next().unwrap();
+        let reward_token = remaining_accounts_iter
+            .next()
+            .ok_or(ErrorCode::MissingRemainingAccount)?;
+        let reward_info = remaining_accounts_iter
+            .next()
+            .ok_or(ErrorCode::MissingRemainingAccount)?;
+        let fee_recipient_token_account = remaining_accounts_iter
+            .next()
+            .ok_or(ErrorCode::MissingRemainingAccount)?; // Folio token rewards' token account
+        let caller_reward_info = remaining_accounts_iter
+            .next()
+            .ok_or(ErrorCode::MissingRemainingAccount)?;
+        let caller_governance_account = remaining_accounts_iter
+            .next()
+            .ok_or(ErrorCode::MissingRemainingAccount)?;
 
         // Check all the pdas
         check_condition!(
@@ -222,8 +232,12 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
 
         // All the logic for the extra user if user != caller
         if remaining_account_divider == 4 {
-            let user_reward_info = remaining_accounts_iter.next().unwrap();
-            let user_governance_account = remaining_accounts_iter.next().unwrap();
+            let user_reward_info = remaining_accounts_iter
+                .next()
+                .ok_or(ErrorCode::MissingRemainingAccount)?;
+            let user_governance_account = remaining_accounts_iter
+                .next()
+                .ok_or(ErrorCode::MissingRemainingAccount)?;
 
             let expected_pda_for_user = Pubkey::find_program_address(
                 &[

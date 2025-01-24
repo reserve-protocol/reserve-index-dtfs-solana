@@ -158,7 +158,7 @@ pub fn handler<'info>(
 
             let amount_to_distribute = total_amount_to_distribute
                 .checked_mul(related_fee_distribution.portion)
-                .unwrap();
+                .ok_or(ErrorCode::MathOverflow)?;
 
             {
                 let cpi_accounts = token::MintTo {

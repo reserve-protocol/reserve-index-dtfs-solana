@@ -122,21 +122,21 @@ impl UserRewardInfo {
         let user_balance_u256 = U256::from(user_balance);
         let mint_decimals_exponent = U256::from(10)
             .checked_pow(U256::from(mint_decimals))
-            .unwrap();
+            .ok_or(ErrorCode::MathOverflow)?;
         let d18_u256 = U256::from(D18);
 
         let supplier_delta = user_balance_u256
             .checked_mul(delta_result)
-            .unwrap()
+            .ok_or(ErrorCode::MathOverflow)?
             .checked_mul(mint_decimals_exponent)
-            .unwrap()
+            .ok_or(ErrorCode::MathOverflow)?
             .checked_div(d18_u256)
-            .unwrap();
+            .ok_or(ErrorCode::MathOverflow)?;
 
         self.accrued_rewards = self
             .accrued_rewards
             .checked_add(CustomPreciseNumber::from(supplier_delta).to_u64_floor())
-            .unwrap();
+            .ok_or(ErrorCode::MathOverflow)?;
 
         Ok(())
     }

@@ -1,4 +1,5 @@
 use crate::constants::D18;
+use crate::errors::ErrorCode;
 use anchor_lang::prelude::*;
 use spl_math::{precise_number::PreciseNumber, uint::U256};
 
@@ -16,11 +17,13 @@ impl CustomPreciseNumber {
     }
 
     pub fn from_u64(value: u64) -> Self {
-        CustomPreciseNumber(PreciseNumber::new(value as u128).unwrap())
+        CustomPreciseNumber(
+            PreciseNumber::new(value as u128).expect(&ErrorCode::MathOverflow.name()),
+        )
     }
 
     pub fn from_u128(value: u128) -> Self {
-        CustomPreciseNumber(PreciseNumber::new(value).unwrap())
+        CustomPreciseNumber(PreciseNumber::new(value).expect(&ErrorCode::MathOverflow.name()))
     }
 
     pub fn as_inner(&self) -> &PreciseNumber {
@@ -52,19 +55,19 @@ impl From<U256> for CustomPreciseNumber {
 
 impl CustomPreciseNumber {
     pub fn add(&self, other: &Self) -> Self {
-        CustomPreciseNumber(self.0.checked_add(&other.0).unwrap())
+        CustomPreciseNumber(self.0.checked_add(&other.0).expect(&ErrorCode::MathOverflow.name()))
     }
 
     pub fn sub(&self, other: &Self) -> Self {
-        CustomPreciseNumber(self.0.checked_sub(&other.0).unwrap())
+        CustomPreciseNumber(self.0.checked_sub(&other.0).expect(&ErrorCode::MathOverflow.name()))
     }
 
     pub fn mul(&self, other: &Self) -> Self {
-        CustomPreciseNumber(self.0.checked_mul(&other.0).unwrap())
+        CustomPreciseNumber(self.0.checked_mul(&other.0).expect(&ErrorCode::MathOverflow.name()))
     }
 
     pub fn div(&self, other: &Self) -> Self {
-        CustomPreciseNumber(self.0.checked_div(&other.0).unwrap())
+        CustomPreciseNumber(self.0.checked_div(&other.0).expect(&ErrorCode::MathOverflow.name()))
     }
 
     pub fn pow(&self, other: u64) -> Self {
@@ -92,19 +95,19 @@ impl CustomPreciseNumber {
     }
 
     pub fn to_u64_floor(&self) -> u64 {
-        self.0.floor().unwrap().to_imprecise().unwrap() as u64
+        self.0.floor().expect(&ErrorCode::MathOverflow.name()).to_imprecise().expect(&ErrorCode::MathOverflow.name()) as u64
     }
 
     pub fn to_u64_ceil(&self) -> u64 {
-        self.0.ceiling().unwrap().to_imprecise().unwrap() as u64
+        self.0.ceiling().expect(&ErrorCode::MathOverflow.name()).to_imprecise().expect(&ErrorCode::MathOverflow.name()) as u64
     }
 
     pub fn to_u128_floor(&self) -> u128 {
-        self.0.floor().unwrap().to_imprecise().unwrap()
+        self.0.floor().expect(&ErrorCode::MathOverflow.name()).to_imprecise().expect(&ErrorCode::MathOverflow.name())
     }
 
     pub fn to_u128_ceil(&self) -> u128 {
-        self.0.ceiling().unwrap().to_imprecise().unwrap()
+        self.0.ceiling().expect(&ErrorCode::MathOverflow.name()).to_imprecise().expect(&ErrorCode::MathOverflow.name())
     }
 }
 

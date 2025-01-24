@@ -146,11 +146,16 @@ impl Folio {
         self.dao_pending_fee_shares = self
             .dao_pending_fee_shares
             .checked_add(dao_fee_shares)
-            .unwrap();
+            .ok_or(ErrorCode::MathOverflow)?;
+
         self.fee_recipients_pending_fee_shares = self
             .fee_recipients_pending_fee_shares
-            .checked_add(total_fee_shares_scaled.checked_sub(dao_fee_shares).unwrap())
-            .unwrap();
+            .checked_add(
+                total_fee_shares_scaled
+                    .checked_sub(dao_fee_shares)
+                    .ok_or(ErrorCode::MathOverflow)?,
+            )
+            .ok_or(ErrorCode::MathOverflow)?;
 
         Ok(total_fee_shares_scaled)
     }
@@ -176,23 +181,23 @@ impl Folio {
         self.dao_pending_fee_shares = self
             .dao_pending_fee_shares
             .checked_add(dao_pending_fee_shares)
-            .unwrap();
+            .ok_or(ErrorCode::MathOverflow)?;
         self.fee_recipients_pending_fee_shares = self
             .fee_recipients_pending_fee_shares
             .checked_add(fee_recipients_pending_fee)
-            .unwrap();
+            .ok_or(ErrorCode::MathOverflow)?;
 
         self.last_poke = current_time;
 
         Ok(())
     }
 
-    pub fn get_total_supply(&self, folio_token_supply: u64) -> u64 {
-        folio_token_supply
+    pub fn get_total_supply(&self, folio_token_supply: u64) -> Result<u64> {
+        Ok(folio_token_supply
             .checked_add(self.dao_pending_fee_shares)
-            .unwrap()
+            .ok_or(ErrorCode::MathOverflow)?
             .checked_add(self.fee_recipients_pending_fee_shares)
-            .unwrap()
+            .ok_or(ErrorCode::MathOverflow)?)
     }
 
     pub fn get_pending_fee_shares(
@@ -202,7 +207,7 @@ impl Folio {
         dao_fee_numerator: u128,
         dao_fee_denominator: u128,
     ) -> Result<(u64, u64)> {
-        let total_supply = self.get_total_supply(folio_token_supply);
+        let total_supply = self.get_total_supply(folio_token_supply)?;
         let elapsed = current_time - self.last_poke;
 
         let denominator = CustomPreciseNumber::from_u128(D18)

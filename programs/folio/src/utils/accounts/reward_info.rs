@@ -42,10 +42,12 @@ impl RewardInfo {
 
         self.balance_last_known = current_reward_token_balance
             .checked_add(self.total_claimed)
-            .unwrap();
+            .ok_or(ErrorCode::MathOverflow)?;
 
         let current_time = Clock::get()?.unix_timestamp as u64;
-        let elapsed = current_time.checked_sub(self.payout_last_paid).unwrap();
+        let elapsed = current_time
+            .checked_sub(self.payout_last_paid)
+            .ok_or(ErrorCode::MathOverflow)?;
 
         if elapsed == 0 {
             return Ok(());
@@ -53,7 +55,7 @@ impl RewardInfo {
 
         let unaccounted_balance = balance_last_known
             .checked_sub(self.balance_accounted)
-            .unwrap();
+            .ok_or(ErrorCode::MathOverflow)?;
 
         let handout_percentage = CustomPreciseNumber::one_e18()
             .sub_generic(
@@ -76,7 +78,7 @@ impl RewardInfo {
             self.balance_accounted = self
                 .balance_accounted
                 .checked_add(tokens_to_handout.to_u64_floor())
-                .unwrap();
+                .ok_or(ErrorCode::MathOverflow)?;
         }
 
         self.payout_last_paid = current_time;
@@ -98,17 +100,17 @@ impl RewardInfo {
 
         let delta_index = one_e18
             .checked_mul(tokens_to_handout)
-            .unwrap()
+            .ok_or(ErrorCode::MathOverflow)?
             .checked_mul(current_token_decimals_exponent)
-            .unwrap()
+            .ok_or(ErrorCode::MathOverflow)?
             .checked_div(current_reward_token_supply)
-            .unwrap();
+            .ok_or(ErrorCode::MathOverflow)?;
 
         let reward_index = self
             .reward_index
             .to_u256()
             .checked_add(delta_index)
-            .unwrap();
+            .ok_or(ErrorCode::MathOverflow)?;
 
         self.reward_index = U256Number::from_u256(reward_index);
 

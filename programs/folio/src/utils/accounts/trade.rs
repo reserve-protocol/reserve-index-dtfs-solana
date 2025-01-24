@@ -109,8 +109,8 @@ impl Trade {
             return Ok(());
         }
 
-        let price_ratio = CustomPreciseNumber::from_u128(self.start_price)
-            .mul_div_generic(D18, self.end_price);
+        let price_ratio =
+            CustomPreciseNumber::from_u128(self.start_price).mul_div_generic(D18, self.end_price);
 
         self.k = price_ratio
             .ln()

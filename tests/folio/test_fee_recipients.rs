@@ -6,6 +6,7 @@ mod tests {
     use shared::structs::FeeRecipient;
 
     const HALF: u64 = 500_000_000;
+    const SCALAR: u64 = 1_000_000_000;
 
     #[test]
     fn test_update_fee_recipients_add_new() {

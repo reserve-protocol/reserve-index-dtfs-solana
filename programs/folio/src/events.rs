@@ -3,7 +3,7 @@ use anchor_lang::prelude::*;
 #[event]
 pub struct FolioCreated {
     pub folio_token_mint: Pubkey,
-    pub folio_fee: u64,
+    pub folio_fee: u128,
 }
 
 #[event]
@@ -36,8 +36,8 @@ pub struct FeeRecipientSet {
 #[event]
 pub struct TradeOpened {
     pub trade_id: u64,
-    pub start_price: u64,
-    pub end_price: u64,
+    pub start_price: u128,
+    pub end_price: u128,
     pub start: u64,
     pub end: u64,
 }
@@ -48,7 +48,7 @@ pub struct TradeApproved {
     pub from: Pubkey,
     pub to: Pubkey,
     pub amount: u64,
-    pub start_price: u64,
+    pub start_price: u128,
 }
 
 #[event]

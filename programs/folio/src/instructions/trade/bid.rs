@@ -9,9 +9,9 @@ use anchor_spl::{
 };
 use shared::{
     check_condition,
-    constants::{FOLIO_BASKET_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS, SCALAR, SCALAR_U128},
+    constants::{D27, FOLIO_BASKET_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS},
     structs::FolioStatus,
-    util::math_util::{RoundingMode, SafeArithmetic},
+    util::math_util::CustomPreciseNumber,
 };
 
 use crate::state::ProgramRegistrar;
@@ -141,12 +141,9 @@ pub fn handler(
 
     let price = trade.get_price(current_time)?;
 
-    let bought_amount = <u64 as SafeArithmetic>::mul_div_precision_from_u128(
-        sell_amount as u128,
-        price,
-        SCALAR_U128,
-        RoundingMode::Ceil,
-    ) as u64;
+    let bought_amount = CustomPreciseNumber::from_u64(sell_amount)
+        .mul_generic(price)
+        .to_u64_ceil();
 
     check_condition!(bought_amount <= max_buy_amount, SlippageExceeded);
 
@@ -155,16 +152,15 @@ pub fn handler(
     // Sell related logic
     let sell_balance = ctx.accounts.folio_sell_token_account.amount;
 
-    let sell_available = match trade.sell_limit.spot.mul_div_precision(
-        folio_token_total_supply,
-        SCALAR,
-        RoundingMode::Ceil,
-    ) {
+    let min_sell_balance = match CustomPreciseNumber::from_u128(trade.sell_limit.spot)
+        .mul_div_generic(folio_token_total_supply as u128, D27)
+        .to_u64_ceil()
+    {
         min_sell_balance if sell_balance > min_sell_balance => sell_balance - min_sell_balance,
         _ => 0,
     };
 
-    check_condition!(sell_amount <= sell_available, InsufficientBalance);
+    check_condition!(sell_amount <= min_sell_balance, InsufficientBalance);
 
     let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
     folio_basket.add_tokens_to_basket(&vec![trade.buy])?;
@@ -244,11 +240,9 @@ pub fn handler(
     }
 
     // Validate max buy balance
-    let max_buy_balance = trade.buy_limit.spot.mul_div_precision(
-        folio_token_total_supply,
-        SCALAR,
-        RoundingMode::Floor,
-    );
+    let max_buy_balance = CustomPreciseNumber::from_u128(trade.buy_limit.spot)
+        .mul_generic(folio_token_total_supply as u128)
+        .to_u64_floor();
 
     ctx.accounts.folio_buy_token_account.reload()?;
     check_condition!(

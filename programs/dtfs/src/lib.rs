@@ -27,7 +27,7 @@ pub mod dtfs {
     pub fn set_dao_fee_config(
         ctx: Context<SetDAOFeeConfig>,
         fee_recipient: Option<Pubkey>,
-        fee_recipient_numerator: Option<u64>,
+        fee_recipient_numerator: Option<u128>,
     ) -> Result<()> {
         set_dao_fee_config::handler(ctx, fee_recipient, fee_recipient_numerator)
     }
@@ -44,8 +44,8 @@ pub mod dtfs {
         ctx: Context<UpdateFolio>,
         program_version: Option<Pubkey>,
         program_deployment_slot: Option<u64>,
-        folio_fee: Option<u64>,
-        minting_fee: Option<u64>,
+        folio_fee: Option<u128>,
+        minting_fee: Option<u128>,
         trade_delay: Option<u64>,
         auction_length: Option<u64>,
         fee_recipients_to_add: Vec<FeeRecipient>,
@@ -167,8 +167,8 @@ pub mod dtfs {
         trade_id: u64,
         sell_limit: Range,
         buy_limit: Range,
-        start_price: u64,
-        end_price: u64,
+        start_price: u128,
+        end_price: u128,
         ttl: u64,
     ) -> Result<()> {
         approve_trade::handler(
@@ -188,10 +188,10 @@ pub mod dtfs {
 
     pub fn open_trade(
         ctx: Context<OpenTrade>,
-        sell_limit: u64,
-        buy_limit: u64,
-        start_price: u64,
-        end_price: u64,
+        sell_limit: u128,
+        buy_limit: u128,
+        start_price: u128,
+        end_price: u128,
     ) -> Result<()> {
         open_trade::handler(ctx, sell_limit, buy_limit, start_price, end_price)
     }

@@ -19,7 +19,7 @@ pub struct DAOFeeConfig {
     pub bump: u8,
 
     pub fee_recipient: Pubkey,
-    pub fee_recipient_numerator: u64,
+    pub fee_recipient_numerator: u128,
 }
 
 impl DAOFeeConfig {

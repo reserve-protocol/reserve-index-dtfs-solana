@@ -105,8 +105,8 @@ pub struct InitFolio<'info> {
 impl InitFolio<'_> {
     pub fn validate(
         &self,
-        folio_fee: u64,
-        minting_fee: u64,
+        folio_fee: u128,
+        minting_fee: u128,
         trade_delay: u64,
         auction_length: u64,
     ) -> Result<()> {
@@ -148,8 +148,8 @@ impl<'info> CreateMetadataAccount<'info> {
 
 pub fn handler(
     ctx: Context<InitFolio>,
-    folio_fee: u64,
-    minting_fee: u64,
+    folio_fee: u128,
+    minting_fee: u128,
     trade_delay: u64,
     auction_length: u64,
     name: String,

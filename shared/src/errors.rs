@@ -187,6 +187,9 @@ pub enum ErrorCode {
 
     #[msg("Invalid Folio Owner")]
     InvalidFolioOwner,
+
+    #[msg("No Rewards To Claim")]
+    NoRewardsToClaim,
 }
 
 #[macro_export]

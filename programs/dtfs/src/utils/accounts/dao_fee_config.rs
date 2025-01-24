@@ -9,7 +9,7 @@ impl DAOFeeConfig {
         dao_fee_config: &mut Account<DAOFeeConfig>,
         context_bump: u8,
         fee_recipient: Option<Pubkey>,
-        fee_recipient_numerator: Option<u64>,
+        fee_recipient_numerator: Option<u128>,
     ) -> Result<()> {
         let account_info_dao_fee_config = dao_fee_config.to_account_info();
 

@@ -4,9 +4,11 @@ use crate::state::{RewardInfo, UserRewardInfo};
 use crate::ID as FOLIO_ID;
 use anchor_lang::{prelude::*, Discriminator};
 use shared::check_condition;
-use shared::constants::USER_REWARD_INFO_SEEDS;
+use shared::constants::{D18, USER_REWARD_INFO_SEEDS};
 use shared::errors::ErrorCode;
 use shared::util::account_util::init_pda_account_rent;
+use shared::util::math_util::{CustomPreciseNumber, U256Number};
+use spl_math::uint::U256;
 
 impl UserRewardInfo {
     pub fn process_init_if_needed<'info>(
@@ -48,7 +50,11 @@ impl UserRewardInfo {
                 cursor.write_all(&context_bump.to_le_bytes())?;
                 cursor.write_all(folio.as_ref())?;
                 cursor.write_all(reward_token.as_ref())?;
-                cursor.write_all(&0u64.to_le_bytes())?;
+
+                for &word in &U256Number::ZERO.value {
+                    cursor.write_all(&word.to_le_bytes())?; // Write each u64 as little-endian bytes
+                }
+
                 cursor.write_all(&0u64.to_le_bytes())?;
             }
             {
@@ -87,36 +93,50 @@ impl UserRewardInfo {
     pub fn accrue_rewards(
         &mut self,
         reward_info: &Account<RewardInfo>,
-        _user_balance: u64,
-        _mint_decimals: u64,
+        user_balance: u64,
+        mint_decimals: u64,
     ) -> Result<()> {
-        // TODO changing math class, will use proper calculation when that happens
-        self.last_reward_index = reward_info.reward_index;
-        self.accrued_rewards = self.accrued_rewards.checked_add(1).unwrap();
-        // let (delta_result, overflow) = reward_info
-        //     .reward_index
-        //     .overflowing_sub(self.last_reward_index);
+        let (delta_result, overflow) = reward_info
+            .reward_index
+            .to_u256()
+            .overflowing_sub(self.last_reward_index.to_u256());
 
-        // if overflow {
-        //     // TODO negative, should we do something?
-        //     return Ok(());
-        // } else if delta_result != 0 {
-        //     let supplier_delta = <u64 as SafeArithmetic>::mul_div_precision_from_u128(
-        //         user_balance as u128,
-        //         delta_result as u128,
-        //         mint_decimals as u128,
-        //         RoundingMode::Floor,
-        //     )
-        //     .checked_div(SCALAR_U128)
-        //     .unwrap();
+        if overflow {
+            // TODO negative, should we do something?
+            return Ok(());
+        } else if delta_result != U256::from(0) {
+            self.calculate_and_update_accrued_rewards(user_balance, delta_result, mint_decimals)?;
 
-        //     self.accrued_rewards = self
-        //         .accrued_rewards
-        //         .checked_add(supplier_delta as u64)
-        //         .unwrap();
+            self.last_reward_index = reward_info.reward_index.clone();
+        };
 
-        //     self.last_reward_index = reward_info.reward_index;
-        // };
+        Ok(())
+    }
+
+    fn calculate_and_update_accrued_rewards(
+        &mut self,
+        user_balance: u64,
+        delta_result: U256,
+        mint_decimals: u64,
+    ) -> Result<()> {
+        let user_balance_u256 = U256::from(user_balance);
+        let mint_decimals_exponent = U256::from(10)
+            .checked_pow(U256::from(mint_decimals))
+            .unwrap();
+        let d18_u256 = U256::from(D18);
+
+        let supplier_delta = user_balance_u256
+            .checked_mul(delta_result)
+            .unwrap()
+            .checked_mul(mint_decimals_exponent)
+            .unwrap()
+            .checked_div(d18_u256)
+            .unwrap();
+
+        self.accrued_rewards = self
+            .accrued_rewards
+            .checked_add(CustomPreciseNumber::from(supplier_delta).to_u64_floor())
+            .unwrap();
 
         Ok(())
     }

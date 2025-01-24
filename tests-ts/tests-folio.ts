@@ -131,13 +131,13 @@ describe("Folio Tests", () => {
     );
 
     assert.notEqual(folio.bump, 0);
-    assert.equal(folio.folioFee.toNumber(), MAX_FOLIO_FEE.toNumber());
-    assert.equal(folio.mintingFee.toNumber(), MIN_DAO_MINTING_FEE.toNumber());
+    assert.equal(folio.folioFee.eq(MAX_FOLIO_FEE), true);
+    assert.equal(folio.mintingFee.eq(MIN_DAO_MINTING_FEE), true);
     assert.deepEqual(folio.programVersion, DTF_PROGRAM_ID);
     assert.deepEqual(folio.folioTokenMint, folioTokenMint.publicKey);
     assert.equal(feeRecipients, null);
-    assert.equal(folio.tradeDelay.toNumber(), MAX_TRADE_DELAY.toNumber());
-    assert.equal(folio.auctionLength.toNumber(), MAX_AUCTION_LENGTH.toNumber());
+    assert.equal(folio.tradeDelay.eq(MAX_TRADE_DELAY), true);
+    assert.equal(folio.auctionLength.eq(MAX_AUCTION_LENGTH), true);
 
     const ownerActorPDA = getActorPDA(folioOwnerKeypair.publicKey, folioPDA);
 

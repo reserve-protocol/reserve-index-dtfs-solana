@@ -71,8 +71,8 @@ impl ApproveTrade<'_> {
         trade_id: u64,
         sell_limit: &Range,
         buy_limit: &Range,
-        start_price: u64,
-        end_price: u64,
+        start_price: u128,
+        end_price: u128,
         ttl: u64,
     ) -> Result<()> {
         folio.validate_folio_program_post_init(
@@ -119,8 +119,8 @@ pub fn handler(
     trade_id: u64,
     sell_limit: Range,
     buy_limit: Range,
-    start_price: u64,
-    end_price: u64,
+    start_price: u128,
+    end_price: u128,
     ttl: u64,
 ) -> Result<()> {
     let folio_key = ctx.accounts.folio.key();

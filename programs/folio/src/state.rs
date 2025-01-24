@@ -5,6 +5,7 @@ use shared::{
         MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
     },
     structs::{FeeRecipient, Range, TokenAmount, TradeEnd},
+    util::math_util::U256Number,
 };
 
 /// PDA Seeds ["folio_program_signer"]
@@ -53,7 +54,6 @@ impl Actor {
 /*
 All numbers for calculations are u64 (up to 9 "decimals")
 */
-
 /// PDA Seeds ["folio", folio token pubkey]
 #[account(zero_copy)]
 #[derive(Default, InitSpace)]
@@ -62,7 +62,7 @@ pub struct Folio {
 
     pub status: u8,
 
-    pub _padding: [u8; 30],
+    pub _padding: [u8; 6],
 
     // Represents the program it can interact with
     pub program_version: Pubkey,
@@ -76,8 +76,9 @@ pub struct Folio {
     /*
     Fee related properties
      */
-    pub folio_fee: u64,
-    pub minting_fee: u64,
+    pub folio_fee: u128,
+    pub minting_fee: u128,
+
     pub last_poke: i64,
     pub dao_pending_fee_shares: u64,
     pub fee_recipients_pending_fee_shares: u64,
@@ -246,29 +247,24 @@ impl Default for UserPendingBasket {
 #[derive(Default, InitSpace)]
 pub struct Trade {
     pub bump: u8,
-    pub _padding: [u8; 7],
+    pub _padding: [u8; 15],
 
     pub id: u64,
 
-    pub folio: Pubkey,
+    pub available_at: u64,
+    pub launch_timeout: u64,
+    pub start: u64,
+    pub end: u64,
+    pub k: u64,
 
-    // Auction related data
+    pub folio: Pubkey,
     pub sell: Pubkey,
     pub buy: Pubkey,
 
     pub sell_limit: Range,
     pub buy_limit: Range,
-
-    pub start_price: u64,
-    pub end_price: u64,
-
-    pub available_at: u64,
-    pub launch_timeout: u64,
-
-    pub start: u64,
-    pub end: u64,
-
-    pub k: u64,
+    pub start_price: u128,
+    pub end_price: u128,
 }
 
 impl Trade {
@@ -312,7 +308,7 @@ pub struct RewardInfo {
 
     pub payout_last_paid: u64,
 
-    pub reward_index: u64,
+    pub reward_index: U256Number,
 
     pub balance_accounted: u64,
     pub balance_last_known: u64,
@@ -336,7 +332,7 @@ pub struct UserRewardInfo {
 
     pub folio_reward_token: Pubkey,
 
-    pub last_reward_index: u64,
+    pub last_reward_index: U256Number,
 
     pub accrued_rewards: u64,
 }

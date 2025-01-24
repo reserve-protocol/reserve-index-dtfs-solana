@@ -1,7 +1,10 @@
 use crate::state::RewardInfo;
 use anchor_lang::prelude::*;
 use shared::check_condition;
+use shared::constants::D18;
 use shared::errors::ErrorCode;
+use shared::util::math_util::{CustomPreciseNumber, U256Number};
+use spl_math::uint::U256;
 
 impl RewardInfo {
     pub fn process_init_if_needed(
@@ -19,7 +22,7 @@ impl RewardInfo {
             account_reward_info.folio = *folio;
             account_reward_info.folio_reward_token = *reward_token;
             account_reward_info.payout_last_paid = Clock::get()?.unix_timestamp as u64;
-            account_reward_info.reward_index = 0;
+            account_reward_info.reward_index = U256Number::ZERO;
             account_reward_info.balance_accounted = 0;
             account_reward_info.balance_last_known = last_known_balance;
             account_reward_info.total_claimed = 0;
@@ -30,12 +33,12 @@ impl RewardInfo {
 
     pub fn accrue_rewards(
         &mut self,
-        _folio_reward_ratio: u64,
+        folio_reward_ratio: u64,
         current_reward_token_balance: u64,
-        _current_reward_token_supply: u64,
-        _current_token_decimals: u64,
+        current_reward_token_supply: u64,
+        current_token_decimals: u64,
     ) -> Result<()> {
-        let _balance_last_known = current_reward_token_balance;
+        let balance_last_known = self.balance_last_known;
 
         self.balance_last_known = current_reward_token_balance
             .checked_add(self.total_claimed)
@@ -48,44 +51,66 @@ impl RewardInfo {
             return Ok(());
         }
 
-        // TODO since we're redoing the math classes, don't need to take it into account for now, hard code change
-        self.reward_index = self.reward_index.checked_add(1).unwrap();
-        self.balance_accounted = self.balance_accounted.checked_add(1).unwrap();
+        let unaccounted_balance = balance_last_known
+            .checked_sub(self.balance_accounted)
+            .unwrap();
 
-        // let unaccounted_balance = balance_last_known
-        //     .checked_sub(self.balance_accounted)
-        //     .unwrap();
-        // let handout_percentage = SCALAR_U128
-        //     .checked_sub(folio_reward_ratio as u128)
-        //     .unwrap()
-        //     .checked_pow(elapsed as u32)
-        //     .unwrap()
-        //     .checked_sub(1)
-        //     .unwrap();
+        let handout_percentage = CustomPreciseNumber::one_e18()
+            .sub_generic(
+                CustomPreciseNumber::one_e18()
+                    .sub_generic(folio_reward_ratio)
+                    .pow(elapsed),
+            )
+            .sub_generic(CustomPreciseNumber::from_u64(1));
 
-        // let tokens_to_handout = <u64 as SafeArithmetic>::mul_div_precision_from_u128(
-        //     unaccounted_balance as u128,
-        //     handout_percentage,
-        //     SCALAR_U128,
-        //     RoundingMode::Floor,
-        // ) as u64;
+        let tokens_to_handout = CustomPreciseNumber::from_u64(unaccounted_balance)
+            .mul_div_generic(handout_percentage, CustomPreciseNumber::one_e18());
 
-        // if current_reward_token_supply != 0 {
-        // let delta_index = SCALAR
-        //     .mul_precision_to_u128(tokens_to_handout)
-        //     .checked_mul(10_u128.pow(current_token_decimals as u32))
-        //     .unwrap()
-        //     .checked_div(current_reward_token_supply as u128)
-        //     .unwrap();
+        if current_reward_token_supply != 0 {
+            self.calculate_delta_index(
+                tokens_to_handout.to_u128_floor(),
+                current_reward_token_supply,
+                current_token_decimals,
+            )?;
 
-        // self.reward_index = self.reward_index.checked_add(delta_index as u64).unwrap();
-        // self.balance_accounted = self
-        //     .balance_accounted
-        //     .checked_add(tokens_to_handout)
-        //     .unwrap();
-        // }
+            self.balance_accounted = self
+                .balance_accounted
+                .checked_add(tokens_to_handout.to_u64_floor())
+                .unwrap();
+        }
 
         self.payout_last_paid = current_time;
+
+        Ok(())
+    }
+
+    pub fn calculate_delta_index(
+        &mut self,
+        tokens_to_handout: u128,
+        current_reward_token_supply: u64,
+        current_token_decimals: u64,
+    ) -> Result<()> {
+        let one_e18 = U256::from(D18);
+        let tokens_to_handout = U256::from(tokens_to_handout);
+        let current_reward_token_supply = U256::from(current_reward_token_supply);
+        let current_token_decimals_exponent =
+            U256::from(10).pow(U256::from(current_token_decimals));
+
+        let delta_index = one_e18
+            .checked_mul(tokens_to_handout)
+            .unwrap()
+            .checked_mul(current_token_decimals_exponent)
+            .unwrap()
+            .checked_div(current_reward_token_supply)
+            .unwrap();
+
+        let reward_index = self
+            .reward_index
+            .to_u256()
+            .checked_add(delta_index)
+            .unwrap();
+
+        self.reward_index = U256Number::from_u256(reward_index);
 
         Ok(())
     }

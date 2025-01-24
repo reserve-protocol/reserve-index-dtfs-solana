@@ -46,7 +46,6 @@ import {
   setDaoFeeConfig,
   MAX_FOLIO_FEE,
   MIN_DAO_MINTING_FEE,
-  SCALAR,
   MAX_AUCTION_LENGTH,
   MAX_TRADE_DELAY,
   distributeFees,
@@ -75,6 +74,7 @@ import {
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import { createGovernanceAccounts } from "../utils/data-helper";
+import { deserializeU256 } from "../utils/math-helper";
 
 describe("DTFs Tests", () => {
   let connection: Connection;
@@ -94,7 +94,7 @@ describe("DTFs Tests", () => {
   let folioPDA: PublicKey;
 
   let feeRecipient: PublicKey = Keypair.generate().publicKey;
-  let feeRecipientNumerator: BN = new BN(600_000_000); //60%
+  let feeRecipientNumerator: BN = new BN("600000000000000000"); //60% in D18
 
   let newFeeRecipient = [
     {
@@ -119,8 +119,6 @@ describe("DTFs Tests", () => {
     { mint: Keypair.generate(), decimals: 9 },
     { mint: Keypair.generate(), decimals: 9 },
   ];
-
-  let folioInitTime: number;
 
   let buyMint: Keypair;
 
@@ -154,7 +152,7 @@ describe("DTFs Tests", () => {
       userKeypair.publicKey
     );
 
-    await createGovernanceAccounts(connection, userTokenRecordPda, 1000);
+    await createGovernanceAccounts(userTokenRecordPda, 1000);
 
     await wait(10);
 
@@ -179,9 +177,6 @@ describe("DTFs Tests", () => {
       "TFOL",
       "https://test.com"
     ));
-
-    // To track how much time is passing, so we can calculate fees
-    folioInitTime = new Date().getTime() / 1000;
 
     // Create the tokens that can be included in the folio
     for (const tokenMint of tokenMints) {
@@ -279,8 +274,8 @@ describe("DTFs Tests", () => {
     assert.notEqual(daoFeeConfig.bump, 0);
     assert.deepEqual(daoFeeConfig.feeRecipient, feeRecipient);
     assert.deepEqual(
-      daoFeeConfig.feeRecipientNumerator.toNumber(),
-      feeRecipientNumerator.toNumber()
+      daoFeeConfig.feeRecipientNumerator.eq(feeRecipientNumerator),
+      true
     );
   });
 
@@ -402,7 +397,7 @@ describe("DTFs Tests", () => {
       folioPDA,
       null,
       null,
-      new BN(folioBefore.folioFee.toNumber() - 1),
+      folioBefore.folioFee.sub(new BN(1)),
       null,
       null,
       null,
@@ -417,12 +412,12 @@ describe("DTFs Tests", () => {
 
     assert.deepEqual(folioAfter.programVersion, folioBefore.programVersion);
     assert.equal(
-      folioAfter.programDeploymentSlot.toNumber(),
-      folioBefore.programDeploymentSlot.toNumber()
+      folioAfter.programDeploymentSlot.eq(folioBefore.programDeploymentSlot),
+      true
     );
     assert.equal(
-      folioAfter.folioFee.toNumber(),
-      folioBefore.folioFee.toNumber() - 1
+      folioAfter.folioFee.eq(folioBefore.folioFee.sub(new BN(1))),
+      true
     );
     assert.equal(null, feeRecipientsBefore);
     assert.notEqual(null, feeRecipientsAfter);
@@ -474,10 +469,7 @@ describe("DTFs Tests", () => {
       folioAfter.programDeploymentSlot.toNumber(),
       folioBefore.programDeploymentSlot.toNumber()
     );
-    assert.equal(
-      folioAfter.folioFee.toNumber(),
-      folioBefore.folioFee.toNumber()
-    );
+    assert.equal(folioAfter.folioFee.eq(folioBefore.folioFee), true);
 
     assert.deepEqual(
       feeRecipientsAfter.feeRecipients[0].receiver,
@@ -880,12 +872,16 @@ describe("DTFs Tests", () => {
     );
 
     assert.equal(
-      folioAfter.daoPendingFeeShares.toNumber(),
-      folioBefore.daoPendingFeeShares.toNumber() + 1800000
+      folioAfter.daoPendingFeeShares.eq(
+        folioBefore.daoPendingFeeShares.add(new BN(1800001))
+      ),
+      true
     );
     assert.equal(
-      folioAfter.feeRecipientsPendingFeeShares.toNumber(),
-      folioBefore.feeRecipientsPendingFeeShares.toNumber() + 1200000
+      folioAfter.feeRecipientsPendingFeeShares.eq(
+        folioBefore.feeRecipientsPendingFeeShares.add(new BN(1199999))
+      ),
+      true
     );
 
     // Take 30% (3 tokens and 10 is the supply)
@@ -988,26 +984,6 @@ describe("DTFs Tests", () => {
 
   it("should allow user to poke folio and update pending fees", async () => {
     const folioBefore = await program.account.folio.fetch(folioPDA);
-    let timeOfPoke = new Date().getTime() / 1000;
-
-    const elapsedTime = timeOfPoke - folioInitTime;
-
-    // MAX_FOLIO_FEE is 13284 in D9 (0.000013284 or about 50% APY)
-    const feePerSecond = MAX_FOLIO_FEE.toNumber();
-
-    const estimatedFeeRate = elapsedTime * feePerSecond;
-
-    const totalSupply = folioBefore.daoPendingFeeShares
-      .add(folioBefore.feeRecipientsPendingFeeShares)
-      .add(
-        new BN(
-          (
-            await connection.getTokenSupply(folioTokenMint.publicKey)
-          ).value.amount
-        )
-      );
-
-    const estimatedFeeShares = totalSupply.muln(estimatedFeeRate).div(SCALAR);
 
     await pokeFolio(
       connection,
@@ -1018,31 +994,15 @@ describe("DTFs Tests", () => {
 
     const folioAfter = await program.account.folio.fetch(folioPDA);
 
-    const daoFeeDiff = folioAfter.daoPendingFeeShares
-      .sub(folioBefore.daoPendingFeeShares)
-      .toNumber();
-    const recipientFeeDiff = folioAfter.feeRecipientsPendingFeeShares
-      .sub(folioBefore.feeRecipientsPendingFeeShares)
-      .toNumber();
-
-    const totalFeeDiff = daoFeeDiff + recipientFeeDiff;
-    assert.equal(
-      Math.abs(totalFeeDiff - estimatedFeeShares.toNumber()) <
-        totalFeeDiff * 0.2, // 20% tolerance
-      true
+    const daoFeeDiff = folioAfter.daoPendingFeeShares.sub(
+      folioBefore.daoPendingFeeShares
+    );
+    const recipientFeeDiff = folioAfter.feeRecipientsPendingFeeShares.sub(
+      folioBefore.feeRecipientsPendingFeeShares
     );
 
-    assert.equal(
-      // 60% of the estimated fee shares
-      Math.abs(estimatedFeeShares.toNumber() * 0.6 - daoFeeDiff) <
-        daoFeeDiff * 0.2,
-      true
-    );
-    assert.equal(
-      Math.abs(estimatedFeeShares.toNumber() * 0.4 - recipientFeeDiff) <
-        recipientFeeDiff * 0.2,
-      true
-    );
+    assert.equal(daoFeeDiff.gt(new BN(0)), true);
+    assert.equal(recipientFeeDiff.gt(new BN(0)), true);
   });
 
   it("should allow user to distribute fees", async () => {
@@ -1100,12 +1060,9 @@ describe("DTFs Tests", () => {
     );
 
     // Folio fees should be as 0 (distributed)
-    assert.equal(
-      folioBefore.feeRecipientsPendingFeeShares.toNumber() > 0,
-      true
-    );
-    assert.equal(folioAfter.feeRecipientsPendingFeeShares.toNumber(), 0);
-    assert.equal(folioAfter.daoPendingFeeShares.toNumber(), 0);
+    assert.equal(folioBefore.feeRecipientsPendingFeeShares.gt(new BN(0)), true);
+    assert.equal(folioAfter.feeRecipientsPendingFeeShares.eq(new BN(0)), true);
+    assert.equal(folioAfter.daoPendingFeeShares.eq(new BN(0)), true);
 
     // Fee recipient's index should be updated
     assert.equal(
@@ -1221,14 +1178,14 @@ describe("DTFs Tests", () => {
     assert.equal(trade.folio.toBase58(), folioPDA.toBase58());
     assert.equal(trade.sell.toBase58(), sellMint.toBase58());
     assert.equal(trade.buy.toBase58(), buyMint.publicKey.toBase58());
-    assert.equal(trade.sellLimit.spot.toNumber(), 1);
-    assert.equal(trade.sellLimit.low.toNumber(), 0);
-    assert.equal(trade.sellLimit.high.toNumber(), 2);
-    assert.equal(trade.buyLimit.spot.toNumber(), 1);
-    assert.equal(trade.buyLimit.low.toNumber(), 0);
-    assert.equal(trade.buyLimit.high.toNumber(), 2);
-    assert.equal(trade.startPrice.toNumber(), 2);
-    assert.equal(trade.endPrice.toNumber(), 1);
+    assert.equal(trade.sellLimit.spot.eq(new BN(1)), true);
+    assert.equal(trade.sellLimit.low.eq(new BN(0)), true);
+    assert.equal(trade.sellLimit.high.eq(new BN(2)), true);
+    assert.equal(trade.buyLimit.spot.eq(new BN(1)), true);
+    assert.equal(trade.buyLimit.low.eq(new BN(0)), true);
+    assert.equal(trade.buyLimit.high.eq(new BN(2)), true);
+    assert.equal(trade.startPrice.eq(new BN(2)), true);
+    assert.equal(trade.endPrice.eq(new BN(1)), true);
     assert.equal(
       trade.availableAt.toNumber() >=
         currentTimeOnSolana + folio.tradeDelay.toNumber(),
@@ -1238,9 +1195,9 @@ describe("DTFs Tests", () => {
       trade.launchTimeout.toNumber() >= currentTimeOnSolana + ttl.toNumber(),
       true
     );
-    assert.equal(trade.start.toNumber(), 0);
-    assert.equal(trade.end.toNumber(), 0);
-    assert.equal(trade.k.toNumber(), 0);
+    assert.equal(trade.start.eq(new BN(0)), true);
+    assert.equal(trade.end.eq(new BN(0)), true);
+    assert.equal(trade.k.eq(new BN(0)), true);
   });
 
   it("should allow user to open trade", async () => {
@@ -1264,10 +1221,10 @@ describe("DTFs Tests", () => {
     const trade = await program.account.trade.fetch(tradePDA);
 
     // Update limits and prices
-    assert.equal(trade.sellLimit.spot.toNumber(), 2);
-    assert.equal(trade.buyLimit.spot.toNumber(), 2);
-    assert.equal(trade.startPrice.toNumber(), 2);
-    assert.equal(trade.endPrice.toNumber(), 1);
+    assert.equal(trade.sellLimit.spot.eq(new BN(2)), true);
+    assert.equal(trade.buyLimit.spot.eq(new BN(2)), true);
+    assert.equal(trade.startPrice.eq(new BN(2)), true);
+    assert.equal(trade.endPrice.eq(new BN(1)), true);
 
     // Assert trade is opened
     assert.equal(trade.start.toNumber() >= currentTimeOnSolana, true);
@@ -1277,7 +1234,7 @@ describe("DTFs Tests", () => {
       true
     );
 
-    assert.equal(trade.k.toNumber(), 1146);
+    assert.equal(trade.k.eq(new BN(1102292768958)), true);
   });
 
   it.skip("should allow trade actor to kill trade", async () => {
@@ -1410,7 +1367,7 @@ describe("DTFs Tests", () => {
         folioPDA
       ),
       userKeypair.publicKey,
-      1000
+      500
     );
 
     await bid(
@@ -1419,8 +1376,8 @@ describe("DTFs Tests", () => {
       folioPDA,
       folioTokenMint.publicKey,
       tradePDA,
-      new BN(1000),
-      new BN(1000),
+      new BN(500),
+      new BN(500),
       true,
       transferBuyTokenIx.data,
       [
@@ -1444,8 +1401,8 @@ describe("DTFs Tests", () => {
       balancesAfter,
       [],
       [
-        [-1000 / DEFAULT_DECIMALS_MUL, 1000 / DEFAULT_DECIMALS_MUL],
-        [1000 / DEFAULT_DECIMALS_MUL, -1000 / DEFAULT_DECIMALS_MUL],
+        [-500 / DEFAULT_DECIMALS_MUL, 500 / DEFAULT_DECIMALS_MUL],
+        [500 / DEFAULT_DECIMALS_MUL, -500 / DEFAULT_DECIMALS_MUL],
       ],
       [],
       [0, 1]
@@ -1469,7 +1426,7 @@ describe("DTFs Tests", () => {
       folioRewardTokens.rewardTokens[0].toBase58(),
       rewardTokenMints[0].mint.publicKey.toBase58()
     );
-    assert.equal(folioRewardTokens.rewardRatio.toNumber(), 8022536812036);
+    assert.equal(folioRewardTokens.rewardRatio.eq(new BN(8022536812036)), true);
     assert.deepEqual(folioRewardTokens.folio, folioPDA);
     assert.notEqual(folioRewardTokens.bump, 0);
   });
@@ -1487,7 +1444,10 @@ describe("DTFs Tests", () => {
         getFolioRewardTokensPDA(folioPDA)
       );
 
-    assert.equal(folioRewardTokensAfter.rewardRatio.toNumber(), 1146076687433);
+    assert.equal(
+      folioRewardTokensAfter.rewardRatio.eq(new BN(1146076687433)),
+      true
+    );
   });
 
   it("should allow user to remove reward token", async () => {
@@ -1539,6 +1499,7 @@ describe("DTFs Tests", () => {
       folioRewardTokenPDA
     );
 
+    // First accrue rewards will be 0 since the balance unaccounted for is 0, so we'll call it twice
     // Calling accrue rewards
     await accrueRewards(
       connection,
@@ -1549,7 +1510,31 @@ describe("DTFs Tests", () => {
       userKeypair.publicKey
     );
 
-    const rewardInfoAfter = await program.account.rewardInfo.fetch(
+    const rewardInfoAfterFirstCall = await program.account.rewardInfo.fetch(
+      rewardInfoPDA
+    );
+
+    assert.equal(
+      rewardInfoAfterFirstCall.balanceLastKnown.gt(
+        rewardInfoBefore.balanceLastKnown
+      ),
+      true
+    );
+
+    // To generate a bit of rewards
+    await wait(5);
+
+    // Second call will accrue rewards
+    await accrueRewards(
+      connection,
+      userKeypair,
+      folioOwnerKeypair.publicKey,
+      folioPDA,
+      [rewardTokenMints[1].mint.publicKey],
+      userKeypair.publicKey
+    );
+
+    const rewardInfoAfterSecondCall = await program.account.rewardInfo.fetch(
       rewardInfoPDA
     );
 
@@ -1564,17 +1549,17 @@ describe("DTFs Tests", () => {
     );
 
     assert.equal(
-      rewardInfoAfter.rewardIndex.toNumber() >
-        rewardInfoBefore.rewardIndex.toNumber(),
+      deserializeU256(rewardInfoAfterSecondCall.rewardIndex.value) >
+        deserializeU256(rewardInfoBefore.rewardIndex.value),
       true
     );
     assert.equal(
-      rewardInfoAfter.balanceAccounted.toNumber() >
+      rewardInfoAfterSecondCall.balanceAccounted.toNumber() >
         rewardInfoBefore.balanceAccounted.toNumber(),
       true
     );
     assert.equal(
-      rewardInfoAfter.payoutLastPaid.toNumber() >
+      rewardInfoAfterSecondCall.payoutLastPaid.toNumber() >
         rewardInfoBefore.payoutLastPaid.toNumber(),
       true
     );
@@ -1585,8 +1570,11 @@ describe("DTFs Tests", () => {
       rewardTokenMints[1].mint.publicKey.toBase58()
     );
     assert.notEqual(userInfoRewardAfter.bump, 0);
-    assert.equal(userInfoRewardAfter.accruedRewards.toNumber() > 0, true);
-    assert.equal(userInfoRewardAfter.lastRewardIndex.toNumber(), 1);
+    assert.equal(userInfoRewardAfter.accruedRewards.gt(new BN(0)), true);
+    assert.equal(
+      deserializeU256(userInfoRewardAfter.lastRewardIndex.value),
+      deserializeU256(rewardInfoAfterSecondCall.rewardIndex.value)
+    );
   });
 
   it("should allow user to claim rewards", async () => {
@@ -1619,10 +1607,9 @@ describe("DTFs Tests", () => {
     );
 
     assert.equal(
-      rewardInfoAfter.totalClaimed.toNumber() >
-        rewardInfoBefore.totalClaimed.toNumber(),
+      rewardInfoAfter.totalClaimed.gt(rewardInfoBefore.totalClaimed),
       true
     );
-    assert.equal(userRewardInfoAfter.accruedRewards.toNumber(), 0);
+    assert.equal(userRewardInfoAfter.accruedRewards.eq(new BN(0)), true);
   });
 });

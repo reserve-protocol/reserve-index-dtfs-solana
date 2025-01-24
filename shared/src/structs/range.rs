@@ -16,7 +16,7 @@ use bytemuck::{Pod, Zeroable};
 )]
 #[repr(C)]
 pub struct Range {
-    pub spot: u64,
-    pub low: u64,
-    pub high: u64,
+    pub spot: u128,
+    pub low: u128,
+    pub high: u128,
 }

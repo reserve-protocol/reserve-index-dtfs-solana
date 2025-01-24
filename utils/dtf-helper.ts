@@ -45,9 +45,9 @@ let dtfProgram: Program<Dtfs> = null;
 
 const SKIP_PREFLIGHT = true;
 
-export const MAX_FOLIO_FEE = new BN(13284);
-export const MIN_DAO_MINTING_FEE = new BN(500000);
-export const SCALAR = new BN(1_000_000_000);
+export const MAX_FOLIO_FEE = new BN("500000000000000000");
+export const D18 = new BN("1000000000000000000");
+export const MIN_DAO_MINTING_FEE = new BN("500000000000000");
 
 export const MIN_AUCTION_LENGTH = new BN(60);
 export const MAX_AUCTION_LENGTH = new BN(604800);
@@ -1019,9 +1019,14 @@ export async function accrueRewards(
     )
     .instruction();
 
-  await pSendAndConfirmTxn(dtfProgram, [accrueRewards], [], {
-    skipPreflight: SKIP_PREFLIGHT,
-  });
+  await pSendAndConfirmTxn(
+    dtfProgram,
+    [...getComputeLimitInstruction(400_000), accrueRewards],
+    [],
+    {
+      skipPreflight: SKIP_PREFLIGHT,
+    }
+  );
 }
 
 export async function claimRewards(

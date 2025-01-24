@@ -34,7 +34,7 @@ impl SetDAOFeeConfig<'_> {
 pub fn handler(
     ctx: Context<SetDAOFeeConfig>,
     fee_recipient: Option<Pubkey>,
-    fee_recipient_numerator: Option<u64>,
+    fee_recipient_numerator: Option<u128>,
 ) -> Result<()> {
     ctx.accounts.validate()?;
 

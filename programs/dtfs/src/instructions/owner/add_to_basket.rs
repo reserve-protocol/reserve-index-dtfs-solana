@@ -56,7 +56,7 @@ pub struct AddToBasket<'info> {
 
     /// CHECK: Done within the folio program
     #[account(mut)]
-    pub folio_pending_basket: UncheckedAccount<'info>,
+    pub folio_basket: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
     #[account(mut)]

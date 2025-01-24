@@ -108,6 +108,7 @@ export async function initProgramRegistrar(
     skipPreflight: SKIP_PREFLIGHT,
   });
 }
+
 export async function updateProgramRegistrar(
   connection: Connection,
   adminKeypair: Keypair,
@@ -137,7 +138,8 @@ export async function initFolio(
   tradeDelay: BN,
   auctionLength: BN,
   name: string,
-  symbol: string
+  symbol: string,
+  uri: string
 ): Promise<{ folioTokenMint: Keypair; folioPDA: PublicKey }> {
   const folioProgram = getFolioProgram(connection, folioOwner);
 
@@ -146,7 +148,15 @@ export async function initFolio(
   let folioPDA = getFolioPDA(folioTokenMint.publicKey);
 
   const initFolio = await folioProgram.methods
-    .initFolio(folioFee, mintingFee, tradeDelay, auctionLength, name, symbol)
+    .initFolio(
+      folioFee,
+      mintingFee,
+      tradeDelay,
+      auctionLength,
+      name,
+      symbol,
+      uri
+    )
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,

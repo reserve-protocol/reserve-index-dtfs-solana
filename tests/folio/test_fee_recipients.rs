@@ -2,11 +2,11 @@
 mod tests {
     use anchor_lang::prelude::Pubkey;
     use folio::state::FeeRecipients;
-    use shared::constants::SCALAR;
     use shared::errors::ErrorCode;
     use shared::structs::FeeRecipient;
 
     const HALF: u64 = 500_000_000;
+    const SCALAR: u64 = 1_000_000_000;
 
     #[test]
     fn test_update_fee_recipients_add_new() {

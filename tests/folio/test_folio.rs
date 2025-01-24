@@ -5,7 +5,7 @@ mod tests {
     use anchor_lang::prelude::*;
     use folio::state::{Folio, ProgramRegistrar};
     use shared::{
-        constants::{DAO_FEE_DENOMINATOR, MAX_DAO_FEE, MAX_FOLIO_FEE, MAX_MINTING_FEE},
+        constants::{DAO_FEE_DENOMINATOR, MAX_FOLIO_FEE, MAX_MINTING_FEE},
         structs::TradeEnd,
     };
 
@@ -43,7 +43,7 @@ mod tests {
     fn test_calculate_fees_for_minting() {
         let mut folio = setup_folio();
         let user_shares = 1_000_000_000_000; // 1000 shares
-        let dao_fee_numerator = MAX_DAO_FEE;
+        let dao_fee_numerator = 500_000_000;
         let dao_fee_denominator = DAO_FEE_DENOMINATOR;
 
         let total_fee_shares = folio
@@ -85,7 +85,7 @@ mod tests {
     fn test_poke() {
         let mut folio = setup_folio();
         let initial_supply = 100_000_000_000; // 100 token supply
-        let dao_fee_numerator = MAX_DAO_FEE;
+        let dao_fee_numerator = 500_000_000;
         let dao_fee_denominator = DAO_FEE_DENOMINATOR;
 
         folio
@@ -103,7 +103,7 @@ mod tests {
     fn test_poke_same_timestamp() {
         let mut folio = setup_folio();
         let initial_supply = 1_000_000_000;
-        let dao_fee_numerator = MAX_DAO_FEE;
+        let dao_fee_numerator = 500_000_000;
         let dao_fee_denominator = DAO_FEE_DENOMINATOR;
 
         folio
@@ -124,7 +124,7 @@ mod tests {
         folio.dao_pending_fee_shares = 10_000_000;
         folio.fee_recipients_pending_fee_shares = 20_000_000;
 
-        let total_supply = folio.get_total_supply(initial_supply);
+        let total_supply = folio.get_total_supply(initial_supply).unwrap();
 
         assert_eq!(total_supply, 1_030_000_000);
     }
@@ -134,7 +134,7 @@ mod tests {
         let folio = setup_folio();
         let initial_supply = 1_000_000_000_000; // 1000 tokens
         let current_time = 2000;
-        let dao_fee_numerator = MAX_DAO_FEE;
+        let dao_fee_numerator = 500_000_000;
         let dao_fee_denominator = DAO_FEE_DENOMINATOR;
 
         let (fee_recipients_shares, dao_shares) = folio

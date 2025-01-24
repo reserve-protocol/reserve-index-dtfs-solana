@@ -45,12 +45,13 @@ pub mod folio {
     #[allow(clippy::too_many_arguments)]
     pub fn init_folio(
         ctx: Context<InitFolio>,
-        folio_fee: u64,
-        minting_fee: u64,
+        folio_fee: u128,
+        minting_fee: u128,
         trade_delay: u64,
         auction_length: u64,
         name: String,
         symbol: String,
+        uri: String,
     ) -> Result<()> {
         init_folio::handler(
             ctx,
@@ -60,6 +61,7 @@ pub mod folio {
             auction_length,
             name,
             symbol,
+            uri,
         )
     }
 
@@ -72,8 +74,8 @@ pub mod folio {
         ctx: Context<UpdateFolio>,
         program_version: Option<Pubkey>,
         program_deployment_slot: Option<u64>,
-        folio_fee: Option<u64>,
-        minting_fee: Option<u64>,
+        folio_fee: Option<u128>,
+        minting_fee: Option<u128>,
         trade_delay: Option<u64>,
         auction_length: Option<u64>,
         fee_recipients_to_add: Vec<FeeRecipient>,
@@ -113,6 +115,13 @@ pub mod folio {
         initial_shares: Option<u64>,
     ) -> Result<()> {
         add_to_basket::handler(ctx, amounts, initial_shares)
+    }
+
+    pub fn remove_from_basket<'info>(
+        ctx: Context<'_, '_, 'info, 'info, RemoveFromBasket<'info>>,
+        removed_mints: Vec<Pubkey>,
+    ) -> Result<()> {
+        remove_from_basket::handler(ctx, removed_mints)
     }
 
     pub fn kill_folio(ctx: Context<KillFolio>) -> Result<()> {
@@ -157,10 +166,10 @@ pub mod folio {
         redeem_from_pending_basket::handler(ctx, amounts)
     }
 
-    pub fn close_pending_token_amount<'info>(
-        ctx: Context<'_, '_, 'info, 'info, ClosePendingTokenAmount<'info>>,
+    pub fn close_user_pending_token_amount<'info>(
+        ctx: Context<'_, '_, 'info, 'info, CloseUserPendingTokenAmount<'info>>,
     ) -> Result<()> {
-        close_pending_token_amount::handler(ctx)
+        close_user_pending_token_amount::handler(ctx)
     }
 
     /*
@@ -192,8 +201,8 @@ pub mod folio {
         trade_id: u64,
         sell_limit: Range,
         buy_limit: Range,
-        start_price: u64,
-        end_price: u64,
+        start_price: u128,
+        end_price: u128,
         ttl: u64,
     ) -> Result<()> {
         approve_trade::handler(
@@ -209,10 +218,10 @@ pub mod folio {
 
     pub fn open_trade<'info>(
         ctx: Context<'_, '_, 'info, 'info, OpenTrade<'info>>,
-        sell_limit: u64,
-        buy_limit: u64,
-        start_price: u64,
-        end_price: u64,
+        sell_limit: u128,
+        buy_limit: u128,
+        start_price: u128,
+        end_price: u128,
     ) -> Result<()> {
         open_trade::handler(ctx, sell_limit, buy_limit, start_price, end_price)
     }

@@ -72,16 +72,16 @@ export function getFolioFeeRecipientsPDA(folio: PublicKey) {
   )[0];
 }
 
-export function getFolioPendingBasketPDA(folio: PublicKey) {
+export function getFolioBasketPDA(folio: PublicKey) {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("pending_basket"), folio.toBuffer()],
+    [Buffer.from("folio_basket"), folio.toBuffer()],
     FOLIO_PROGRAM_ID
   )[0];
 }
 
 export function getUserPendingBasketPDA(folio: PublicKey, user: PublicKey) {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("pending_basket"), folio.toBuffer(), user.toBuffer()],
+    [Buffer.from("user_pending_basket"), folio.toBuffer(), user.toBuffer()],
     FOLIO_PROGRAM_ID
   )[0];
 }

@@ -126,12 +126,22 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
     let mut remaining_accounts_iter = ctx.remaining_accounts.iter();
 
     for _ in 0..ctx.remaining_accounts.len() / 5 {
-        let reward_token = remaining_accounts_iter.next().unwrap();
+        let reward_token = remaining_accounts_iter
+            .next()
+            .ok_or(ErrorCode::MissingRemainingAccount)?;
         // This is the folio reward tokens' token account, not the DAO's
-        let fee_recipient_token_account = remaining_accounts_iter.next().unwrap(); // Sender
-        let reward_info = remaining_accounts_iter.next().unwrap();
-        let user_reward_info = remaining_accounts_iter.next().unwrap();
-        let user_reward_token_account = remaining_accounts_iter.next().unwrap(); // Receiver
+        let fee_recipient_token_account = remaining_accounts_iter
+            .next()
+            .ok_or(ErrorCode::MissingRemainingAccount)?; // Sender
+        let reward_info = remaining_accounts_iter
+            .next()
+            .ok_or(ErrorCode::MissingRemainingAccount)?;
+        let user_reward_info = remaining_accounts_iter
+            .next()
+            .ok_or(ErrorCode::MissingRemainingAccount)?;
+        let user_reward_token_account = remaining_accounts_iter
+            .next()
+            .ok_or(ErrorCode::MissingRemainingAccount)?; // Receiver
 
         // Check all the pdas
         check_condition!(
@@ -176,35 +186,44 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
         );
 
         // Update the accounts
-        let mut reward_info: Account<RewardInfo> = Account::try_from(reward_info)?;
-        let mut user_reward_info: Account<UserRewardInfo> = Account::try_from(user_reward_info)?;
+        let reward_info = &reward_info;
+        let user_reward_info = &user_reward_info;
+
+        let mut reward_info = Account::<RewardInfo>::try_from(reward_info)?;
+        let mut user_reward_info = Account::<UserRewardInfo>::try_from(user_reward_info)?;
 
         let claimable_rewards = user_reward_info.accrued_rewards;
 
         reward_info.total_claimed = reward_info
             .total_claimed
             .checked_add(claimable_rewards)
-            .unwrap();
+            .ok_or(ErrorCode::MathOverflow)?;
 
         user_reward_info.accrued_rewards = 0;
 
-        if claimable_rewards > 0 {
-            // Send the rewards to the user
-            let cpi_accounts = TransferChecked {
-                from: fee_recipient_token_account.to_account_info(),
-                to: user_reward_token_account.to_account_info(),
-                authority: ctx.accounts.folio_reward_tokens.to_account_info(),
-                mint: reward_token.to_account_info(),
-            };
+        reward_info.exit(ctx.program_id)?;
+        user_reward_info.exit(ctx.program_id)?;
 
-            let cpi_program = ctx.accounts.token_program.to_account_info();
+        // Because of potential rounding errors since we have to go back to u64, if user claims too early it might
+        // be 0 as a u64, we don't want to update the other fields while not giving anything, so we'll error out.
+        // TODO validate if ok
+        check_condition!(claimable_rewards > 0, NoRewardsToClaim);
 
-            token_interface::transfer_checked(
-                CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds),
-                claimable_rewards,
-                mint.decimals,
-            )?;
-        }
+        // Send the rewards to the user
+        let cpi_accounts = TransferChecked {
+            from: fee_recipient_token_account.to_account_info(),
+            to: user_reward_token_account.to_account_info(),
+            authority: ctx.accounts.folio_reward_tokens.to_account_info(),
+            mint: reward_token.to_account_info(),
+        };
+
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+
+        token_interface::transfer_checked(
+            CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds),
+            claimable_rewards,
+            mint.decimals,
+        )?;
     }
 
     Ok(())

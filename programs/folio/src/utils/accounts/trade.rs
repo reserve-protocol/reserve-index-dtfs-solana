@@ -1,12 +1,10 @@
-use std::ops::{Div, Mul};
-
 use crate::program::Folio as FolioProgram;
 use crate::state::{Folio, Trade};
 use anchor_lang::prelude::*;
-use shared::constants::{MAX_PRICE_RANGE, MAX_RATE, SCALAR};
+use shared::constants::{D18, MAX_PRICE_RANGE, MAX_RATE};
 use shared::errors::ErrorCode;
 
-use shared::util::math_util::SafeArithmetic;
+use shared::util::math_util::CustomPreciseNumber;
 use shared::{check_condition, constants::TRADE_SEEDS, structs::TradeStatus};
 
 impl Trade {
@@ -26,10 +24,10 @@ impl Trade {
 
     pub fn validate_trade_opening_from_trade_launcher(
         &self,
-        start_price: u64,
-        end_price: u64,
-        sell_limit: u64,
-        buy_limit: u64,
+        start_price: u128,
+        end_price: u128,
+        sell_limit: u128,
+        buy_limit: u128,
     ) -> Result<()> {
         check_condition!(
             start_price >= self.start_price
@@ -111,17 +109,14 @@ impl Trade {
             return Ok(());
         }
 
-        let price_ratio = (self.start_price as u128)
-            .checked_mul(SCALAR as u128)
-            .unwrap()
-            .checked_div(self.end_price as u128)
-            .unwrap();
+        let price_ratio =
+            CustomPreciseNumber::from_u128(self.start_price).mul_div_generic(D18, self.end_price);
 
-        let ln_result = ((price_ratio as f64).div(SCALAR as f64))
+        self.k = price_ratio
             .ln()
-            .mul(SCALAR as f64) as u64;
-
-        self.k = ln_result.checked_div(auction_length).unwrap();
+            .ok_or(ErrorCode::MathOverflow)?
+            .div_generic(auction_length)
+            .to_u64_floor();
 
         Ok(())
     }
@@ -133,21 +128,25 @@ impl Trade {
         );
 
         match current_time {
-            i if i == self.start => Ok(self.start_price as u128),
-            i if i == self.end => Ok(self.end_price as u128),
+            i if i == self.start => Ok(self.start_price),
+            i if i == self.end => Ok(self.end_price),
             _ => {
-                let time_value = self
-                    .k
-                    .mul_precision_to_u128(current_time.checked_sub(self.start).unwrap());
+                let time_value = CustomPreciseNumber::from_u64(self.k).mul_generic(
+                    current_time
+                        .checked_sub(self.start)
+                        .ok_or(ErrorCode::MathOverflow)?,
+                );
 
-                let scaled_time_value = (time_value as f64) / (SCALAR as f64);
+                //(-time_value).exp()
+                let time_value_exponent = time_value.exp(true).ok_or(ErrorCode::MathOverflow)?;
 
-                let time_value_exponent = (-scaled_time_value).exp();
+                let p = CustomPreciseNumber::from_u128(self.start_price)
+                    .mul_generic(time_value_exponent)
+                    .div_generic(D18)
+                    .to_u128_floor();
 
-                let p = (self.start_price as f64).mul(time_value_exponent) as u128;
-
-                if p < self.end_price as u128 {
-                    Ok(self.end_price as u128)
+                if p < self.end_price {
+                    Ok(self.end_price)
                 } else {
                     Ok(p)
                 }

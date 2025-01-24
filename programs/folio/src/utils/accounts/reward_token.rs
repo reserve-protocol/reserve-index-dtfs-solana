@@ -112,7 +112,9 @@ impl FolioRewardTokens {
             InvalidRewardHalfLife
         );
 
-        self.reward_ratio = LN_2.checked_div(reward_half_life as u128).unwrap() as u64;
+        self.reward_ratio = LN_2
+            .checked_div(reward_half_life as u128)
+            .ok_or(ErrorCode::MathOverflow)? as u64;
 
         emit!(RewardRatioSet {
             reward_ratio: self.reward_ratio,

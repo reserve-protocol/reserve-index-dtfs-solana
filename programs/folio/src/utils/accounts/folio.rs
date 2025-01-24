@@ -6,10 +6,10 @@ use crate::{
 use anchor_lang::prelude::*;
 use shared::{
     check_condition,
-    constants::{FOLIO_SEEDS, MIN_DAO_MINTING_FEE, SCALAR, SCALAR_U128},
+    constants::{D18, FOLIO_SEEDS, MIN_DAO_MINTING_FEE},
     errors::ErrorCode,
     structs::{FolioStatus, Role, TradeEnd},
-    util::math_util::{RoundingMode, SafeArithmetic},
+    util::math_util::CustomPreciseNumber,
 };
 
 impl Folio {
@@ -110,65 +110,62 @@ impl Folio {
     pub fn calculate_fees_for_minting(
         &mut self,
         user_shares: u64,
-        dao_fee_numerator: u64,
-        dao_fee_denominator: u64,
+        dao_fee_numerator: u128,
+        dao_fee_denominator: u128,
     ) -> Result<u64> {
-        let mut total_fee_shares = user_shares
-            .mul_precision_to_u128(self.minting_fee)
-            .checked_add(SCALAR_U128)
-            .unwrap()
-            .checked_sub(1)
-            .unwrap()
-            .checked_div(SCALAR_U128)
-            .unwrap();
+        let total_fee_shares = CustomPreciseNumber::from_u64(user_shares)
+            .mul_generic(self.minting_fee)
+            .add_generic(D18)
+            .sub_generic(CustomPreciseNumber::from_u64(1))
+            .div_generic(D18);
 
         let mut dao_fee_shares = total_fee_shares
-            .checked_mul(dao_fee_numerator as u128)
-            .unwrap()
-            .checked_add(dao_fee_denominator as u128)
-            .unwrap()
-            .checked_sub(1)
-            .unwrap()
-            .checked_div(dao_fee_denominator as u128)
-            .unwrap();
+            .mul_generic(dao_fee_numerator)
+            .add_generic(dao_fee_denominator)
+            .sub_generic(CustomPreciseNumber::from_u64(1))
+            .div_generic(dao_fee_denominator)
+            .to_u64_floor();
 
-        let min_dao_shares =
-            SafeArithmetic::mul_precision_to_u128(user_shares, MIN_DAO_MINTING_FEE)
-                .checked_add(SCALAR_U128)
-                .unwrap()
-                .checked_sub(1)
-                .unwrap()
-                .checked_div(SCALAR_U128)
-                .unwrap();
+        let min_dao_shares = CustomPreciseNumber::from_u64(user_shares)
+            .mul_generic(MIN_DAO_MINTING_FEE)
+            .add_generic(D18)
+            .sub_generic(CustomPreciseNumber::from_u64(1))
+            .div_generic(D18)
+            .to_u64_floor();
 
         if dao_fee_shares < min_dao_shares {
             dao_fee_shares = min_dao_shares;
         }
 
-        if total_fee_shares < dao_fee_shares {
-            total_fee_shares = dao_fee_shares;
-        }
+        let mut total_fee_shares_scaled = total_fee_shares.to_u64_floor();
 
-        let total_fee_shares = total_fee_shares as u64;
+        if total_fee_shares_scaled < dao_fee_shares {
+            total_fee_shares_scaled = dao_fee_shares;
+        }
 
         self.dao_pending_fee_shares = self
             .dao_pending_fee_shares
-            .checked_add(dao_fee_shares as u64)
-            .unwrap();
+            .checked_add(dao_fee_shares)
+            .ok_or(ErrorCode::MathOverflow)?;
+
         self.fee_recipients_pending_fee_shares = self
             .fee_recipients_pending_fee_shares
-            .checked_add(total_fee_shares.checked_sub(dao_fee_shares as u64).unwrap())
-            .unwrap();
+            .checked_add(
+                total_fee_shares_scaled
+                    .checked_sub(dao_fee_shares)
+                    .ok_or(ErrorCode::MathOverflow)?,
+            )
+            .ok_or(ErrorCode::MathOverflow)?;
 
-        Ok(total_fee_shares)
+        Ok(total_fee_shares_scaled)
     }
 
     pub fn poke(
         &mut self,
         folio_token_supply: u64,
         current_time: i64,
-        dao_fee_numerator: u64,
-        dao_fee_denominator: u64,
+        dao_fee_numerator: u128,
+        dao_fee_denominator: u128,
     ) -> Result<()> {
         if current_time - self.last_poke == 0 {
             return Ok(());
@@ -184,55 +181,54 @@ impl Folio {
         self.dao_pending_fee_shares = self
             .dao_pending_fee_shares
             .checked_add(dao_pending_fee_shares)
-            .unwrap();
+            .ok_or(ErrorCode::MathOverflow)?;
         self.fee_recipients_pending_fee_shares = self
             .fee_recipients_pending_fee_shares
             .checked_add(fee_recipients_pending_fee)
-            .unwrap();
+            .ok_or(ErrorCode::MathOverflow)?;
 
         self.last_poke = current_time;
 
         Ok(())
     }
 
-    pub fn get_total_supply(&self, folio_token_supply: u64) -> u64 {
-        folio_token_supply
+    pub fn get_total_supply(&self, folio_token_supply: u64) -> Result<u64> {
+        Ok(folio_token_supply
             .checked_add(self.dao_pending_fee_shares)
-            .unwrap()
+            .ok_or(ErrorCode::MathOverflow)?
             .checked_add(self.fee_recipients_pending_fee_shares)
-            .unwrap()
+            .ok_or(ErrorCode::MathOverflow)?)
     }
 
     pub fn get_pending_fee_shares(
         &self,
         folio_token_supply: u64,
         current_time: i64,
-        dao_fee_numerator: u64,
-        dao_fee_denominator: u64,
+        dao_fee_numerator: u128,
+        dao_fee_denominator: u128,
     ) -> Result<(u64, u64)> {
-        let total_supply = self.get_total_supply(folio_token_supply);
+        let total_supply = self.get_total_supply(folio_token_supply)?;
         let elapsed = current_time - self.last_poke;
 
-        let denominator = <u64 as SafeArithmetic>::compound_interest(
-            self.folio_fee,
-            elapsed as u64,
-            RoundingMode::Floor,
-        );
+        let denominator = CustomPreciseNumber::from_u128(D18)
+            .sub_generic(self.folio_fee)
+            .pow(elapsed as u64);
 
-        let fee_shares = total_supply
-            .mul_precision_to_u128(SCALAR)
-            .checked_div(denominator as u128)
-            .unwrap()
-            .checked_sub(total_supply as u128)
-            .unwrap() as u64;
+        let fee_shares = CustomPreciseNumber::from_u64(total_supply)
+            .mul_generic(D18)
+            .div_generic(denominator)
+            .sub_generic(total_supply);
 
-        let dao_shares = fee_shares.mul_div_precision(
-            dao_fee_numerator,
-            dao_fee_denominator,
-            RoundingMode::Floor,
-        );
+        let dao_shares = fee_shares
+            .mul_generic(dao_fee_numerator)
+            .add_generic(dao_fee_denominator)
+            .sub_generic(CustomPreciseNumber::from_u64(1))
+            .div_generic(dao_fee_denominator);
 
-        Ok((fee_shares.checked_sub(dao_shares).unwrap(), dao_shares))
+        Ok((
+            fee_shares.sub(&dao_shares).div_generic(D18).to_u64_floor(),
+            dao_shares.div_generic(D18).to_u64_floor(),
+        ))
     }
 
     pub fn get_trade_end_for_mint(

@@ -1,14 +1,14 @@
 #[cfg(test)]
 mod tests {
     use anchor_lang::prelude::Pubkey;
-    use folio::state::PendingBasket;
+    use folio::state::UserPendingBasket;
     use shared::constants::PendingBasketType;
     use shared::errors::ErrorCode;
     use shared::structs::TokenAmount;
 
     #[test]
     fn test_add_token_amounts_new_mint() {
-        let mut pending = PendingBasket::default();
+        let mut pending = UserPendingBasket::default();
         let token = TokenAmount {
             mint: Pubkey::new_unique(),
 
@@ -26,7 +26,7 @@ mod tests {
 
     #[test]
     fn test_add_token_amounts_existing_mint() {
-        let mut pending = PendingBasket::default();
+        let mut pending = UserPendingBasket::default();
         let token = TokenAmount {
             mint: Pubkey::new_unique(),
 
@@ -54,7 +54,7 @@ mod tests {
 
     #[test]
     fn test_add_token_amounts_exceed_max() {
-        let mut pending = PendingBasket::default();
+        let mut pending = UserPendingBasket::default();
         let tokens: Vec<TokenAmount> = (0..65)
             .map(|_| TokenAmount {
                 mint: Pubkey::new_unique(),
@@ -75,7 +75,7 @@ mod tests {
 
     #[test]
     fn test_remove_token_amounts_existing() {
-        let mut pending = PendingBasket::default();
+        let mut pending = UserPendingBasket::default();
         let token = TokenAmount {
             mint: Pubkey::new_unique(),
 
@@ -103,7 +103,7 @@ mod tests {
 
     #[test]
     fn test_remove_token_amounts_insufficient_balance() {
-        let mut pending = PendingBasket::default();
+        let mut pending = UserPendingBasket::default();
         let token = TokenAmount {
             mint: Pubkey::new_unique(),
 
@@ -134,7 +134,7 @@ mod tests {
 
     #[test]
     fn test_remove_non_existent_mint_with_validation() {
-        let mut pending = PendingBasket::default();
+        let mut pending = UserPendingBasket::default();
         let remove_amount = TokenAmount {
             mint: Pubkey::new_unique(),
 
@@ -157,7 +157,7 @@ mod tests {
 
     #[test]
     fn test_remove_non_existent_mint_without_validation() {
-        let mut pending = PendingBasket::default();
+        let mut pending = UserPendingBasket::default();
         let remove_amount = TokenAmount {
             mint: Pubkey::new_unique(),
 
@@ -176,7 +176,7 @@ mod tests {
 
     #[test]
     fn test_reorder_token_amounts() {
-        let mut pending = PendingBasket::default();
+        let mut pending = UserPendingBasket::default();
         let token1 = TokenAmount {
             mint: Pubkey::new_unique(),
 
@@ -202,7 +202,7 @@ mod tests {
 
     #[test]
     fn test_add_token_amounts_cant_add_new_mints() {
-        let mut pending = PendingBasket::default();
+        let mut pending = UserPendingBasket::default();
         let token = TokenAmount {
             mint: Pubkey::new_unique(),
 
@@ -243,7 +243,7 @@ mod tests {
         let decimal_folio_balance = 100_000_000;
         let shares = 1_000_000;
 
-        let result = PendingBasket::to_assets_for_minting(
+        let result = UserPendingBasket::to_assets_for_minting(
             &mut user_amount,
             &mut folio_amount,
             decimal_total_supply,
@@ -277,7 +277,7 @@ mod tests {
         let decimal_folio_balance = 50_000_000;
         let shares = 1_000_000; // Trying to mint more shares than possible
 
-        let result = PendingBasket::to_assets_for_minting(
+        let result = UserPendingBasket::to_assets_for_minting(
             &mut user_amount,
             &mut related_mint,
             decimal_total_supply,
@@ -315,7 +315,7 @@ mod tests {
         let decimal_folio_balance = 50_000_000;
         let shares = 10_000_000;
 
-        let result = PendingBasket::to_assets_for_redeeming(
+        let result = UserPendingBasket::to_assets_for_redeeming(
             &mut user_amount,
             &mut related_mint,
             decimal_total_supply,
@@ -350,7 +350,7 @@ mod tests {
         let decimal_folio_balance = 1_000_000;
         let shares = 1_000_000;
 
-        let result = PendingBasket::to_assets_for_redeeming(
+        let result = UserPendingBasket::to_assets_for_redeeming(
             &mut user_amount,
             &mut related_mint,
             decimal_total_supply,

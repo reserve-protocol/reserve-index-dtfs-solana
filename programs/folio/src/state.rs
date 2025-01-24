@@ -1,7 +1,11 @@
 use anchor_lang::prelude::*;
 use shared::{
-    constants::{MAX_CONCURRENT_TRADES, MAX_FEE_RECIPIENTS, MAX_REWARD_TOKENS, MAX_TOKEN_AMOUNTS},
+    constants::{
+        MAX_CONCURRENT_TRADES, MAX_FEE_RECIPIENTS, MAX_FOLIO_TOKEN_AMOUNTS, MAX_REWARD_TOKENS,
+        MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
+    },
     structs::{FeeRecipient, Range, TokenAmount, TradeEnd},
+    util::math_util::U256Number,
 };
 
 /// PDA Seeds ["folio_program_signer"]
@@ -50,7 +54,6 @@ impl Actor {
 /*
 All numbers for calculations are u64 (up to 9 "decimals")
 */
-
 /// PDA Seeds ["folio", folio token pubkey]
 #[account(zero_copy)]
 #[derive(Default, InitSpace)]
@@ -59,7 +62,7 @@ pub struct Folio {
 
     pub status: u8,
 
-    pub _padding: [u8; 30],
+    pub _padding: [u8; 6],
 
     // Represents the program it can interact with
     pub program_version: Pubkey,
@@ -73,8 +76,9 @@ pub struct Folio {
     /*
     Fee related properties
      */
-    pub folio_fee: u64,
-    pub minting_fee: u64,
+    pub folio_fee: u128,
+    pub minting_fee: u128,
+
     pub last_poke: i64,
     pub dao_pending_fee_shares: u64,
     pub fee_recipients_pending_fee_shares: u64,
@@ -163,18 +167,51 @@ impl Default for FeeDistribution {
 }
 
 /*
-This is use to track the current user's "pending" token amounts, like when he's minting
-or burning and needs to do it in multiple steps.
-
-It's also used to tracked the "frozen" token amounts in the folio, like when a user is minting, so that
+This is used to track the "frozen" token amounts in the folio, like when a user is minting, so that
 those tokens aren't taken into account. It also will represent which tokens are in the folio (authorized tokens).
+
+Max of 16 tokens because of solana's restrictions
 */
 
-/// PDA Seeds ["pending_basket", folio] for the folio's pending token amounts
-/// PDA Seeds ["pending_basket", folio, wallet] for the wallet's pending token amounts
+/// PDA Seeds ["folio_basket", folio] for the folio's pending token amounts
 #[account(zero_copy)]
 #[derive(InitSpace)]
-pub struct PendingBasket {
+pub struct FolioBasket {
+    pub bump: u8,
+
+    pub _padding: [u8; 7],
+
+    /// Folio's pubkey
+    pub folio: Pubkey,
+
+    // Default pubkey means not set
+    pub token_amounts: [TokenAmount; MAX_FOLIO_TOKEN_AMOUNTS],
+}
+
+impl FolioBasket {
+    pub const SIZE: usize = 8 + FolioBasket::INIT_SPACE;
+}
+
+impl Default for FolioBasket {
+    fn default() -> Self {
+        Self {
+            bump: 0,
+            _padding: [0; 7],
+            folio: Pubkey::default(),
+            token_amounts: [TokenAmount::default(); MAX_FOLIO_TOKEN_AMOUNTS],
+        }
+    }
+}
+
+/*
+This is use to track the current user's "pending" token amounts, like when he's minting
+or burning and needs to do it in multiple steps.
+*/
+
+/// PDA Seeds ["user_pending_basket", folio, wallet] for the wallet's pending token amounts
+#[account(zero_copy)]
+#[derive(InitSpace)]
+pub struct UserPendingBasket {
     pub bump: u8,
 
     pub _padding: [u8; 7],
@@ -186,21 +223,21 @@ pub struct PendingBasket {
     pub folio: Pubkey,
 
     // Default pubkey means not set
-    pub token_amounts: [TokenAmount; MAX_TOKEN_AMOUNTS],
+    pub token_amounts: [TokenAmount; MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS],
 }
 
-impl PendingBasket {
-    pub const SIZE: usize = 8 + PendingBasket::INIT_SPACE;
+impl UserPendingBasket {
+    pub const SIZE: usize = 8 + UserPendingBasket::INIT_SPACE;
 }
 
-impl Default for PendingBasket {
+impl Default for UserPendingBasket {
     fn default() -> Self {
         Self {
             bump: 0,
             _padding: [0; 7],
             owner: Pubkey::default(),
             folio: Pubkey::default(),
-            token_amounts: [TokenAmount::default(); MAX_TOKEN_AMOUNTS],
+            token_amounts: [TokenAmount::default(); MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS],
         }
     }
 }
@@ -210,29 +247,24 @@ impl Default for PendingBasket {
 #[derive(Default, InitSpace)]
 pub struct Trade {
     pub bump: u8,
-    pub _padding: [u8; 7],
+    pub _padding: [u8; 15],
 
     pub id: u64,
 
-    pub folio: Pubkey,
+    pub available_at: u64,
+    pub launch_timeout: u64,
+    pub start: u64,
+    pub end: u64,
+    pub k: u64,
 
-    // Auction related data
+    pub folio: Pubkey,
     pub sell: Pubkey,
     pub buy: Pubkey,
 
     pub sell_limit: Range,
     pub buy_limit: Range,
-
-    pub start_price: u64,
-    pub end_price: u64,
-
-    pub available_at: u64,
-    pub launch_timeout: u64,
-
-    pub start: u64,
-    pub end: u64,
-
-    pub k: u64,
+    pub start_price: u128,
+    pub end_price: u128,
 }
 
 impl Trade {
@@ -276,7 +308,7 @@ pub struct RewardInfo {
 
     pub payout_last_paid: u64,
 
-    pub reward_index: u64,
+    pub reward_index: U256Number,
 
     pub balance_accounted: u64,
     pub balance_last_known: u64,
@@ -300,7 +332,7 @@ pub struct UserRewardInfo {
 
     pub folio_reward_token: Pubkey,
 
-    pub last_reward_index: u64,
+    pub last_reward_index: U256Number,
 
     pub accrued_rewards: u64,
 }

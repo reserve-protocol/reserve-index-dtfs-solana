@@ -61,7 +61,7 @@ pub struct InitFolio<'info> {
 
         the folio token account will be created in finalize folio (if needed)
         the fee_recipients will be created in the update function (if needed)
-        the folio_pending_basket will be created in the init tokens (if needed)
+        the folio_basket will be created in the init tokens (if needed)
     */
 
     /*
@@ -105,8 +105,8 @@ pub struct InitFolio<'info> {
 impl InitFolio<'_> {
     pub fn validate(
         &self,
-        folio_fee: u64,
-        minting_fee: u64,
+        folio_fee: u128,
+        minting_fee: u128,
         trade_delay: u64,
         auction_length: u64,
     ) -> Result<()> {
@@ -148,12 +148,13 @@ impl<'info> CreateMetadataAccount<'info> {
 
 pub fn handler(
     ctx: Context<InitFolio>,
-    folio_fee: u64,
-    minting_fee: u64,
+    folio_fee: u128,
+    minting_fee: u128,
     trade_delay: u64,
     auction_length: u64,
     name: String,
     symbol: String,
+    uri: String,
 ) -> Result<()> {
     ctx.accounts
         .validate(folio_fee, minting_fee, trade_delay, auction_length)?;
@@ -197,6 +198,7 @@ pub fn handler(
         &CreateMetadataAccount::from_init_folio(&ctx)?,
         name,
         symbol,
+        uri,
         &[&signer_seeds[..]],
     )?;
 

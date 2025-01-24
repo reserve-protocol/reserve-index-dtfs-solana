@@ -1,12 +1,12 @@
-use crate::state::{Actor, Folio, PendingBasket, ProgramRegistrar};
+use crate::state::{Actor, Folio, FolioBasket, ProgramRegistrar};
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::{get_associated_token_address_with_program_id, AssociatedToken};
 use anchor_spl::token;
 use anchor_spl::token_interface::{self, Mint, TokenAccount, TokenInterface, TransferChecked};
 use shared::check_condition;
-use shared::constants::{FOLIO_SEEDS, PENDING_BASKET_SEEDS};
+use shared::constants::{FOLIO_BASKET_SEEDS, FOLIO_SEEDS};
 use shared::errors::ErrorCode;
-use shared::structs::{FolioStatus, TokenAmount};
+use shared::structs::FolioStatus;
 use shared::{
     constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, PROGRAM_REGISTRAR_SEEDS},
     structs::Role,
@@ -32,11 +32,11 @@ pub struct AddToBasket<'info> {
 
     #[account(init_if_needed,
         payer = folio_owner,
-        space = PendingBasket::SIZE,
-        seeds = [PENDING_BASKET_SEEDS, folio.key().as_ref()],
+        space = FolioBasket::SIZE,
+        seeds = [FOLIO_BASKET_SEEDS, folio.key().as_ref()],
         bump
     )]
-    pub folio_pending_basket: AccountLoader<'info, PendingBasket>,
+    pub folio_basket: AccountLoader<'info, FolioBasket>,
 
     #[account(mut)]
     pub folio_token_mint: Box<InterfaceAccount<'info, Mint>>,
@@ -120,7 +120,7 @@ fn mint_initial_shares<'info>(
                     cpi_accounts,
                     &[signer_seeds],
                 ),
-                initial_shares.unwrap(),
+                initial_shares.ok_or(ErrorCode::MathOverflow)?,
             )?;
         }
     }
@@ -156,7 +156,7 @@ pub fn handler<'info>(
     let token_program_id = ctx.accounts.token_program.key();
     let folio_owner = ctx.accounts.folio_owner.to_account_info();
 
-    let mut added_mints: Vec<TokenAmount> = vec![];
+    let mut added_mints: Vec<Pubkey> = vec![];
 
     // Remaining accounts need to be divisible by 3
     check_condition!(
@@ -211,20 +211,14 @@ pub fn handler<'info>(
             mint.decimals,
         )?;
 
-        added_mints.push(TokenAmount {
-            mint: token_mint.key(),
-            amount_for_minting: 0,
-            amount_for_redeeming: 0,
-        });
+        added_mints.push(token_mint.key());
     }
 
-    PendingBasket::process_init_if_needed(
-        &mut ctx.accounts.folio_pending_basket,
-        ctx.bumps.folio_pending_basket,
-        &folio_key,
+    FolioBasket::process_init_if_needed(
+        &mut ctx.accounts.folio_basket,
+        ctx.bumps.folio_basket,
         &folio_key,
         &added_mints,
-        true,
     )?;
 
     if initial_shares.is_some() {

@@ -4,27 +4,27 @@ use anchor_lang::prelude::*;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 use anchor_spl::token::TokenAccount;
 use shared::check_condition;
-use shared::constants::{PendingBasketType, MAX_TOKEN_AMOUNTS};
+use shared::constants::{PendingBasketType, MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS};
 use shared::errors::ErrorCode;
 use shared::errors::ErrorCode::InvalidAddedTokenMints;
 use shared::errors::ErrorCode::*;
 use shared::structs::TokenAmount;
-use shared::util::math_util::{RoundingMode, SafeArithmetic};
+use shared::util::math_util::CustomPreciseNumber;
 
-use crate::state::PendingBasket;
+use crate::state::{FolioBasket, UserPendingBasket};
 
-impl PendingBasket {
+impl UserPendingBasket {
     pub fn process_init_if_needed(
-        account_loader_pending_basket: &mut AccountLoader<PendingBasket>,
+        account_loader_user_pending_basket: &mut AccountLoader<UserPendingBasket>,
         context_bump: u8,
         owner: &Pubkey,
         folio: &Pubkey,
         added_token_amounts: &Vec<TokenAmount>,
         can_add_new_mints: bool,
     ) -> Result<()> {
-        let account_info_pending_basket = account_loader_pending_basket.to_account_info();
+        let account_info_user_pending_basket = account_loader_user_pending_basket.to_account_info();
 
-        let data = account_info_pending_basket.try_borrow_mut_data()?;
+        let data = account_info_user_pending_basket.try_borrow_mut_data()?;
         let mut disc_bytes = [0u8; 8];
         disc_bytes.copy_from_slice(&data[..8]);
 
@@ -34,24 +34,25 @@ impl PendingBasket {
 
         if discriminator == 0 {
             // Not initialized yet
-            let pending_basket = &mut account_loader_pending_basket.load_init()?;
+            let user_pending_basket = &mut account_loader_user_pending_basket.load_init()?;
 
-            pending_basket.bump = context_bump;
-            pending_basket.owner = *owner;
-            pending_basket.folio = *folio;
-            pending_basket.token_amounts = [TokenAmount::default(); MAX_TOKEN_AMOUNTS];
+            user_pending_basket.bump = context_bump;
+            user_pending_basket.owner = *owner;
+            user_pending_basket.folio = *folio;
+            user_pending_basket.token_amounts =
+                [TokenAmount::default(); MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS];
 
-            pending_basket.add_token_amounts_to_folio(
+            user_pending_basket.add_token_amounts_to_folio(
                 added_token_amounts,
                 can_add_new_mints,
                 PendingBasketType::MintProcess,
             )?;
         } else {
-            let pending_basket = &mut account_loader_pending_basket.load_mut()?;
+            let user_pending_basket = &mut account_loader_user_pending_basket.load_mut()?;
 
-            check_condition!(pending_basket.bump == context_bump, InvalidBump);
+            check_condition!(user_pending_basket.bump == context_bump, InvalidBump);
 
-            pending_basket.add_token_amounts_to_folio(
+            user_pending_basket.add_token_amounts_to_folio(
                 added_token_amounts,
                 can_add_new_mints,
                 PendingBasketType::MintProcess,
@@ -78,7 +79,7 @@ impl PendingBasket {
                         slot_for_update.amount_for_minting = token_amount
                             .amount_for_minting
                             .checked_add(slot_for_update.amount_for_minting)
-                            .unwrap();
+                            .ok_or(ErrorCode::MathOverflow)?;
                     } else if can_add_new_mints {
                         if let Some(slot) = self
                             .token_amounts
@@ -106,7 +107,7 @@ impl PendingBasket {
                         slot_for_update.amount_for_redeeming = token_amount
                             .amount_for_redeeming
                             .checked_add(slot_for_update.amount_for_redeeming)
-                            .unwrap();
+                            .ok_or(ErrorCode::MathOverflow)?;
                     } else if can_add_new_mints {
                         if let Some(slot) = self
                             .token_amounts
@@ -135,45 +136,29 @@ impl PendingBasket {
         needs_to_validate_mint_existence: bool,
         pending_basket_type: PendingBasketType,
     ) -> Result<()> {
-        match pending_basket_type {
-            PendingBasketType::MintProcess => {
-                for token_amount in token_amounts {
-                    if let Some(slot_for_update) = self
-                        .token_amounts
-                        .iter_mut()
-                        .find(|ta| ta.mint == token_amount.mint)
-                    {
+        for token_amount in token_amounts {
+            if let Some(slot_for_update) = self
+                .token_amounts
+                .iter_mut()
+                .find(|ta| ta.mint == token_amount.mint)
+            {
+                match pending_basket_type {
+                    PendingBasketType::MintProcess => {
                         // Will crash if trying to remove more than actual balance
                         slot_for_update.amount_for_minting = slot_for_update
                             .amount_for_minting
                             .checked_sub(token_amount.amount_for_minting)
                             .ok_or(InvalidShareAmountProvided)?;
-                    } else {
-                        if needs_to_validate_mint_existence {
-                            return Err(error!(InvalidAddedTokenMints));
-                        }
-                        continue;
                     }
-                }
-            }
-            PendingBasketType::RedeemProcess => {
-                for token_amount in token_amounts {
-                    if let Some(slot_for_update) = self
-                        .token_amounts
-                        .iter_mut()
-                        .find(|ta| ta.mint == token_amount.mint)
-                    {
+                    PendingBasketType::RedeemProcess => {
                         slot_for_update.amount_for_redeeming = slot_for_update
                             .amount_for_redeeming
                             .checked_sub(token_amount.amount_for_redeeming)
                             .ok_or(InvalidShareAmountProvided)?;
-                    } else {
-                        if needs_to_validate_mint_existence {
-                            return Err(error!(InvalidAddedTokenMints));
-                        }
-                        continue;
                     }
                 }
+            } else if needs_to_validate_mint_existence {
+                return Err(error!(InvalidAddedTokenMints));
             }
         }
 
@@ -198,17 +183,7 @@ impl PendingBasket {
     }
 
     pub fn reset(&mut self) {
-        self.token_amounts = [TokenAmount::default(); MAX_TOKEN_AMOUNTS];
-    }
-
-    pub fn get_clean_token_balance(token_balance: u64, token_amounts: &TokenAmount) -> u64 {
-        token_balance
-            // Since can't be rolled back, we need to act as if those have already been withdrawn
-            .checked_sub(token_amounts.amount_for_redeeming)
-            .unwrap()
-            // Since can be rolled back, can't take them into account, needs to be removed
-            .checked_sub(token_amounts.amount_for_minting)
-            .unwrap()
+        self.token_amounts = [TokenAmount::default(); MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS];
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -217,13 +192,13 @@ impl PendingBasket {
         shares: u64,
         folio_key: &Pubkey,
         token_program_id: &Pubkey,
-        folio_pending_basket: &mut RefMut<'_, PendingBasket>,
+        folio_basket: &mut RefMut<'_, FolioBasket>,
         total_supply_folio_token: u64,
         pending_basket_type: PendingBasketType,
         included_tokens: &&[AccountInfo<'_>],
     ) -> Result<()> {
         for (index, folio_token_account) in included_tokens.iter().enumerate() {
-            let related_mint = &mut folio_pending_basket.token_amounts[index];
+            let related_mint = &mut folio_basket.token_amounts[index];
 
             check_condition!(
                 folio_token_account.key()
@@ -245,11 +220,11 @@ impl PendingBasket {
             let folio_token_account = TokenAccount::try_deserialize(&mut &data[..])?;
 
             let folio_token_balance =
-                PendingBasket::get_clean_token_balance(folio_token_account.amount, related_mint);
+                FolioBasket::get_clean_token_balance(folio_token_account.amount, related_mint)?;
 
             match pending_basket_type {
                 PendingBasketType::MintProcess => {
-                    PendingBasket::to_assets_for_minting(
+                    UserPendingBasket::to_assets_for_minting(
                         user_amount,
                         related_mint,
                         total_supply_folio_token,
@@ -258,7 +233,7 @@ impl PendingBasket {
                     )?;
                 }
                 PendingBasketType::RedeemProcess => {
-                    PendingBasket::to_assets_for_redeeming(
+                    UserPendingBasket::to_assets_for_redeeming(
                         user_amount,
                         related_mint,
                         total_supply_folio_token,
@@ -279,29 +254,27 @@ impl PendingBasket {
         folio_token_balance: u64,
         shares: u64,
     ) -> Result<()> {
-        let calculated_shares = user_amount.amount_for_minting.mul_div_precision(
-            total_supply_folio_token,
-            folio_token_balance,
-            RoundingMode::Floor,
-        );
+        let calculated_shares = CustomPreciseNumber::from_u64(user_amount.amount_for_minting)
+            .mul_generic(total_supply_folio_token)
+            .div_generic(folio_token_balance)
+            .to_u64_floor();
 
         check_condition!(calculated_shares >= shares, InvalidShareAmountProvided);
 
-        let user_amount_taken = shares.mul_div_precision(
-            folio_token_balance,
-            total_supply_folio_token,
-            RoundingMode::Ceil,
-        );
+        let user_amount_taken = CustomPreciseNumber::from_u64(shares)
+            .mul_generic(folio_token_balance)
+            .div_generic(total_supply_folio_token)
+            .to_u64_ceil();
 
         // Remove from both pending amounts
         user_amount.amount_for_minting = user_amount
             .amount_for_minting
             .checked_sub(user_amount_taken)
-            .unwrap();
+            .ok_or(ErrorCode::MathOverflow)?;
         related_mint.amount_for_minting = related_mint
             .amount_for_minting
             .checked_sub(user_amount_taken)
-            .unwrap();
+            .ok_or(ErrorCode::MathOverflow)?;
 
         Ok(())
     }
@@ -313,21 +286,20 @@ impl PendingBasket {
         folio_token_balance: u64,
         shares: u64,
     ) -> Result<()> {
-        let amount_to_give_to_user = shares.mul_div_precision(
-            folio_token_balance,
-            total_supply_folio_token,
-            RoundingMode::Floor,
-        );
+        let amount_to_give_to_user = CustomPreciseNumber::from_u64(shares)
+            .mul_generic(folio_token_balance)
+            .div_generic(total_supply_folio_token)
+            .to_u64_floor();
 
         // Add to both pending amounts for redeeming
         user_amount.amount_for_redeeming = user_amount
             .amount_for_redeeming
             .checked_add(amount_to_give_to_user)
-            .unwrap();
+            .ok_or(ErrorCode::MathOverflow)?;
         related_mint.amount_for_redeeming = related_mint
             .amount_for_redeeming
             .checked_add(amount_to_give_to_user)
-            .unwrap();
+            .ok_or(ErrorCode::MathOverflow)?;
 
         Ok(())
     }

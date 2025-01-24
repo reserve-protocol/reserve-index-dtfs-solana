@@ -1,5 +1,5 @@
 import { Keypair } from "@solana/web3.js";
-import { getFolioPendingBasketPDA } from "./pda-helper";
+import { getFolioBasketPDA } from "./pda-helper";
 
 import { getUserPendingBasketPDA } from "./pda-helper";
 import { PublicKey } from "@solana/web3.js";
@@ -42,14 +42,14 @@ export class TestHelper {
     includeTokenBalances: boolean
   ): Promise<{
     userPendingAmounts: any;
-    folioPendingAmounts: any;
+    folioBasketAmounts: any;
     folioTokenBalance?: number;
     userTokenBalance?: number;
     folioTokenBalances?: number[];
     userTokenBalances?: number[];
   }> {
     let userPendingAmounts: any | undefined = undefined;
-    let folioPendingAmounts: any | undefined = undefined;
+    let folioBasketAmounts: any | undefined = undefined;
     let folioTokenBalance: number | undefined = undefined;
     let userTokenBalance: number | undefined = undefined;
     let folioTokenBalances: number[] = [];
@@ -60,11 +60,13 @@ export class TestHelper {
         this.folioPDA,
         this.userPubkey
       );
-      const folioPendingBasketPDA = getFolioPendingBasketPDA(this.folioPDA);
+      const folioBasketPDA = getFolioBasketPDA(this.folioPDA);
 
-      [userPendingAmounts, folioPendingAmounts] = await Promise.all([
-        this.program.account.pendingBasket.fetchNullable(userPendingBasketPDA),
-        this.program.account.pendingBasket.fetchNullable(folioPendingBasketPDA),
+      [userPendingAmounts, folioBasketAmounts] = await Promise.all([
+        this.program.account.userPendingBasket.fetchNullable(
+          userPendingBasketPDA
+        ),
+        this.program.account.folioBasket.fetchNullable(folioBasketPDA),
       ]);
     }
 
@@ -112,7 +114,7 @@ export class TestHelper {
 
     return {
       userPendingAmounts,
-      folioPendingAmounts,
+      folioBasketAmounts,
       folioTokenBalance,
       userTokenBalance,
       folioTokenBalances,
@@ -145,9 +147,9 @@ export class TestHelper {
         }
 
         const afterFolioValue =
-          after.folioPendingAmounts.tokenAmounts[index][property].toNumber();
+          after.folioBasketAmounts.tokenAmounts[index][property].toNumber();
         const expectedFolioValue =
-          before.folioPendingAmounts.tokenAmounts[index][property].toNumber() +
+          before.folioBasketAmounts.tokenAmounts[index][property].toNumber() +
           expectedDifferences[index][1];
 
         if (isEstimate) {

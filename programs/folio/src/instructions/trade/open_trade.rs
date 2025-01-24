@@ -52,10 +52,10 @@ impl OpenTrade<'_> {
         &self,
         folio: &Folio,
         trade: &Trade,
-        sell_limit: u64,
-        buy_limit: u64,
-        start_price: u64,
-        end_price: u64,
+        sell_limit: u128,
+        buy_limit: u128,
+        start_price: u128,
+        end_price: u128,
     ) -> Result<()> {
         folio.validate_folio_program_post_init(
             &self.folio.key(),
@@ -84,10 +84,10 @@ impl OpenTrade<'_> {
 
 pub fn handler(
     ctx: Context<OpenTrade>,
-    sell_limit: u64,
-    buy_limit: u64,
-    start_price: u64,
-    end_price: u64,
+    sell_limit: u128,
+    buy_limit: u128,
+    start_price: u128,
+    end_price: u128,
 ) -> Result<()> {
     let folio = &ctx.accounts.folio.load()?;
     let trade = &mut ctx.accounts.trade.load_mut()?;

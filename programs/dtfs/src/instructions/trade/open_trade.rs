@@ -66,10 +66,10 @@ impl OpenTrade<'_> {
 
 pub fn handler(
     ctx: Context<OpenTrade>,
-    sell_limit: u64,
-    buy_limit: u64,
-    start_price: u64,
-    end_price: u64,
+    sell_limit: u128,
+    buy_limit: u128,
+    start_price: u128,
+    end_price: u128,
 ) -> Result<()> {
     ctx.accounts.validate()?;
 

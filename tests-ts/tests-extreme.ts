@@ -70,7 +70,8 @@ describe("Extrme DTFs Tests", () => {
       MAX_TRADE_DELAY,
       MIN_AUCTION_LENGTH,
       "Test Folio",
-      "TFOL"
+      "TFOL",
+      "https://test.com"
     ));
 
     // Init dtf related accounts

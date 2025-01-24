@@ -18,6 +18,7 @@ impl Metaplex {
         ctx: &CreateMetadataAccount,
         name: String,
         symbol: String,
+        uri: String,
         signers_seeds: &[&[&[u8]]],
     ) -> Result<()> {
         let cpi_accounts = mpl_token_metadata::instructions::CreateMetadataAccountV3CpiAccounts {
@@ -35,7 +36,7 @@ impl Metaplex {
                 data: mpl_token_metadata::types::DataV2 {
                     name,
                     symbol,
-                    uri: "".to_string(), // TODO: Add URI
+                    uri,
                     seller_fee_basis_points: 0,
                     creators: None,
                     collection: None,

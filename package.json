@@ -11,6 +11,7 @@
     "@solana/spl-token": "0.4.9",
     "@solana/web3.js": "1.95.5",
     "@sqds/sdk": "2.0.4",
+    "decimal.js": "^10.4.3",
     "governance-idl-sdk": "0.0.4"
   },
   "devDependencies": {

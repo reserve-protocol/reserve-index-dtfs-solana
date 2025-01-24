@@ -5,13 +5,16 @@ use anchor_spl::{
 };
 use shared::{
     check_condition,
-    constants::{PendingBasketType, FOLIO_SEEDS, PENDING_BASKET_SEEDS, PROGRAM_REGISTRAR_SEEDS},
+    constants::{
+        PendingBasketType, FOLIO_BASKET_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS,
+        USER_PENDING_BASKET_SEEDS,
+    },
     structs::TokenAmount,
 };
 use shared::{constants::DTF_PROGRAM_SIGNER_SEEDS, errors::ErrorCode::*};
 use shared::{errors::ErrorCode, structs::FolioStatus};
 
-use crate::state::{Folio, PendingBasket, ProgramRegistrar};
+use crate::state::{Folio, FolioBasket, ProgramRegistrar, UserPendingBasket};
 
 #[derive(Accounts)]
 pub struct RemoveFromPendingBasket<'info> {
@@ -25,16 +28,16 @@ pub struct RemoveFromPendingBasket<'info> {
     pub folio: AccountLoader<'info, Folio>,
 
     #[account(mut,
-        seeds = [PENDING_BASKET_SEEDS, folio.key().as_ref()],
+        seeds = [FOLIO_BASKET_SEEDS, folio.key().as_ref()],
         bump
     )]
-    pub folio_pending_basket: AccountLoader<'info, PendingBasket>,
+    pub folio_basket: AccountLoader<'info, FolioBasket>,
 
     #[account(mut,
-        seeds = [PENDING_BASKET_SEEDS, folio.key().as_ref(), user.key().as_ref()],
+        seeds = [USER_PENDING_BASKET_SEEDS, folio.key().as_ref(), user.key().as_ref()],
         bump
     )]
-    pub user_pending_basket: AccountLoader<'info, PendingBasket>,
+    pub user_pending_basket: AccountLoader<'info, UserPendingBasket>,
 
     /*
     Accounts to validate
@@ -170,7 +173,7 @@ pub fn handler<'info>(
     still be able to remove the amount his own pending token amounts
      */
     ctx.accounts
-        .folio_pending_basket
+        .folio_basket
         .load_mut()?
         .remove_token_amounts_from_folio(&removed_mints, false, PendingBasketType::MintProcess)?;
 

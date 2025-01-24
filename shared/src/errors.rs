@@ -56,11 +56,17 @@ pub enum ErrorCode {
     #[msg("Invalid Number of Remaining Accounts")]
     InvalidNumberOfRemainingAccounts,
 
+    #[msg("Missing Remaining Account")]
+    MissingRemainingAccount,
+
     #[msg("Invalid Added Token Mints")]
     InvalidAddedTokenMints,
 
     #[msg("Invalid Removed Token Mints")]
     InvalidRemovedTokenMints,
+
+    #[msg("Max Number of Tokens Reached")]
+    MaxNumberOfTokensReached,
 
     #[msg("Mint Mismatch")]
     MintMismatch,
@@ -184,6 +190,12 @@ pub enum ErrorCode {
 
     #[msg("Invalid Folio Owner")]
     InvalidFolioOwner,
+
+    #[msg("No Rewards To Claim")]
+    NoRewardsToClaim,
+
+    #[msg("Math Overflow")]
+    MathOverflow,
 }
 
 #[macro_export]

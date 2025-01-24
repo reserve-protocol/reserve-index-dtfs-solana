@@ -5,13 +5,15 @@ use anchor_spl::{
 };
 use shared::{
     check_condition,
-    constants::{PendingBasketType, PENDING_BASKET_SEEDS, PROGRAM_REGISTRAR_SEEDS},
+    constants::{
+        PendingBasketType, FOLIO_BASKET_SEEDS, PROGRAM_REGISTRAR_SEEDS, USER_PENDING_BASKET_SEEDS,
+    },
     structs::TokenAmount,
 };
 use shared::{constants::DTF_PROGRAM_SIGNER_SEEDS, errors::ErrorCode::*};
 use shared::{errors::ErrorCode, structs::FolioStatus};
 
-use crate::state::{Folio, PendingBasket, ProgramRegistrar};
+use crate::state::{Folio, FolioBasket, ProgramRegistrar, UserPendingBasket};
 
 #[derive(Accounts)]
 pub struct AddToPendingBasket<'info> {
@@ -26,18 +28,18 @@ pub struct AddToPendingBasket<'info> {
     pub folio: AccountLoader<'info, Folio>,
 
     #[account(mut,
-        seeds = [PENDING_BASKET_SEEDS, folio.key().as_ref()],
+        seeds = [FOLIO_BASKET_SEEDS, folio.key().as_ref()],
         bump
     )]
-    pub folio_pending_basket: AccountLoader<'info, PendingBasket>,
+    pub folio_basket: AccountLoader<'info, FolioBasket>,
 
     #[account(init_if_needed,
         payer = user,
-        space = PendingBasket::SIZE,
-        seeds = [PENDING_BASKET_SEEDS, folio.key().as_ref(), user.key().as_ref()],
+        space = UserPendingBasket::SIZE,
+        seeds = [USER_PENDING_BASKET_SEEDS, folio.key().as_ref(), user.key().as_ref()],
         bump
     )]
-    pub user_pending_basket: AccountLoader<'info, PendingBasket>,
+    pub user_pending_basket: AccountLoader<'info, UserPendingBasket>,
 
     /*
     Account to validate
@@ -165,14 +167,10 @@ pub fn handler<'info>(
     }
 
     // Can't add new mints if it's for the folio, user should only be able to add what's in the folio's pending token amounts
-    let folio_pending_basket = &mut ctx.accounts.folio_pending_basket.load_mut()?;
-    folio_pending_basket.add_token_amounts_to_folio(
-        &added_mints,
-        false,
-        PendingBasketType::MintProcess,
-    )?;
+    let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
+    folio_basket.add_token_amounts_to_basket(&added_mints, PendingBasketType::MintProcess)?;
 
-    PendingBasket::process_init_if_needed(
+    UserPendingBasket::process_init_if_needed(
         &mut ctx.accounts.user_pending_basket,
         ctx.bumps.user_pending_basket,
         &ctx.accounts.user.key(),

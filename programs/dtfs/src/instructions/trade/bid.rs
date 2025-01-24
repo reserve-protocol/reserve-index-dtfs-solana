@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use folio::state::FolioBasket;
 use folio::ID as FOLIO_ID;
 use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 
@@ -49,6 +50,10 @@ pub struct Bid<'info> {
     /// CHECK: Done within the folio program
     #[account(mut)]
     pub folio: UncheckedAccount<'info>,
+
+    /// CHECK: Done within the folio program
+    #[account(mut)]
+    pub folio_basket: AccountLoader<'info, FolioBasket>,
 
     /// CHECK: Done within the folio program
     #[account(mut)]

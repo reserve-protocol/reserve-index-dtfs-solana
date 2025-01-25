@@ -197,7 +197,6 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
 
         // Because of potential rounding errors since we have to go back to u64, if user claims too early it might
         // be 0 as a u64, we don't want to update the other fields while not giving anything, so we'll error out.
-        // TODO validate if ok
         check_condition!(claimable_rewards > 0, NoRewardsToClaim);
 
         // Send the rewards to the user

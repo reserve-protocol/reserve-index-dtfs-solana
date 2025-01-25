@@ -202,6 +202,9 @@ pub enum ErrorCode {
 
     #[msg("Math Overflow")]
     MathOverflow,
+
+    #[msg("Invalid Reward Token Account")]
+    InvalidRewardTokenAccount,
 }
 
 #[macro_export]

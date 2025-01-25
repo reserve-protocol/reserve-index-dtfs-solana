@@ -9,6 +9,7 @@ use shared::constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, PROGRAM_REGISTRAR
 use shared::constants::{FOLIO_REWARD_TOKENS_SEEDS, REWARD_INFO_SEEDS, USER_REWARD_INFO_SEEDS};
 use shared::errors::ErrorCode;
 use shared::structs::{FolioStatus, Role};
+use shared::util::account_util::next_account;
 
 #[derive(Accounts)]
 pub struct ClaimRewards<'info> {
@@ -126,22 +127,12 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
     let mut remaining_accounts_iter = ctx.remaining_accounts.iter();
 
     for _ in 0..ctx.remaining_accounts.len() / 5 {
-        let reward_token = remaining_accounts_iter
-            .next()
-            .ok_or(ErrorCode::MissingRemainingAccount)?;
+        let reward_token = next_account(&mut remaining_accounts_iter, false, false)?;
         // This is the folio reward tokens' token account, not the DAO's
-        let fee_recipient_token_account = remaining_accounts_iter
-            .next()
-            .ok_or(ErrorCode::MissingRemainingAccount)?; // Sender
-        let reward_info = remaining_accounts_iter
-            .next()
-            .ok_or(ErrorCode::MissingRemainingAccount)?;
-        let user_reward_info = remaining_accounts_iter
-            .next()
-            .ok_or(ErrorCode::MissingRemainingAccount)?;
-        let user_reward_token_account = remaining_accounts_iter
-            .next()
-            .ok_or(ErrorCode::MissingRemainingAccount)?; // Receiver
+        let fee_recipient_token_account = next_account(&mut remaining_accounts_iter, false, true)?;
+        let reward_info = next_account(&mut remaining_accounts_iter, false, true)?;
+        let user_reward_info = next_account(&mut remaining_accounts_iter, false, true)?;
+        let user_reward_token_account = next_account(&mut remaining_accounts_iter, false, true)?;
 
         // Check all the pdas
         check_condition!(

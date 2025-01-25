@@ -6,6 +6,7 @@ use shared::check_condition;
 use shared::constants::{
     DTF_PROGRAM_SIGNER_SEEDS, FEE_DISTRIBUTION_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS,
 };
+use shared::util::account_util::next_account;
 use shared::{errors::ErrorCode, structs::FolioStatus};
 
 use crate::program::Folio as FolioProgram;
@@ -131,9 +132,7 @@ pub fn handler<'info>(
     {
         let fee_distribution = &mut ctx.accounts.fee_distribution.load_mut()?;
         for index in indices {
-            let fee_recipient = remaining_accounts_iter
-                .next()
-                .expect("Fee recipient not found");
+            let fee_recipient = next_account(&mut remaining_accounts_iter, false, true)?;
 
             let related_fee_distribution =
                 &mut fee_distribution.fee_recipients_state[index as usize];

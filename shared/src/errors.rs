@@ -59,6 +59,12 @@ pub enum ErrorCode {
     #[msg("Missing Remaining Account")]
     MissingRemainingAccount,
 
+    #[msg("Account Not Signer")]
+    AccountNotSigner,
+
+    #[msg("Account Not Writable")]
+    AccountNotWritable,
+
     #[msg("Invalid Added Token Mints")]
     InvalidAddedTokenMints,
 

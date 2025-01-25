@@ -7,6 +7,7 @@ use shared::check_condition;
 use shared::constants::{FOLIO_BASKET_SEEDS, FOLIO_SEEDS};
 use shared::errors::ErrorCode;
 use shared::structs::FolioStatus;
+use shared::util::account_util::next_account;
 use shared::{
     constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, PROGRAM_REGISTRAR_SEEDS},
     structs::Role,
@@ -171,15 +172,9 @@ pub fn handler<'info>(
     );
 
     for amount in amounts {
-        let token_mint = remaining_accounts_iter
-            .next()
-            .expect("Token mint not found");
-        let sender_token_account = remaining_accounts_iter
-            .next()
-            .expect("Sender token account not found");
-        let receiver_token_account = remaining_accounts_iter
-            .next()
-            .expect("Receiver token account not found");
+        let token_mint = next_account(&mut remaining_accounts_iter, false, false)?;
+        let sender_token_account = next_account(&mut remaining_accounts_iter, false, true)?;
+        let receiver_token_account = next_account(&mut remaining_accounts_iter, false, true)?;
 
         // Validate the receiver token account is the ATA of the folio
         check_condition!(

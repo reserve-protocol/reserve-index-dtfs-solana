@@ -17,7 +17,7 @@ pub struct OpenTrade<'info> {
     #[account(mut)]
     pub trade_launcher: Signer<'info>,
 
-    #[account(mut,
+    #[account(
         seeds = [ACTOR_SEEDS, trade_launcher.key().as_ref(), folio.key().as_ref()],
         bump = actor.bump,
     )]

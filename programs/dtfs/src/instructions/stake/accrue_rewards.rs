@@ -53,7 +53,7 @@ pub struct AccrueRewards<'info> {
     pub folio: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
-    #[account(mut)]
+    #[account()]
     pub folio_reward_tokens: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program

@@ -27,9 +27,7 @@ pub struct RemoveRewardToken<'info> {
     #[account()]
     pub folio: AccountLoader<'info, Folio>,
 
-    #[account(init_if_needed,
-        payer = folio_owner,
-        space = FolioRewardTokens::SIZE,
+    #[account(mut,
         seeds = [FOLIO_REWARD_TOKENS_SEEDS, folio.key().as_ref()],
         bump
     )]

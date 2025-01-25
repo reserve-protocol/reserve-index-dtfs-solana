@@ -36,16 +36,16 @@ pub struct Bid<'info> {
     )]
     pub folio_basket: AccountLoader<'info, FolioBasket>,
 
-    #[account(mut)]
+    #[account()]
     pub folio_token_mint: Box<InterfaceAccount<'info, Mint>>,
 
     #[account(mut)]
     pub trade: AccountLoader<'info, Trade>,
 
-    #[account(mut)]
+    #[account()]
     pub trade_sell_token_mint: Box<InterfaceAccount<'info, Mint>>,
 
-    #[account(mut)]
+    #[account()]
     pub trade_buy_token_mint: Box<InterfaceAccount<'info, Mint>>,
 
     #[account(mut,

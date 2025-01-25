@@ -26,7 +26,7 @@ pub struct RedeemFromPendingBasket<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
-    #[account(mut)]
+    #[account()]
     pub folio: AccountLoader<'info, Folio>,
 
     #[account(mut,

@@ -22,7 +22,7 @@ pub struct ApproveTrade<'info> {
     #[account(mut)]
     pub trade_proposer: Signer<'info>,
 
-    #[account(mut,
+    #[account(
         seeds = [ACTOR_SEEDS, trade_proposer.key().as_ref(), folio.key().as_ref()],
         bump = actor.bump,
     )]

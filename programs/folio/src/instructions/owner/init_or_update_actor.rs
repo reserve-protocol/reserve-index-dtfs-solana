@@ -19,7 +19,7 @@ pub struct InitOrUpdateActor<'info> {
     #[account()]
     pub new_actor_authority: UncheckedAccount<'info>,
 
-    #[account(mut,
+    #[account(
         seeds = [ACTOR_SEEDS, folio_owner.key().as_ref(), folio_owner_actor.folio.key().as_ref()],
         bump = folio_owner_actor.bump,
     )]

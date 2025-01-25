@@ -9,6 +9,7 @@ use shared::constants::{
 };
 use shared::{errors::ErrorCode, structs::FolioStatus};
 
+use crate::events::ProtocolFeePaid;
 use crate::state::{FeeDistribution, FeeRecipients, Folio, ProgramRegistrar};
 use crate::DtfProgram;
 
@@ -178,6 +179,11 @@ pub fn handler<'info>(
         fee_distribution.cranker = ctx.accounts.user.key();
         fee_distribution.amount_to_distribute = folio.fee_recipients_pending_fee_shares;
         fee_distribution.fee_recipients_state = fee_recipients.fee_recipients;
+
+        emit!(ProtocolFeePaid {
+            recipient: ctx.accounts.dao_fee_recipient.key(),
+            amount: folio.dao_pending_fee_shares,
+        });
     }
 
     // Update pending fee

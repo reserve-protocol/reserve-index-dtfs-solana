@@ -7,6 +7,9 @@ pub struct FolioCreated {
 }
 
 #[event]
+pub struct FolioKilled {}
+
+#[event]
 pub struct ProgramRegistryUpdate {
     pub program_ids: Vec<Pubkey>,
     pub remove: bool,
@@ -24,13 +27,30 @@ pub struct BasketTokenRemoved {
 
 #[event]
 pub struct FolioFeeSet {
-    pub new_fee: u64,
+    pub new_fee: u128,
+}
+
+#[event]
+pub struct MintingFeeSet {
+    pub new_fee: u128,
 }
 
 #[event]
 pub struct FeeRecipientSet {
     pub recipient: Pubkey,
     pub portion: u64,
+}
+
+#[event]
+pub struct FolioFeePaid {
+    pub recipient: Pubkey,
+    pub amount: u64,
+}
+
+#[event]
+pub struct ProtocolFeePaid {
+    pub recipient: Pubkey,
+    pub amount: u64,
 }
 
 #[event]
@@ -57,10 +77,20 @@ pub struct TradeKilled {
 }
 
 #[event]
-pub struct Bid {
+pub struct TradeBid {
     pub trade_id: u64,
     pub sell_amount: u64,
     pub bought_amount: u64,
+}
+
+#[event]
+pub struct TradeDelaySet {
+    pub new_trade_delay: u64,
+}
+
+#[event]
+pub struct AuctionLengthSet {
+    pub new_auction_length: u64,
 }
 
 #[event]
@@ -77,4 +107,9 @@ pub struct RewardRatioSet {
 #[event]
 pub struct RewardTokenRemoved {
     pub reward_token: Pubkey,
+}
+
+#[event]
+pub struct MandateSet {
+    pub new_mandate: Pubkey,
 }

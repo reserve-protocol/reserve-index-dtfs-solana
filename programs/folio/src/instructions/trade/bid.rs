@@ -1,5 +1,6 @@
 use crate::{
     cpi_call,
+    events::TradeBid,
     state::{Folio, FolioBasket, Trade},
 };
 use anchor_lang::prelude::*;
@@ -184,7 +185,7 @@ pub fn handler(
         ctx.accounts.trade_sell_token_mint.decimals,
     )?;
 
-    emit!(crate::events::Bid {
+    emit!(TradeBid {
         trade_id: trade.id,
         sell_amount,
         bought_amount,

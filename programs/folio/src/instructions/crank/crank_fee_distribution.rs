@@ -9,6 +9,7 @@ use shared::constants::{
 use shared::util::account_util::next_account;
 use shared::{errors::ErrorCode, structs::FolioStatus};
 
+use crate::events::FolioFeePaid;
 use crate::program::Folio as FolioProgram;
 use crate::state::{FeeDistribution, Folio, ProgramRegistrar};
 
@@ -174,6 +175,11 @@ pub fn handler<'info>(
                     ),
                     amount_to_distribute,
                 )?;
+
+                emit!(FolioFeePaid {
+                    recipient: related_fee_distribution.receiver.key(),
+                    amount: amount_to_distribute,
+                });
             }
         }
     }

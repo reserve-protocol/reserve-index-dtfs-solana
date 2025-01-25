@@ -1,3 +1,4 @@
+use crate::events::BasketTokenAdded;
 use crate::state::{Actor, Folio, FolioBasket, ProgramRegistrar};
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::{get_associated_token_address_with_program_id, AssociatedToken};
@@ -207,6 +208,10 @@ pub fn handler<'info>(
         )?;
 
         added_mints.push(token_mint.key());
+
+        emit!(BasketTokenAdded {
+            token: token_mint.key(),
+        });
     }
 
     FolioBasket::process_init_if_needed(

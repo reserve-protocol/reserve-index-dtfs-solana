@@ -1,3 +1,4 @@
+use crate::events::FolioKilled;
 use crate::state::{Actor, Folio, ProgramRegistrar};
 use anchor_lang::prelude::*;
 use shared::structs::FolioStatus;
@@ -67,6 +68,8 @@ pub fn handler(ctx: Context<KillFolio>) -> Result<()> {
     let folio = &mut ctx.accounts.folio.load_mut()?;
     ctx.accounts.validate(folio)?;
     folio.status = FolioStatus::Killed as u8;
+
+    emit!(FolioKilled {});
 
     Ok(())
 }

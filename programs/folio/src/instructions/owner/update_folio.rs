@@ -1,3 +1,4 @@
+use crate::events::{AuctionLengthSet, FolioFeeSet, MintingFeeSet, TradeDelaySet};
 use crate::state::{Actor, FeeRecipients, Folio, ProgramRegistrar};
 use anchor_lang::prelude::*;
 use shared::constants::{
@@ -121,6 +122,8 @@ pub fn handler(
         check_condition!(folio_fee <= MAX_FOLIO_FEE, InvalidFeePerSecond);
 
         folio.folio_fee = folio_fee;
+
+        emit!(FolioFeeSet { new_fee: folio_fee });
     }
 
     if let Some(minting_fee) = minting_fee {
@@ -129,6 +132,10 @@ pub fn handler(
             InvalidMintingFee
         );
         folio.minting_fee = minting_fee;
+
+        emit!(MintingFeeSet {
+            new_fee: minting_fee
+        });
     }
 
     if !fee_recipients_to_add.is_empty() || !fee_recipients_to_remove.is_empty() {
@@ -141,6 +148,10 @@ pub fn handler(
         check_condition!(trade_delay <= MAX_TRADE_DELAY, InvalidTradeDelay);
 
         folio.trade_delay = trade_delay;
+
+        emit!(TradeDelaySet {
+            new_trade_delay: trade_delay
+        });
     }
 
     if let Some(auction_length) = auction_length {
@@ -150,6 +161,10 @@ pub fn handler(
         );
 
         folio.auction_length = auction_length;
+
+        emit!(AuctionLengthSet {
+            new_auction_length: auction_length
+        });
     }
 
     Ok(())

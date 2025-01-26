@@ -82,11 +82,10 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO: need to figure out how to get the denominator
     fn test_poke() {
         let mut folio = setup_folio();
         let initial_supply = 100_000_000_000; // 100 token supply
-        let dao_fee_numerator = 500_000_000;
+        let dao_fee_numerator = 1_000_000_000_000_000;
         let dao_fee_denominator = DAO_FEE_DENOMINATOR;
 
         folio
@@ -131,12 +130,14 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO: need to figure out how to get the denominator
     fn test_get_pending_fee_shares() {
-        let folio = setup_folio();
-        let initial_supply = 1_000_000_000_000; // 1000 tokens
-        let current_time = 2000;
-        let dao_fee_numerator = 500_000_000;
+        let mut folio = setup_folio();
+        folio.last_poke = 1000;
+        folio.folio_fee = MAX_FOLIO_FEE; // 50% annually
+
+        let initial_supply = 1_000_000_000_000u64; // 1000 tokens
+        let current_time = 2000; // 1000 seconds elapsed
+        let dao_fee_numerator = 400_000_000_000_000_000;
         let dao_fee_denominator = DAO_FEE_DENOMINATOR;
 
         let (fee_recipients_shares, dao_shares) = folio
@@ -151,17 +152,11 @@ mod tests {
         assert!(fee_recipients_shares > 0);
         assert!(dao_shares > 0);
 
-        // Verify fee split (should be roughly 80% fee recipients, 20% DAO)
-        let total_fees = fee_recipients_shares.checked_add(dao_shares).unwrap();
-        let dao_portion = dao_shares
-            .checked_mul(1_000_000_000)
-            .unwrap()
-            .checked_div(total_fees)
-            .unwrap();
+        let total_fees = fee_recipients_shares + dao_shares;
+        let dao_portion = (dao_shares as u128 * 1_000_000_000) / total_fees as u128;
 
-        // Should be close to 50% (allowing for some rounding)
-        assert!(dao_portion >= 490_000_000); // 49%
-        assert!(dao_portion <= 510_000_000); // 51%
+        assert!(dao_portion >= 390_000_000); // Allow 39%
+        assert!(dao_portion <= 410_000_000); // Allow 41%
     }
 
     #[test]

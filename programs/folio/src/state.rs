@@ -283,7 +283,7 @@ pub struct FolioRewardTokens {
     /// Folio's pubkey
     pub folio: Pubkey,
 
-    pub reward_ratio: u64,
+    pub reward_ratio: U256Number,
 
     // List of current reward tokens
     pub reward_tokens: [Pubkey; MAX_REWARD_TOKENS],

@@ -75,16 +75,6 @@ mod tests {
             let base = CustomPreciseNumber::from_u64(2).unwrap();
             assert_eq!(base.pow(0).unwrap().0, D18);
         }
-
-        #[test]
-        fn test_mul_div_10_pow() {
-            let num = CustomPreciseNumber::from_u64(1000).unwrap();
-            let result = num.mul_10_pow_generic(3).unwrap();
-            assert_eq!(result.to_u64_floor().unwrap(), 1_000_000);
-
-            let div_result = num.div_10_pow_generic(1).unwrap();
-            assert_eq!(div_result.to_u64_floor().unwrap(), 100);
-        }
     }
 
     mod rounding_operations {
@@ -121,13 +111,8 @@ mod tests {
 
             // ln(e) should be very close to 1 * D18
             let tolerance = U256::from(1_000_000_000_000_000u64);
-            assert!(ln_e.0 > D18 - tolerance, "ln(e) is too small");
-            assert!(
-                ln_e.0 < D18 + tolerance,
-                "ln(e) is too large: {} vs {}",
-                ln_e.0,
-                D18
-            );
+            assert!(ln_e.0 > D18 - tolerance);
+            assert!(ln_e.0 < D18 + tolerance);
         }
 
         #[test]
@@ -167,18 +152,8 @@ mod tests {
             let expected = U256::from(2718281828459045235u64);
             let tolerance = U256::from(10000000000000u64);
 
-            assert!(
-                e.0 > expected - tolerance,
-                "e is too small: {} vs {}",
-                e.0,
-                expected
-            );
-            assert!(
-                e.0 < expected + tolerance,
-                "e is too large: {} vs {}",
-                e.0,
-                expected
-            );
+            assert!(e.0 > expected - tolerance);
+            assert!(e.0 < expected + tolerance);
         }
 
         #[test]

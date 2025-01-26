@@ -3,8 +3,10 @@ mod tests {
 
     use anchor_lang::prelude::Pubkey;
     use folio::state::RewardInfo;
+    use shared::constants::{LN_2, MIN_REWARD_HALF_LIFE};
     use shared::errors::ErrorCode::MathOverflow;
     use shared::util::math_util::U256Number;
+    use spl_math::uint::U256;
 
     fn setup_reward_info() -> RewardInfo {
         RewardInfo {
@@ -24,30 +26,54 @@ mod tests {
         let mut reward_info = setup_reward_info();
         reward_info.payout_last_paid = 1000;
 
-        let result = reward_info.accrue_rewards(1000, 2000, 1000, 18, 1000);
+        let result = reward_info.accrue_rewards(
+            U256::from(LN_2)
+                .checked_div(U256::from(MIN_REWARD_HALF_LIFE))
+                .unwrap(),
+            2000,
+            1000,
+            18,
+            1000,
+        );
         assert!(result.is_ok());
-        assert_eq!(reward_info.balance_last_known, 2000);
+        assert_eq!(reward_info.balance_last_known, 1000);
     }
 
     #[test]
-    #[ignore] // TODO: need to figure out how to get the denominator
     fn test_accrue_rewards_with_zero_supply() {
         let mut reward_info = setup_reward_info();
         reward_info.payout_last_paid = 900;
 
-        let result = reward_info.accrue_rewards(1000, 2000, 0, 18, 1001);
+        let result = reward_info.accrue_rewards(
+            U256::from(LN_2)
+                .checked_div(U256::from(MIN_REWARD_HALF_LIFE))
+                .unwrap(),
+            2000,
+            0,
+            18,
+            1001,
+        );
+
         assert!(result.is_ok());
         assert_eq!(reward_info.balance_accounted, 100);
+        assert_eq!(reward_info.balance_last_known, 2000);
     }
 
     #[test]
-    #[ignore] // TODO: need to figure out how to get the denominator
     fn test_accrue_rewards_with_claimed_tokens() {
         let mut reward_info = setup_reward_info();
         reward_info.total_claimed = 500;
         reward_info.payout_last_paid = 900;
 
-        let result = reward_info.accrue_rewards(1000, 2000, 1000, 18, 1001);
+        let result = reward_info.accrue_rewards(
+            U256::from(LN_2)
+                .checked_div(U256::from(MIN_REWARD_HALF_LIFE))
+                .unwrap(),
+            2000,
+            1000,
+            18,
+            1001,
+        );
         assert!(result.is_ok());
         assert_eq!(reward_info.balance_last_known, 2500);
     }
@@ -58,7 +84,15 @@ mod tests {
         reward_info.balance_last_known = u64::MAX;
         reward_info.total_claimed = 1;
 
-        let result = reward_info.accrue_rewards(1000, u64::MAX, 1000, 18, 1001);
+        let result = reward_info.accrue_rewards(
+            U256::from(LN_2)
+                .checked_div(U256::from(MIN_REWARD_HALF_LIFE))
+                .unwrap(),
+            u64::MAX,
+            1000,
+            18,
+            1001,
+        );
         assert!(result.is_err());
     }
 

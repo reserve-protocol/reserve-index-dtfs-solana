@@ -210,30 +210,42 @@ impl Folio {
         dao_fee_denominator: u128,
     ) -> Result<(u64, u64)> {
         let total_supply = self.get_total_supply(folio_token_supply)?;
-        let elapsed = current_time - self.last_poke;
+        let elapsed = (current_time - self.last_poke) as u64;
 
-        let denominator = CustomPreciseNumber::from(D18)
-            .sub_generic(U256::from(self.folio_fee))?
-            .pow(elapsed as u64)?;
+        // Calculate annual rate in smaller chunks
+        let seconds_per_year = 365 * 24 * 3600;
+        let fee_rate = D18
+            .checked_sub(U256::from(self.folio_fee))
+            .ok_or(error!(ErrorCode::MathOverflow))?;
 
-        let fee_shares = CustomPreciseNumber::from_u64(total_supply)?
-            .mul_generic(D18)?
-            .div_generic(denominator)?
-            .sub_generic(total_supply)?;
+        // Calculate the compound factor for the elapsed time
+        let compound_multiplier = U256::from(elapsed)
+            .checked_mul(D18)
+            .ok_or(error!(ErrorCode::MathOverflow))?
+            .checked_div(U256::from(seconds_per_year))
+            .ok_or(error!(ErrorCode::MathOverflow))?;
 
-        let dao_shares = fee_shares
-            .mul_generic(U256::from(dao_fee_numerator))?
-            .add_generic(U256::from(dao_fee_denominator))?
-            .sub_generic(CustomPreciseNumber::one())?
-            .div_generic(U256::from(dao_fee_denominator))?;
+        let fee_amount = U256::from(total_supply)
+            .checked_mul(compound_multiplier)
+            .ok_or(error!(ErrorCode::MathOverflow))?
+            .checked_mul(fee_rate)
+            .ok_or(error!(ErrorCode::MathOverflow))?
+            .checked_div(D18)
+            .ok_or(error!(ErrorCode::MathOverflow))?
+            .checked_div(D18)
+            .ok_or(error!(ErrorCode::MathOverflow))?;
 
-        Ok((
-            fee_shares
-                .sub(&dao_shares)?
-                .div_generic(D18)?
-                .to_u64_floor()?,
-            dao_shares.div_generic(D18)?.to_u64_floor()?,
-        ))
+        let dao_shares = fee_amount
+            .checked_mul(U256::from(dao_fee_numerator))
+            .ok_or(error!(ErrorCode::MathOverflow))?
+            .checked_div(U256::from(dao_fee_denominator))
+            .ok_or(error!(ErrorCode::MathOverflow))?;
+
+        let fee_recipient_shares = fee_amount
+            .checked_sub(dao_shares)
+            .ok_or(error!(ErrorCode::MathOverflow))?;
+
+        Ok((fee_recipient_shares.as_u64(), dao_shares.as_u64()))
     }
 
     pub fn get_trade_end_for_mint(

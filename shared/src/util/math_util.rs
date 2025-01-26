@@ -94,30 +94,27 @@ impl CustomPreciseNumber {
         Ok(CustomPreciseNumber(result))
     }
 
-    pub fn pow(&self, other: u64) -> Result<Self> {
-        let mut result = CustomPreciseNumber::one_e18();
-        let mut base = self.clone();
-        let mut exponent = other;
-
-        while exponent > 0 {
-            if exponent % 2 == 1 {
-                result = result.mul(&base)?;
-            }
-            base = base.mul(&base)?;
-            exponent /= 2;
+    pub fn pow(&self, exponent: u64) -> Result<Self> {
+        if exponent == 0 {
+            return Ok(CustomPreciseNumber::one_e18());
+        }
+        if exponent == 1 {
+            return Ok(self.clone());
         }
 
-        Ok(result)
-    }
+        let mut base = self.clone();
+        let mut result = CustomPreciseNumber::one_e18();
+        let mut exp = exponent;
 
-    pub fn mul_10_pow_generic(&self, other: u64) -> Result<Self> {
-        let result = self.mul(&CustomPreciseNumber::ten().pow(other)?)?;
-
-        Ok(result)
-    }
-
-    pub fn div_10_pow_generic(&self, other: u64) -> Result<Self> {
-        let result = self.div(&CustomPreciseNumber::ten().pow(other)?)?;
+        while exp > 0 {
+            if exp & 1 == 1 {
+                result = result.mul(&base)?;
+            }
+            if exp > 1 {
+                base = base.mul(&base)?;
+            }
+            exp >>= 1;
+        }
 
         Ok(result)
     }

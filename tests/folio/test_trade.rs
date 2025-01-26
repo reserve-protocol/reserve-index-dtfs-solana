@@ -2,7 +2,8 @@
 mod tests {
 
     use folio::state::{Folio, Trade};
-    use shared::structs::TradeStatus;
+    use shared::{constants::D18, structs::TradeStatus};
+    use spl_math::uint::U256;
 
     fn setup_trade() -> Trade {
         let mut trade = Trade::default();
@@ -81,12 +82,32 @@ mod tests {
         let mut trade = setup_trade();
         let auction_length = 1000;
 
+        trade.start_price = 1_000_000 * D18.as_u128();
+        trade.end_price = 900_000 * D18.as_u128();
         assert!(trade.calculate_k(auction_length).is_ok());
-        assert!(trade.k > 0);
+        assert!(trade.k.to_u256() > U256::from(0));
 
         trade.start_price = trade.end_price;
         assert!(trade.calculate_k(auction_length).is_ok());
-        assert_eq!(trade.k, 0);
+        assert_eq!(trade.k.to_u256(), U256::from(0));
+    }
+
+    #[test]
+    fn test_calculate_k_different_ratios() {
+        let mut trade = setup_trade();
+        let auction_length = 1000;
+
+        trade.start_price = 1_000_000 * D18.as_u128();
+        trade.end_price = 900_000 * D18.as_u128();
+        assert!(trade.calculate_k(auction_length).is_ok());
+        let k_10_percent = trade.k;
+
+        trade.start_price = 1_000_000 * D18.as_u128();
+        trade.end_price = 800_000 * D18.as_u128();
+        assert!(trade.calculate_k(auction_length).is_ok());
+        let k_20_percent = trade.k;
+
+        assert!(k_20_percent.to_u256() > k_10_percent.to_u256());
     }
 
     #[test]
@@ -102,16 +123,17 @@ mod tests {
         let mut trade = setup_trade();
         trade.start = 1000;
         trade.end = 2000;
-        trade.start_price = 1_000_000;
-        trade.end_price = 900_000;
+
+        trade.start_price = 1_000_000 * D18.as_u128();
+        trade.end_price = 900_000 * D18.as_u128();
         trade.calculate_k(1000).unwrap();
 
-        assert_eq!(trade.get_price(1000).unwrap(), 1_000_000);
-        assert_eq!(trade.get_price(2000).unwrap(), 900_000);
+        assert_eq!(trade.get_price(1000).unwrap(), 1_000_000 * D18.as_u128());
+        assert_eq!(trade.get_price(2000).unwrap(), 900_000 * D18.as_u128());
 
         let mid_price = trade.get_price(1500).unwrap();
-        assert!(mid_price < 1_000_000);
-        assert!(mid_price > 900_000);
+        assert!(mid_price < 1_000_000 * D18.as_u128());
+        assert!(mid_price > 900_000 * D18.as_u128());
 
         assert!(trade.get_price(500).is_err());
         assert!(trade.get_price(2500).is_err());

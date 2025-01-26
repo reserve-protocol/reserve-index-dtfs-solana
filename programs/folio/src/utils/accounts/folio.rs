@@ -11,6 +11,7 @@ use shared::{
     structs::{FolioStatus, Role, TradeEnd},
     util::math_util::CustomPreciseNumber,
 };
+use spl_math::uint::U256;
 
 impl Folio {
     pub fn validate_folio_program_for_init<'info>(
@@ -113,31 +114,32 @@ impl Folio {
         dao_fee_numerator: u128,
         dao_fee_denominator: u128,
     ) -> Result<u64> {
-        let total_fee_shares = CustomPreciseNumber::from_u64(user_shares)
-            .mul_generic(self.minting_fee)
-            .add_generic(D18)
-            .sub_generic(CustomPreciseNumber::from_u64(1))
-            .div_generic(D18);
+        let total_fee_shares = CustomPreciseNumber::from_u64(user_shares)?
+            // Minting fee is already scaled by D18
+            .mul_generic(U256::from(self.minting_fee))?
+            .add_generic(D18)?
+            .sub_generic(CustomPreciseNumber::one())?
+            .div_generic(D18)?;
 
         let mut dao_fee_shares = total_fee_shares
-            .mul_generic(dao_fee_numerator)
-            .add_generic(dao_fee_denominator)
-            .sub_generic(CustomPreciseNumber::from_u64(1))
-            .div_generic(dao_fee_denominator)
-            .to_u64_floor();
+            .mul_generic(U256::from(dao_fee_numerator))?
+            .add_generic(U256::from(dao_fee_denominator))?
+            .sub_generic(CustomPreciseNumber::one())?
+            .div_generic(U256::from(dao_fee_denominator))?
+            .to_u64_floor()?;
 
-        let min_dao_shares = CustomPreciseNumber::from_u64(user_shares)
-            .mul_generic(MIN_DAO_MINTING_FEE)
-            .add_generic(D18)
-            .sub_generic(CustomPreciseNumber::from_u64(1))
-            .div_generic(D18)
-            .to_u64_floor();
+        let min_dao_shares = CustomPreciseNumber::from_u64(user_shares)?
+            .mul_generic(U256::from(MIN_DAO_MINTING_FEE))?
+            .add_generic(D18)?
+            .sub_generic(CustomPreciseNumber::one())?
+            .div_generic(D18)?
+            .to_u64_floor()?;
 
         if dao_fee_shares < min_dao_shares {
             dao_fee_shares = min_dao_shares;
         }
 
-        let mut total_fee_shares_scaled = total_fee_shares.to_u64_floor();
+        let mut total_fee_shares_scaled = total_fee_shares.to_u64_floor()?;
 
         if total_fee_shares_scaled < dao_fee_shares {
             total_fee_shares_scaled = dao_fee_shares;
@@ -210,24 +212,27 @@ impl Folio {
         let total_supply = self.get_total_supply(folio_token_supply)?;
         let elapsed = current_time - self.last_poke;
 
-        let denominator = CustomPreciseNumber::from_u128(D18)
-            .sub_generic(self.folio_fee)
-            .pow(elapsed as u64);
+        let denominator = CustomPreciseNumber::from(D18)
+            .sub_generic(U256::from(self.folio_fee))?
+            .pow(elapsed as u64)?;
 
-        let fee_shares = CustomPreciseNumber::from_u64(total_supply)
-            .mul_generic(D18)
-            .div_generic(denominator)
-            .sub_generic(total_supply);
+        let fee_shares = CustomPreciseNumber::from_u64(total_supply)?
+            .mul_generic(D18)?
+            .div_generic(denominator)?
+            .sub_generic(total_supply)?;
 
         let dao_shares = fee_shares
-            .mul_generic(dao_fee_numerator)
-            .add_generic(dao_fee_denominator)
-            .sub_generic(CustomPreciseNumber::from_u64(1))
-            .div_generic(dao_fee_denominator);
+            .mul_generic(U256::from(dao_fee_numerator))?
+            .add_generic(U256::from(dao_fee_denominator))?
+            .sub_generic(CustomPreciseNumber::one())?
+            .div_generic(U256::from(dao_fee_denominator))?;
 
         Ok((
-            fee_shares.sub(&dao_shares).div_generic(D18).to_u64_floor(),
-            dao_shares.div_generic(D18).to_u64_floor(),
+            fee_shares
+                .sub(&dao_shares)?
+                .div_generic(D18)?
+                .to_u64_floor()?,
+            dao_shares.div_generic(D18)?.to_u64_floor()?,
         ))
     }
 

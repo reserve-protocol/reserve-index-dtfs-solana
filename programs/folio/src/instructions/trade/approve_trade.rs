@@ -8,6 +8,7 @@ use shared::{
     check_condition,
     constants::{ACTOR_SEEDS, MAX_RATE, MAX_TTL, PROGRAM_REGISTRAR_SEEDS, TRADE_SEEDS},
     structs::{FolioStatus, Range, Role},
+    util::math_util::U256Number,
 };
 
 use crate::state::ProgramRegistrar;
@@ -155,7 +156,7 @@ pub fn handler(
     trade.launch_timeout = current_time + ttl;
     trade.start = 0;
     trade.end = 0;
-    trade.k = 0;
+    trade.k = U256Number::ZERO;
 
     emit!(TradeApproved {
         trade_id,

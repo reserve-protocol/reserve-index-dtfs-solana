@@ -1168,6 +1168,7 @@ dependencies = [
  "folio",
  "lazy_static",
  "shared",
+ "spl-math",
 ]
 
 [[package]]

@@ -115,6 +115,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
     let folio_reward_tokens_key = ctx.accounts.folio_reward_tokens.key();
     let caller_key = ctx.accounts.caller.key();
     let user_key = ctx.accounts.user.key();
+    let current_time = Clock::get()?.unix_timestamp as u64;
 
     // The folio owner is the realm (DAO)
     let realm_key = ctx.accounts.folio_owner.key();
@@ -199,6 +200,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
             fee_recipient_token_account_parsed.amount,
             mint.supply,
             mint.decimals as u64,
+            current_time,
         )?;
 
         // Init if needed and accrue rewards on user reward info

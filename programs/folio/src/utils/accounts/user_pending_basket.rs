@@ -254,17 +254,17 @@ impl UserPendingBasket {
         folio_token_balance: u64,
         shares: u64,
     ) -> Result<()> {
-        let calculated_shares = CustomPreciseNumber::from_u64(user_amount.amount_for_minting)
-            .mul_generic(total_supply_folio_token)
-            .div_generic(folio_token_balance)
-            .to_u64_floor();
+        let calculated_shares = CustomPreciseNumber::from_u64(user_amount.amount_for_minting)?
+            .mul_generic(total_supply_folio_token)?
+            .div_generic(folio_token_balance)?
+            .to_u64_floor()?;
 
         check_condition!(calculated_shares >= shares, InvalidShareAmountProvided);
 
-        let user_amount_taken = CustomPreciseNumber::from_u64(shares)
-            .mul_generic(folio_token_balance)
-            .div_generic(total_supply_folio_token)
-            .to_u64_ceil();
+        let user_amount_taken = CustomPreciseNumber::from_u64(shares)?
+            .mul_generic(folio_token_balance)?
+            .div_generic(total_supply_folio_token)?
+            .to_u64_ceil()?;
 
         // Remove from both pending amounts
         user_amount.amount_for_minting = user_amount
@@ -286,10 +286,10 @@ impl UserPendingBasket {
         folio_token_balance: u64,
         shares: u64,
     ) -> Result<()> {
-        let amount_to_give_to_user = CustomPreciseNumber::from_u64(shares)
-            .mul_generic(folio_token_balance)
-            .div_generic(total_supply_folio_token)
-            .to_u64_floor();
+        let amount_to_give_to_user = CustomPreciseNumber::from_u64(shares)?
+            .mul_generic(folio_token_balance)?
+            .div_generic(total_supply_folio_token)?
+            .to_u64_floor()?;
 
         // Add to both pending amounts for redeeming
         user_amount.amount_for_redeeming = user_amount

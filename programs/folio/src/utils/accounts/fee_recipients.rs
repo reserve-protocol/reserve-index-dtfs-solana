@@ -1,7 +1,6 @@
 use crate::events::FeeRecipientSet;
 use crate::state::FeeRecipients;
 use anchor_lang::prelude::*;
-use shared::constants::D9;
 use shared::errors::ErrorCode;
 use shared::{check_condition, constants::MAX_FEE_RECIPIENTS, structs::FeeRecipient};
 
@@ -75,7 +74,7 @@ impl FeeRecipients {
                 .iter()
                 .map(|r| r.portion as u128)
                 .sum::<u128>()
-                == D9,
+                == 1_000_000_000,
             InvalidFeeRecipientPortion
         );
 

@@ -38,7 +38,7 @@ pub struct CloseUserPendingTokenAmount<'info> {
     pub folio_program: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
-    #[account(mut)]
+    #[account()]
     pub folio: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program

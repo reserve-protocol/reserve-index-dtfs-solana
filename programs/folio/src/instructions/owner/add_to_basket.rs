@@ -1,3 +1,4 @@
+use crate::events::BasketTokenAdded;
 use crate::state::{Actor, Folio, FolioBasket, ProgramRegistrar};
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::{get_associated_token_address_with_program_id, AssociatedToken};
@@ -7,6 +8,7 @@ use shared::check_condition;
 use shared::constants::{FOLIO_BASKET_SEEDS, FOLIO_SEEDS};
 use shared::errors::ErrorCode;
 use shared::structs::FolioStatus;
+use shared::util::account_util::next_account;
 use shared::{
     constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, PROGRAM_REGISTRAR_SEEDS},
     structs::Role,
@@ -21,7 +23,7 @@ pub struct AddToBasket<'info> {
     #[account(mut)]
     pub folio_owner: Signer<'info>,
 
-    #[account(mut,
+    #[account(
         seeds = [ACTOR_SEEDS, folio_owner.key().as_ref(), folio.key().as_ref()],
         bump = actor.bump,
     )]
@@ -171,15 +173,9 @@ pub fn handler<'info>(
     );
 
     for amount in amounts {
-        let token_mint = remaining_accounts_iter
-            .next()
-            .expect("Token mint not found");
-        let sender_token_account = remaining_accounts_iter
-            .next()
-            .expect("Sender token account not found");
-        let receiver_token_account = remaining_accounts_iter
-            .next()
-            .expect("Receiver token account not found");
+        let token_mint = next_account(&mut remaining_accounts_iter, false, false)?;
+        let sender_token_account = next_account(&mut remaining_accounts_iter, false, true)?;
+        let receiver_token_account = next_account(&mut remaining_accounts_iter, false, true)?;
 
         // Validate the receiver token account is the ATA of the folio
         check_condition!(
@@ -212,6 +208,10 @@ pub fn handler<'info>(
         )?;
 
         added_mints.push(token_mint.key());
+
+        emit!(BasketTokenAdded {
+            token: token_mint.key(),
+        });
     }
 
     FolioBasket::process_init_if_needed(

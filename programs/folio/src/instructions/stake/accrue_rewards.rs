@@ -9,6 +9,7 @@ use shared::constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, PROGRAM_REGISTRAR
 use shared::constants::{FOLIO_REWARD_TOKENS_SEEDS, REWARD_INFO_SEEDS, USER_REWARD_INFO_SEEDS};
 use shared::errors::ErrorCode;
 use shared::structs::{FolioStatus, Role};
+use shared::util::account_util::next_account;
 
 const REMAINING_ACCOUNT_DIVIDER_FOR_CALLER: usize = 5;
 const REMAINING_ACCOUNT_DIVIDER_FOR_USER: usize = 7;
@@ -138,21 +139,11 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
     let mut remaining_accounts_iter = ctx.remaining_accounts.iter();
 
     for _ in 0..ctx.remaining_accounts.len() / remaining_account_divider {
-        let reward_token = remaining_accounts_iter
-            .next()
-            .ok_or(ErrorCode::MissingRemainingAccount)?;
-        let reward_info = remaining_accounts_iter
-            .next()
-            .ok_or(ErrorCode::MissingRemainingAccount)?;
-        let fee_recipient_token_account = remaining_accounts_iter
-            .next()
-            .ok_or(ErrorCode::MissingRemainingAccount)?; // Folio token rewards' token account
-        let caller_reward_info = remaining_accounts_iter
-            .next()
-            .ok_or(ErrorCode::MissingRemainingAccount)?;
-        let caller_governance_account = remaining_accounts_iter
-            .next()
-            .ok_or(ErrorCode::MissingRemainingAccount)?;
+        let reward_token = next_account(&mut remaining_accounts_iter, false, false)?;
+        let reward_info = next_account(&mut remaining_accounts_iter, false, true)?;
+        let fee_recipient_token_account = next_account(&mut remaining_accounts_iter, false, false)?; // Folio token rewards' token account
+        let caller_reward_info = next_account(&mut remaining_accounts_iter, false, true)?;
+        let caller_governance_account = next_account(&mut remaining_accounts_iter, false, false)?;
 
         // Check all the pdas
         check_condition!(
@@ -232,12 +223,8 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
 
         // All the logic for the extra user if user != caller
         if remaining_account_divider == 4 {
-            let user_reward_info = remaining_accounts_iter
-                .next()
-                .ok_or(ErrorCode::MissingRemainingAccount)?;
-            let user_governance_account = remaining_accounts_iter
-                .next()
-                .ok_or(ErrorCode::MissingRemainingAccount)?;
+            let user_reward_info = next_account(&mut remaining_accounts_iter, false, true)?;
+            let user_governance_account = next_account(&mut remaining_accounts_iter, false, false)?;
 
             let expected_pda_for_user = Pubkey::find_program_address(
                 &[

@@ -3,14 +3,15 @@ use anchor_spl::{
     associated_token::get_associated_token_address_with_program_id,
     token_interface::{self, Mint, TokenInterface, TransferChecked},
 };
+use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 use shared::{
     check_condition,
     constants::{
         PendingBasketType, FOLIO_BASKET_SEEDS, PROGRAM_REGISTRAR_SEEDS, USER_PENDING_BASKET_SEEDS,
     },
     structs::TokenAmount,
+    util::account_util::next_account,
 };
-use shared::{constants::DTF_PROGRAM_SIGNER_SEEDS, errors::ErrorCode::*};
 use shared::{errors::ErrorCode, structs::FolioStatus};
 
 use crate::state::{Folio, FolioBasket, ProgramRegistrar, UserPendingBasket};
@@ -24,7 +25,7 @@ pub struct AddToPendingBasket<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
-    #[account(mut)]
+    #[account()]
     pub folio: AccountLoader<'info, Folio>,
 
     #[account(mut,
@@ -119,15 +120,9 @@ pub fn handler<'info>(
     let mut added_mints: Vec<TokenAmount> = vec![];
 
     for amount in amounts {
-        let token_mint = remaining_accounts_iter
-            .next()
-            .ok_or(InvalidAddedTokenMints)?;
-        let sender_token_account = remaining_accounts_iter
-            .next()
-            .ok_or(InvalidAddedTokenMints)?;
-        let receiver_token_account = remaining_accounts_iter
-            .next()
-            .ok_or(InvalidAddedTokenMints)?;
+        let token_mint = next_account(&mut remaining_accounts_iter, false, false)?;
+        let sender_token_account = next_account(&mut remaining_accounts_iter, false, true)?;
+        let receiver_token_account = next_account(&mut remaining_accounts_iter, false, true)?;
 
         // Validate the receiver token account is the ATA of the folio
         check_condition!(

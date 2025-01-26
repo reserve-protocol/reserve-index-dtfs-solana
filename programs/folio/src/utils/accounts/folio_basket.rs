@@ -6,6 +6,7 @@ use shared::errors::ErrorCode::InvalidAddedTokenMints;
 use shared::errors::ErrorCode::*;
 use shared::structs::TokenAmount;
 
+use crate::events::BasketTokenRemoved;
 use crate::state::FolioBasket;
 
 impl FolioBasket {
@@ -74,6 +75,8 @@ impl FolioBasket {
                 slot_to_remove.mint = Pubkey::default();
                 slot_to_remove.amount_for_minting = 0;
                 slot_to_remove.amount_for_redeeming = 0;
+
+                emit!(BasketTokenRemoved { token: mint.key() });
             } else {
                 // Token haven't been found
                 return Err(error!(InvalidRemovedTokenMints));

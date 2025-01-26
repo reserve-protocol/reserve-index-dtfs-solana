@@ -46,7 +46,6 @@ pub struct AddRewardToken<'info> {
     )]
     pub reward_token_reward_info: Account<'info, RewardInfo>,
 
-    // TODO: do some checks?
     #[account()]
     pub reward_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
@@ -95,6 +94,12 @@ impl AddRewardToken<'_> {
         check_condition!(
             self.reward_token_account.mint == self.reward_token.key(),
             InvalidRewardMint
+        );
+
+        // Token owner needs to be the folio reward tokens account, so we can sign
+        check_condition!(
+            self.reward_token_account.owner == self.folio_reward_tokens.key(),
+            InvalidRewardTokenAccount
         );
 
         Ok(())

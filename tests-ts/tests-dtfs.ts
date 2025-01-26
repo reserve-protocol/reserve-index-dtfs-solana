@@ -1053,7 +1053,6 @@ describe("DTFs Tests", () => {
     );
 
     // Balance of dao fee recipient should be increased by the amount of fees distributed
-    // TODO more precise check
     assert.equal(
       balanceDaoFeeRecipientAfter > balanceDaoFeeRecipientBefore,
       true
@@ -1071,7 +1070,6 @@ describe("DTFs Tests", () => {
     );
 
     // Folio distribution should be created
-    // TODO more precise check
     assert.equal(feeDistribution.index.toNumber(), 1);
     assert.equal(feeDistribution.amountToDistribute.toNumber() > 0, true);
     assert.deepEqual(feeDistribution.folio, folioPDA);
@@ -1139,7 +1137,6 @@ describe("DTFs Tests", () => {
       );
 
     // Balances should be updated for both fee recipients
-    // TODO more precise check
     assert.equal(balanceNewRecipient1After > balanceNewRecipient1Before, true);
     assert.equal(balanceNewRecipient2After > balanceNewRecipient2Before, true);
 

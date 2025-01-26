@@ -17,7 +17,7 @@ pub struct ApproveTrade<'info> {
     pub trade_proposer: Signer<'info>,
 
     /// CHECK: Done within the folio program
-    #[account(mut)]
+    #[account()]
     pub actor: UncheckedAccount<'info>,
 
     /*

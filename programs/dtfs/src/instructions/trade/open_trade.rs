@@ -15,7 +15,7 @@ pub struct OpenTrade<'info> {
     pub trade_launcher: Signer<'info>,
 
     /// CHECK: Done within the folio program
-    #[account(mut)]
+    #[account()]
     pub actor: UncheckedAccount<'info>,
 
     /*
@@ -47,7 +47,7 @@ pub struct OpenTrade<'info> {
     pub folio_program: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
-    #[account(mut)]
+    #[account()]
     pub folio: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program

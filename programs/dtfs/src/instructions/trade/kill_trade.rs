@@ -15,7 +15,7 @@ pub struct KillTrade<'info> {
     pub trade_actor: Signer<'info>,
 
     /// CHECK: Done within the folio program
-    #[account(mut)]
+    #[account()]
     pub actor: UncheckedAccount<'info>,
 
     /*

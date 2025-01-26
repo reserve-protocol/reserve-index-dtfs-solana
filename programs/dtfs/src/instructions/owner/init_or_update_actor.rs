@@ -20,7 +20,7 @@ pub struct InitOrUpdateActor<'info> {
     pub new_actor_authority: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
-    #[account(mut)]
+    #[account()]
     pub folio_owner_actor: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program

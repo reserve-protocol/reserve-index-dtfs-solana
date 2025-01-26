@@ -61,7 +61,6 @@ pub struct AddRewardToken<'info> {
     #[account(mut)]
     pub reward_token_reward_info: UncheckedAccount<'info>,
 
-    // TODO: do some checks?
     #[account()]
     pub reward_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
 

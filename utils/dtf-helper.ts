@@ -912,7 +912,7 @@ export async function addRewardToken(
         connection,
         rewardToken,
         ownerKeypair,
-        ownerKeypair.publicKey
+        getFolioRewardTokensPDA(folio)
       ),
       programRegistrar: getProgramRegistrarPDA(),
     })

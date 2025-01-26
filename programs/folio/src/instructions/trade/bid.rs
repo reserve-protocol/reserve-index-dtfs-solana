@@ -1,5 +1,6 @@
 use crate::{
     cpi_call,
+    events::TradeBid,
     state::{Folio, FolioBasket, Trade},
 };
 use anchor_lang::prelude::*;
@@ -35,16 +36,16 @@ pub struct Bid<'info> {
     )]
     pub folio_basket: AccountLoader<'info, FolioBasket>,
 
-    #[account(mut)]
+    #[account()]
     pub folio_token_mint: Box<InterfaceAccount<'info, Mint>>,
 
     #[account(mut)]
     pub trade: AccountLoader<'info, Trade>,
 
-    #[account(mut)]
+    #[account()]
     pub trade_sell_token_mint: Box<InterfaceAccount<'info, Mint>>,
 
-    #[account(mut)]
+    #[account()]
     pub trade_buy_token_mint: Box<InterfaceAccount<'info, Mint>>,
 
     #[account(mut,
@@ -184,7 +185,7 @@ pub fn handler(
         ctx.accounts.trade_sell_token_mint.decimals,
     )?;
 
-    emit!(crate::events::Bid {
+    emit!(TradeBid {
         trade_id: trade.id,
         sell_amount,
         bought_amount,

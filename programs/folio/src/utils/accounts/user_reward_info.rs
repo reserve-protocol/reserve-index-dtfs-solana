@@ -101,10 +101,7 @@ impl UserRewardInfo {
             .to_u256()
             .overflowing_sub(self.last_reward_index.to_u256());
 
-        if overflow {
-            // TODO negative, should we do something?
-            return Ok(());
-        } else if delta_result != U256::from(0) {
+        if !overflow && delta_result != U256::from(0) {
             self.calculate_and_update_accrued_rewards(user_balance, delta_result, mint_decimals)?;
 
             self.last_reward_index = reward_info.reward_index.clone();

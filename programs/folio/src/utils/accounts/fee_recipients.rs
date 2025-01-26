@@ -1,3 +1,4 @@
+use crate::events::FeeRecipientSet;
 use crate::state::FeeRecipients;
 use anchor_lang::prelude::*;
 use shared::constants::D9;
@@ -56,6 +57,11 @@ impl FeeRecipients {
             check_condition!(add_index < MAX_FEE_RECIPIENTS, InvalidFeeRecipientCount);
             new_recipients[add_index] = new_recipient;
             add_index += 1;
+
+            emit!(FeeRecipientSet {
+                recipient: new_recipient.receiver,
+                portion: new_recipient.portion,
+            });
         }
 
         self.fee_recipients = new_recipients;

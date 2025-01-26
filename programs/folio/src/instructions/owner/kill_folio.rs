@@ -1,3 +1,4 @@
+use crate::events::FolioKilled;
 use crate::state::{Actor, Folio, ProgramRegistrar};
 use anchor_lang::prelude::*;
 use shared::structs::FolioStatus;
@@ -13,7 +14,7 @@ pub struct KillFolio<'info> {
     #[account(mut)]
     pub folio_owner: Signer<'info>,
 
-    #[account(mut,
+    #[account(
         seeds = [ACTOR_SEEDS, folio_owner.key().as_ref(), folio.key().as_ref()],
         bump = actor.bump,
     )]
@@ -67,6 +68,8 @@ pub fn handler(ctx: Context<KillFolio>) -> Result<()> {
     let folio = &mut ctx.accounts.folio.load_mut()?;
     ctx.accounts.validate(folio)?;
     folio.status = FolioStatus::Killed as u8;
+
+    emit!(FolioKilled {});
 
     Ok(())
 }

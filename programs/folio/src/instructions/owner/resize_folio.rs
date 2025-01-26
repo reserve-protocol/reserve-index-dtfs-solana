@@ -16,7 +16,7 @@ pub struct ResizeFolio<'info> {
     #[account(mut)]
     pub folio_owner: Signer<'info>,
 
-    #[account(mut,
+    #[account(
         seeds = [ACTOR_SEEDS, folio_owner.key().as_ref(), folio.key().as_ref()],
         bump = actor.bump,
     )]

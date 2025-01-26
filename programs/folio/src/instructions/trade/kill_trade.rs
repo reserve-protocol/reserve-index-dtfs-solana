@@ -17,7 +17,7 @@ pub struct KillTrade<'info> {
     #[account(mut)]
     pub trade_actor: Signer<'info>,
 
-    #[account(mut,
+    #[account(
         seeds = [ACTOR_SEEDS, trade_actor.key().as_ref(), folio.key().as_ref()],
         bump = actor.bump,
     )]

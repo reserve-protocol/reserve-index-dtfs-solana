@@ -56,7 +56,7 @@ pub struct Bid<'info> {
     pub folio_basket: AccountLoader<'info, FolioBasket>,
 
     /// CHECK: Done within the folio program
-    #[account(mut)]
+    #[account()]
     pub folio_token_mint: Box<InterfaceAccount<'info, Mint>>,
 
     /// CHECK: Done within the folio program
@@ -64,11 +64,11 @@ pub struct Bid<'info> {
     pub trade: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
-    #[account(mut)]
+    #[account()]
     pub trade_sell_token_mint: Box<InterfaceAccount<'info, Mint>>,
 
     /// CHECK: Done within the folio program
-    #[account(mut)]
+    #[account()]
     pub trade_buy_token_mint: Box<InterfaceAccount<'info, Mint>>,
 
     /// CHECK: Done within the folio program

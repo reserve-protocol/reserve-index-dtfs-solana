@@ -751,9 +751,14 @@ export async function openTrade(
     })
     .instruction();
 
-  await pSendAndConfirmTxn(dtfProgram, [openTrade], [], {
-    skipPreflight: SKIP_PREFLIGHT,
-  });
+  await pSendAndConfirmTxn(
+    dtfProgram,
+    [...getComputeLimitInstruction(400_000), openTrade],
+    [],
+    {
+      skipPreflight: SKIP_PREFLIGHT,
+    }
+  );
 }
 
 export async function openTradePermissionless(

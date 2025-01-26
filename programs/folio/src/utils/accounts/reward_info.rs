@@ -37,6 +37,7 @@ impl RewardInfo {
         current_reward_token_balance: u64,
         current_reward_token_supply: u64,
         current_token_decimals: u64,
+        current_time: u64,
     ) -> Result<()> {
         let balance_last_known = self.balance_last_known;
 
@@ -44,7 +45,6 @@ impl RewardInfo {
             .checked_add(self.total_claimed)
             .ok_or(ErrorCode::MathOverflow)?;
 
-        let current_time = Clock::get()?.unix_timestamp as u64;
         let elapsed = current_time
             .checked_sub(self.payout_last_paid)
             .ok_or(ErrorCode::MathOverflow)?;
@@ -60,24 +60,25 @@ impl RewardInfo {
         let handout_percentage = CustomPreciseNumber::one_e18()
             .sub_generic(
                 CustomPreciseNumber::one_e18()
-                    .sub_generic(folio_reward_ratio)
-                    .pow(elapsed),
-            )
-            .sub_generic(CustomPreciseNumber::from_u64(1));
+                    .sub_generic(folio_reward_ratio)?
+                    .pow(elapsed)?,
+            )?
+            .sub_generic(CustomPreciseNumber::one())?;
 
-        let tokens_to_handout = CustomPreciseNumber::from_u64(unaccounted_balance)
-            .mul_div_generic(handout_percentage, CustomPreciseNumber::one_e18());
+        let tokens_to_handout = CustomPreciseNumber::from_u64(unaccounted_balance)?
+            .mul_generic(handout_percentage)?
+            .div_generic(CustomPreciseNumber::one_e18())?;
 
         if current_reward_token_supply != 0 {
             self.calculate_delta_index(
-                tokens_to_handout.to_u128_floor(),
+                tokens_to_handout.to_u128_floor()?,
                 current_reward_token_supply,
                 current_token_decimals,
             )?;
 
             self.balance_accounted = self
                 .balance_accounted
-                .checked_add(tokens_to_handout.to_u64_floor())
+                .checked_add(tokens_to_handout.to_u64_floor()?)
                 .ok_or(ErrorCode::MathOverflow)?;
         }
 
@@ -92,13 +93,13 @@ impl RewardInfo {
         current_reward_token_supply: u64,
         current_token_decimals: u64,
     ) -> Result<()> {
-        let one_e18 = U256::from(D18);
         let tokens_to_handout = U256::from(tokens_to_handout);
         let current_reward_token_supply = U256::from(current_reward_token_supply);
-        let current_token_decimals_exponent =
-            U256::from(10).pow(U256::from(current_token_decimals));
+        let current_token_decimals_exponent = U256::from(10)
+            .checked_pow(U256::from(current_token_decimals))
+            .ok_or(ErrorCode::MathOverflow)?;
 
-        let delta_index = one_e18
+        let delta_index = D18
             .checked_mul(tokens_to_handout)
             .ok_or(ErrorCode::MathOverflow)?
             .checked_mul(current_token_decimals_exponent)

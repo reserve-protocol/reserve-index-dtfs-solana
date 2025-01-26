@@ -245,9 +245,10 @@ impl Default for UserPendingBasket {
 /// PDA Seeds ["trade", folio pubkey, trade id]
 #[account(zero_copy)]
 #[derive(Default, InitSpace)]
+#[repr(C)]
 pub struct Trade {
     pub bump: u8,
-    pub _padding: [u8; 15],
+    pub _padding: [u8; 7],
 
     pub id: u64,
 
@@ -255,7 +256,7 @@ pub struct Trade {
     pub launch_timeout: u64,
     pub start: u64,
     pub end: u64,
-    pub k: u64,
+    pub k: U256Number,
 
     pub folio: Pubkey,
     pub sell: Pubkey,

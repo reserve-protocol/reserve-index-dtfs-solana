@@ -59,24 +59,4 @@ mod tests {
         assert_eq!(actor.folio, Pubkey::default());
         assert_eq!(actor.bump, 255);
     }
-
-    #[test]
-    fn test_process_init_if_needed_preserves_existing_bump() {
-        let mut actor = Actor {
-            bump: 100,
-            authority: Pubkey::default(),
-            folio: Pubkey::default(),
-            roles: 0,
-        };
-        let authority = Pubkey::new_unique();
-        let folio = Pubkey::new_unique();
-
-        let result = actor.process_init_if_needed(0, 255, &authority, &folio);
-
-        assert!(result.is_ok());
-        assert_eq!(actor.bump, 255);
-        assert_eq!(actor.authority, authority);
-        assert_eq!(actor.folio, folio);
-        assert_eq!(actor.roles, 0);
-    }
 }

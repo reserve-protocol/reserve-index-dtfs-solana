@@ -4,7 +4,7 @@ use anchor_lang::prelude::*;
 use shared::constants::{D18, MAX_PRICE_RANGE, MAX_RATE};
 use shared::errors::ErrorCode;
 
-use shared::util::math_util::CustomPreciseNumber;
+use shared::util::math_util::{CustomPreciseNumber, U256Number};
 use shared::{check_condition, constants::TRADE_SEEDS, structs::TradeStatus};
 
 impl Trade {
@@ -105,18 +105,19 @@ impl Trade {
 
     pub fn calculate_k(&mut self, auction_length: u64) -> Result<()> {
         if self.start_price == self.end_price {
-            self.k = 0;
+            self.k = U256Number::ZERO;
             return Ok(());
         }
 
-        let price_ratio =
-            CustomPreciseNumber::from_u128(self.start_price).mul_div_generic(D18, self.end_price);
+        let price_ratio = CustomPreciseNumber::from_u128(self.start_price)?
+            .mul_generic(D18)?
+            .div_generic(self.end_price)?;
 
         self.k = price_ratio
-            .ln()
-            .ok_or(ErrorCode::MathOverflow)?
-            .div_generic(auction_length)
-            .to_u64_floor();
+            .ln()?
+            .unwrap()
+            .div_generic(auction_length)?
+            .as_u256_number();
 
         Ok(())
     }
@@ -131,19 +132,19 @@ impl Trade {
             i if i == self.start => Ok(self.start_price),
             i if i == self.end => Ok(self.end_price),
             _ => {
-                let time_value = CustomPreciseNumber::from_u64(self.k).mul_generic(
+                let time_value = self.k.to_custom_precise_number().mul_generic(
                     current_time
                         .checked_sub(self.start)
                         .ok_or(ErrorCode::MathOverflow)?,
-                );
+                )?;
 
                 //(-time_value).exp()
-                let time_value_exponent = time_value.exp(true).ok_or(ErrorCode::MathOverflow)?;
+                let time_value_exponent = time_value.exp(true)?.unwrap();
 
-                let p = CustomPreciseNumber::from_u128(self.start_price)
-                    .mul_generic(time_value_exponent)
-                    .div_generic(D18)
-                    .to_u128_floor();
+                let p = CustomPreciseNumber::from_u128(self.start_price)?
+                    .mul_generic(time_value_exponent)?
+                    .div_generic(D18)?
+                    .to_u128_floor()?;
 
                 if p < self.end_price {
                     Ok(self.end_price)

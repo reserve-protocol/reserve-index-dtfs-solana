@@ -142,9 +142,9 @@ pub fn handler(
 
     let price = trade.get_price(current_time)?;
 
-    let bought_amount = CustomPreciseNumber::from_u64(sell_amount)
-        .mul_generic(price)
-        .to_u64_ceil();
+    let bought_amount = CustomPreciseNumber::from_u64(sell_amount)?
+        .mul_generic(price)?
+        .to_u64_ceil()?;
 
     check_condition!(bought_amount <= max_buy_amount, SlippageExceeded);
 
@@ -153,9 +153,10 @@ pub fn handler(
     // Sell related logic
     let sell_balance = ctx.accounts.folio_sell_token_account.amount;
 
-    let min_sell_balance = match CustomPreciseNumber::from_u128(trade.sell_limit.spot)
-        .mul_div_generic(folio_token_total_supply as u128, D27)
-        .to_u64_ceil()
+    let min_sell_balance = match CustomPreciseNumber::from_u128(trade.sell_limit.spot)?
+        .mul_generic(folio_token_total_supply as u128)?
+        .div_generic(D27)?
+        .to_u64_ceil()?
     {
         min_sell_balance if sell_balance > min_sell_balance => sell_balance - min_sell_balance,
         _ => 0,
@@ -241,9 +242,9 @@ pub fn handler(
     }
 
     // Validate max buy balance
-    let max_buy_balance = CustomPreciseNumber::from_u128(trade.buy_limit.spot)
-        .mul_generic(folio_token_total_supply as u128)
-        .to_u64_floor();
+    let max_buy_balance = CustomPreciseNumber::from_u128(trade.buy_limit.spot)?
+        .mul_generic(folio_token_total_supply as u128)?
+        .to_u64_floor()?;
 
     ctx.accounts.folio_buy_token_account.reload()?;
     check_condition!(

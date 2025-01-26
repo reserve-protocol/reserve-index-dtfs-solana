@@ -92,7 +92,7 @@ impl UserRewardInfo {
 
     pub fn accrue_rewards(
         &mut self,
-        reward_info: &Account<RewardInfo>,
+        reward_info: &RewardInfo,
         user_balance: u64,
         mint_decimals: u64,
     ) -> Result<()> {
@@ -104,13 +104,13 @@ impl UserRewardInfo {
         if !overflow && delta_result != U256::from(0) {
             self.calculate_and_update_accrued_rewards(user_balance, delta_result, mint_decimals)?;
 
-            self.last_reward_index = reward_info.reward_index.clone();
+            self.last_reward_index = reward_info.reward_index;
         };
 
         Ok(())
     }
 
-    fn calculate_and_update_accrued_rewards(
+    pub fn calculate_and_update_accrued_rewards(
         &mut self,
         user_balance: u64,
         delta_result: U256,
@@ -120,19 +120,18 @@ impl UserRewardInfo {
         let mint_decimals_exponent = U256::from(10)
             .checked_pow(U256::from(mint_decimals))
             .ok_or(ErrorCode::MathOverflow)?;
-        let d18_u256 = U256::from(D18);
 
         let supplier_delta = user_balance_u256
             .checked_mul(delta_result)
             .ok_or(ErrorCode::MathOverflow)?
             .checked_mul(mint_decimals_exponent)
             .ok_or(ErrorCode::MathOverflow)?
-            .checked_div(d18_u256)
+            .checked_div(D18)
             .ok_or(ErrorCode::MathOverflow)?;
 
         self.accrued_rewards = self
             .accrued_rewards
-            .checked_add(CustomPreciseNumber::from(supplier_delta).to_u64_floor())
+            .checked_add(CustomPreciseNumber::from(supplier_delta).to_u64_floor()?)
             .ok_or(ErrorCode::MathOverflow)?;
 
         Ok(())

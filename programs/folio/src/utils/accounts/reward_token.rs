@@ -80,7 +80,7 @@ impl FolioRewardTokens {
         let reward_token_position = self
             .reward_tokens
             .iter()
-            .position(|reward_token| reward_token.key() == *reward_token);
+            .position(|reward_token_iter| reward_token_iter.key() == *reward_token);
 
         // Check if reward token is registered
         check_condition!(reward_token_position.is_some(), RewardNotRegistered);
@@ -106,7 +106,7 @@ impl FolioRewardTokens {
         Ok(())
     }
 
-    fn set_reward_ratio(&mut self, reward_half_life: u64) -> Result<()> {
+    pub fn set_reward_ratio(&mut self, reward_half_life: u64) -> Result<()> {
         check_condition!(
             (MIN_REWARD_HALF_LIFE..=MAX_REWARD_HALF_LIFE).contains(&reward_half_life),
             InvalidRewardHalfLife

@@ -11,6 +11,9 @@ pub enum ErrorCode {
     #[msg("Program not in registrar")]
     ProgramNotInRegistrar,
 
+    #[msg("Invalid program version")]
+    InvalidProgramVersion,
+
     #[msg("Invalid role")]
     InvalidRole,
 
@@ -205,6 +208,9 @@ pub enum ErrorCode {
 
     #[msg("Invalid Reward Token Account")]
     InvalidRewardTokenAccount,
+
+    #[msg("Invalid Fee Numerator")]
+    InvalidFeeNumerator,
 }
 
 #[macro_export]

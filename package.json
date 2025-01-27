@@ -11,8 +11,10 @@
     "@solana/spl-token": "0.4.9",
     "@solana/web3.js": "1.95.5",
     "@sqds/sdk": "2.0.4",
+    "anchor-bankrun": "^0.5.0",
     "decimal.js": "^10.4.3",
-    "governance-idl-sdk": "0.0.4"
+    "governance-idl-sdk": "0.0.4",
+    "solana-bankrun": "^0.4.0"
   },
   "devDependencies": {
     "@metaplex-foundation/amman-client": "^0.2.4",

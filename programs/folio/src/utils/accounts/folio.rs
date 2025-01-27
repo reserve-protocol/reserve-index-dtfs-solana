@@ -82,6 +82,11 @@ impl Folio {
         dtf_program_data: &AccountInfo<'info>,
     ) -> Result<()> {
         check_condition!(
+            dtf_program.key() == self.program_version,
+            InvalidProgramVersion
+        );
+
+        check_condition!(
             program_registrar.is_in_registrar(dtf_program.key()),
             ProgramNotInRegistrar
         );

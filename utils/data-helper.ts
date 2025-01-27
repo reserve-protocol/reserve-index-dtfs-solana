@@ -70,7 +70,7 @@ TokenOwnerRecordV2Schema.forEach((value, key) => {
   combinedSchema.set(key, value);
 });
 
-function createFakeTokenOwnerRecordV2(
+export function createFakeTokenOwnerRecordV2(
   governingTokenDepositAmount: number,
   realm: PublicKey,
   governingTokenMint: PublicKey,

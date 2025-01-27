@@ -30,6 +30,13 @@ export function getProgramRegistrarPDA() {
   )[0];
 }
 
+export function getProgramRegistrarPDAWithBump() {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("program_registrar")],
+    FOLIO_PROGRAM_ID
+  );
+}
+
 export function getFolioPDA(folioTokenMint: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("folio"), folioTokenMint.toBuffer()],
@@ -63,6 +70,13 @@ export function getDAOFeeConfigPDA() {
     [Buffer.from("dao_fee_config")],
     DTF_PROGRAM_ID
   )[0];
+}
+
+export function getDaoFeeConfigPDAWithBump() {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("dao_fee_config")],
+    DTF_PROGRAM_ID
+  );
 }
 
 export function getFolioFeeRecipientsPDA(folio: PublicKey) {

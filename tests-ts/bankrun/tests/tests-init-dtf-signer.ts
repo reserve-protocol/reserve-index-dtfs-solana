@@ -16,7 +16,10 @@ import {
 import { initDtfSigner } from "../bankrun-ix-helper";
 import * as assert from "assert";
 import { getDtfSignerPDA } from "../../../utils/pda-helper";
-import { getNonAdminTestCase } from "../bankrun-general-tests-helper";
+import {
+  GeneralTestCases,
+  runMultipleGeneralTests,
+} from "../bankrun-general-tests-helper";
 
 describe("Bankrun - Init Dtf Signer Tests", () => {
   let context: ProgramTestContext;
@@ -31,8 +34,7 @@ describe("Bankrun - Init Dtf Signer Tests", () => {
 
   let dtfSignerPDA: PublicKey;
 
-  const testCases = [
-    getNonAdminTestCase(() => payerKeypair),
+  const TEST_CASES = [
     {
       desc: "(admin and init)",
       getKeypair: () => adminKeypair,
@@ -55,14 +57,35 @@ describe("Bankrun - Init Dtf Signer Tests", () => {
     dtfSignerPDA = getDtfSignerPDA();
   });
 
-  testCases.forEach(({ desc, expectedError, getKeypair }) => {
+  describe("General Tests", () => {
+    const generalIx = () =>
+      initDtfSigner<false>(banksClient, programDtf, adminKeypair);
+
+    it("should run general tests", async () => {
+      await runMultipleGeneralTests(
+        [GeneralTestCases.NotAdmin],
+        context,
+        null,
+        payerKeypair,
+        null,
+        null,
+        null,
+        null,
+        generalIx
+      );
+    });
+  });
+
+  TEST_CASES.forEach(({ desc, expectedError, getKeypair }) => {
     describe(`When ${desc}`, () => {
       let txnResult: BanksTransactionResultWithMeta;
 
       before(async () => {
-        txnResult = await initDtfSigner(banksClient, programDtf, getKeypair());
-
-        await travelFutureSlot(context);
+        txnResult = await initDtfSigner<true>(
+          banksClient,
+          programDtf,
+          getKeypair()
+        );
       });
 
       if (expectedError) {
@@ -71,6 +94,8 @@ describe("Bankrun - Init Dtf Signer Tests", () => {
         });
       } else {
         it("should succeed", async () => {
+          await travelFutureSlot(context);
+
           const dtfSigner = await programDtf.account.dtfProgramSigner.fetch(
             dtfSignerPDA
           );

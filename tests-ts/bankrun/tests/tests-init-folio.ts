@@ -11,22 +11,23 @@ import {
   airdrop,
   assertError,
   getConnectors,
-  mockDTFProgramData,
+  travelFutureSlot,
 } from "../bankrun-program-helper";
-import { getProgramNotInRegistrarTestCase } from "../bankrun-general-tests-helper";
+
+import { getActorPDA, getFolioPDA } from "../../../utils/pda-helper";
+import { initFolio } from "../bankrun-ix-helper";
+import * as assert from "assert";
 import {
-  MAX_AUCTION_LENGTH,
-  MAX_FOLIO_FEE,
-  MIN_DAO_MINTING_FEE,
-} from "../../../utils/dtf-helper";
-import { MAX_TRADE_DELAY } from "../../../utils/dtf-helper";
+  createAndSetProgramRegistrar,
+  mockDTFProgramData,
+} from "../bankrun-account-helper";
 import {
   DTF_PROGRAM_ID,
-  getActorPDA,
-  getFolioPDA,
-} from "../../../utils/pda-helper";
-import { initFolio, initProgramRegistrar } from "../bankrun-ix-helper";
-import * as assert from "assert";
+  MAX_FOLIO_FEE,
+  MAX_TRADE_DELAY,
+  MIN_DAO_MINTING_FEE,
+} from "../../../utils/constants";
+import { MAX_AUCTION_LENGTH } from "../../../utils/constants";
 
 describe("Bankrun - Init folio", () => {
   let context: ProgramTestContext;
@@ -43,7 +44,15 @@ describe("Bankrun - Init folio", () => {
 
   let folioOwnerKeypair: Keypair;
 
-  const defaultParams = {
+  const DEFAULT_PARAMS: {
+    folioFee: BN;
+    mintingFee: BN;
+    tradeDelay: BN;
+    auctionLength: BN;
+    name: string;
+    symbol: string;
+    uri: string;
+  } = {
     folioFee: new BN("500000000000000000"),
     mintingFee: new BN("500000000000000"),
     tradeDelay: MAX_TRADE_DELAY,
@@ -53,8 +62,7 @@ describe("Bankrun - Init folio", () => {
     uri: "https://test.com",
   };
 
-  const testCases = [
-    getProgramNotInRegistrarTestCase(),
+  const TEST_CASES = [
     {
       desc: "(folio fee too high)",
       folioFee: new BN("500000000000000000").add(new BN(1)),
@@ -109,22 +117,12 @@ describe("Bankrun - Init folio", () => {
     await airdrop(context, userKeypair.publicKey, 1000);
 
     // Init
-    await initProgramRegistrar(
-      banksClient,
-      programFolio,
-      adminKeypair,
-      DTF_PROGRAM_ID
-    );
+    await createAndSetProgramRegistrar(context, programFolio, [DTF_PROGRAM_ID]);
 
-    await mockDTFProgramData(
-      context,
-      DTF_PROGRAM_ID,
-      adminKeypair.publicKey,
-      1
-    );
+    await mockDTFProgramData(context, DTF_PROGRAM_ID, new BN(1));
   });
 
-  testCases.forEach(({ desc, expectedError, ...restOfParams }) => {
+  TEST_CASES.forEach(({ desc, expectedError, ...restOfParams }) => {
     describe(`When ${desc}`, () => {
       let txnResult: BanksTransactionResultWithMeta;
       let folioTokenMint: Keypair;
@@ -132,14 +130,14 @@ describe("Bankrun - Init folio", () => {
       before(async () => {
         folioTokenMint = Keypair.generate();
 
-        txnResult = await initFolio(
+        txnResult = await initFolio<true>(
           banksClient,
           programFolio,
           folioOwnerKeypair,
           folioTokenMint,
           restOfParams["dtfProgramId"] || DTF_PROGRAM_ID,
           // @ts-ignore
-          { ...defaultParams, ...restOfParams }
+          { ...DEFAULT_PARAMS, ...restOfParams }
         );
       });
 
@@ -149,6 +147,8 @@ describe("Bankrun - Init folio", () => {
         });
       } else {
         it("should succeed", async () => {
+          await travelFutureSlot(context);
+
           const folioPDA = getFolioPDA(folioTokenMint.publicKey);
 
           const folio = await programFolio.account.folio.fetch(folioPDA);

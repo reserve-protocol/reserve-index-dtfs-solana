@@ -17,7 +17,6 @@ import {
 } from "../utils/folio-helper";
 import * as assert from "assert";
 import {
-  DTF_PROGRAM_ID,
   getActorPDA,
   getDAOFeeConfigPDA,
   getDtfSignerPDA,
@@ -44,10 +43,6 @@ import {
   resizeFolio,
   updateFolio,
   setDaoFeeConfig,
-  MAX_FOLIO_FEE,
-  MIN_DAO_MINTING_FEE,
-  MAX_AUCTION_LENGTH,
-  MAX_TRADE_DELAY,
   distributeFees,
   crankFeeDistribution,
   approveTrade,
@@ -61,7 +56,6 @@ import {
   claimRewards,
 } from "../utils/dtf-helper";
 import {
-  DEFAULT_DECIMALS_MUL,
   getOrCreateAtaAddress,
   getTokenBalance,
   initToken,
@@ -75,6 +69,14 @@ import {
 } from "@solana/spl-token";
 import { createGovernanceAccounts } from "../utils/data-helper";
 import { deserializeU256 } from "../utils/math-helper";
+import {
+  DEFAULT_DECIMALS_MUL,
+  MAX_AUCTION_LENGTH,
+  DTF_PROGRAM_ID,
+  MAX_FOLIO_FEE,
+  MAX_TRADE_DELAY,
+  MIN_DAO_MINTING_FEE,
+} from "../utils/constants";
 
 describe("DTFs Tests", () => {
   let connection: Connection;

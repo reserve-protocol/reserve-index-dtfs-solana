@@ -1,4 +1,3 @@
-import { BN } from "@coral-xyz/anchor";
 import {
   createMint,
   createTransferCheckedInstruction,
@@ -13,11 +12,7 @@ import {
   PublicKey,
   TransactionInstruction,
 } from "@solana/web3.js";
-
-export const DEFAULT_DECIMALS = 9;
-export const DEFAULT_DECIMALS_MUL = 10 ** DEFAULT_DECIMALS;
-
-export const DEFAULT_PRECISION = new BN(10 ** 9);
+import { DEFAULT_DECIMALS } from "./constants";
 
 export async function initToken(
   connection: Connection,

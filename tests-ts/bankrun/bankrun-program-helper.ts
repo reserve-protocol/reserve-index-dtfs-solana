@@ -20,11 +20,7 @@ import idlFolio from "../../target/idl/folio.json";
 import { BankrunProvider } from "anchor-bankrun";
 import * as assert from "assert";
 import { AnchorError } from "@coral-xyz/anchor";
-import {
-  BPF_LOADER_PROGRAM_ID,
-  TOKEN_METADATA_PROGRAM_ID,
-} from "../../utils/pda-helper";
-import { getProgramDataPDA } from "../../utils/pda-helper";
+import { TOKEN_METADATA_PROGRAM_ID } from "../../utils/constants";
 
 export async function getConnectors() {
   const keysFileName = "keys-local.json";
@@ -99,6 +95,10 @@ export async function airdrop(
   context.setAccount(account, airdropAccountInfo);
 }
 
+export async function travelFutureSlot(context: ProgramTestContext) {
+  context.warpToSlot((await context.banksClient.getSlot()) + BigInt(1));
+}
+
 export function assertError(
   txnResult: BanksTransactionResultWithMeta,
   expectedError: string
@@ -109,40 +109,20 @@ export function assertError(
   );
 }
 
-export async function mockDTFProgramData(
-  context: ProgramTestContext,
-  programId: PublicKey,
-  authority: PublicKey,
-  slot: number
+export function buildExpectedArray(
+  preAdded: any[],
+  added: any[],
+  removed: any[],
+  max: number,
+  defaultValue: any,
+  filterFunction: (current: any) => boolean
 ) {
-  const programDataAddress = getProgramDataPDA(programId);
-
-  // Mock Program Data Account
-  const programDataAccountData = Buffer.alloc(45);
-  programDataAccountData.writeInt32LE(3, 0); // variant 3 for ProgramData
-  programDataAccountData.writeBigUInt64LE(BigInt(slot), 4); // slot goes first in ProgramData
-  authority.toBuffer().copy(programDataAccountData, 32); // authority after slot
-
-  context.setAccount(programDataAddress, {
-    executable: false,
-    owner: BPF_LOADER_PROGRAM_ID,
-    lamports: 1000000000,
-    data: programDataAccountData,
-  });
-
-  // Mock Program Account
-  const programAccountData = Buffer.alloc(36);
-  programAccountData.writeInt32LE(2, 0); // variant 2 for Program
-  programDataAddress.toBuffer().copy(programAccountData, 4);
-
-  context.setAccount(programId, {
-    executable: true,
-    owner: BPF_LOADER_PROGRAM_ID,
-    lamports: 1000000000,
-    data: programAccountData,
-  });
-}
-
-export async function travelFutureSlot(context: ProgramTestContext) {
-  context.warpToSlot((await context.banksClient.getSlot()) + BigInt(1));
+  return preAdded
+    .concat(added)
+    .filter(filterFunction)
+    .concat(
+      Array(max - preAdded.length - added.length + removed.length).fill(
+        defaultValue
+      )
+    );
 }

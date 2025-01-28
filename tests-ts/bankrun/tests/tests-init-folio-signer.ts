@@ -13,11 +13,14 @@ import {
   getConnectors,
   travelFutureSlot,
 } from "../bankrun-program-helper";
-import { getNonAdminTestCase } from "../bankrun-general-tests-helper";
 
 import { getFolioSignerPDA } from "../../../utils/pda-helper";
 import * as assert from "assert";
 import { initFolioSigner } from "../bankrun-ix-helper";
+import {
+  runMultipleGeneralTests,
+  GeneralTestCases,
+} from "../bankrun-general-tests-helper";
 
 describe("Bankrun - Init folio signer", () => {
   let context: ProgramTestContext;
@@ -33,8 +36,7 @@ describe("Bankrun - Init folio signer", () => {
 
   let folioSignerPDA: PublicKey;
 
-  const testCases = [
-    getNonAdminTestCase(() => payerKeypair),
+  const TEST_CASES = [
     {
       desc: "(admin and init)",
       getKeypair: () => adminKeypair,
@@ -57,18 +59,35 @@ describe("Bankrun - Init folio signer", () => {
     folioSignerPDA = getFolioSignerPDA();
   });
 
-  testCases.forEach(({ desc, expectedError, getKeypair }) => {
+  describe("General Tests", () => {
+    const generalIx = () =>
+      initFolioSigner<false>(banksClient, programFolio, adminKeypair);
+
+    it("should run general tests", async () => {
+      await runMultipleGeneralTests(
+        [GeneralTestCases.NotAdmin],
+        context,
+        null,
+        payerKeypair,
+        null,
+        null,
+        null,
+        null,
+        generalIx
+      );
+    });
+  });
+
+  TEST_CASES.forEach(({ desc, expectedError, getKeypair }) => {
     describe(`When ${desc}`, () => {
       let txnResult: BanksTransactionResultWithMeta;
 
       before(async () => {
-        txnResult = await initFolioSigner(
+        txnResult = await initFolioSigner<true>(
           banksClient,
           programFolio,
           getKeypair()
         );
-
-        await travelFutureSlot(context);
       });
 
       if (expectedError) {
@@ -77,6 +96,8 @@ describe("Bankrun - Init folio signer", () => {
         });
       } else {
         it("should succeed", async () => {
+          await travelFutureSlot(context);
+
           const folioSigner =
             await programFolio.account.folioProgramSigner.fetch(folioSignerPDA);
           assert.notEqual(folioSigner, null);

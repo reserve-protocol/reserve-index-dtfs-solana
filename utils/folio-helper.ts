@@ -18,13 +18,13 @@ import {
   getMetadataPDA,
   getProgramDataPDA,
   getProgramRegistrarPDA,
-  TOKEN_METADATA_PROGRAM_ID,
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { DTF_PROGRAM_ID } from "./pda-helper";
+import { TOKEN_METADATA_PROGRAM_ID } from "./constants";
+import { DTF_PROGRAM_ID } from "./constants";
 
 let folioProgram: Program<Folio> = null;
 

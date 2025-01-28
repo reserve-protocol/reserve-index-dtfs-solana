@@ -6,22 +6,21 @@ import {
   initFolioSigner,
   initProgramRegistrar,
 } from "../utils/folio-helper";
-import { DTF_PROGRAM_ID } from "../utils/pda-helper";
 import {
   addToBasket,
   initDtfSigner,
   addToPendingBasket,
   mintFolioToken,
-  MAX_FOLIO_FEE,
-  MIN_DAO_MINTING_FEE,
-  MIN_AUCTION_LENGTH,
-  MAX_TRADE_DELAY,
 } from "../utils/dtf-helper";
+import { initToken, mintToken } from "../utils/token-helper";
 import {
+  DTF_PROGRAM_ID,
+  MAX_TRADE_DELAY,
+  MAX_FOLIO_FEE,
+  MIN_AUCTION_LENGTH,
+  MIN_DAO_MINTING_FEE,
   DEFAULT_DECIMALS_MUL,
-  initToken,
-  mintToken,
-} from "../utils/token-helper";
+} from "../utils/constants";
 
 describe("Extrme DTFs Tests", () => {
   let connection: Connection;

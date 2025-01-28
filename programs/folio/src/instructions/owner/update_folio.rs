@@ -108,7 +108,7 @@ pub fn handler(
             ctx.accounts
                 .program_registrar
                 .is_in_registrar(program_version),
-            InvalidProgram
+            ProgramNotInRegistrar
         );
 
         folio.program_version = program_version;

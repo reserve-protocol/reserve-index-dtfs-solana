@@ -16,7 +16,10 @@ import {
 import { setDaoFeeConfig } from "../bankrun-ix-helper";
 import { getDAOFeeConfigPDA } from "../../../utils/pda-helper";
 import * as assert from "assert";
-import { getNonAdminTestCase } from "../bankrun-general-tests-helper";
+import {
+  GeneralTestCases,
+  runMultipleGeneralTests,
+} from "../bankrun-general-tests-helper";
 import { createAndSetDaoFeeConfig } from "../bankrun-account-helper";
 
 describe("Bankrun - Dao Fee Config Tests", () => {
@@ -32,14 +35,17 @@ describe("Bankrun - Dao Fee Config Tests", () => {
 
   let daoFeeConfigPDA: PublicKey;
 
-  const defaultParams = {
+  const DEFAULT_PARAMS: {
+    existsBefore: boolean;
+    expectedFeeRecipient: PublicKey;
+    expectedFeeNumerator: BN;
+  } = {
     existsBefore: false,
     expectedFeeRecipient: Keypair.generate().publicKey,
     expectedFeeNumerator: new BN(10),
   };
 
-  const testCases = [
-    getNonAdminTestCase(() => payerKeypair),
+  const TEST_CASES = [
     {
       desc: "(fee recipient numerator too high)",
       getKeypair: () => adminKeypair,
@@ -76,10 +82,36 @@ describe("Bankrun - Dao Fee Config Tests", () => {
     daoFeeConfigPDA = getDAOFeeConfigPDA();
   });
 
-  testCases.forEach(({ desc, expectedError, getKeypair, ...restOfParams }) => {
+  describe("General Tests", () => {
+    const generalIx = () =>
+      setDaoFeeConfig<false>(
+        banksClient,
+        programDtf,
+        adminKeypair,
+        DEFAULT_PARAMS.expectedFeeRecipient,
+        DEFAULT_PARAMS.expectedFeeNumerator,
+        false
+      );
+
+    it("should run general tests", async () => {
+      await runMultipleGeneralTests(
+        [GeneralTestCases.NotAdmin],
+        context,
+        null,
+        payerKeypair,
+        null,
+        null,
+        null,
+        null,
+        generalIx
+      );
+    });
+  });
+
+  TEST_CASES.forEach(({ desc, expectedError, getKeypair, ...restOfParams }) => {
     describe(`When ${desc}`, () => {
       const { existsBefore, expectedFeeRecipient, expectedFeeNumerator } = {
-        ...defaultParams,
+        ...DEFAULT_PARAMS,
         ...restOfParams,
       };
 
@@ -96,15 +128,13 @@ describe("Bankrun - Dao Fee Config Tests", () => {
           await travelFutureSlot(context);
         }
 
-        txnResult = await setDaoFeeConfig(
+        txnResult = await setDaoFeeConfig<true>(
           banksClient,
           programDtf,
           getKeypair(),
           expectedFeeRecipient,
           expectedFeeNumerator
         );
-
-        await travelFutureSlot(context);
       });
 
       if (expectedError) {
@@ -113,6 +143,8 @@ describe("Bankrun - Dao Fee Config Tests", () => {
         });
       } else {
         it("should succeed", async () => {
+          await travelFutureSlot(context);
+
           const daoFeeConfig = await programDtf.account.daoFeeConfig.fetch(
             daoFeeConfigPDA
           );

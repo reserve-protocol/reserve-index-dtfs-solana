@@ -10,21 +10,24 @@ import {
 import {
   airdrop,
   assertError,
+  buildExpectedArray,
   getConnectors,
   travelFutureSlot,
 } from "../bankrun-program-helper";
-import { getNonAdminTestCase } from "../bankrun-general-tests-helper";
 
-import {
-  DTF_PROGRAM_ID,
-  getProgramRegistrarPDA,
-} from "../../../utils/pda-helper";
+import { getProgramRegistrarPDA } from "../../../utils/pda-helper";
 import {
   initProgramRegistrar,
   updateProgramRegistrar,
 } from "../bankrun-ix-helper";
 import * as assert from "assert";
 import { createAndSetProgramRegistrar } from "../bankrun-account-helper";
+import { DTF_PROGRAM_ID } from "../../../utils/constants";
+import {
+  runMultipleGeneralTests,
+  GeneralTestCases,
+} from "../bankrun-general-tests-helper";
+
 describe("Bankrun - Program Registrar", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
@@ -37,7 +40,16 @@ describe("Bankrun - Program Registrar", () => {
   let payerKeypair: Keypair;
   let adminKeypair: Keypair;
 
-  const defaultParams = {
+  const MAX_NUMBER_OF_PROGRAMS = 10;
+
+  const DEFAULT_PARAMS: {
+    preAddedPrograms: PublicKey[];
+    programIdChanges: {
+      addedPrograms: PublicKey[];
+      removedPrograms: PublicKey[];
+    };
+    getKeypair: () => Keypair;
+  } = {
     preAddedPrograms: [],
     programIdChanges: {
       addedPrograms: [],
@@ -46,8 +58,7 @@ describe("Bankrun - Program Registrar", () => {
     getKeypair: () => adminKeypair,
   };
 
-  const testCasesInit = [
-    getNonAdminTestCase(() => payerKeypair),
+  const TEST_CASES_INIT = [
     {
       desc: "(add one)",
       programIdChanges: {
@@ -58,11 +69,12 @@ describe("Bankrun - Program Registrar", () => {
     },
   ];
 
-  const testCasesUpdate = [
-    getNonAdminTestCase(() => payerKeypair),
+  const TEST_CASES_UPDATE = [
     {
       desc: "(no more room to add)",
-      preAddedPrograms: Array(10).fill(Keypair.generate().publicKey),
+      preAddedPrograms: Array(MAX_NUMBER_OF_PROGRAMS).fill(
+        Keypair.generate().publicKey
+      ),
       programIdChanges: {
         addedPrograms: [DTF_PROGRAM_ID],
         removedPrograms: [],
@@ -80,7 +92,9 @@ describe("Bankrun - Program Registrar", () => {
     },
     {
       desc: "(add one, one room left)",
-      preAddedPrograms: Array(9).fill(Keypair.generate().publicKey),
+      preAddedPrograms: Array(MAX_NUMBER_OF_PROGRAMS - 1).fill(
+        Keypair.generate().publicKey
+      ),
       programIdChanges: {
         addedPrograms: [DTF_PROGRAM_ID],
         removedPrograms: [],
@@ -99,7 +113,7 @@ describe("Bankrun - Program Registrar", () => {
     {
       desc: "(remove one, is full)",
       preAddedPrograms: [
-        ...Array(9).fill(Keypair.generate().publicKey),
+        ...Array(MAX_NUMBER_OF_PROGRAMS - 1).fill(Keypair.generate().publicKey),
         DTF_PROGRAM_ID,
       ],
       programIdChanges: {
@@ -123,16 +137,40 @@ describe("Bankrun - Program Registrar", () => {
     await airdrop(context, adminKeypair.publicKey, 1000);
   });
 
-  testCasesInit.forEach(({ desc, expectedError, ...restOfParams }) => {
+  describe("General Tests", () => {
+    const generalIx = () =>
+      initProgramRegistrar<false>(
+        banksClient,
+        programFolio,
+        adminKeypair,
+        DTF_PROGRAM_ID
+      );
+
+    it("should run general tests", async () => {
+      await runMultipleGeneralTests(
+        [GeneralTestCases.NotAdmin],
+        context,
+        null,
+        payerKeypair,
+        null,
+        null,
+        null,
+        null,
+        generalIx
+      );
+    });
+  });
+
+  TEST_CASES_INIT.forEach(({ desc, expectedError, ...restOfParams }) => {
     describe(`Init - When ${desc}`, () => {
       let txnResult: BanksTransactionResultWithMeta;
       let {
         programIdChanges: { addedPrograms },
         getKeypair,
-      } = { ...defaultParams, ...restOfParams };
+      } = { ...DEFAULT_PARAMS, ...restOfParams };
 
       before(async () => {
-        txnResult = await initProgramRegistrar(
+        txnResult = await initProgramRegistrar<true>(
           banksClient,
           programFolio,
           getKeypair(),
@@ -146,6 +184,7 @@ describe("Bankrun - Program Registrar", () => {
         });
       } else {
         it("should succeed", async () => {
+          await travelFutureSlot(context);
           const programRegistrarPDA = getProgramRegistrarPDA();
 
           const programRegistrar =
@@ -155,40 +194,63 @@ describe("Bankrun - Program Registrar", () => {
 
           assert.deepEqual(programRegistrar.acceptedPrograms, [
             addedPrograms[0],
-            ...Array(9).fill(PublicKey.default),
+            ...Array(MAX_NUMBER_OF_PROGRAMS - 1).fill(PublicKey.default),
           ]);
         });
       }
     });
   });
 
-  testCasesUpdate.forEach(({ desc, expectedError, ...restOfParams }) => {
+  describe("General Tests", () => {
+    const generalIx = () =>
+      updateProgramRegistrar<false>(
+        banksClient,
+        programFolio,
+        adminKeypair,
+        [DTF_PROGRAM_ID],
+        false
+      );
+
+    it("should run general tests", async () => {
+      await runMultipleGeneralTests(
+        [GeneralTestCases.NotAdmin],
+        context,
+        null,
+        payerKeypair,
+        null,
+        null,
+        null,
+        null,
+        generalIx
+      );
+    });
+  });
+
+  TEST_CASES_UPDATE.forEach(({ desc, expectedError, ...restOfParams }) => {
     describe(`Update - When ${desc}`, () => {
       let txnResult: BanksTransactionResultWithMeta;
       let {
         preAddedPrograms,
         programIdChanges: { addedPrograms, removedPrograms },
         getKeypair,
-      } = { ...defaultParams, ...restOfParams };
+      } = { ...DEFAULT_PARAMS, ...restOfParams };
 
       before(async () => {
-        // Reset the program registrar to empty
         await createAndSetProgramRegistrar(
           context,
           programFolio,
           preAddedPrograms
         );
 
-        // Test the transaction
-        txnResult = await updateProgramRegistrar(
+        await travelFutureSlot(context);
+
+        txnResult = await updateProgramRegistrar<true>(
           banksClient,
           programFolio,
           getKeypair(),
           addedPrograms.length > 0 ? addedPrograms : removedPrograms,
           removedPrograms.length > 0
         );
-
-        await travelFutureSlot(context);
       });
 
       if (expectedError) {
@@ -197,6 +259,8 @@ describe("Bankrun - Program Registrar", () => {
         });
       } else {
         it("should succeed", async () => {
+          await travelFutureSlot(context);
+
           const programRegistrarPDA = getProgramRegistrarPDA();
 
           const programRegistrar =
@@ -204,18 +268,14 @@ describe("Bankrun - Program Registrar", () => {
               programRegistrarPDA
             );
 
-          // Build the expected programs array
-          const expectedPrograms = preAddedPrograms
-            .concat(addedPrograms)
-            .filter((program) => !removedPrograms.includes(program))
-            .concat(
-              Array(
-                10 -
-                  preAddedPrograms.length -
-                  addedPrograms.length +
-                  removedPrograms.length
-              ).fill(PublicKey.default)
-            );
+          const expectedPrograms = buildExpectedArray(
+            preAddedPrograms,
+            addedPrograms,
+            removedPrograms,
+            MAX_NUMBER_OF_PROGRAMS,
+            PublicKey.default,
+            (program) => !removedPrograms.includes(program)
+          );
 
           assert.deepEqual(programRegistrar.acceptedPrograms, expectedPrograms);
         });

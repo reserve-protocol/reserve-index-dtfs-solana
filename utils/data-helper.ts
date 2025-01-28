@@ -1,7 +1,7 @@
 import { Keypair, PublicKey } from "@solana/web3.js";
 import * as borsh from "borsh";
 import { Amman, PersistedAccountInfo } from "@metaplex-foundation/amman-client";
-import { SPL_GOVERNANCE_PROGRAM_ID } from "./pda-helper";
+import { SPL_GOVERNANCE_PROGRAM_ID } from "./constants";
 
 class TokenOwnerRecordV2 {
   accountType: number;

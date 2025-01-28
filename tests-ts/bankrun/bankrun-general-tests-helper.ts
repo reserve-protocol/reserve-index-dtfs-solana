@@ -1,36 +1,204 @@
-import { Keypair, PublicKey } from "@solana/web3.js";
-import { DTF_PROGRAM_ID } from "../../utils/pda-helper";
+import { Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
 
-export function getNonAdminTestCase(getPayerKeypair: () => Keypair) {
-  return {
-    desc: "(not admin)",
-    getKeypair: getPayerKeypair,
-    expectedError: "Unauthorized",
-  };
+import {
+  BanksTransactionResultWithMeta,
+  ProgramTestContext,
+} from "solana-bankrun";
+import {
+  assertError,
+  createAndProcessTransaction,
+} from "./bankrun-program-helper";
+import {
+  createAndSetFolio,
+  createAndSetProgramRegistrar,
+  FolioStatus,
+  mockDTFProgramData,
+  Role,
+} from "./bankrun-account-helper";
+import { createAndSetActor } from "./bankrun-account-helper";
+import { BN, Program } from "@coral-xyz/anchor";
+import { Folio } from "../../target/types/folio";
+import { DTF_PROGRAM_ID } from "../../utils/constants";
+
+export enum GeneralTestCases {
+  NotAdmin = "not admin",
+  NotOwner = "not owner",
+  InvalidDtfProgramDeploymentSlot = "invalid dtf program deployment slot",
+  ProgramNotInRegistrar = "program not in registrar",
+  InvalidFolioStatus = "invalid folio status",
 }
 
-export function getInvalidDtfProgramTestCase(
-  otherDeployedDtfProgram: PublicKey
+export async function assertNonAdminTestCase(
+  context: ProgramTestContext,
+  executeTxn: () => Promise<{
+    ix: TransactionInstruction;
+    extraSigners: Keypair[];
+  }>,
+  otherKeypair: Keypair
 ) {
-  return {
-    desc: "(invalid dtf program id)",
-    dtfProgramId: otherDeployedDtfProgram,
-    expectedError: "InvalidProgramVersion",
-  };
+  let txnResult: BanksTransactionResultWithMeta;
+
+  let { ix, extraSigners } = await executeTxn();
+
+  txnResult = await createAndProcessTransaction(
+    context.banksClient,
+    otherKeypair,
+    [ix],
+    extraSigners
+  );
+
+  assertError(txnResult, "Unauthorized");
 }
 
-export function getInvalidDtfProgramDeploymentSlotTestCase() {
-  return {
-    desc: "(invalid dtf program deployment slot)",
-    dtfProgramId: DTF_PROGRAM_ID,
-    expectedError: "InvalidProgramVersion",
-  };
+export async function assertNotOwnerTestCase(
+  context: ProgramTestContext,
+  programFolio: Program<Folio>,
+  folioOwnerKeypair: Keypair,
+  folioPDA: PublicKey,
+  executeTxn: () => Promise<BanksTransactionResultWithMeta>
+) {
+  let txnResult: BanksTransactionResultWithMeta;
+
+  await createAndSetActor(
+    context,
+    programFolio,
+    folioOwnerKeypair,
+    folioPDA,
+    Role.TradeLauncher
+  );
+
+  txnResult = await executeTxn();
+
+  assertError(txnResult, "InvalidRole");
 }
 
-export function getProgramNotInRegistrarTestCase() {
-  return {
-    desc: "(program not in registrar)",
-    dtfProgramId: Keypair.generate().publicKey,
-    expectedError: "ProgramNotInRegistrar",
-  };
+/*
+This is too complex to test, we would need to rebuild a program dynamically with changing the declare id in anchor, and then add it to banrkun.
+*/
+// export async function assertInvalidDtfProgramTestCase(
+//   context: ProgramTestContext,
+//   executeTxn: () => Promise<BanksTransactionResultWithMeta>
+// ) {
+//   let txnResult: BanksTransactionResultWithMeta;
+
+//   await mockDTFProgramData(context, DTF_PROGRAM_ID, new BN(1));
+
+//   txnResult = await executeTxn();
+
+//   assertError(txnResult, "InvalidProgramVersion");
+// }
+
+export async function assertInvalidDtfProgramDeploymentSlotTestCase(
+  context: ProgramTestContext,
+  invalidSlot: BN,
+  executeTxn: () => Promise<BanksTransactionResultWithMeta>
+) {
+  let txnResult: BanksTransactionResultWithMeta;
+
+  await mockDTFProgramData(context, DTF_PROGRAM_ID, invalidSlot);
+
+  txnResult = await executeTxn();
+
+  assertError(txnResult, "InvalidProgram");
+}
+
+export async function assertProgramNotInRegistrarTestCase(
+  context: ProgramTestContext,
+  programFolio: Program<Folio>,
+  executeTxn: () => Promise<BanksTransactionResultWithMeta>
+) {
+  let txnResult: BanksTransactionResultWithMeta;
+
+  await createAndSetProgramRegistrar(context, programFolio, []);
+
+  txnResult = await executeTxn();
+
+  assertError(txnResult, "ProgramNotInRegistrar");
+}
+
+export async function assertInvalidFolioStatusTestCase(
+  context: ProgramTestContext,
+  programFolio: Program<Folio>,
+  folioTokenMint: PublicKey,
+  folioPDA: PublicKey,
+  validDeploymentSlot: BN,
+  executeTxn: () => Promise<BanksTransactionResultWithMeta>
+) {
+  let txnResult: BanksTransactionResultWithMeta;
+
+  await createAndSetFolio(
+    context,
+    programFolio,
+    folioTokenMint,
+    folioPDA,
+    validDeploymentSlot,
+    FolioStatus.Killed
+  );
+
+  txnResult = await executeTxn();
+
+  assertError(txnResult, "InvalidFolioStatus");
+}
+
+export async function runMultipleGeneralTests(
+  testCases: GeneralTestCases[],
+  context: ProgramTestContext,
+  programFolio: Program<Folio> = null,
+  folioOwnerKeypair: Keypair = null,
+  folioPDA: PublicKey = null,
+  validDeploymentSlot: BN = null,
+  folioTokenMint: PublicKey = null,
+  executeTxn: () => Promise<BanksTransactionResultWithMeta> = null,
+  createInstruction: () => Promise<{
+    ix: TransactionInstruction;
+    extraSigners: Keypair[];
+  }> = null
+) {
+  testCases.forEach((testCase) => {
+    it(testCase, async () => {
+      switch (testCase) {
+        case GeneralTestCases.NotOwner:
+          await assertNotOwnerTestCase(
+            context,
+            programFolio,
+            folioOwnerKeypair,
+            folioPDA,
+            executeTxn
+          );
+          break;
+        case GeneralTestCases.InvalidDtfProgramDeploymentSlot:
+          await assertInvalidDtfProgramDeploymentSlotTestCase(
+            context,
+            validDeploymentSlot.add(new BN(1)),
+            executeTxn
+          );
+          break;
+        case GeneralTestCases.ProgramNotInRegistrar:
+          await assertProgramNotInRegistrarTestCase(
+            context,
+            programFolio,
+            executeTxn
+          );
+          break;
+        case GeneralTestCases.InvalidFolioStatus:
+          await assertInvalidFolioStatusTestCase(
+            context,
+            programFolio,
+            folioTokenMint,
+            folioPDA,
+            validDeploymentSlot,
+            executeTxn
+          );
+          break;
+        case GeneralTestCases.NotAdmin:
+          await assertNonAdminTestCase(
+            context,
+
+            createInstruction,
+            folioOwnerKeypair
+          );
+          break;
+      }
+    });
+  });
 }

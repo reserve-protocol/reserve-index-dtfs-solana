@@ -17,8 +17,8 @@ import { setDaoFeeConfig } from "../bankrun-ix-helper";
 import { getDAOFeeConfigPDA } from "../../../utils/pda-helper";
 import * as assert from "assert";
 import {
+  assertNonAdminTestCase,
   GeneralTestCases,
-  runMultipleGeneralTests,
 } from "../bankrun-general-tests-helper";
 import { createAndSetDaoFeeConfig } from "../bankrun-account-helper";
 
@@ -93,18 +93,8 @@ describe("Bankrun - Dao Fee Config Tests", () => {
         false
       );
 
-    it("should run general tests", async () => {
-      await runMultipleGeneralTests(
-        [GeneralTestCases.NotAdmin],
-        context,
-        null,
-        payerKeypair,
-        null,
-        null,
-        null,
-        null,
-        generalIx
-      );
+    it(`should run ${GeneralTestCases.NotAdmin}`, async () => {
+      await assertNonAdminTestCase(context, generalIx);
     });
   });
 

@@ -17,8 +17,8 @@ import { initDtfSigner } from "../bankrun-ix-helper";
 import * as assert from "assert";
 import { getDtfSignerPDA } from "../../../utils/pda-helper";
 import {
+  assertNonAdminTestCase,
   GeneralTestCases,
-  runMultipleGeneralTests,
 } from "../bankrun-general-tests-helper";
 
 describe("Bankrun - Init Dtf Signer Tests", () => {
@@ -59,20 +59,10 @@ describe("Bankrun - Init Dtf Signer Tests", () => {
 
   describe("General Tests", () => {
     const generalIx = () =>
-      initDtfSigner<false>(banksClient, programDtf, adminKeypair);
+      initDtfSigner<false>(banksClient, programDtf, adminKeypair, false);
 
-    it("should run general tests", async () => {
-      await runMultipleGeneralTests(
-        [GeneralTestCases.NotAdmin],
-        context,
-        null,
-        payerKeypair,
-        null,
-        null,
-        null,
-        null,
-        generalIx
-      );
+    it(`should run ${GeneralTestCases.NotAdmin}`, async () => {
+      await assertNonAdminTestCase(context, generalIx);
     });
   });
 

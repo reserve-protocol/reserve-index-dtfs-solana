@@ -1,4 +1,4 @@
-import { Keypair } from "@solana/web3.js";
+import { Keypair, SystemProgram } from "@solana/web3.js";
 import { PublicKey } from "@solana/web3.js";
 import { ProgramTestContext } from "solana-bankrun";
 import {
@@ -32,6 +32,16 @@ export enum Role {
   TradeProposer = 0b00000010, // 2
   TradeLauncher = 0b00000100, // 4
   VibeOfficer = 0b00001000, // 8
+}
+
+// For anchor serialization
+export function roleToStruct(role: Role) {
+  return {
+    [Role.Owner]: { owner: {} },
+    [Role.TradeProposer]: { tradeProposer: {} },
+    [Role.TradeLauncher]: { tradeLauncher: {} },
+    [Role.VibeOfficer]: { vibeOfficer: {} },
+  }[role];
 }
 
 export enum FolioStatus {
@@ -106,6 +116,18 @@ export async function mockDTFProgramData(
     programId,
     programDataAddress,
   };
+}
+
+export async function closeAccount(
+  ctx: ProgramTestContext,
+  accountAddress: PublicKey
+) {
+  ctx.setAccount(accountAddress, {
+    lamports: 0,
+    data: Buffer.alloc(0),
+    executable: false,
+    owner: SystemProgram.programId,
+  });
 }
 
 /*

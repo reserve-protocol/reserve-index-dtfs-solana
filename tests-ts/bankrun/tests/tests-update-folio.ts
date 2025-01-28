@@ -33,8 +33,10 @@ import {
 import { Folio } from "../../../target/types/folio";
 import { Dtfs } from "../../../target/types/dtfs";
 import {
+  assertInvalidDtfProgramDeploymentSlotTestCase,
+  assertNotOwnerTestCase,
+  assertProgramNotInRegistrarTestCase,
   GeneralTestCases,
-  runMultipleGeneralTests,
 } from "../bankrun-general-tests-helper";
 
 import * as assert from "assert";
@@ -278,7 +280,7 @@ describe("Bankrun - Update folio", () => {
   });
 
   describe("General Tests", () => {
-    const generalIx = () =>
+    const generalIxUpdateFolio = () =>
       updateFolio<true>(
         banksClient,
         programDtf,
@@ -297,20 +299,33 @@ describe("Bankrun - Update folio", () => {
         true
       );
 
-    it("should run general tests", async () => {
-      await runMultipleGeneralTests(
-        [
-          GeneralTestCases.NotOwner,
-          GeneralTestCases.InvalidDtfProgramDeploymentSlot,
-          GeneralTestCases.ProgramNotInRegistrar,
-        ],
+    beforeEach(async () => {
+      await initBaseCase();
+    });
+
+    it(`should run ${GeneralTestCases.NotOwner}`, async () => {
+      await assertNotOwnerTestCase(
         context,
         programFolio,
         folioOwnerKeypair,
         folioPDA,
-        VALID_DEPLOYMENT_SLOT,
-        null,
-        generalIx
+        generalIxUpdateFolio
+      );
+    });
+
+    it(`should run ${GeneralTestCases.InvalidDtfProgramDeploymentSlot}`, async () => {
+      await assertInvalidDtfProgramDeploymentSlotTestCase(
+        context,
+        VALID_DEPLOYMENT_SLOT.add(new BN(1)),
+        generalIxUpdateFolio
+      );
+    });
+
+    it(`should run ${GeneralTestCases.ProgramNotInRegistrar}`, async () => {
+      await assertProgramNotInRegistrarTestCase(
+        context,
+        programFolio,
+        generalIxUpdateFolio
       );
     });
   });
@@ -343,6 +358,8 @@ describe("Bankrun - Update folio", () => {
             folioPDA,
             preAddedRecipients
           );
+
+          await travelFutureSlot(context);
 
           txnResult = await updateFolio<true>(
             banksClient,

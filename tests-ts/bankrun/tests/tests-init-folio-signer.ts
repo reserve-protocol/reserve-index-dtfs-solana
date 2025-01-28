@@ -18,7 +18,7 @@ import { getFolioSignerPDA } from "../../../utils/pda-helper";
 import * as assert from "assert";
 import { initFolioSigner } from "../bankrun-ix-helper";
 import {
-  runMultipleGeneralTests,
+  assertNonAdminTestCase,
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
 
@@ -61,20 +61,10 @@ describe("Bankrun - Init folio signer", () => {
 
   describe("General Tests", () => {
     const generalIx = () =>
-      initFolioSigner<false>(banksClient, programFolio, adminKeypair);
+      initFolioSigner<false>(banksClient, programFolio, adminKeypair, false);
 
-    it("should run general tests", async () => {
-      await runMultipleGeneralTests(
-        [GeneralTestCases.NotAdmin],
-        context,
-        null,
-        payerKeypair,
-        null,
-        null,
-        null,
-        null,
-        generalIx
-      );
+    it(`should run ${GeneralTestCases.NotAdmin}`, async () => {
+      await assertNonAdminTestCase(context, generalIx);
     });
   });
 

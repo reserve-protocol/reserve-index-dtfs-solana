@@ -27,8 +27,10 @@ import { assert } from "chai";
 import { Folio } from "../../../target/types/folio";
 import { Dtfs } from "../../../target/types/dtfs";
 import {
+  assertInvalidDtfProgramDeploymentSlotTestCase,
+  assertNotOwnerTestCase,
+  assertProgramNotInRegistrarTestCase,
   GeneralTestCases,
-  runMultipleGeneralTests,
 } from "../bankrun-general-tests-helper";
 import { DTF_PROGRAM_ID } from "../../../utils/constants";
 
@@ -114,7 +116,7 @@ describe("Bankrun - Resize folio", () => {
   });
 
   describe("General Tests", () => {
-    const generalIx = () =>
+    const generalIxResizeFolio = () =>
       resizeFolio<true>(
         banksClient,
         programDtf,
@@ -125,20 +127,33 @@ describe("Bankrun - Resize folio", () => {
         getProgramDataPDA(DTF_PROGRAM_ID)
       );
 
-    it("should run general tests", async () => {
-      await runMultipleGeneralTests(
-        [
-          GeneralTestCases.NotOwner,
-          GeneralTestCases.InvalidDtfProgramDeploymentSlot,
-          GeneralTestCases.ProgramNotInRegistrar,
-        ],
+    beforeEach(async () => {
+      await initBaseCase();
+    });
+
+    it(`should run ${GeneralTestCases.NotOwner}`, async () => {
+      await assertNotOwnerTestCase(
         context,
         programFolio,
         folioOwnerKeypair,
         folioPDA,
-        VALID_DEPLOYMENT_SLOT,
-        null,
-        generalIx
+        generalIxResizeFolio
+      );
+    });
+
+    it(`should run ${GeneralTestCases.InvalidDtfProgramDeploymentSlot}`, async () => {
+      await assertInvalidDtfProgramDeploymentSlotTestCase(
+        context,
+        VALID_DEPLOYMENT_SLOT.add(new BN(1)),
+        generalIxResizeFolio
+      );
+    });
+
+    it(`should run ${GeneralTestCases.ProgramNotInRegistrar}`, async () => {
+      await assertProgramNotInRegistrarTestCase(
+        context,
+        programFolio,
+        generalIxResizeFolio
       );
     });
   });

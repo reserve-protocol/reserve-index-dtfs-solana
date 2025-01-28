@@ -1,5 +1,5 @@
 import { BN } from "@coral-xyz/anchor";
-import { PublicKey } from "@solana/web3.js";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import idlFolio from "../target/idl/folio.json";
 import idlDtfs from "../target/idl/dtfs.json";
 
@@ -20,6 +20,9 @@ export const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
 export const BPF_PROGRAM_USED_BY_BANKRUN = new PublicKey(
   "BPFLoader2111111111111111111111111111111111"
 );
+
+// Other admin key (to be able to test not admin)
+export const OTHER_ADMIN_KEY = Keypair.generate();
 
 // Token Constants
 export const DEFAULT_DECIMALS = 9;

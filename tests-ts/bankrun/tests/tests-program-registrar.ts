@@ -21,11 +21,14 @@ import {
   updateProgramRegistrar,
 } from "../bankrun-ix-helper";
 import * as assert from "assert";
-import { createAndSetProgramRegistrar } from "../bankrun-account-helper";
+import {
+  closeAccount,
+  createAndSetProgramRegistrar,
+} from "../bankrun-account-helper";
 import { DTF_PROGRAM_ID } from "../../../utils/constants";
 import {
-  runMultipleGeneralTests,
   GeneralTestCases,
+  assertNonAdminTestCase,
 } from "../bankrun-general-tests-helper";
 
 describe("Bankrun - Program Registrar", () => {
@@ -138,26 +141,39 @@ describe("Bankrun - Program Registrar", () => {
   });
 
   describe("General Tests", () => {
-    const generalIx = () =>
+    const generalIxInitProgramRegistrar = () =>
       initProgramRegistrar<false>(
         banksClient,
         programFolio,
         adminKeypair,
-        DTF_PROGRAM_ID
+        DTF_PROGRAM_ID,
+        false
       );
 
-    it("should run general tests", async () => {
-      await runMultipleGeneralTests(
-        [GeneralTestCases.NotAdmin],
-        context,
-        null,
-        payerKeypair,
-        null,
-        null,
-        null,
-        null,
-        generalIx
+    const generalIxUpdateProgramRegistrar = () =>
+      updateProgramRegistrar<false>(
+        banksClient,
+        programFolio,
+        adminKeypair,
+        [DTF_PROGRAM_ID],
+        false,
+        false
       );
+
+    describe("should run general tests for init program registrar", () => {
+      it(`should run ${GeneralTestCases.NotAdmin}`, async () => {
+        await assertNonAdminTestCase(context, generalIxInitProgramRegistrar);
+      });
+    });
+
+    describe("should run general tests for update program registrar", () => {
+      beforeEach(async () => {
+        await createAndSetProgramRegistrar(context, programFolio, []);
+      });
+
+      it(`should run ${GeneralTestCases.NotAdmin}`, async () => {
+        await assertNonAdminTestCase(context, generalIxUpdateProgramRegistrar);
+      });
     });
   });
 
@@ -170,6 +186,9 @@ describe("Bankrun - Program Registrar", () => {
       } = { ...DEFAULT_PARAMS, ...restOfParams };
 
       before(async () => {
+        // Close the account so we can re-init as if it was new
+        await closeAccount(context, getProgramRegistrarPDA());
+
         txnResult = await initProgramRegistrar<true>(
           banksClient,
           programFolio,
@@ -198,31 +217,6 @@ describe("Bankrun - Program Registrar", () => {
           ]);
         });
       }
-    });
-  });
-
-  describe("General Tests", () => {
-    const generalIx = () =>
-      updateProgramRegistrar<false>(
-        banksClient,
-        programFolio,
-        adminKeypair,
-        [DTF_PROGRAM_ID],
-        false
-      );
-
-    it("should run general tests", async () => {
-      await runMultipleGeneralTests(
-        [GeneralTestCases.NotAdmin],
-        context,
-        null,
-        payerKeypair,
-        null,
-        null,
-        null,
-        null,
-        generalIx
-      );
     });
   });
 

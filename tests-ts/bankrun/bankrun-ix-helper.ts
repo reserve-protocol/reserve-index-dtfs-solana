@@ -26,8 +26,10 @@ import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { getComputeLimitInstruction } from "../../utils/program-helper";
 import {
   FOLIO_PROGRAM_ID,
+  OTHER_ADMIN_KEY,
   TOKEN_METADATA_PROGRAM_ID,
 } from "../../utils/constants";
+import { roleToStruct } from "./bankrun-account-helper";
 
 /*
 DTF Directly
@@ -47,7 +49,7 @@ export async function initDtfSigner<T extends boolean = true>(
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
-      admin: adminKeypair.publicKey,
+      admin: !executeTxn ? OTHER_ADMIN_KEY.publicKey : adminKeypair.publicKey,
       dtfProgramSigner: getDtfSignerPDA(),
     })
     .instruction();
@@ -76,7 +78,7 @@ export async function setDaoFeeConfig<T extends boolean = true>(
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
-      admin: adminKeypair.publicKey,
+      admin: !executeTxn ? OTHER_ADMIN_KEY.publicKey : adminKeypair.publicKey,
       daoFeeConfig: getDAOFeeConfigPDA(),
     })
     .instruction();
@@ -106,7 +108,7 @@ export async function initFolioSigner<T extends boolean = true>(
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
-      admin: adminKeypair.publicKey,
+      admin: !executeTxn ? OTHER_ADMIN_KEY.publicKey : adminKeypair.publicKey,
       folioProgramSigner: getFolioSignerPDA(),
     })
     .instruction();
@@ -134,7 +136,7 @@ export async function initProgramRegistrar<T extends boolean = true>(
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
-      admin: adminKeypair.publicKey,
+      admin: !executeTxn ? OTHER_ADMIN_KEY.publicKey : adminKeypair.publicKey,
       programRegistrar: getProgramRegistrarPDA(),
     })
     .instruction();
@@ -163,7 +165,7 @@ export async function updateProgramRegistrar<T extends boolean = true>(
   const updateProgramRegistrar = await programFolio.methods
     .updateProgramRegistrar(dtfProgramIds, toRemove)
     .accountsPartial({
-      admin: adminKeypair.publicKey,
+      admin: !executeTxn ? OTHER_ADMIN_KEY.publicKey : adminKeypair.publicKey,
       programRegistrar: getProgramRegistrarPDA(),
     })
     .instruction();
@@ -215,7 +217,9 @@ export async function initFolio<T extends boolean = true>(
       rent: SYSVAR_RENT_PUBKEY,
       tokenProgram: TOKEN_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-      folioOwner: folioOwner.publicKey,
+      folioOwner: !executeTxn
+        ? OTHER_ADMIN_KEY.publicKey
+        : folioOwner.publicKey,
       programRegistrar: getProgramRegistrarPDA(),
       folio: folioPDA,
       folioTokenMint: folioTokenMint.publicKey,
@@ -261,7 +265,9 @@ export async function resizeFolio<T extends boolean = true>(
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
-      folioOwner: folioOwnerKeypair.publicKey,
+      folioOwner: !executeTxn
+        ? OTHER_ADMIN_KEY.publicKey
+        : folioOwnerKeypair.publicKey,
       actor: getActorPDA(folioOwnerKeypair.publicKey, folio),
       dtfProgramSigner: getDtfSignerPDA(),
       dtfProgram: programId,
@@ -316,7 +322,9 @@ export async function updateFolio<T extends boolean = true>(
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
-      folioOwner: folioOwnerKeypair.publicKey,
+      folioOwner: !executeTxn
+        ? OTHER_ADMIN_KEY.publicKey
+        : folioOwnerKeypair.publicKey,
       actor: getActorPDA(folioOwnerKeypair.publicKey, folio),
       dtfProgramSigner: getDtfSignerPDA(),
       dtfProgram: programId,
@@ -336,4 +344,93 @@ export async function updateFolio<T extends boolean = true>(
   }
 
   return { ix: updateFolio, extraSigners: [] } as any;
+}
+
+export async function addOrUpdateActor<T extends boolean = true>(
+  client: BanksClient,
+  programDtf: Program<Dtfs>,
+  folioOwnerKeypair: Keypair,
+  folio: PublicKey,
+  newActorAuthority: PublicKey,
+  role: number,
+  programId: PublicKey,
+  programDataAddress: PublicKey,
+  executeTxn: T = true as T
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const addOrUpdateActor = await programDtf.methods
+    .initOrUpdateActor(roleToStruct(role) as any)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      rent: SYSVAR_RENT_PUBKEY,
+      folioOwner: !executeTxn
+        ? OTHER_ADMIN_KEY.publicKey
+        : folioOwnerKeypair.publicKey,
+      newActorAuthority: newActorAuthority,
+      folioOwnerActor: getActorPDA(folioOwnerKeypair.publicKey, folio),
+      newActor: getActorPDA(newActorAuthority, folio),
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: programId,
+      dtfProgramData: programDataAddress,
+      folioProgram: FOLIO_PROGRAM_ID,
+      folio: folio,
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, folioOwnerKeypair, [
+      addOrUpdateActor,
+    ]) as any;
+  }
+
+  return { ix: addOrUpdateActor, extraSigners: [] } as any;
+}
+
+export async function removeActor<T extends boolean = true>(
+  client: BanksClient,
+  programDtf: Program<Dtfs>,
+  folioOwnerKeypair: Keypair,
+  folio: PublicKey,
+  actorAuthority: PublicKey,
+  role: number,
+  closeActor: boolean,
+  programId: PublicKey,
+  programDataAddress: PublicKey,
+  executeTxn: T = true as T
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const removeActor = await programDtf.methods
+    .removeActor(roleToStruct(role) as any, closeActor)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      rent: SYSVAR_RENT_PUBKEY,
+      folioOwner: !executeTxn
+        ? OTHER_ADMIN_KEY.publicKey
+        : folioOwnerKeypair.publicKey,
+      actorAuthority: actorAuthority,
+      folioOwnerActor: getActorPDA(folioOwnerKeypair.publicKey, folio),
+      actorToRemove: getActorPDA(actorAuthority, folio),
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: programId,
+      dtfProgramData: programDataAddress,
+      folioProgram: FOLIO_PROGRAM_ID,
+      folio: folio,
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, folioOwnerKeypair, [
+      removeActor,
+    ]) as any;
+  }
+
+  return { ix: removeActor, extraSigners: [] } as any;
 }

@@ -198,7 +198,7 @@ export async function initFolio<T extends boolean = true>(
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  let folioPDA = getFolioPDA(folioTokenMint.publicKey);
+  const folioPDA = getFolioPDA(folioTokenMint.publicKey);
 
   const initFolio = await programFolio.methods
     .initFolio(

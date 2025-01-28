@@ -16,7 +16,7 @@ export async function buildRemainingAccounts(
   receiverAddress: PublicKey = null,
   includeMint: boolean = true
 ): Promise<AccountMeta[]> {
-  let remainingAccounts: AccountMeta[] = [];
+  const remainingAccounts: AccountMeta[] = [];
 
   for (const token of tokens) {
     if (includeMint) {
@@ -63,9 +63,9 @@ export async function buildRemainingAccountsForAccruesRewards(
   rewardTokens: PublicKey[],
   extraUser: PublicKey = callerKeypair.publicKey
 ): Promise<AccountMeta[]> {
-  let remainingAccounts: AccountMeta[] = [];
+  const remainingAccounts: AccountMeta[] = [];
 
-  let folioRewardTokensPDA = getFolioRewardTokensPDA(folio);
+  const folioRewardTokensPDA = getFolioRewardTokensPDA(folio);
 
   for (const token of rewardTokens) {
     remainingAccounts.push({
@@ -136,9 +136,9 @@ export async function buildRemainingAccountsForClaimRewards(
   folio: PublicKey,
   rewardTokens: PublicKey[]
 ): Promise<AccountMeta[]> {
-  let remainingAccounts: AccountMeta[] = [];
+  const remainingAccounts: AccountMeta[] = [];
 
-  let folioRewardTokensPDA = getFolioRewardTokensPDA(folio);
+  const folioRewardTokensPDA = getFolioRewardTokensPDA(folio);
 
   for (const token of rewardTokens) {
     remainingAccounts.push({

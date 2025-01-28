@@ -164,7 +164,7 @@ describe("Bankrun - Program Registrar", () => {
   TEST_CASES_INIT.forEach(({ desc, expectedError, ...restOfParams }) => {
     describe(`Init - When ${desc}`, () => {
       let txnResult: BanksTransactionResultWithMeta;
-      let {
+      const {
         programIdChanges: { addedPrograms },
         getKeypair,
       } = { ...DEFAULT_PARAMS, ...restOfParams };
@@ -229,7 +229,7 @@ describe("Bankrun - Program Registrar", () => {
   TEST_CASES_UPDATE.forEach(({ desc, expectedError, ...restOfParams }) => {
     describe(`Update - When ${desc}`, () => {
       let txnResult: BanksTransactionResultWithMeta;
-      let {
+      const {
         preAddedPrograms,
         programIdChanges: { addedPrograms, removedPrograms },
         getKeypair,

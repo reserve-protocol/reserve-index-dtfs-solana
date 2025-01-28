@@ -36,11 +36,9 @@ export async function assertNonAdminTestCase(
   }>,
   otherKeypair: Keypair
 ) {
-  let txnResult: BanksTransactionResultWithMeta;
+  const { ix, extraSigners } = await executeTxn();
 
-  let { ix, extraSigners } = await executeTxn();
-
-  txnResult = await createAndProcessTransaction(
+  const txnResult = await createAndProcessTransaction(
     context.banksClient,
     otherKeypair,
     [ix],
@@ -57,8 +55,6 @@ export async function assertNotOwnerTestCase(
   folioPDA: PublicKey,
   executeTxn: () => Promise<BanksTransactionResultWithMeta>
 ) {
-  let txnResult: BanksTransactionResultWithMeta;
-
   await createAndSetActor(
     context,
     programFolio,
@@ -67,7 +63,7 @@ export async function assertNotOwnerTestCase(
     Role.TradeLauncher
   );
 
-  txnResult = await executeTxn();
+  const txnResult = await executeTxn();
 
   assertError(txnResult, "InvalidRole");
 }
@@ -93,11 +89,9 @@ export async function assertInvalidDtfProgramDeploymentSlotTestCase(
   invalidSlot: BN,
   executeTxn: () => Promise<BanksTransactionResultWithMeta>
 ) {
-  let txnResult: BanksTransactionResultWithMeta;
-
   await mockDTFProgramData(context, DTF_PROGRAM_ID, invalidSlot);
 
-  txnResult = await executeTxn();
+  const txnResult = await executeTxn();
 
   assertError(txnResult, "InvalidProgram");
 }
@@ -107,11 +101,9 @@ export async function assertProgramNotInRegistrarTestCase(
   programFolio: Program<Folio>,
   executeTxn: () => Promise<BanksTransactionResultWithMeta>
 ) {
-  let txnResult: BanksTransactionResultWithMeta;
-
   await createAndSetProgramRegistrar(context, programFolio, []);
 
-  txnResult = await executeTxn();
+  const txnResult = await executeTxn();
 
   assertError(txnResult, "ProgramNotInRegistrar");
 }
@@ -124,8 +116,6 @@ export async function assertInvalidFolioStatusTestCase(
   validDeploymentSlot: BN,
   executeTxn: () => Promise<BanksTransactionResultWithMeta>
 ) {
-  let txnResult: BanksTransactionResultWithMeta;
-
   await createAndSetFolio(
     context,
     programFolio,
@@ -135,7 +125,7 @@ export async function assertInvalidFolioStatusTestCase(
     FolioStatus.Killed
   );
 
-  txnResult = await executeTxn();
+  const txnResult = await executeTxn();
 
   assertError(txnResult, "InvalidFolioStatus");
 }

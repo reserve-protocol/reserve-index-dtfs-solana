@@ -145,7 +145,7 @@ export async function initFolio(
 
   const folioTokenMint = Keypair.generate();
 
-  let folioPDA = getFolioPDA(folioTokenMint.publicKey);
+  const folioPDA = getFolioPDA(folioTokenMint.publicKey);
 
   const initFolio = await folioProgram.methods
     .initFolio(

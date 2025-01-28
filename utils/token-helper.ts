@@ -38,7 +38,7 @@ export async function mintToken(
   receiver: PublicKey,
   decimals: number = DEFAULT_DECIMALS
 ) {
-  let ata = (
+  const ata = (
     await getOrCreateAssociatedTokenAccount(
       connection,
       mintAuthority,
@@ -71,14 +71,19 @@ export async function transferToken(
   senderAta: PublicKey;
   receiverAta: PublicKey;
 }> {
-  let receiverAta = await getOrCreateAtaAddress(
+  const receiverAta = await getOrCreateAtaAddress(
     connection,
     mint,
     payer,
     receiver
   );
 
-  let senderAta = await getOrCreateAtaAddress(connection, mint, payer, sender);
+  const senderAta = await getOrCreateAtaAddress(
+    connection,
+    mint,
+    payer,
+    sender
+  );
 
   return {
     instruction: createTransferCheckedInstruction(

@@ -39,7 +39,7 @@ describe("Extrme DTFs Tests", () => {
   */
   const NUMBER_OF_TOKENS = 16;
 
-  let tokenMints = Array.from({ length: NUMBER_OF_TOKENS }, () => ({
+  const tokenMints = Array.from({ length: NUMBER_OF_TOKENS }, () => ({
     mint: Keypair.generate(),
     decimals: Math.floor(Math.random() * 10) + 1,
   }));

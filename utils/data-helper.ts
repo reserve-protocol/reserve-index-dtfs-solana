@@ -43,7 +43,7 @@ class TokenOwnerRecordV2 {
   }
 }
 
-const TokenOwnerRecordV2Schema = new Map([
+const TOKEN_OWNER_RECORD_V2_SCHEMA = new Map([
   [
     TokenOwnerRecordV2,
     {
@@ -65,9 +65,9 @@ const TokenOwnerRecordV2Schema = new Map([
   ],
 ]);
 
-const combinedSchema = new Map<any, any>();
-TokenOwnerRecordV2Schema.forEach((value, key) => {
-  combinedSchema.set(key, value);
+const COMBINED_SCHEMA = new Map<any, any>();
+TOKEN_OWNER_RECORD_V2_SCHEMA.forEach((value, key) => {
+  COMBINED_SCHEMA.set(key, value);
 });
 
 export function createFakeTokenOwnerRecordV2(
@@ -91,7 +91,7 @@ export function createFakeTokenOwnerRecordV2(
     reservedV2: new Uint8Array(128),
   });
 
-  return Buffer.from(borsh.serialize(combinedSchema, tokenOwnerRecordV2));
+  return Buffer.from(borsh.serialize(COMBINED_SCHEMA, tokenOwnerRecordV2));
 }
 export async function createGovernanceAccounts(
   userTokenRecordPda: PublicKey,

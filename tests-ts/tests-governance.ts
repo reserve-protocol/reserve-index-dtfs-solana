@@ -138,7 +138,7 @@ describe("DAO / Realm Tests", () => {
       true
     );
 
-    let transferMintIx = await transferToken(
+    const transferMintIx = await transferToken(
       connection,
       adminKeypair,
       treasury,

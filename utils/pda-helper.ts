@@ -185,7 +185,7 @@ export function getUserTokenRecordRealmsPDA(
   rewardToken: PublicKey,
   user: PublicKey
 ) {
-  let governanceClient = getGovernanceClient(connection);
+  const governanceClient = getGovernanceClient(connection);
 
   return governanceClient.pda.tokenOwnerRecordAccount({
     realmAccount: folioOwner,

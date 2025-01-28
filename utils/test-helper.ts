@@ -52,8 +52,8 @@ export class TestHelper {
     let folioBasketAmounts: any | undefined = undefined;
     let folioTokenBalance: number | undefined = undefined;
     let userTokenBalance: number | undefined = undefined;
-    let folioTokenBalances: number[] = [];
-    let userTokenBalances: number[] = [];
+    const folioTokenBalances: number[] = [];
+    const userTokenBalances: number[] = [];
 
     if (includePendingAmounts) {
       const userPendingBasketPDA = getUserPendingBasketPDA(

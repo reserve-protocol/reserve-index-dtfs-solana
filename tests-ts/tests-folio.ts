@@ -31,12 +31,12 @@ describe("Folio Tests", () => {
 
   let payerKeypair: Keypair;
   let adminKeypair: Keypair;
-  let userKeypair: Keypair = Keypair.generate();
+  const userKeypair: Keypair = Keypair.generate();
 
   let folioOwnerKeypair: Keypair;
   let folioTokenMint: Keypair;
   let folioPDA: PublicKey;
-  let randomProgramId: PublicKey = Keypair.generate().publicKey;
+  const randomProgramId: PublicKey = Keypair.generate().publicKey;
 
   before(async () => {
     ({ connection, programFolio: program, keys } = await getConnectors());

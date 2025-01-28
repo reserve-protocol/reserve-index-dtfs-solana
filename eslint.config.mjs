@@ -1,14 +1,16 @@
 import unusedImports from "eslint-plugin-unused-imports";
-import typescript from "@typescript-eslint/parser";
+import typescriptParser from "@typescript-eslint/parser";
+import typescriptPlugin from "@typescript-eslint/eslint-plugin";
 
 export default [
   {
     files: ["**/*.ts", "**/*.tsx"],
     plugins: {
       "unused-imports": unusedImports,
+      "@typescript-eslint": typescriptPlugin,
     },
     languageOptions: {
-      parser: typescript,
+      parser: typescriptParser,
       parserOptions: {
         ecmaVersion: "latest",
         sourceType: "module",
@@ -16,9 +18,9 @@ export default [
       },
     },
     rules: {
-      "unused-imports/no-unused-imports": "error",
+      "unused-imports/no-unused-imports": "warn",
       "unused-imports/no-unused-vars": [
-        "error",
+        "warn",
         {
           vars: "all",
           varsIgnorePattern: "^_",
@@ -26,6 +28,18 @@ export default [
           argsIgnorePattern: "^_",
         },
       ],
+      "prefer-const": ["warn", {
+        destructuring: "all",
+        ignoreReadBeforeAssign: false,
+      }],
+      "@typescript-eslint/naming-convention": [
+        "warn",
+        {
+          selector: "variable",
+          modifiers: ["const", "global"],
+          format: ["UPPER_CASE"]
+        }
+      ]
     },
   },
 ];

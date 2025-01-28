@@ -105,7 +105,7 @@ describe("Multisig Tests", () => {
       true
     );
 
-    let transferMint1 = await transferToken(
+    const transferMint1 = await transferToken(
       connection,
       adminKeypair,
       multisigVault,
@@ -113,7 +113,7 @@ describe("Multisig Tests", () => {
       10,
       adminKeypair.publicKey
     );
-    let transferMint2 = await transferToken(
+    const transferMint2 = await transferToken(
       connection,
       adminKeypair,
       multisigVault,

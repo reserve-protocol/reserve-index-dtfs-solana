@@ -121,7 +121,7 @@ export async function assertInvalidFolioStatusTestCase(
   context: ProgramTestContext,
   programFolio: Program<Folio>,
   folioTokenMint: PublicKey,
-  folioPDA: PublicKey,
+  programVersion: PublicKey,
   validDeploymentSlot: BN,
   executeTxn: () => Promise<BanksTransactionResultWithMeta>
 ) {
@@ -129,7 +129,7 @@ export async function assertInvalidFolioStatusTestCase(
     context,
     programFolio,
     folioTokenMint,
-    folioPDA,
+    programVersion,
     validDeploymentSlot,
     FolioStatus.Killed
   );

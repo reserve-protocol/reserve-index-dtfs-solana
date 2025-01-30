@@ -147,8 +147,7 @@ describe("DTFs Tests", () => {
     tradeLauncherKeypair = Keypair.generate();
 
     // Inject fake accounts in Amman for governance
-    const userTokenRecordPda = await getUserTokenRecordRealmsPDA(
-      connection,
+    const userTokenRecordPda = getUserTokenRecordRealmsPDA(
       folioOwnerKeypair.publicKey,
       rewardTokenMints[1].mint.publicKey,
       userKeypair.publicKey

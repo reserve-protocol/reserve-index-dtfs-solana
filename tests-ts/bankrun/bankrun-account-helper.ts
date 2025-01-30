@@ -1,14 +1,19 @@
-import { Keypair, SystemProgram } from "@solana/web3.js";
+import { AccountMeta, Keypair, SystemProgram } from "@solana/web3.js";
 import { PublicKey } from "@solana/web3.js";
 import { ProgramTestContext } from "solana-bankrun";
 import {
   getActorPDAWithBump,
   getDaoFeeConfigPDAWithBump,
   getDtfSignerPDAWithBump,
+  getFolioBasketPDAWithBump,
   getFolioFeeRecipientsPDAWithBump,
   getFolioPDAWithBump,
+  getFolioRewardTokensPDA,
   getProgramDataPDA,
   getProgramRegistrarPDAWithBump,
+  getRewardInfoPDA,
+  getUserRewardInfoPDA,
+  getUserTokenRecordRealmsPDA,
 } from "../../utils/pda-helper";
 import { createFakeTokenOwnerRecordV2 } from "../../utils/data-helper";
 import * as crypto from "crypto";
@@ -25,7 +30,9 @@ import {
   SPL_GOVERNANCE_PROGRAM_ID,
   BPF_PROGRAM_USED_BY_BANKRUN,
   DTF_PROGRAM_ID,
+  MAX_FOLIO_TOKEN_AMOUNTS,
 } from "../../utils/constants";
+import { getOrCreateAtaAddress } from "./bankrun-token-helper";
 
 export enum Role {
   Owner = 0b00000001, // 1
@@ -58,6 +65,24 @@ export class FeeRecipient {
     this.receiver = receiver;
     this.portion = portion;
   }
+}
+
+export class TokenAmount {
+  public mint: PublicKey;
+  public amountForMinting: BN;
+  public amountForRedeeming: BN;
+
+  constructor(mint: PublicKey, amountForMinting: BN, amountForRedeeming: BN) {
+    this.mint = mint;
+    this.amountForMinting = amountForMinting;
+    this.amountForRedeeming = amountForRedeeming;
+  }
+}
+
+export class MintInfo {
+  mint: PublicKey;
+  decimals: BN;
+  supply: BN;
 }
 
 function getAccountDiscriminator(accountName: string): Buffer {
@@ -260,10 +285,11 @@ export async function createAndSetFeeRecipients(
   discriminator.copy(buffer, offset);
   offset += 8;
 
-  // Encode header
+  // Encode bump
   buffer.writeUInt8(feeRecipients.bump, offset);
   offset += 1;
 
+  // Encode padding
   feeRecipients._padding.forEach((pad: number) => {
     buffer.writeUInt8(pad, offset);
     offset += 1;
@@ -294,6 +320,74 @@ export async function createAndSetFeeRecipients(
     feeRecipientsPDAWithBump[0],
     "feeRecipients",
     feeRecipients,
+    buffer
+  );
+}
+
+export async function createAndSetFolioBasket(
+  ctx: ProgramTestContext,
+  program: Program<Folio>,
+  folio: PublicKey,
+  tokenAmounts: TokenAmount[]
+) {
+  const folioBasketPDAWithBump = getFolioBasketPDAWithBump(folio);
+
+  const folioBasket = {
+    bump: folioBasketPDAWithBump[1],
+    _padding: [0, 0, 0, 0, 0, 0, 0],
+    folio: folio,
+    tokenAmounts: tokenAmounts,
+  };
+
+  const buffer = Buffer.alloc(816);
+  let offset = 0;
+
+  // Encode discriminator
+  const discriminator = getAccountDiscriminator("FolioBasket");
+  discriminator.copy(buffer, offset);
+  offset += 8;
+
+  // Encode bump
+  buffer.writeUInt8(folioBasket.bump, offset);
+  offset += 1;
+
+  // Encode padding
+  folioBasket._padding.forEach((pad: number) => {
+    buffer.writeUInt8(pad, offset);
+    offset += 1;
+  });
+
+  // Encode folio pubkey
+  folioBasket.folio.toBuffer().copy(buffer, offset);
+  offset += 32;
+
+  // Encode token amounts
+  // Encode token amounts
+  for (let i = 0; i < MAX_FOLIO_TOKEN_AMOUNTS; i++) {
+    const tokenAmount = folioBasket.tokenAmounts[i] || {
+      mint: PublicKey.default,
+      amountForMinting: new BN(0),
+      amountForRedeeming: new BN(0),
+    };
+
+    tokenAmount.mint.toBuffer().copy(buffer, offset);
+    offset += 32;
+    tokenAmount.amountForMinting
+      .toArrayLike(Buffer, "le", 8)
+      .copy(buffer, offset);
+    offset += 8;
+    tokenAmount.amountForRedeeming
+      .toArrayLike(Buffer, "le", 8)
+      .copy(buffer, offset);
+    offset += 8;
+  }
+
+  await setFolioAccountInfo(
+    ctx,
+    program,
+    folioBasketPDAWithBump[0],
+    "folioBasket",
+    folioBasket,
     buffer
   );
 }
@@ -360,4 +454,171 @@ export async function createAndSetDaoFeeConfig(
     "daoFeeConfig",
     daoFeeConfig
   );
+}
+
+/*
+Remaining Accounts Helper
+*/
+
+export function getInvalidRemainingAccounts(size: number): AccountMeta[] {
+  return Array(size)
+    .fill(null)
+    .map(() => ({
+      pubkey: Keypair.generate().publicKey,
+      isSigner: false,
+      isWritable: false,
+    }));
+}
+
+export async function buildRemainingAccounts(
+  context: ProgramTestContext,
+  tokens: { mint: PublicKey; amount: BN }[],
+  senderAddress: PublicKey = null,
+  receiverAddress: PublicKey = null,
+  includeMint: boolean = true
+): Promise<AccountMeta[]> {
+  const remainingAccounts: AccountMeta[] = [];
+
+  for (const token of tokens) {
+    if (includeMint) {
+      remainingAccounts.push({
+        pubkey: token.mint,
+        isSigner: false,
+        isWritable: false,
+      });
+    }
+    if (senderAddress) {
+      remainingAccounts.push({
+        pubkey: await getOrCreateAtaAddress(context, token.mint, senderAddress),
+        isSigner: false,
+        isWritable: true,
+      });
+    }
+    if (receiverAddress) {
+      remainingAccounts.push({
+        pubkey: await getOrCreateAtaAddress(
+          context,
+          token.mint,
+          receiverAddress
+        ),
+        isSigner: false,
+        isWritable: true,
+      });
+    }
+  }
+
+  return remainingAccounts;
+}
+
+export async function buildRemainingAccountsForAccruesRewards(
+  context: ProgramTestContext,
+  callerKeypair: Keypair,
+  folio: PublicKey,
+  folioOwner: PublicKey, // Is the realm
+  rewardTokens: PublicKey[],
+  extraUser: PublicKey = callerKeypair.publicKey
+): Promise<AccountMeta[]> {
+  const remainingAccounts: AccountMeta[] = [];
+
+  const folioRewardTokensPDA = getFolioRewardTokensPDA(folio);
+
+  for (const token of rewardTokens) {
+    remainingAccounts.push({
+      pubkey: token,
+      isSigner: false,
+      isWritable: false,
+    });
+
+    remainingAccounts.push({
+      pubkey: getRewardInfoPDA(folio, token),
+      isSigner: false,
+      isWritable: true,
+    });
+
+    remainingAccounts.push({
+      pubkey: await getOrCreateAtaAddress(context, token, folioRewardTokensPDA),
+      isSigner: false,
+      isWritable: false,
+    });
+
+    remainingAccounts.push({
+      pubkey: getUserRewardInfoPDA(folio, token, callerKeypair.publicKey),
+      isSigner: false,
+      isWritable: true,
+    });
+
+    remainingAccounts.push({
+      pubkey: getUserTokenRecordRealmsPDA(
+        folioOwner,
+        token,
+        callerKeypair.publicKey
+      ),
+      isSigner: false,
+      isWritable: false,
+    });
+
+    if (extraUser.toString() !== callerKeypair.publicKey.toString()) {
+      remainingAccounts.push({
+        pubkey: getUserRewardInfoPDA(folio, token, extraUser),
+        isSigner: false,
+        isWritable: true,
+      });
+      remainingAccounts.push({
+        pubkey: getUserTokenRecordRealmsPDA(folioOwner, token, extraUser),
+        isSigner: false,
+        isWritable: false,
+      });
+    }
+  }
+
+  return remainingAccounts;
+}
+
+export async function buildRemainingAccountsForClaimRewards(
+  context: ProgramTestContext,
+  callerKeypair: Keypair,
+  folio: PublicKey,
+  rewardTokens: PublicKey[]
+): Promise<AccountMeta[]> {
+  const remainingAccounts: AccountMeta[] = [];
+
+  const folioRewardTokensPDA = getFolioRewardTokensPDA(folio);
+
+  for (const token of rewardTokens) {
+    remainingAccounts.push({
+      pubkey: token,
+      isSigner: false,
+      isWritable: false,
+    });
+
+    remainingAccounts.push({
+      pubkey: await getOrCreateAtaAddress(context, token, folioRewardTokensPDA),
+      isSigner: false,
+      isWritable: true,
+    });
+
+    remainingAccounts.push({
+      pubkey: getRewardInfoPDA(folio, token),
+      isSigner: false,
+      isWritable: true,
+    });
+
+    remainingAccounts.push({
+      pubkey: getUserRewardInfoPDA(folio, token, callerKeypair.publicKey),
+      isSigner: false,
+      isWritable: true,
+    });
+
+    remainingAccounts.push({
+      pubkey: await getOrCreateAtaAddress(
+        context,
+        token,
+        callerKeypair.publicKey
+      ),
+      isSigner: false,
+      isWritable: true,
+    });
+  }
+
+  return remainingAccounts;
 }

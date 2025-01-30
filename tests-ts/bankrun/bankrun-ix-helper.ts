@@ -4,6 +4,7 @@ import {
   getActorPDA,
   getDAOFeeConfigPDA,
   getDtfSignerPDA,
+  getFolioBasketPDA,
   getFolioFeeRecipientsPDA,
   getFolioPDA,
   getFolioSignerPDA,
@@ -12,6 +13,7 @@ import {
   getProgramRegistrarPDA,
 } from "../../utils/pda-helper";
 import {
+  AccountMeta,
   PublicKey,
   SYSVAR_RENT_PUBKEY,
   TransactionInstruction,
@@ -19,7 +21,11 @@ import {
 import { SystemProgram } from "@solana/web3.js";
 import { BN, Program } from "@coral-xyz/anchor";
 import { Keypair } from "@solana/web3.js";
-import { BanksClient, BanksTransactionResultWithMeta } from "solana-bankrun";
+import {
+  BanksClient,
+  BanksTransactionResultWithMeta,
+  ProgramTestContext,
+} from "solana-bankrun";
 import { ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { Folio } from "../../target/types/folio";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
@@ -29,7 +35,8 @@ import {
   OTHER_ADMIN_KEY,
   TOKEN_METADATA_PROGRAM_ID,
 } from "../../utils/constants";
-import { roleToStruct } from "./bankrun-account-helper";
+import { buildRemainingAccounts, roleToStruct } from "./bankrun-account-helper";
+import { getOrCreateAtaAddress } from "./bankrun-token-helper";
 
 /*
 DTF Directly
@@ -433,4 +440,111 @@ export async function removeActor<T extends boolean = true>(
   }
 
   return { ix: removeActor, extraSigners: [] } as any;
+}
+
+export async function addToBasket<T extends boolean = true>(
+  context: ProgramTestContext,
+  client: BanksClient,
+  programDtf: Program<Dtfs>,
+  folioOwnerKeypair: Keypair,
+  folio: PublicKey,
+  tokens: { mint: PublicKey; amount: BN }[],
+  initialShares: BN,
+  folioTokenMint: PublicKey,
+  programId: PublicKey,
+  programDataAddress: PublicKey,
+  executeTxn: T = true as T,
+  remainingAccounts: AccountMeta[] = []
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const addToBasket = await programDtf.methods
+    .addToBasket(
+      tokens.map((token) => token.amount),
+      initialShares
+    )
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      folioOwner: !executeTxn
+        ? OTHER_ADMIN_KEY.publicKey
+        : folioOwnerKeypair.publicKey,
+      actor: getActorPDA(folioOwnerKeypair.publicKey, folio),
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: programId,
+      dtfProgramData: programDataAddress,
+      folioProgram: FOLIO_PROGRAM_ID,
+      folio: folio,
+      folioTokenMint,
+      ownerFolioTokenAccount: await getOrCreateAtaAddress(
+        context,
+        folioTokenMint,
+        folioOwnerKeypair.publicKey
+      ),
+      folioBasket: getFolioBasketPDA(folio),
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .remainingAccounts(
+      remainingAccounts.length > 0
+        ? remainingAccounts
+        : await buildRemainingAccounts(
+            context,
+            tokens,
+            folioOwnerKeypair.publicKey,
+            folio
+          )
+    )
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, folioOwnerKeypair, [
+      ...getComputeLimitInstruction(400_000),
+      addToBasket,
+    ]) as any;
+  }
+
+  return { ix: addToBasket, extraSigners: [] } as any;
+}
+
+export async function removeFromBasket<T extends boolean = true>(
+  client: BanksClient,
+  programDtf: Program<Dtfs>,
+  folioOwnerKeypair: Keypair,
+  folio: PublicKey,
+  tokensToRemove: PublicKey[],
+  programId: PublicKey,
+  programDataAddress: PublicKey,
+  executeTxn: T = true as T
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const removeFromBasket = await programDtf.methods
+    .removeFromBasket(tokensToRemove)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      folioOwner: !executeTxn
+        ? OTHER_ADMIN_KEY.publicKey
+        : folioOwnerKeypair.publicKey,
+      actor: getActorPDA(folioOwnerKeypair.publicKey, folio),
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: programId,
+      dtfProgramData: programDataAddress,
+      folioProgram: FOLIO_PROGRAM_ID,
+      folio: folio,
+      folioBasket: getFolioBasketPDA(folio),
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, folioOwnerKeypair, [
+      removeFromBasket,
+    ]) as any;
+  }
+
+  return { ix: removeFromBasket, extraSigners: [] } as any;
 }

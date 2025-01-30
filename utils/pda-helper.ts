@@ -1,12 +1,12 @@
-import { Connection, PublicKey } from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
 import {
   FOLIO_PROGRAM_ID,
   DTF_PROGRAM_ID,
   TOKEN_METADATA_PROGRAM_ID,
   BPF_LOADER_PROGRAM_ID,
+  SPL_GOVERNANCE_PROGRAM_ID,
 } from "./constants";
 import BN from "bn.js";
-import { getGovernanceClient } from "./external/governance-helper";
 
 export function getFolioSignerPDA() {
   return PublicKey.findProgramAddressSync(
@@ -113,6 +113,13 @@ export function getFolioBasketPDA(folio: PublicKey) {
   )[0];
 }
 
+export function getFolioBasketPDAWithBump(folio: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("folio_basket"), folio.toBuffer()],
+    FOLIO_PROGRAM_ID
+  );
+}
+
 export function getUserPendingBasketPDA(folio: PublicKey, user: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("user_pending_basket"), folio.toBuffer(), user.toBuffer()],
@@ -180,16 +187,17 @@ export function getUserRewardInfoPDA(
 }
 
 export function getUserTokenRecordRealmsPDA(
-  connection: Connection,
   folioOwner: PublicKey, // Is the realm
   rewardToken: PublicKey,
   user: PublicKey
 ) {
-  const governanceClient = getGovernanceClient(connection);
-
-  return governanceClient.pda.tokenOwnerRecordAccount({
-    realmAccount: folioOwner,
-    governingTokenMintAccount: rewardToken,
-    governingTokenOwner: user,
-  }).publicKey;
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("governance"),
+      folioOwner.toBuffer(),
+      rewardToken.toBuffer(),
+      user.toBuffer(),
+    ],
+    SPL_GOVERNANCE_PROGRAM_ID
+  )[0];
 }

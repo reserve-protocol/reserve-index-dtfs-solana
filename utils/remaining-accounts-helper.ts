@@ -99,7 +99,6 @@ export async function buildRemainingAccountsForAccruesRewards(
 
     remainingAccounts.push({
       pubkey: getUserTokenRecordRealmsPDA(
-        connection,
         folioOwner,
         token,
         callerKeypair.publicKey
@@ -115,12 +114,7 @@ export async function buildRemainingAccountsForAccruesRewards(
         isWritable: true,
       });
       remainingAccounts.push({
-        pubkey: getUserTokenRecordRealmsPDA(
-          connection,
-          folioOwner,
-          token,
-          extraUser
-        ),
+        pubkey: getUserTokenRecordRealmsPDA(folioOwner, token, extraUser),
         isSigner: false,
         isWritable: false,
       });

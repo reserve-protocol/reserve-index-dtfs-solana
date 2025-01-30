@@ -64,11 +64,11 @@ impl Folio {
             Folio::validate_permission_for_action(actor, required_role)?;
         }
 
-        // Validate folio status is initialized
+        // Validate folio status
         if let Some(expected_statuses) = expected_statuses {
             check_condition!(
                 expected_statuses.contains(&FolioStatus::from(self.status)),
-                FolioNotInitialized
+                InvalidFolioStatus
             );
         }
 

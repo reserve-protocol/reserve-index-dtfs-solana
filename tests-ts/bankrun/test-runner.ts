@@ -8,4 +8,5 @@ describe("Bankrun", () => {
   require("./tests/tests-program-registrar");
   require("./tests/tests-resize-folio.ts");
   require("./tests/tests-update-folio.ts");
+  require("./tests/tests-folio-minting");
 });

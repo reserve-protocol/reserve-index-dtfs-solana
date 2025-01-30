@@ -9,7 +9,6 @@ import {
   ACCOUNT_SIZE,
   AccountLayout,
 } from "@solana/spl-token";
-
 import * as assert from "assert";
 import { BN } from "@coral-xyz/anchor";
 
@@ -162,6 +161,7 @@ export async function getTokenBalancesFromMints(
     }
     balances.push({ owner, balances: ownerBalances });
   }
+
   return balances;
 }
 
@@ -175,7 +175,8 @@ export async function assertExpectedBalancesChanges(
 ) {
   const afterBalances = await getTokenBalancesFromMints(context, mints, owners);
 
-  for (const owner of owners) {
+  for (let j = 0; j < owners.length; j++) {
+    const owner = owners[j];
     const beforeBalance = beforeBalances.find((balance) =>
       balance.owner.equals(owner)
     );
@@ -187,7 +188,7 @@ export async function assertExpectedBalancesChanges(
       assert.equal(
         afterBalance.balances[i],
         beforeBalance.balances[i] +
-          BigInt(expectedTokenBalanceChanges[i].toString())
+          BigInt(expectedTokenBalanceChanges[j * mints.length + i].toString())
       );
     }
   }

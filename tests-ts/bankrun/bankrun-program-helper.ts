@@ -103,10 +103,55 @@ export function assertError(
   txnResult: BanksTransactionResultWithMeta,
   expectedError: string
 ) {
-  assert.equal(
-    AnchorError.parse(txnResult.meta.logMessages).error.errorCode.code,
-    expectedError
+  const anchorParsedError = AnchorError.parse(txnResult.meta.logMessages);
+
+  if (anchorParsedError) {
+    assert.equal(
+      AnchorError.parse(txnResult.meta.logMessages).error.errorCode.code,
+      expectedError
+    );
+    return;
+  }
+
+  const regex = /Program log: Error: (.+)/;
+
+  const errorLogLine = txnResult.meta.logMessages.find((log) =>
+    log.match(regex)
   );
+
+  const matchedLog = errorLogLine?.match(regex);
+  if (matchedLog && matchedLog[1]) {
+    const errorMessage = matchedLog[1];
+
+    const formattedMessage = errorMessage
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join("");
+
+    assert.equal(formattedMessage, expectedError);
+    return;
+  }
+
+  assert.fail("Error not found");
+}
+
+export function assertPreTransactionError(error: any, expectedError: string) {
+  const regex = /Error: (.+):/;
+  const matchedLog = error.toString().match(regex);
+
+  if (matchedLog && matchedLog[1]) {
+    const errorMessage = matchedLog[1];
+
+    const formattedMessage = errorMessage
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join("");
+
+    assert.equal(formattedMessage, expectedError);
+    return;
+  }
+
+  assert.fail("Error not found");
 }
 
 export function buildExpectedArray(

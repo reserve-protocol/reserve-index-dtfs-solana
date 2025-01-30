@@ -5,10 +5,9 @@ use crate::{
     DtfProgram,
 };
 use anchor_lang::prelude::*;
-use shared::errors::ErrorCode::*;
 use shared::{
     check_condition,
-    constants::{ANNUALIZATION_EXP, D18, FOLIO_SEEDS, MAX_FOLIO_FEE, MIN_DAO_MINTING_FEE},
+    constants::{D18, FOLIO_SEEDS, MAX_FOLIO_FEE, MIN_DAO_MINTING_FEE},
     errors::ErrorCode,
     structs::{FolioStatus, Role, TradeEnd},
     util::math_util::CustomPreciseNumber,
@@ -117,19 +116,22 @@ impl Folio {
     pub fn set_folio_fee(&mut self, fee: u128) -> Result<()> {
         check_condition!(fee <= MAX_FOLIO_FEE, InvalidFeePerSecond);
 
+        self.folio_fee = fee;
+
+        // TODO Math
         // convert annual percentage to per-second
-        let base = D18.checked_sub(U256::from(fee)).ok_or(MathOverflow)?;
+        // let base = D18.checked_sub(U256::from(fee)).ok_or(MathOverflow)?;
 
-        let power_result = base.checked_pow(ANNUALIZATION_EXP).ok_or(MathOverflow)?;
+        // let power_result = base.checked_pow(ANNUALIZATION_EXP).ok_or(MathOverflow)?;
 
-        let fee_per_second = D18.checked_sub(power_result).ok_or(MathOverflow)?;
+        // let fee_per_second = D18.checked_sub(power_result).ok_or(MathOverflow)?;
 
-        check_condition!(
-            fee == 0 || fee_per_second != U256::from(0),
-            InvalidFeePerSecond
-        );
-
-        self.folio_fee = fee_per_second.try_into().unwrap();
+        // check_condition!(
+        //     fee == 0 || fee_per_second != U256::from(0),
+        //     InvalidFeePerSecond
+        // );
+        //
+        // self.folio_fee = fee_per_second.try_into().unwrap();
 
         emit!(FolioFeeSet {
             new_fee: self.folio_fee,

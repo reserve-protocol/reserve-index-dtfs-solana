@@ -11,6 +11,7 @@ import {
   getMetadataPDA,
   getProgramDataPDA,
   getProgramRegistrarPDA,
+  getUserPendingBasketPDA,
 } from "../../utils/pda-helper";
 import {
   AccountMeta,
@@ -547,4 +548,162 @@ export async function removeFromBasket<T extends boolean = true>(
   }
 
   return { ix: removeFromBasket, extraSigners: [] } as any;
+}
+
+export async function addToPendingBasket<T extends boolean = true>(
+  context: ProgramTestContext,
+  client: BanksClient,
+  programDtf: Program<Dtfs>,
+  userKeypair: Keypair,
+  folio: PublicKey,
+  tokens: { mint: PublicKey; amount: BN }[],
+  programId: PublicKey,
+  programDataAddress: PublicKey,
+  executeTxn: T = true as T,
+  remainingAccounts: AccountMeta[] = []
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const addToPendingBasket = await programDtf.methods
+    .addToPendingBasket(tokens.map((token) => token.amount))
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      rent: SYSVAR_RENT_PUBKEY,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      user: userKeypair.publicKey,
+      programRegistrar: getProgramRegistrarPDA(),
+      folio,
+      folioBasket: getFolioBasketPDA(folio),
+      userPendingBasket: getUserPendingBasketPDA(folio, userKeypair.publicKey),
+      folioProgram: FOLIO_PROGRAM_ID,
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: programId,
+      dtfProgramData: programDataAddress,
+    })
+    .remainingAccounts(
+      remainingAccounts.length > 0
+        ? remainingAccounts
+        : await buildRemainingAccounts(
+            context,
+            tokens,
+            userKeypair.publicKey,
+            folio
+          )
+    )
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, userKeypair, [
+      ...getComputeLimitInstruction(400_000),
+      addToPendingBasket,
+    ]) as any;
+  }
+
+  return { ix: addToPendingBasket, extraSigners: [] } as any;
+}
+
+export async function removeFromPendingBasket<T extends boolean = true>(
+  context: ProgramTestContext,
+  client: BanksClient,
+  programDtf: Program<Dtfs>,
+  userKeypair: Keypair,
+  folio: PublicKey,
+  tokens: { mint: PublicKey; amount: BN }[],
+  programId: PublicKey,
+  programDataAddress: PublicKey,
+  executeTxn: T = true as T,
+  remainingAccounts: AccountMeta[] = []
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const removeFromPendingBasket = await programDtf.methods
+    .removeFromPendingBasket(tokens.map((token) => token.amount))
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      user: userKeypair.publicKey,
+      programRegistrar: getProgramRegistrarPDA(),
+      folio,
+      folioBasket: getFolioBasketPDA(folio),
+      userPendingBasket: getUserPendingBasketPDA(folio, userKeypair.publicKey),
+      folioProgram: FOLIO_PROGRAM_ID,
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: programId,
+      dtfProgramData: programDataAddress,
+    })
+    .remainingAccounts(
+      remainingAccounts.length > 0
+        ? remainingAccounts
+        : await buildRemainingAccounts(
+            context,
+            tokens,
+            folio,
+            userKeypair.publicKey
+          )
+    )
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, userKeypair, [
+      removeFromPendingBasket,
+    ]) as any;
+  }
+
+  return { ix: removeFromPendingBasket, extraSigners: [] } as any;
+}
+
+export async function mintFolioToken<T extends boolean = true>(
+  context: ProgramTestContext,
+  client: BanksClient,
+  programDtf: Program<Dtfs>,
+  userKeypair: Keypair,
+  folio: PublicKey,
+  folioTokenMint: PublicKey,
+  tokens: { mint: PublicKey; amount: BN }[],
+  shares: BN,
+  programId: PublicKey,
+  programDataAddress: PublicKey,
+  executeTxn: T = true as T,
+  remainingAccounts: AccountMeta[] = []
+) {
+  const mintFolioToken = await programDtf.methods
+    .mintFolioToken(shares)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      user: userKeypair.publicKey,
+      programRegistrar: getProgramRegistrarPDA(),
+      folio,
+      folioTokenMint,
+      folioBasket: getFolioBasketPDA(folio),
+      userPendingBasket: getUserPendingBasketPDA(folio, userKeypair.publicKey),
+      userFolioTokenAccount: await getOrCreateAtaAddress(
+        context,
+        folioTokenMint,
+        userKeypair.publicKey
+      ),
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: programId,
+      dtfProgramData: programDataAddress,
+      folioProgram: FOLIO_PROGRAM_ID,
+    })
+    .remainingAccounts(
+      remainingAccounts.length > 0
+        ? remainingAccounts
+        : await buildRemainingAccounts(context, tokens, folio, null, false)
+    )
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, userKeypair, [
+      ...getComputeLimitInstruction(1_200_000),
+      mintFolioToken,
+    ]) as any;
+  }
+
+  return { ix: mintFolioToken, extraSigners: [] } as any;
 }

@@ -12,6 +12,7 @@ import {
   getProgramDataPDA,
   getProgramRegistrarPDAWithBump,
   getRewardInfoPDA,
+  getUserPendingBasketPDAWithBump,
   getUserRewardInfoPDA,
   getUserTokenRecordRealmsPDA,
 } from "../../utils/pda-helper";
@@ -31,6 +32,7 @@ import {
   BPF_PROGRAM_USED_BY_BANKRUN,
   DTF_PROGRAM_ID,
   MAX_FOLIO_TOKEN_AMOUNTS,
+  MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
 } from "../../utils/constants";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
 
@@ -388,6 +390,82 @@ export async function createAndSetFolioBasket(
     folioBasketPDAWithBump[0],
     "folioBasket",
     folioBasket,
+    buffer
+  );
+}
+
+export async function createAndSetUserPendingBasket(
+  ctx: ProgramTestContext,
+  program: Program<Folio>,
+  folio: PublicKey,
+  owner: PublicKey,
+  tokenAmounts: TokenAmount[]
+) {
+  const userPendingBasketPDAWithBump = getUserPendingBasketPDAWithBump(
+    folio,
+    owner
+  );
+
+  const userPendingBasket = {
+    bump: userPendingBasketPDAWithBump[1],
+    _padding: [0, 0, 0, 0, 0, 0, 0],
+    owner: owner,
+    folio: folio,
+    tokenAmounts: tokenAmounts,
+  };
+
+  const buffer = Buffer.alloc(1040);
+  let offset = 0;
+
+  // Encode discriminator
+  const discriminator = getAccountDiscriminator("UserPendingBasket");
+  discriminator.copy(buffer, offset);
+  offset += 8;
+
+  // Encode bump
+  buffer.writeUInt8(userPendingBasket.bump, offset);
+  offset += 1;
+
+  // Encode padding
+  userPendingBasket._padding.forEach((pad: number) => {
+    buffer.writeUInt8(pad, offset);
+    offset += 1;
+  });
+
+  // Encode owner pubkey
+  userPendingBasket.owner.toBuffer().copy(buffer, offset);
+  offset += 32;
+
+  // Encode folio pubkey
+  userPendingBasket.folio.toBuffer().copy(buffer, offset);
+  offset += 32;
+
+  // Encode token amounts
+  for (let i = 0; i < MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS; i++) {
+    const tokenAmount = userPendingBasket.tokenAmounts[i] || {
+      mint: PublicKey.default,
+      amountForMinting: new BN(0),
+      amountForRedeeming: new BN(0),
+    };
+
+    tokenAmount.mint.toBuffer().copy(buffer, offset);
+    offset += 32;
+    tokenAmount.amountForMinting
+      .toArrayLike(Buffer, "le", 8)
+      .copy(buffer, offset);
+    offset += 8;
+    tokenAmount.amountForRedeeming
+      .toArrayLike(Buffer, "le", 8)
+      .copy(buffer, offset);
+    offset += 8;
+  }
+
+  await setFolioAccountInfo(
+    ctx,
+    program,
+    userPendingBasketPDAWithBump[0],
+    "userPendingBasket",
+    userPendingBasket,
     buffer
   );
 }

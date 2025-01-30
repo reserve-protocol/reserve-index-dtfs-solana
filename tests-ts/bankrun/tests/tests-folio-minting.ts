@@ -348,7 +348,6 @@ describe("Bankrun - Folio basket", () => {
   ];
 
   const TEST_CASES_MINT_FOLIO_TOKEN = [
-    // // TODO add invalid mint case
     {
       desc: "(trying to mint, user providing the wrong folio mint, errors out)",
       expectedError: "InvalidFolioTokenMint",

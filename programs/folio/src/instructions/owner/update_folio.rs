@@ -1,4 +1,4 @@
-use crate::events::{AuctionLengthSet, FolioFeeSet, MintingFeeSet, TradeDelaySet};
+use crate::events::{AuctionLengthSet, MintingFeeSet, TradeDelaySet};
 use crate::state::{Actor, FeeRecipients, Folio, ProgramRegistrar};
 use anchor_lang::prelude::*;
 use shared::constants::{
@@ -121,9 +121,7 @@ pub fn handler(
     if let Some(folio_fee) = folio_fee {
         check_condition!(folio_fee <= MAX_FOLIO_FEE, InvalidFeePerSecond);
 
-        folio.folio_fee = folio_fee;
-
-        emit!(FolioFeeSet { new_fee: folio_fee });
+        folio.set_folio_fee(folio_fee)?;
     }
 
     if let Some(minting_fee) = minting_fee {

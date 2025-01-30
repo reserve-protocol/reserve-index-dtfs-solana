@@ -173,7 +173,7 @@ pub fn handler(
         folio.program_version = ctx.accounts.dtf_program.key();
         folio.program_deployment_slot = deployment_slot;
         folio.folio_token_mint = folio_token_mint_key;
-        folio.folio_fee = folio_fee;
+        folio.set_folio_fee(folio_fee)?;
         folio.minting_fee = minting_fee;
         folio.status = FolioStatus::Initializing as u8;
         folio.last_poke = Clock::get()?.unix_timestamp;
@@ -204,7 +204,6 @@ pub fn handler(
 
     emit!(FolioCreated {
         folio_token_mint: ctx.accounts.folio_token_mint.key(),
-        folio_fee,
     });
 
     Ok(())

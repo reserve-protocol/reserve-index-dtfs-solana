@@ -7,7 +7,7 @@ use shared::check_condition;
 use shared::constants::{D18, USER_REWARD_INFO_SEEDS};
 use shared::errors::ErrorCode;
 use shared::util::account_util::init_pda_account_rent;
-use shared::util::math_util::{CustomPreciseNumber, U256Number};
+use shared::util::math_util::U256Number;
 use spl_math::uint::U256;
 
 impl UserRewardInfo {
@@ -20,7 +20,6 @@ impl UserRewardInfo {
         reward_token: &Pubkey,
         reward_info: &Account<RewardInfo>,
         user_balance: u64,
-        mint_decimals: u64,
     ) -> Result<()> {
         if account_user_reward_info.data_len() == 0 {
             {
@@ -61,11 +60,7 @@ impl UserRewardInfo {
                 let mut new_account_user_reward_info: Account<UserRewardInfo> =
                     Account::<UserRewardInfo>::try_from_unchecked(account_user_reward_info)?;
 
-                new_account_user_reward_info.accrue_rewards(
-                    reward_info,
-                    user_balance,
-                    mint_decimals,
-                )?;
+                new_account_user_reward_info.accrue_rewards(reward_info, user_balance)?;
 
                 // Serialize updated struct
                 let mut data = account_user_reward_info.try_borrow_mut_data()?;
@@ -78,7 +73,7 @@ impl UserRewardInfo {
 
             check_condition!(account_user_reward_info.bump == context_bump, InvalidBump);
 
-            account_user_reward_info.accrue_rewards(reward_info, user_balance, mint_decimals)?;
+            account_user_reward_info.accrue_rewards(reward_info, user_balance)?;
 
             // Serialize updated struct
             let account_user_reward_info_account_info = account_user_reward_info.to_account_info();
@@ -90,19 +85,14 @@ impl UserRewardInfo {
         Ok(())
     }
 
-    pub fn accrue_rewards(
-        &mut self,
-        reward_info: &RewardInfo,
-        user_balance: u64,
-        mint_decimals: u64,
-    ) -> Result<()> {
+    pub fn accrue_rewards(&mut self, reward_info: &RewardInfo, user_balance: u64) -> Result<()> {
         let (delta_result, overflow) = reward_info
             .reward_index
             .to_u256()
             .overflowing_sub(self.last_reward_index.to_u256());
 
         if !overflow && delta_result != U256::from(0) {
-            self.calculate_and_update_accrued_rewards(user_balance, delta_result, mint_decimals)?;
+            self.calculate_and_update_accrued_rewards(user_balance, delta_result)?;
 
             self.last_reward_index = reward_info.reward_index;
         };
@@ -114,24 +104,23 @@ impl UserRewardInfo {
         &mut self,
         user_balance: u64,
         delta_result: U256,
-        mint_decimals: u64,
     ) -> Result<()> {
         let user_balance_u256 = U256::from(user_balance);
-        let mint_decimals_exponent = U256::from(10)
-            .checked_pow(U256::from(mint_decimals))
+
+        // When we calculate accrue rewards, the total rewards already has the mint decimals
+        // So we dont need to do anything with the decimals
+
+        let intermediate = user_balance_u256
+            .checked_mul(delta_result)
             .ok_or(ErrorCode::MathOverflow)?;
 
-        let supplier_delta = user_balance_u256
-            .checked_mul(delta_result)
-            .ok_or(ErrorCode::MathOverflow)?
-            .checked_mul(mint_decimals_exponent)
-            .ok_or(ErrorCode::MathOverflow)?
+        let supplier_delta = intermediate
             .checked_div(D18)
             .ok_or(ErrorCode::MathOverflow)?;
 
         self.accrued_rewards = self
             .accrued_rewards
-            .checked_add(CustomPreciseNumber::from(supplier_delta).to_u64_floor()?)
+            .checked_add(supplier_delta.as_u64())
             .ok_or(ErrorCode::MathOverflow)?;
 
         Ok(())

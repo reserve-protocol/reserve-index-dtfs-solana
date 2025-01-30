@@ -33,12 +33,16 @@ impl RewardInfo {
 
     pub fn accrue_rewards(
         &mut self,
-        folio_reward_ratio: u64,
+        folio_reward_ratio: U256,
         current_reward_token_balance: u64,
         current_reward_token_supply: u64,
         current_token_decimals: u64,
         current_time: u64,
     ) -> Result<()> {
+        if current_time <= self.payout_last_paid {
+            return Ok(());
+        }
+
         let balance_last_known = self.balance_last_known;
 
         self.balance_last_known = current_reward_token_balance
@@ -57,19 +61,19 @@ impl RewardInfo {
             .checked_sub(self.balance_accounted)
             .ok_or(ErrorCode::MathOverflow)?;
 
-        let handout_percentage = CustomPreciseNumber::one_e18()
-            .sub_generic(
-                CustomPreciseNumber::one_e18()
-                    .sub_generic(folio_reward_ratio)?
-                    .pow(elapsed)?,
-            )?
+        let base = CustomPreciseNumber::from(D18).sub_generic(folio_reward_ratio)?;
+
+        let pow_result = base.pow(elapsed)?;
+
+        let handout_percentage = CustomPreciseNumber::from(D18)
+            .sub(&pow_result)?
             .sub_generic(CustomPreciseNumber::one())?;
 
         let tokens_to_handout = CustomPreciseNumber::from_u64(unaccounted_balance)?
-            .mul_generic(handout_percentage)?
-            .div_generic(CustomPreciseNumber::one_e18())?;
+            .mul(&handout_percentage)?
+            .div_generic(D18)?;
 
-        if current_reward_token_supply != 0 {
+        if current_reward_token_supply > 0 {
             self.calculate_delta_index(
                 tokens_to_handout.to_u128_floor()?,
                 current_reward_token_supply,

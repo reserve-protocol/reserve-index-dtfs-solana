@@ -1,9 +1,9 @@
 use anchor_lang::prelude::*;
+use shared::util::math_util::U256Number;
 
 #[event]
 pub struct FolioCreated {
     pub folio_token_mint: Pubkey,
-    pub folio_fee: u128,
 }
 
 #[event]
@@ -100,7 +100,7 @@ pub struct RewardTokenAdded {
 
 #[event]
 pub struct RewardRatioSet {
-    pub reward_ratio: u64,
+    pub reward_ratio: U256Number,
     pub reward_half_life: u64,
 }
 

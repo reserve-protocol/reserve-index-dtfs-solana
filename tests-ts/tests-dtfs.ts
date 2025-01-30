@@ -982,7 +982,7 @@ describe("DTFs Tests", () => {
     );
   });
 
-  it.skip("should allow user to poke folio and update pending fees", async () => {
+  it("should allow user to poke folio and update pending fees", async () => {
     const folioBefore = await program.account.folio.fetch(folioPDA);
 
     await pokeFolio(
@@ -1005,7 +1005,7 @@ describe("DTFs Tests", () => {
     assert.equal(recipientFeeDiff.gt(new BN(0)), true);
   });
 
-  it.skip("should allow user to distribute fees", async () => {
+  it("should allow user to distribute fees", async () => {
     const daoFeeConfig = await programDtf.account.daoFeeConfig.fetch(
       getDAOFeeConfigPDA()
     );
@@ -1084,7 +1084,7 @@ describe("DTFs Tests", () => {
     );
   });
 
-  it.skip("should allow user to crank fee distribution", async () => {
+  it("should allow user to crank fee distribution", async () => {
     const newRecipient1ATA = await getOrCreateAtaAddress(
       connection,
       folioTokenMint.publicKey,
@@ -1311,7 +1311,7 @@ describe("DTFs Tests", () => {
       folioTokenMint.publicKey,
       tradePDA,
       new BN(1000),
-      new BN(1000)
+      new BN(2000)
     );
 
     let balancesAfter = await folioTestHelper.getBalanceSnapshot(
@@ -1426,7 +1426,11 @@ describe("DTFs Tests", () => {
       folioRewardTokens.rewardTokens[0].toBase58(),
       rewardTokenMints[0].mint.publicKey.toBase58()
     );
-    assert.equal(folioRewardTokens.rewardRatio.eq(new BN(8022536812036)), true);
+    assert.equal(
+      deserializeU256(folioRewardTokens.rewardRatio.value) ===
+        BigInt(8022536812036),
+      true
+    );
     assert.deepEqual(folioRewardTokens.folio, folioPDA);
     assert.notEqual(folioRewardTokens.bump, 0);
   });
@@ -1445,7 +1449,8 @@ describe("DTFs Tests", () => {
       );
 
     assert.equal(
-      folioRewardTokensAfter.rewardRatio.eq(new BN(1146076687433)),
+      deserializeU256(folioRewardTokensAfter.rewardRatio.value) ===
+        BigInt(1146076687433),
       true
     );
   });
@@ -1470,7 +1475,7 @@ describe("DTFs Tests", () => {
     );
   });
 
-  it.skip("should allow user to accrue rewards, after adding 1 more reward tokens", async () => {
+  it("should allow user to accrue rewards, after adding 1 more reward tokens", async () => {
     // Adding the tokens
     await addRewardToken(
       connection,
@@ -1522,7 +1527,7 @@ describe("DTFs Tests", () => {
     );
 
     // To generate a bit of rewards
-    await wait(5);
+    await wait(10);
 
     // Second call will accrue rewards
     await accrueRewards(
@@ -1577,7 +1582,7 @@ describe("DTFs Tests", () => {
     );
   });
 
-  it.skip("should allow user to claim rewards", async () => {
+  it("should allow user to claim rewards", async () => {
     const rewardInfoPDA = getRewardInfoPDA(
       folioPDA,
       rewardTokenMints[1].mint.publicKey

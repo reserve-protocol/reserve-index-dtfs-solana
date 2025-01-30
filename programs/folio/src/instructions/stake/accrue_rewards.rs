@@ -196,7 +196,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
         // Accrue rewards on reward info
         let mut reward_info: Account<RewardInfo> = Account::try_from(reward_info)?;
         reward_info.accrue_rewards(
-            folio_reward_tokens.reward_ratio,
+            folio_reward_tokens.reward_ratio.to_u256(),
             fee_recipient_token_account_parsed.amount,
             mint.supply,
             mint.decimals as u64,
@@ -220,7 +220,6 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
             &reward_token.key(),
             &reward_info,
             caller_governance_account_balance,
-            mint.decimals as u64,
         )?;
 
         // All the logic for the extra user if user != caller
@@ -260,7 +259,6 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
                 &reward_token.key(),
                 &reward_info,
                 user_governance_account_balance,
-                mint.decimals as u64,
             )?;
         }
 

@@ -4,6 +4,8 @@ use anchor_lang::prelude::*;
 use shared::check_condition;
 use shared::constants::{LN_2, MAX_REWARD_HALF_LIFE, MIN_REWARD_HALF_LIFE};
 use shared::errors::ErrorCode;
+use shared::util::math_util::U256Number;
+use spl_math::uint::U256;
 
 impl FolioRewardTokens {
     pub fn process_init_if_needed(
@@ -112,9 +114,11 @@ impl FolioRewardTokens {
             InvalidRewardHalfLife
         );
 
-        self.reward_ratio = LN_2
-            .checked_div(reward_half_life as u128)
-            .ok_or(ErrorCode::MathOverflow)? as u64;
+        let calculated_reward_ratio = U256::from(LN_2)
+            .checked_div(U256::from(reward_half_life))
+            .ok_or(ErrorCode::MathOverflow)?;
+
+        self.reward_ratio = U256Number::from_u256(calculated_reward_ratio);
 
         emit!(RewardRatioSet {
             reward_ratio: self.reward_ratio,

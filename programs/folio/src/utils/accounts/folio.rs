@@ -64,11 +64,11 @@ impl Folio {
             Folio::validate_permission_for_action(actor, required_role)?;
         }
 
-        // Validate folio status is initialized
+        // Validate folio status
         if let Some(expected_statuses) = expected_statuses {
             check_condition!(
                 expected_statuses.contains(&FolioStatus::from(self.status)),
-                FolioNotInitialized
+                InvalidFolioStatus
             );
         }
 
@@ -81,6 +81,11 @@ impl Folio {
         dtf_program: &AccountInfo<'info>,
         dtf_program_data: &AccountInfo<'info>,
     ) -> Result<()> {
+        check_condition!(
+            dtf_program.key() == self.program_version,
+            InvalidProgramVersion
+        );
+
         check_condition!(
             program_registrar.is_in_registrar(dtf_program.key()),
             ProgramNotInRegistrar

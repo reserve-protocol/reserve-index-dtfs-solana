@@ -52,7 +52,15 @@ impl FeeRecipients {
             }
         }
 
-        for new_recipient in fee_recipients_to_add {
+        // Filter out fee recipients to add that are in fee recipients to remove
+        let mut filtered_fee_recipients_to_add: Vec<FeeRecipient> = vec![];
+        for fee_recipient_to_add in fee_recipients_to_add {
+            if !fee_recipients_to_remove.contains(&fee_recipient_to_add.receiver) {
+                filtered_fee_recipients_to_add.push(fee_recipient_to_add);
+            }
+        }
+
+        for new_recipient in filtered_fee_recipients_to_add {
             check_condition!(add_index < MAX_FEE_RECIPIENTS, InvalidFeeRecipientCount);
             new_recipients[add_index] = new_recipient;
             add_index += 1;

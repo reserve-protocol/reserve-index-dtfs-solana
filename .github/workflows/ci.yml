@@ -86,3 +86,8 @@ jobs:
       #   run: |
       #     export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
       #     anchor test
+
+      - name: Bankrun Test
+        run: |
+          export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
+          anchor run test-bankrun

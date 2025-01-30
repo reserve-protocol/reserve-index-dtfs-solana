@@ -12,6 +12,7 @@ pub const D9: U256 = U256([1_000_000_000, 0, 0, 0]); // 1e9
 pub const D18: U256 = U256([1_000_000_000_000_000_000, 0, 0, 0]); // 1e18
 pub const D27: U256 = U256([0, 54_210_108_624_275_221, 0, 0]); // 1e27
 
+pub const MAX_DAO_FEE: u128 = 500_000_000_000_000_000; // 50% in 1e18
 pub const DAO_FEE_DENOMINATOR: u128 = 1_000_000_000_000_000_000; // 1e18
 
 pub const MAX_FOLIO_FEE: u128 = 500_000_000_000_000_000; // D18{1/year} 50% annually

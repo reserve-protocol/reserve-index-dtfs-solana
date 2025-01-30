@@ -14,11 +14,9 @@ import {
   pSendAndConfirmTxn,
 } from "./program-helper";
 import {
-  DTF_PROGRAM_ID,
   getActorPDA,
   getProgramDataPDA,
   getProgramRegistrarPDA,
-  FOLIO_PROGRAM_ID,
   getDtfSignerPDA,
   getFolioFeeRecipientsPDA,
   getFolioBasketPDA,
@@ -40,18 +38,12 @@ import {
   buildRemainingAccountsForClaimRewards,
 } from "./remaining-accounts-helper";
 import { getFolioProgram } from "./folio-helper";
+import { DTF_PROGRAM_ID } from "./constants";
+import { FOLIO_PROGRAM_ID } from "./constants";
 
 let dtfProgram: Program<Dtfs> = null;
 
 const SKIP_PREFLIGHT = true;
-
-export const MAX_FOLIO_FEE = new BN("500000000000000000");
-export const D18 = new BN("1000000000000000000");
-export const MIN_DAO_MINTING_FEE = new BN("500000000000000");
-
-export const MIN_AUCTION_LENGTH = new BN(60);
-export const MAX_AUCTION_LENGTH = new BN(604800);
-export const MAX_TRADE_DELAY = new BN(604800);
 
 export function getDtfProgram(
   connection: Connection,
@@ -181,6 +173,7 @@ export async function updateFolio(
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
+      folioOwner: folioOwnerKeypair.publicKey,
       actor: getActorPDA(folioOwnerKeypair.publicKey, folio),
       dtfProgramSigner: getDtfSignerPDA(),
       dtfProgram: DTF_PROGRAM_ID,

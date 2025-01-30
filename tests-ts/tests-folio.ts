@@ -11,18 +11,18 @@ import {
 import * as assert from "assert";
 
 import {
-  DTF_PROGRAM_ID,
   getActorPDA,
   getFolioFeeRecipientsPDA,
   getFolioSignerPDA,
   getProgramRegistrarPDA,
 } from "../utils/pda-helper";
 import {
+  DTF_PROGRAM_ID,
   MAX_AUCTION_LENGTH,
   MAX_FOLIO_FEE,
   MAX_TRADE_DELAY,
   MIN_DAO_MINTING_FEE,
-} from "../utils/dtf-helper";
+} from "../utils/constants";
 
 describe("Folio Tests", () => {
   let connection: Connection;
@@ -31,12 +31,12 @@ describe("Folio Tests", () => {
 
   let payerKeypair: Keypair;
   let adminKeypair: Keypair;
-  let userKeypair: Keypair = Keypair.generate();
+  const userKeypair: Keypair = Keypair.generate();
 
   let folioOwnerKeypair: Keypair;
   let folioTokenMint: Keypair;
   let folioPDA: PublicKey;
-  let randomProgramId: PublicKey = Keypair.generate().publicKey;
+  const randomProgramId: PublicKey = Keypair.generate().publicKey;
 
   before(async () => {
     ({ connection, programFolio: program, keys } = await getConnectors());

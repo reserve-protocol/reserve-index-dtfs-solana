@@ -17,7 +17,6 @@ import {
 } from "../utils/folio-helper";
 import * as assert from "assert";
 import {
-  DTF_PROGRAM_ID,
   getActorPDA,
   getDAOFeeConfigPDA,
   getDtfSignerPDA,
@@ -44,10 +43,6 @@ import {
   resizeFolio,
   updateFolio,
   setDaoFeeConfig,
-  MAX_FOLIO_FEE,
-  MIN_DAO_MINTING_FEE,
-  MAX_AUCTION_LENGTH,
-  MAX_TRADE_DELAY,
   distributeFees,
   crankFeeDistribution,
   approveTrade,
@@ -61,7 +56,6 @@ import {
   claimRewards,
 } from "../utils/dtf-helper";
 import {
-  DEFAULT_DECIMALS_MUL,
   getOrCreateAtaAddress,
   getTokenBalance,
   initToken,
@@ -75,6 +69,14 @@ import {
 } from "@solana/spl-token";
 import { createGovernanceAccounts } from "../utils/data-helper";
 import { deserializeU256 } from "../utils/math-helper";
+import {
+  DEFAULT_DECIMALS_MUL,
+  MAX_AUCTION_LENGTH,
+  DTF_PROGRAM_ID,
+  MAX_FOLIO_FEE,
+  MAX_TRADE_DELAY,
+  MIN_DAO_MINTING_FEE,
+} from "../utils/constants";
 
 describe("DTFs Tests", () => {
   let connection: Connection;
@@ -93,10 +95,10 @@ describe("DTFs Tests", () => {
   let folioTokenMint: Keypair;
   let folioPDA: PublicKey;
 
-  let feeRecipient: PublicKey = Keypair.generate().publicKey;
-  let feeRecipientNumerator: BN = new BN("600000000000000000"); //60% in D18
+  const feeRecipient: PublicKey = Keypair.generate().publicKey;
+  const feeRecipientNumerator: BN = new BN("600000000000000000"); //60% in D18
 
-  let newFeeRecipient = [
+  const newFeeRecipient = [
     {
       receiver: Keypair.generate().publicKey,
       portion: new BN(6).mul(new BN(DEFAULT_DECIMALS_MUL)).div(new BN(10)),
@@ -112,7 +114,7 @@ describe("DTFs Tests", () => {
   /*
   Tokens that can be included in the folio
   */
-  let tokenMints = [
+  const tokenMints = [
     { mint: Keypair.generate(), decimals: 9 },
     { mint: Keypair.generate(), decimals: 9 },
     { mint: Keypair.generate(), decimals: 5 },
@@ -122,7 +124,7 @@ describe("DTFs Tests", () => {
 
   let buyMint: Keypair;
 
-  let rewardTokenMints = [
+  const rewardTokenMints = [
     { mint: Keypair.generate(), decimals: 9 },
     { mint: Keypair.generate(), decimals: 9 },
     { mint: Keypair.generate(), decimals: 9 },
@@ -145,8 +147,7 @@ describe("DTFs Tests", () => {
     tradeLauncherKeypair = Keypair.generate();
 
     // Inject fake accounts in Amman for governance
-    const userTokenRecordPda = await getUserTokenRecordRealmsPDA(
-      connection,
+    const userTokenRecordPda = getUserTokenRecordRealmsPDA(
       folioOwnerKeypair.publicKey,
       rewardTokenMints[1].mint.publicKey,
       userKeypair.publicKey
@@ -621,7 +622,7 @@ describe("DTFs Tests", () => {
   });
 
   it("should add another 4 tokens to the folio", async () => {
-    let tokenAmountsToAdd = tokenMints.slice(1).map((token) => ({
+    const tokenAmountsToAdd = tokenMints.slice(1).map((token) => ({
       mint: token.mint.publicKey,
       amount: new BN(100 * 10 ** token.decimals),
     }));
@@ -1146,7 +1147,7 @@ describe("DTFs Tests", () => {
   });
 
   it("should allow user to approve trade", async () => {
-    let sellMint = tokenMints[1].mint.publicKey;
+    const sellMint = tokenMints[1].mint.publicKey;
 
     const currentTimeOnSolana = await getSolanaCurrentTime(connection);
     const folio = await program.account.folio.fetch(folioPDA);
@@ -1298,7 +1299,7 @@ describe("DTFs Tests", () => {
       { mint: buyMint.address, decimals: buyMint.decimals },
       { mint: sellMint.address, decimals: sellMint.decimals },
     ]);
-    let balancesBefore = await folioTestHelper.getBalanceSnapshot(
+    const balancesBefore = await folioTestHelper.getBalanceSnapshot(
       false,
       false,
       true
@@ -1314,7 +1315,7 @@ describe("DTFs Tests", () => {
       new BN(2000)
     );
 
-    let balancesAfter = await folioTestHelper.getBalanceSnapshot(
+    const balancesAfter = await folioTestHelper.getBalanceSnapshot(
       false,
       false,
       true
@@ -1346,7 +1347,7 @@ describe("DTFs Tests", () => {
       { mint: buyMint.address, decimals: buyMint.decimals },
       { mint: sellMint.address, decimals: sellMint.decimals },
     ]);
-    let balancesBefore = await folioTestHelper.getBalanceSnapshot(
+    const balancesBefore = await folioTestHelper.getBalanceSnapshot(
       false,
       false,
       true
@@ -1390,7 +1391,7 @@ describe("DTFs Tests", () => {
       ]
     );
 
-    let balancesAfter = await folioTestHelper.getBalanceSnapshot(
+    const balancesAfter = await folioTestHelper.getBalanceSnapshot(
       false,
       false,
       true

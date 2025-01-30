@@ -2,7 +2,7 @@ use crate::state::DAOFeeConfig;
 use anchor_lang::prelude::*;
 use shared::check_condition;
 use shared::constants::common::ADMIN;
-use shared::constants::DAO_FEE_CONFIG_SEEDS;
+use shared::constants::{DAO_FEE_CONFIG_SEEDS, MAX_DAO_FEE};
 use shared::errors::ErrorCode;
 
 #[derive(Accounts)]
@@ -24,8 +24,12 @@ pub struct SetDAOFeeConfig<'info> {
 }
 
 impl SetDAOFeeConfig<'_> {
-    pub fn validate(&self) -> Result<()> {
+    pub fn validate(&self, fee_recipient_numerator: &Option<u128>) -> Result<()> {
         check_condition!(self.admin.key() == ADMIN, Unauthorized);
+
+        if let Some(fee_recipient_numerator) = fee_recipient_numerator {
+            check_condition!(*fee_recipient_numerator <= MAX_DAO_FEE, InvalidFeeNumerator);
+        }
 
         Ok(())
     }
@@ -36,7 +40,7 @@ pub fn handler(
     fee_recipient: Option<Pubkey>,
     fee_recipient_numerator: Option<u128>,
 ) -> Result<()> {
-    ctx.accounts.validate()?;
+    ctx.accounts.validate(&fee_recipient_numerator)?;
 
     let dao_fee_config = &mut ctx.accounts.dao_fee_config;
 

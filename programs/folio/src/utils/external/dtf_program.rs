@@ -1,4 +1,7 @@
-use anchor_lang::{prelude::*, solana_program::bpf_loader_upgradeable};
+use anchor_lang::{
+    prelude::*,
+    solana_program::{bpf_loader, bpf_loader_upgradeable},
+};
 
 use shared::{check_condition, constants::DAO_FEE_DENOMINATOR, errors::ErrorCode};
 
@@ -18,6 +21,16 @@ impl DtfProgram {
         program_data_account: &AccountInfo,
     ) -> Result<u64> {
         check_condition!(program_info.executable, InvalidProgram);
+
+        if program_info.owner == &bpf_loader::id() {
+            let program_data = program_data_account.try_borrow_data()?;
+            if program_data.len() >= 12 {
+                // Make sure we have enough data for the slot
+                let slot_bytes = &program_data[4..12]; // Skip variant (4 bytes), read slot (8 bytes)
+                return Ok(u64::from_le_bytes(slot_bytes.try_into().unwrap()));
+            }
+            return Err(error!(ErrorCode::InvalidProgram));
+        }
 
         let (program_data_address, _) =
             Pubkey::find_program_address(&[program_id.as_ref()], &bpf_loader_upgradeable::id());

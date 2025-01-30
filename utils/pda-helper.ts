@@ -1,20 +1,12 @@
-import { Connection, PublicKey } from "@solana/web3.js";
-import idlFolio from "../target/idl/folio.json";
-import idlDtfs from "../target/idl/dtfs.json";
+import { PublicKey } from "@solana/web3.js";
+import {
+  FOLIO_PROGRAM_ID,
+  DTF_PROGRAM_ID,
+  TOKEN_METADATA_PROGRAM_ID,
+  BPF_LOADER_PROGRAM_ID,
+  SPL_GOVERNANCE_PROGRAM_ID,
+} from "./constants";
 import BN from "bn.js";
-import { getGovernanceClient } from "./external/governance-helper";
-export const DTF_PROGRAM_ID = new PublicKey(idlDtfs.address);
-export const FOLIO_PROGRAM_ID = new PublicKey(idlFolio.address);
-export const BPF_LOADER_PROGRAM_ID = new PublicKey(
-  "BPFLoaderUpgradeab1e11111111111111111111111"
-);
-export const SPL_GOVERNANCE_PROGRAM_ID = new PublicKey(
-  "GovER5Lthms3bLBqWub97yVrMmEogzX7xNjdXpPPCVZw"
-);
-
-export const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
-  "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
-);
 
 export function getFolioSignerPDA() {
   return PublicKey.findProgramAddressSync(
@@ -30,6 +22,13 @@ export function getProgramRegistrarPDA() {
   )[0];
 }
 
+export function getProgramRegistrarPDAWithBump() {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("program_registrar")],
+    FOLIO_PROGRAM_ID
+  );
+}
+
 export function getFolioPDA(folioTokenMint: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("folio"), folioTokenMint.toBuffer()],
@@ -37,11 +36,25 @@ export function getFolioPDA(folioTokenMint: PublicKey) {
   )[0];
 }
 
+export function getFolioPDAWithBump(folioTokenMint: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("folio"), folioTokenMint.toBuffer()],
+    FOLIO_PROGRAM_ID
+  );
+}
+
 export function getActorPDA(authority: PublicKey, folioPDA: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("actor"), authority.toBuffer(), folioPDA.toBuffer()],
     FOLIO_PROGRAM_ID
   )[0];
+}
+
+export function getActorPDAWithBump(authority: PublicKey, folioPDA: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("actor"), authority.toBuffer(), folioPDA.toBuffer()],
+    FOLIO_PROGRAM_ID
+  );
 }
 
 export function getProgramDataPDA(programId: PublicKey) {
@@ -58,11 +71,25 @@ export function getDtfSignerPDA() {
   )[0];
 }
 
+export function getDtfSignerPDAWithBump() {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("dtf_program_signer")],
+    DTF_PROGRAM_ID
+  );
+}
+
 export function getDAOFeeConfigPDA() {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("dao_fee_config")],
     DTF_PROGRAM_ID
   )[0];
+}
+
+export function getDaoFeeConfigPDAWithBump() {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("dao_fee_config")],
+    DTF_PROGRAM_ID
+  );
 }
 
 export function getFolioFeeRecipientsPDA(folio: PublicKey) {
@@ -72,11 +99,25 @@ export function getFolioFeeRecipientsPDA(folio: PublicKey) {
   )[0];
 }
 
+export function getFolioFeeRecipientsPDAWithBump(folio: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("fee_recipients"), folio.toBuffer()],
+    FOLIO_PROGRAM_ID
+  );
+}
+
 export function getFolioBasketPDA(folio: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("folio_basket"), folio.toBuffer()],
     FOLIO_PROGRAM_ID
   )[0];
+}
+
+export function getFolioBasketPDAWithBump(folio: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("folio_basket"), folio.toBuffer()],
+    FOLIO_PROGRAM_ID
+  );
 }
 
 export function getUserPendingBasketPDA(folio: PublicKey, user: PublicKey) {
@@ -146,16 +187,17 @@ export function getUserRewardInfoPDA(
 }
 
 export function getUserTokenRecordRealmsPDA(
-  connection: Connection,
   folioOwner: PublicKey, // Is the realm
   rewardToken: PublicKey,
   user: PublicKey
 ) {
-  let governanceClient = getGovernanceClient(connection);
-
-  return governanceClient.pda.tokenOwnerRecordAccount({
-    realmAccount: folioOwner,
-    governingTokenMintAccount: rewardToken,
-    governingTokenOwner: user,
-  }).publicKey;
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("governance"),
+      folioOwner.toBuffer(),
+      rewardToken.toBuffer(),
+      user.toBuffer(),
+    ],
+    SPL_GOVERNANCE_PROGRAM_ID
+  )[0];
 }

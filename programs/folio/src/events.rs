@@ -4,7 +4,6 @@ use shared::util::math_util::U256Number;
 #[event]
 pub struct FolioCreated {
     pub folio_token_mint: Pubkey,
-    pub folio_fee: u128,
 }
 
 #[event]

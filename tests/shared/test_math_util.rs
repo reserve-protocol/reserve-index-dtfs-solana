@@ -68,6 +68,9 @@ mod tests {
 
             let base = CustomPreciseNumber(D18);
             assert_eq!(base.pow(1).unwrap().0, D18);
+
+            let base = CustomPreciseNumber::from_u64(9).unwrap();
+            assert_eq!(base.pow(2).unwrap().to_u64_floor().unwrap(), 81);
         }
 
         #[test]

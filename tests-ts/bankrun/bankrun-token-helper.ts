@@ -16,14 +16,15 @@ export function initToken(
   context: ProgramTestContext,
   mintAuthority: PublicKey,
   mint: Keypair = Keypair.generate(),
-  decimals: number = DEFAULT_DECIMALS
+  decimals: number = DEFAULT_DECIMALS,
+  supply: BN = new BN(0)
 ) {
   const mintAccData = Buffer.alloc(MINT_SIZE);
   MintLayout.encode(
     {
       mintAuthorityOption: 1,
       mintAuthority: mintAuthority,
-      supply: BigInt(0),
+      supply: BigInt(supply.toString()),
       decimals,
       isInitialized: true,
       freezeAuthorityOption: 0,

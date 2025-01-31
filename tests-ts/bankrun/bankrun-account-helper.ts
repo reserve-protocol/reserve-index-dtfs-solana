@@ -212,7 +212,8 @@ export async function createAndSetFolio(
   folioTokenMint: PublicKey,
   programVersion: PublicKey,
   programDeploymentSlot: BN,
-  status: FolioStatus = FolioStatus.Initialized
+  status: FolioStatus = FolioStatus.Initialized,
+  customFolioMintingFee: BN | null = null
 ) {
   const folioPDAWithBump = getFolioPDAWithBump(folioTokenMint);
 
@@ -224,7 +225,7 @@ export async function createAndSetFolio(
     programDeploymentSlot: programDeploymentSlot,
     folioTokenMint: folioTokenMint,
     folioFee: MAX_FOLIO_FEE,
-    mintingFee: MIN_DAO_MINTING_FEE,
+    mintingFee: customFolioMintingFee ?? MIN_DAO_MINTING_FEE,
     lastPoke: new BN(0),
     daoPendingFeeShares: new BN(0),
     feeRecipientsPendingFeeShares: new BN(0),
@@ -478,12 +479,12 @@ export async function setDTFAccountInfo(
   program: Program<Dtfs>,
   accountAddress: PublicKey,
   accountName: string,
-  accountData: any
+  accountData: any,
+  preEncodedAccountData?: Buffer
 ) {
-  const encodedAccountData = await program.coder.accounts.encode(
-    accountName,
-    accountData
-  );
+  const encodedAccountData =
+    preEncodedAccountData ??
+    (await program.coder.accounts.encode(accountName, accountData));
 
   ctx.setAccount(accountAddress, {
     lamports: 1_000_000_000,
@@ -525,12 +526,35 @@ export async function createAndSetDaoFeeConfig(
     feeNumerator,
   };
 
+  const buffer = Buffer.alloc(57);
+  let offset = 0;
+  // Encode discriminator
+  const discriminator = getAccountDiscriminator("DAOFeeConfig");
+  discriminator.copy(buffer, offset);
+  offset += 8;
+
+  // Encode bump
+  buffer.writeUInt8(daoFeeConfig.bump, offset);
+  offset += 1;
+
+  // Encode owner pubkey
+  daoFeeConfig.feeRecipient.toBuffer().copy(buffer, offset);
+  offset += 32;
+
+  // Encode fee numerator
+  const value = BigInt(daoFeeConfig.feeNumerator.toString());
+  buffer.writeBigUInt64LE(BigInt(value & BigInt("0xFFFFFFFFFFFFFFFF")), offset);
+  offset += 8;
+  buffer.writeBigUInt64LE(BigInt(value >> BigInt(64)), offset);
+  offset += 8;
+
   await setDTFAccountInfo(
     ctx,
     program,
     daoFeeConfigPDAWithBump[0],
     "daoFeeConfig",
-    daoFeeConfig
+    daoFeeConfig,
+    buffer
   );
 }
 

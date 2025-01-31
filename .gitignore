@@ -9,6 +9,7 @@ test-ledger
 .vscode
 .idea
 .env
+.cursorrules
 
 # TypeScript build output
 **/*.js

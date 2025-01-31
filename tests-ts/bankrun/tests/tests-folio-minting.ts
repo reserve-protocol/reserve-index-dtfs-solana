@@ -23,6 +23,7 @@ import {
 } from "../bankrun-account-helper";
 import {
   assertExpectedBalancesChanges,
+  getAtaAddress,
   getTokenBalancesFromMints,
   mintToken,
 } from "../bankrun-token-helper";
@@ -32,6 +33,7 @@ import {
   DEFAULT_DECIMALS,
   DTF_PROGRAM_ID,
   MAX_FOLIO_TOKEN_AMOUNTS,
+  MAX_MINTING_FEE,
   MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
   MIN_DAO_MINTING_FEE,
 } from "../../../utils/constants";
@@ -80,7 +82,7 @@ describe("Bankrun - Folio basket", () => {
   let folioOwnerKeypair: Keypair;
   let folioTokenMint: Keypair;
   let folioPDA: PublicKey;
-  let folioBasketPDA: PublicKey;
+
   let feeReceiver: Keypair;
 
   let userKeypair: Keypair;
@@ -101,24 +103,35 @@ describe("Bankrun - Folio basket", () => {
     }[];
     folioBasketTokens: TokenAmount[];
     remainingAccounts: () => AccountMeta[];
+    customFolioTokenMint: Keypair | null;
+    customFolioMintingFee: BN | null;
+    customDAOMintingFee: BN | null;
+    shares: BN;
 
     // Is Validated before sending the transaction
     isPreTransactionValidated: boolean;
 
     // Expected changes
     expectedFolioTokenBalanceChange: BN;
+    expectedDaoFeeShares: BN;
+    expectedFeeReceiverShares: BN;
     expectedTokenBalanceChanges: BN[];
   } = {
     alreadyIncludedTokens: [],
     tokens: [],
     folioBasketTokens: [],
     remainingAccounts: () => [],
-
+    customFolioTokenMint: null,
+    customFolioMintingFee: null,
+    customDAOMintingFee: null,
+    shares: new BN(0),
     // Is Validated before sending the transaction
     isPreTransactionValidated: false,
 
     // Expected changes
     expectedFolioTokenBalanceChange: new BN(0),
+    expectedDaoFeeShares: new BN(0),
+    expectedFeeReceiverShares: new BN(0),
     expectedTokenBalanceChanges: Array(MINTS.length).fill(new BN(0)),
   };
 
@@ -334,33 +347,161 @@ describe("Bankrun - Folio basket", () => {
     },
   ];
 
-  // const TEST_CASES_MINT_FOLIO_TOKEN = [
-  // // TODO add invalid mint case
-  //   {
-  //     desc: "(trying to mint, user is missing some tokens that are part of the folio's basket)",
-  //     expectedError: "InvalidNumberOfRemainingAccounts",
-  //   },
-  //   {
-  //     desc: "(passing invalid dao fee config account, errors out)",
-  //     expectedError: "InvalidNumberOfRemainingAccounts",
-  //   },
-  //   {
-  //     desc: "(user trying to mint more shares than he is allowed, errors out)",
-  //     expectedError: "InvalidNumberOfRemainingAccounts",
-  //   },
-  //   {
-  //     desc: "(calculated dao fee shares are lower than min dao shares, so take minimum, succeeds)",
-  //     expectedError: "InvalidReceiverTokenAccount",
-  //   },
-  //   {
-  //     desc: "(error tries to claim max amount of shares he can, succeeds)",
-  //     expectedError: "InvalidBalance",
-  //   },
-  //   {
-  //     desc: "(user tries to claim partial amount of shares he can, succeeds)",
-  //     expectedError: "InvalidAddedTokenMints",
-  //   },
-  // ];
+  const TEST_CASES_MINT_FOLIO_TOKEN = [
+    // // TODO add invalid mint case
+    {
+      desc: "(trying to mint, user providing the wrong folio mint, errors out)",
+      expectedError: "InvalidFolioTokenMint",
+      customFolioTokenMint: Keypair.generate(),
+      folioBasketTokens: [
+        new TokenAmount(MINTS[0].publicKey, new BN(1_000_000), new BN(0)),
+      ],
+      tokens: [{ mint: MINTS[0].publicKey, amount: new BN(1_000_000) }],
+    },
+    {
+      desc: "(trying to mint, user is passing no remaining accounts, errors out)",
+      expectedError: "InvalidNumberOfRemainingAccounts",
+      folioBasketTokens: [
+        new TokenAmount(MINTS[0].publicKey, new BN(1_000_000), new BN(0)),
+        new TokenAmount(MINTS[1].publicKey, new BN(1_000_000), new BN(0)),
+      ],
+      alreadyIncludedTokens: [
+        new TokenAmount(MINTS[0].publicKey, new BN(1_000_000), new BN(0)),
+        new TokenAmount(MINTS[1].publicKey, new BN(1_000_000), new BN(0)),
+      ],
+      tokens: [],
+      shares: new BN(1),
+    },
+    {
+      desc: "(trying to mint, user is passing the wrong remaining accounts, errors out)",
+      expectedError: "InvalidReceiverTokenAccount",
+      remainingAccounts: () => [
+        {
+          pubkey: getAtaAddress(MINTS[2].publicKey, folioPDA),
+          isSigner: false,
+          isWritable: false,
+        },
+        {
+          pubkey: getAtaAddress(MINTS[1].publicKey, folioPDA),
+          isSigner: false,
+          isWritable: false,
+        },
+      ],
+      folioBasketTokens: [
+        new TokenAmount(MINTS[0].publicKey, new BN(1_000_000), new BN(0)),
+        new TokenAmount(MINTS[1].publicKey, new BN(1_000_000), new BN(0)),
+      ],
+      alreadyIncludedTokens: [
+        new TokenAmount(MINTS[0].publicKey, new BN(1_000_000), new BN(0)),
+        new TokenAmount(MINTS[1].publicKey, new BN(1_000_000), new BN(0)),
+      ],
+      tokens: [
+        { mint: MINTS[0].publicKey, amount: new BN(0) },
+        { mint: MINTS[2].publicKey, amount: new BN(0) },
+      ],
+      shares: new BN(1),
+    },
+    {
+      desc: "(trying to mint, user is missing some tokens that are part of the folio's basket)",
+      expectedError: "MintMismatch",
+      folioBasketTokens: [
+        new TokenAmount(MINTS[0].publicKey, new BN(1_000_000), new BN(0)),
+        new TokenAmount(MINTS[1].publicKey, new BN(1_000_000), new BN(0)),
+      ],
+      alreadyIncludedTokens: [
+        new TokenAmount(MINTS[0].publicKey, new BN(1_000_000), new BN(0)),
+      ],
+      tokens: [
+        { mint: MINTS[0].publicKey, amount: new BN(0) },
+        { mint: MINTS[1].publicKey, amount: new BN(0) },
+      ],
+      shares: new BN(1),
+    },
+    {
+      desc: "(user trying to mint more shares than he is allowed, errors out)",
+      expectedError: "InvalidShareAmountProvided",
+      folioBasketTokens: [
+        new TokenAmount(MINTS[0].publicKey, new BN(1_000_000), new BN(0)),
+        new TokenAmount(MINTS[1].publicKey, new BN(1_000_000), new BN(0)),
+      ],
+      alreadyIncludedTokens: [
+        new TokenAmount(MINTS[0].publicKey, new BN(1_000_000), new BN(0)),
+        new TokenAmount(MINTS[1].publicKey, new BN(1_000_000), new BN(0)),
+      ],
+      tokens: [
+        { mint: MINTS[0].publicKey, amount: new BN(0) },
+        { mint: MINTS[1].publicKey, amount: new BN(0) },
+      ],
+      shares: new BN(1_000_000_000),
+    },
+    // Can only mint 1_000_000 shares, because the folio token balance is 9999 tokens
+    // from the minting in the init base function
+    {
+      desc: "(calculated dao fee shares are lower than min dao shares, so take minimum, succeeds)",
+      expectedError: null,
+      folioBasketTokens: [
+        new TokenAmount(MINTS[0].publicKey, new BN(1_000_000), new BN(0)),
+        new TokenAmount(MINTS[1].publicKey, new BN(1_000_000), new BN(0)),
+      ],
+      alreadyIncludedTokens: [
+        new TokenAmount(MINTS[0].publicKey, new BN(1_000_000), new BN(0)),
+        new TokenAmount(MINTS[1].publicKey, new BN(1_000_000), new BN(0)),
+      ],
+      tokens: [
+        { mint: MINTS[0].publicKey, amount: new BN(0) },
+        { mint: MINTS[1].publicKey, amount: new BN(0) },
+      ],
+      shares: new BN(1_000_000),
+      expectedFolioTokenBalanceChange: new BN(1_000_000),
+      expectedDaoFeeShares: new BN(500), // 5 bps
+      expectedFeeReceiverShares: new BN(0),
+      expectedTokenBalanceChanges: [new BN(999_999), new BN(999_999)],
+    },
+    {
+      desc: "(error tries to claim max amount of shares he can, succeeds)",
+      expectedError: null,
+      folioBasketTokens: [
+        new TokenAmount(MINTS[0].publicKey, new BN(1_000_000), new BN(0)),
+        new TokenAmount(MINTS[1].publicKey, new BN(1_000_000), new BN(0)),
+      ],
+      alreadyIncludedTokens: [
+        new TokenAmount(MINTS[0].publicKey, new BN(1_000_000), new BN(0)),
+        new TokenAmount(MINTS[1].publicKey, new BN(1_000_000), new BN(0)),
+      ],
+      tokens: [
+        { mint: MINTS[0].publicKey, amount: new BN(0) },
+        { mint: MINTS[1].publicKey, amount: new BN(0) },
+      ],
+      shares: new BN(1_000_001),
+      expectedFolioTokenBalanceChange: new BN(1_000_001),
+      expectedDaoFeeShares: new BN(501), // 5 bps
+      expectedFeeReceiverShares: new BN(0),
+      expectedTokenBalanceChanges: [new BN(1_000_000), new BN(1_000_000)],
+    },
+    {
+      desc: "(user tries to claims, fee receiver should get fees as well, succeeds)",
+      expectedError: null,
+      customDAOMintingFee: MAX_MINTING_FEE,
+      customFolioMintingFee: MAX_MINTING_FEE,
+      folioBasketTokens: [
+        new TokenAmount(MINTS[0].publicKey, new BN(1_000_000), new BN(0)),
+        new TokenAmount(MINTS[1].publicKey, new BN(1_000_000), new BN(0)),
+      ],
+      alreadyIncludedTokens: [
+        new TokenAmount(MINTS[0].publicKey, new BN(1_000_000), new BN(0)),
+        new TokenAmount(MINTS[1].publicKey, new BN(1_000_000), new BN(0)),
+      ],
+      tokens: [
+        { mint: MINTS[0].publicKey, amount: new BN(0) },
+        { mint: MINTS[1].publicKey, amount: new BN(0) },
+      ],
+      shares: new BN(1_000_001),
+      expectedFolioTokenBalanceChange: new BN(1_000_001),
+      expectedDaoFeeShares: new BN(10_001), // 1%
+      expectedFeeReceiverShares: new BN(90_000), //9%
+      expectedTokenBalanceChanges: [new BN(1_000_000), new BN(1_000_000)],
+    },
+  ];
 
   function buildInvalidRemainingAccounts(
     tokens: {
@@ -376,7 +517,13 @@ describe("Bankrun - Folio basket", () => {
     );
   }
 
-  async function initBaseCase(folioBasketTokens: TokenAmount[] = []) {
+  async function initBaseCase(
+    folioBasketTokens: TokenAmount[] = [],
+    customFolioTokenMint: Keypair | null = null,
+    customFolioTokenSupply: BN = new BN(0),
+    customDAOMintingFee: BN | null = null,
+    customFolioMintingFee: BN | null = null
+  ) {
     await createAndSetDTFProgramSigner(context, programDtf);
     await createAndSetProgramRegistrar(context, programFolio, [
       DTF_PROGRAM_ID,
@@ -387,7 +534,7 @@ describe("Bankrun - Folio basket", () => {
       context,
       programDtf,
       feeReceiver.publicKey,
-      MIN_DAO_MINTING_FEE
+      customDAOMintingFee ?? MIN_DAO_MINTING_FEE
     );
 
     await createAndSetFolio(
@@ -395,10 +542,22 @@ describe("Bankrun - Folio basket", () => {
       programFolio,
       folioTokenMint.publicKey,
       DTF_PROGRAM_ID,
-      VALID_DEPLOYMENT_SLOT
+      VALID_DEPLOYMENT_SLOT,
+      FolioStatus.Initialized,
+      customFolioMintingFee
     );
 
-    initToken(context, folioPDA, folioTokenMint, DEFAULT_DECIMALS);
+    initToken(
+      context,
+      folioPDA,
+      folioTokenMint,
+      DEFAULT_DECIMALS,
+      customFolioTokenSupply
+    );
+
+    if (customFolioTokenMint) {
+      initToken(context, folioPDA, customFolioTokenMint, DEFAULT_DECIMALS);
+    }
 
     // Give initial balance of tokens to the folio for each of the mint it has
     for (const mint of folioBasketTokens) {
@@ -458,7 +617,6 @@ describe("Bankrun - Folio basket", () => {
     await airdrop(context, userKeypair.publicKey, 1000);
 
     folioPDA = getFolioPDA(folioTokenMint.publicKey);
-    folioBasketPDA = getFolioBasketPDA(folioPDA);
 
     await initBaseCase();
   });
@@ -993,6 +1151,239 @@ describe("Bankrun - Folio basket", () => {
                   // Amounts for folio (inverse of user)
                   expectedFolioTokenBalanceChange.neg(),
                   ...expectedTokenBalanceChanges.map((change) => change.neg()),
+                ]
+              );
+            });
+          }
+        });
+      }
+    );
+  });
+
+  describe("Specific Cases - Mint folio token", () => {
+    TEST_CASES_MINT_FOLIO_TOKEN.forEach(
+      ({ desc, expectedError, ...restOfParams }) => {
+        describe(`When ${desc}`, () => {
+          let txnResult: BanksTransactionResultWithMeta;
+          const {
+            remainingAccounts,
+            tokens,
+            folioBasketTokens,
+            alreadyIncludedTokens,
+            isPreTransactionValidated,
+            expectedFolioTokenBalanceChange,
+            expectedDaoFeeShares,
+            expectedFeeReceiverShares,
+            expectedTokenBalanceChanges,
+            customFolioTokenMint,
+            shares,
+            customDAOMintingFee,
+            customFolioMintingFee,
+          } = {
+            ...DEFAULT_PARAMS,
+            ...restOfParams,
+          };
+          let beforeUserBalances: { owner: PublicKey; balances: bigint[] }[] =
+            [];
+
+          let basketBefore: TokenAmount[] = [];
+          let userPendingBasketBefore: TokenAmount[] = [];
+
+          let preTxnError: any;
+
+          before(async () => {
+            preTxnError = null;
+
+            await initBaseCase(
+              folioBasketTokens,
+              customFolioTokenMint,
+              new BN(1000_000_000_000),
+              customDAOMintingFee,
+              customFolioMintingFee
+            );
+
+            await createAndSetUserPendingBasket(
+              context,
+              programFolio,
+              folioPDA,
+              userKeypair.publicKey,
+              alreadyIncludedTokens
+            );
+
+            await travelFutureSlot(context);
+
+            const tokenMintToUse = customFolioTokenMint || folioTokenMint;
+
+            beforeUserBalances = await getTokenBalancesFromMints(
+              context,
+              [tokenMintToUse.publicKey],
+              [userKeypair.publicKey]
+            );
+
+            basketBefore = (
+              await programFolio.account.folioBasket.fetch(
+                getFolioBasketPDA(folioPDA)
+              )
+            ).tokenAmounts;
+
+            userPendingBasketBefore = (
+              await programFolio.account.userPendingBasket.fetch(
+                getUserPendingBasketPDA(folioPDA, userKeypair.publicKey)
+              )
+            ).tokenAmounts;
+
+            try {
+              txnResult = await mintFolioToken<true>(
+                context,
+                banksClient,
+                programDtf,
+                userKeypair,
+                folioPDA,
+                tokenMintToUse.publicKey,
+                tokens,
+                shares,
+                DTF_PROGRAM_ID,
+                getProgramDataPDA(DTF_PROGRAM_ID),
+                true,
+                remainingAccounts()
+              );
+            } catch (e) {
+              // Transaction limit is caught before sending the transaction
+              preTxnError = e;
+            }
+          });
+
+          if (isPreTransactionValidated) {
+            it("should fail pre transaction validation", () => {
+              assertPreTransactionError(preTxnError, expectedError);
+            });
+            return;
+          }
+
+          if (expectedError) {
+            it("should fail with expected error", () => {
+              assertError(txnResult, expectedError);
+            });
+          } else {
+            it("should succeed", async () => {
+              await travelFutureSlot(context);
+
+              // Folio should have updated fees
+              const folio = await programFolio.account.folio.fetch(folioPDA);
+              assert.equal(
+                folio.daoPendingFeeShares.eq(expectedDaoFeeShares),
+                true
+              );
+              assert.equal(
+                folio.feeRecipientsPendingFeeShares.eq(
+                  expectedFeeReceiverShares
+                ),
+                true
+              );
+
+              // Folio basket has changed amounts and token accounts have change balances
+              const basket = await programFolio.account.folioBasket.fetch(
+                getFolioBasketPDA(folioPDA)
+              );
+
+              const expectedTokenAmountsForFolioBasket = buildExpectedArray(
+                folioBasketTokens,
+                [],
+                [],
+                MAX_FOLIO_TOKEN_AMOUNTS,
+                new TokenAmount(PublicKey.default, new BN(0), new BN(0)),
+                () => true
+              );
+
+              for (let i = 0; i < MAX_FOLIO_TOKEN_AMOUNTS; i++) {
+                assert.equal(
+                  basket.tokenAmounts[i].mint.toString(),
+                  expectedTokenAmountsForFolioBasket[i].mint.toString()
+                );
+                // Amount for minting done below
+                assert.equal(
+                  basket.tokenAmounts[i].amountForRedeeming.eq(
+                    expectedTokenAmountsForFolioBasket[i].amountForRedeeming
+                  ),
+                  true
+                );
+              }
+
+              // User pending basket has changed amounts
+              const userPendingBasket =
+                await programFolio.account.userPendingBasket.fetch(
+                  getUserPendingBasketPDA(folioPDA, userKeypair.publicKey)
+                );
+
+              const expectedTokenAmountsForUserPendingBasket =
+                buildExpectedArray(
+                  alreadyIncludedTokens,
+                  tokens
+                    .map(
+                      (token) =>
+                        new TokenAmount(token.mint, new BN(0), new BN(0))
+                    )
+                    // Filter duplicates
+                    .filter(
+                      (tokenAmount) =>
+                        !alreadyIncludedTokens.some((ta) =>
+                          ta.mint.equals(tokenAmount.mint)
+                        )
+                    ),
+                  [],
+                  MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
+                  new TokenAmount(PublicKey.default, new BN(0), new BN(0)),
+                  () => true
+                );
+
+              for (let i = 0; i < MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS; i++) {
+                assert.equal(
+                  userPendingBasket.tokenAmounts[i].mint.toString(),
+                  expectedTokenAmountsForUserPendingBasket[i].mint.toString()
+                );
+                // Amount for minting done below
+                assert.equal(
+                  userPendingBasket.tokenAmounts[i].amountForRedeeming.eq(
+                    expectedTokenAmountsForUserPendingBasket[i]
+                      .amountForRedeeming
+                  ),
+                  true
+                );
+              }
+
+              // Assertion for minting amouunt
+              for (let i = 0; i < folioBasketTokens.length; i++) {
+                // Both user and folio should have the same amount removed from minting
+                assert.equal(
+                  basket.tokenAmounts[i].amountForMinting.eq(
+                    basketBefore[i].amountForMinting.sub(
+                      expectedTokenBalanceChanges[i]
+                    )
+                  ),
+                  true
+                );
+                assert.equal(
+                  userPendingBasket.tokenAmounts[i].amountForMinting.eq(
+                    userPendingBasketBefore[i].amountForMinting.sub(
+                      expectedTokenBalanceChanges[i]
+                    )
+                  ),
+                  true
+                );
+              }
+              // And assert transfer of token amounts
+              const tokenMintToUse = customFolioTokenMint || folioTokenMint;
+
+              await assertExpectedBalancesChanges(
+                context,
+                beforeUserBalances,
+                [tokenMintToUse.publicKey],
+                [userKeypair.publicKey],
+                [
+                  // Amounts for user
+                  expectedFolioTokenBalanceChange
+                    .sub(expectedDaoFeeShares)
+                    .sub(expectedFeeReceiverShares),
                 ]
               );
             });

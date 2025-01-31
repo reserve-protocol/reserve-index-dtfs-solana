@@ -66,7 +66,7 @@ import {
 } from "../bankrun-general-tests-helper";
 import * as assert from "assert";
 
-describe("Bankrun - Folio basket", () => {
+describe("Bankrun - Folio minting", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
   let banksClient: BanksClient;
@@ -457,7 +457,7 @@ describe("Bankrun - Folio basket", () => {
       expectedTokenBalanceChanges: [new BN(999_999), new BN(999_999)],
     },
     {
-      desc: "(error tries to claim max amount of shares he can, succeeds)",
+      desc: "(user claims max amount of shares he can, succeeds)",
       expectedError: null,
       folioBasketTokens: [
         new TokenAmount(MINTS[0].publicKey, new BN(1_000_000), new BN(0)),
@@ -478,7 +478,7 @@ describe("Bankrun - Folio basket", () => {
       expectedTokenBalanceChanges: [new BN(1_000_000), new BN(1_000_000)],
     },
     {
-      desc: "(user tries to claims, fee receiver should get fees as well, succeeds)",
+      desc: "(user claims, fee receiver should get fees as well, succeeds)",
       expectedError: null,
       customDAOMintingFee: MAX_MINTING_FEE,
       customFolioMintingFee: MAX_MINTING_FEE,

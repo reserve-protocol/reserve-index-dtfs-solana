@@ -73,14 +73,14 @@ jobs:
           cargo llvm-cov --workspace --html \
           --ignore-filename-regex "(.*/instructions/.*|.*/external/.*|.*events\.rs$|.*state\.rs$|.*lib\.rs$|.*errors\.rs$)"
 
-      - name: Upload coverage report
-        if: always()
-        continue-on-error: true
-        uses: actions/upload-artifact@v3
-        with:
-          name: coverage-report
-          path: target/llvm-cov/html
-          retention-days: 7
+      # - name: Upload coverage report
+      #   if: always()
+      #   continue-on-error: true
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: coverage-report
+      #     path: target/llvm-cov/html
+      #     retention-days: 7
 
       # - name: Anchor Test
       #   run: |

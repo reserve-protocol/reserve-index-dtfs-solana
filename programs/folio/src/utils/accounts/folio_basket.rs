@@ -148,7 +148,7 @@ impl FolioBasket {
                     }
                 }
             } else if needs_to_validate_mint_existence {
-                return Err(error!(InvalidAddedTokenMints));
+                return Err(error!(InvalidRemovedTokenMints));
             }
         }
 

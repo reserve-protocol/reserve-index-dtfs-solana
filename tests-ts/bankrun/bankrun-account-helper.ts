@@ -5,6 +5,7 @@ import {
   getActorPDAWithBump,
   getDaoFeeConfigPDAWithBump,
   getDtfSignerPDAWithBump,
+  getFeeDistributionPDAWithBump,
   getFolioBasketPDAWithBump,
   getFolioFeeRecipientsPDAWithBump,
   getFolioPDAWithBump,
@@ -213,7 +214,10 @@ export async function createAndSetFolio(
   programVersion: PublicKey,
   programDeploymentSlot: BN,
   status: FolioStatus = FolioStatus.Initialized,
-  customFolioMintingFee: BN | null = null
+  customFolioMintingFee: BN | null = null,
+  lastPoke: BN = new BN(0),
+  daoPendingFeeShares: BN = new BN(0),
+  feeRecipientsPendingFeeShares: BN = new BN(0)
 ) {
   const folioPDAWithBump = getFolioPDAWithBump(folioTokenMint);
 
@@ -226,9 +230,9 @@ export async function createAndSetFolio(
     folioTokenMint: folioTokenMint,
     folioFee: MAX_FOLIO_FEE,
     mintingFee: customFolioMintingFee ?? MIN_DAO_MINTING_FEE,
-    lastPoke: new BN(0),
-    daoPendingFeeShares: new BN(0),
-    feeRecipientsPendingFeeShares: new BN(0),
+    lastPoke: lastPoke,
+    daoPendingFeeShares: daoPendingFeeShares,
+    feeRecipientsPendingFeeShares: feeRecipientsPendingFeeShares,
     tradeDelay: MAX_TRADE_DELAY,
     auctionLength: MAX_AUCTION_LENGTH,
     currentTradeId: new BN(0),
@@ -264,14 +268,15 @@ export async function createAndSetFeeRecipients(
   ctx: ProgramTestContext,
   program: Program<Folio>,
   folio: PublicKey,
-  feeRecipientsInitial: FeeRecipient[]
+  feeRecipientsInitial: FeeRecipient[],
+  distributionIndex: BN = new BN(0)
 ) {
   const feeRecipientsPDAWithBump = getFolioFeeRecipientsPDAWithBump(folio);
 
   const feeRecipients = {
     bump: feeRecipientsPDAWithBump[1],
     _padding: [0, 0, 0, 0, 0, 0, 0],
-    distributionIndex: new BN(0),
+    distributionIndex: distributionIndex,
     folio: folio,
     fee_recipients: feeRecipientsInitial.map((fr) => ({
       receiver: fr.receiver,
@@ -323,6 +328,92 @@ export async function createAndSetFeeRecipients(
     feeRecipientsPDAWithBump[0],
     "feeRecipients",
     feeRecipients,
+    buffer
+  );
+}
+
+export async function createAndSetFeeDistribution(
+  ctx: ProgramTestContext,
+  program: Program<Folio>,
+  folio: PublicKey,
+  cranker: PublicKey,
+  distribtionIndex: BN,
+  amountToDistribute: BN,
+  feeRecipients: FeeRecipient[]
+) {
+  const feeDistributionPDAWithBump = getFeeDistributionPDAWithBump(
+    folio,
+    distribtionIndex
+  );
+
+  const feeDistribution = {
+    bump: feeDistributionPDAWithBump[1],
+    _padding: [0, 0, 0, 0, 0, 0, 0],
+    distributionIndex: distribtionIndex,
+    folio: folio,
+    cranker: cranker,
+    amountToDistribute: amountToDistribute,
+    fee_recipients: feeRecipients.map((fr) => ({
+      receiver: fr.receiver,
+      portion: fr.portion,
+    })),
+  };
+
+  // Manual encoding for fee recipients
+  const buffer = Buffer.alloc(2656);
+  let offset = 0;
+
+  // Encode discriminator
+  const discriminator = getAccountDiscriminator("FeeDistribution");
+  discriminator.copy(buffer, offset);
+  offset += 8;
+
+  // Encode bump
+  buffer.writeUInt8(feeDistribution.bump, offset);
+  offset += 1;
+
+  // Encode padding
+  feeDistribution._padding.forEach((pad: number) => {
+    buffer.writeUInt8(pad, offset);
+    offset += 1;
+  });
+
+  // Encode distribution_index
+  buffer.writeBigUInt64LE(
+    BigInt(feeDistribution.distributionIndex.toNumber()),
+    offset // Start writing at the current offset
+  );
+  offset += 8;
+
+  // Encode folio pubkey
+  feeDistribution.folio.toBuffer().copy(buffer, offset);
+  offset += 32;
+
+  // Encode cranker pubkey
+  feeDistribution.cranker.toBuffer().copy(buffer, offset);
+  offset += 32;
+
+  // Encode amount to distribute
+  buffer.writeBigUInt64LE(
+    BigInt(feeDistribution.amountToDistribute.toNumber()),
+    offset // Start writing at the current offset
+  );
+  offset += 8;
+
+  // Encode fee recipients
+  feeDistribution.fee_recipients.forEach((fr: any) => {
+    fr.receiver.toBuffer().copy(buffer, offset);
+    offset += 32;
+    fr.portion.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+    offset += 8;
+  });
+
+  await setFolioAccountInfo(
+    ctx,
+    program,
+    feeDistributionPDAWithBump[0],
+    "feeDistribution",
+    feeDistribution,
     buffer
   );
 }

@@ -117,6 +117,12 @@ pub fn handler<'info>(
     let token_amounts_user = &mut ctx.accounts.user_pending_basket.load_mut()?;
     token_amounts_user.reorder_token_amounts(&folio_basket.token_amounts)?;
 
+    // Validate the user passes as many remaining accounts as the folio has mints (validation on those mints is done later)
+    check_condition!(
+        folio_basket.get_total_number_of_mints() == remaining_accounts.len() as u8,
+        InvalidNumberOfRemainingAccounts
+    );
+
     token_amounts_user.to_assets(
         shares,
         &folio_key,

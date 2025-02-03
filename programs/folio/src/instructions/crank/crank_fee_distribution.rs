@@ -4,7 +4,8 @@ use anchor_spl::token;
 use anchor_spl::token_interface::{Mint, TokenInterface};
 use shared::check_condition;
 use shared::constants::{
-    DTF_PROGRAM_SIGNER_SEEDS, FEE_DISTRIBUTION_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS,
+    DTF_PROGRAM_SIGNER_SEEDS, FEE_DISTRIBUTION_SEEDS, FOLIO_SEEDS, MAX_FEE_RECIPIENTS_PORTION,
+    PROGRAM_REGISTRAR_SEEDS,
 };
 use shared::util::account_util::next_account;
 use shared::{errors::ErrorCode, structs::FolioStatus};
@@ -129,7 +130,6 @@ pub fn handler<'info>(
 
     let remaining_accounts = &ctx.remaining_accounts;
     let mut remaining_accounts_iter = remaining_accounts.iter();
-
     {
         let fee_distribution = &mut ctx.accounts.fee_distribution.load_mut()?;
         for index in indices {
@@ -158,6 +158,8 @@ pub fn handler<'info>(
 
             let amount_to_distribute = total_amount_to_distribute
                 .checked_mul(related_fee_distribution.portion)
+                .ok_or(ErrorCode::MathOverflow)?
+                .checked_div(MAX_FEE_RECIPIENTS_PORTION)
                 .ok_or(ErrorCode::MathOverflow)?;
 
             {

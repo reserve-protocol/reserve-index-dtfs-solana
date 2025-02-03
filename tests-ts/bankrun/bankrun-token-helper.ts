@@ -124,6 +124,41 @@ export async function getOrCreateAtaAddress(
   return ata;
 }
 
+export async function resetTokenBalance(
+  context: ProgramTestContext,
+  mint: PublicKey,
+  owner: PublicKey
+) {
+  const ata = getAssociatedTokenAddressSync(mint, owner, true);
+
+  const tokenAccData = Buffer.alloc(ACCOUNT_SIZE);
+  AccountLayout.encode(
+    {
+      mint: mint,
+      owner: owner,
+      amount: BigInt(0),
+      delegateOption: 0,
+      delegate: PublicKey.default,
+      delegatedAmount: BigInt(0),
+      state: 1,
+      isNativeOption: 0,
+      isNative: BigInt(0),
+      closeAuthorityOption: 0,
+      closeAuthority: PublicKey.default,
+    },
+    tokenAccData
+  );
+
+  const ataAccountInfo = {
+    lamports: 1_000_000_000,
+    data: tokenAccData,
+    owner: TOKEN_PROGRAM_ID,
+    executable: false,
+  };
+
+  context.setAccount(ata, ataAccountInfo);
+}
+
 export function getAtaAddress(mint: PublicKey, owner: PublicKey) {
   return getAssociatedTokenAddressSync(mint, owner, true);
 }

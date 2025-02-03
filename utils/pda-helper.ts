@@ -127,6 +127,16 @@ export function getUserPendingBasketPDA(folio: PublicKey, user: PublicKey) {
   )[0];
 }
 
+export function getUserPendingBasketPDAWithBump(
+  folio: PublicKey,
+  user: PublicKey
+) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("user_pending_basket"), folio.toBuffer(), user.toBuffer()],
+    FOLIO_PROGRAM_ID
+  );
+}
+
 export function getMetadataPDA(mint: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [

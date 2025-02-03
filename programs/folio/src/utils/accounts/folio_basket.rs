@@ -164,4 +164,11 @@ impl FolioBasket {
             .checked_sub(token_amounts.amount_for_minting)
             .ok_or(ErrorCode::MathOverflow.into())
     }
+
+    pub fn get_total_number_of_mints(&self) -> u8 {
+        self.token_amounts
+            .iter()
+            .filter(|ta| ta.mint != Pubkey::default())
+            .count() as u8
+    }
 }

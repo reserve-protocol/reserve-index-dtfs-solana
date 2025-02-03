@@ -40,5 +40,6 @@ export const MAX_AUCTION_LENGTH = new BN(604800);
 export const MAX_TRADE_DELAY = new BN(604800);
 export const MAX_FEE_RECIPIENTS = 64;
 export const MAX_FOLIO_TOKEN_AMOUNTS = 16;
+export const MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS = 20;
 
 export const MAX_CONCURRENT_TRADES = 16;

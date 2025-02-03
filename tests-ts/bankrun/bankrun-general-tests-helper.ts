@@ -123,7 +123,8 @@ export async function assertInvalidFolioStatusTestCase(
   folioTokenMint: PublicKey,
   programVersion: PublicKey,
   validDeploymentSlot: BN,
-  executeTxn: () => Promise<BanksTransactionResultWithMeta>
+  executeTxn: () => Promise<BanksTransactionResultWithMeta>,
+  newFolioStatus: FolioStatus = FolioStatus.Killed
 ) {
   await createAndSetFolio(
     context,
@@ -131,7 +132,7 @@ export async function assertInvalidFolioStatusTestCase(
     folioTokenMint,
     programVersion,
     validDeploymentSlot,
-    FolioStatus.Killed
+    newFolioStatus
   );
 
   await travelFutureSlot(context);

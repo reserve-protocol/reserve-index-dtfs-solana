@@ -151,7 +151,7 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
-            ErrorCode::InvalidAddedTokenMints.into()
+            ErrorCode::InvalidRemovedTokenMints.into()
         );
     }
 

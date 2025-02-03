@@ -1,9 +1,32 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
-cargo clippy --fix --allow-dirty --allow-staged && \
-cargo fmt && \
-cargo test && \
-yarn lint:fix
+# Run clippy and store output
+cargo clippy --fix --allow-dirty --allow-staged
+if [ $? -ne 0 ] || [ -n "$(git diff --name-only)" ]; then
+    echo "❌ Clippy made changes or found errors. Please review and stage the changes."
+    exit 1
+fi
 
-git add .
+# Run fmt and check for changes
+cargo fmt
+if [ $? -ne 0 ] || [ -n "$(git diff --name-only)" ]; then
+    echo "❌ Formatter made changes. Please review and stage the changes."
+    exit 1
+fi
+
+# Run tests
+cargo test
+if [ $? -ne 0 ]; then
+    echo "❌ Tests failed. Please fix failing tests."
+    exit 1
+fi
+
+# Run lint:fix and check for changes
+yarn lint:fix
+if [ $? -ne 0 ] || [ -n "$(git diff --name-only)" ]; then
+    echo "❌ Linter made changes. Please review and stage the changes."
+    exit 1
+fi
+
+echo "✅ All checks passed!"

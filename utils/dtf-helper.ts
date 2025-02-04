@@ -596,6 +596,35 @@ export async function redeemFromPendingBasket(
   });
 }
 
+export async function pokeFolio(
+  connection: Connection,
+  userKeypair: Keypair,
+  folioPDA: PublicKey,
+  folioTokenMint: PublicKey
+) {
+  const dtfProgram = getDtfProgram(connection, userKeypair);
+
+  const pokeFolio = await dtfProgram.methods
+    .pokeFolio()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      user: userKeypair.publicKey,
+      folio: folioPDA,
+      folioTokenMint: folioTokenMint,
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: DTF_PROGRAM_ID,
+      dtfProgramData: getProgramDataPDA(DTF_PROGRAM_ID),
+      programRegistrar: getProgramRegistrarPDA(),
+      folioProgram: FOLIO_PROGRAM_ID,
+      daoFeeConfig: getDAOFeeConfigPDA(),
+    })
+    .instruction();
+
+  await pSendAndConfirmTxn(dtfProgram, [pokeFolio], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+}
+
 export async function distributeFees(
   connection: Connection,
   userKeypair: Keypair,

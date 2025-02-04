@@ -12,7 +12,6 @@ import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 import { pSendAndConfirmTxn } from "./program-helper";
 import {
   getActorPDA,
-  getDAOFeeConfigPDA,
   getFolioPDA,
   getFolioSignerPDA,
   getMetadataPDA,
@@ -179,29 +178,4 @@ export async function initFolio(
   });
 
   return { folioTokenMint, folioPDA };
-}
-
-export async function pokeFolio(
-  connection: Connection,
-  userKeypair: Keypair,
-  folioPDA: PublicKey,
-  folioTokenMint: PublicKey
-) {
-  const folioProgram = getFolioProgram(connection, userKeypair);
-
-  const pokeFolio = await folioProgram.methods
-    .pokeFolio()
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      user: userKeypair.publicKey,
-      folio: folioPDA,
-      folioTokenMint: folioTokenMint,
-      dtfProgram: DTF_PROGRAM_ID,
-      daoFeeConfig: getDAOFeeConfigPDA(),
-    })
-    .instruction();
-
-  await pSendAndConfirmTxn(folioProgram, [pokeFolio], [], {
-    skipPreflight: SKIP_PREFLIGHT,
-  });
 }

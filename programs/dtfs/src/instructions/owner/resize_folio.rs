@@ -15,10 +15,6 @@ pub struct ResizeFolio<'info> {
     #[account(mut)]
     pub folio_owner: Signer<'info>,
 
-    /// CHECK: Done within the folio program
-    #[account()]
-    pub actor: UncheckedAccount<'info>,
-
     /*
     DTF Program Accounts
     */
@@ -40,6 +36,10 @@ pub struct ResizeFolio<'info> {
     )]
     pub dtf_program_data: UncheckedAccount<'info>,
 
+    /// CHECK: Done within the folio program
+    #[account()]
+    pub program_registrar: UncheckedAccount<'info>,
+
     /*
     Folio Program Accounts
     */
@@ -53,7 +53,7 @@ pub struct ResizeFolio<'info> {
 
     /// CHECK: Done within the folio program
     #[account()]
-    pub program_registrar: UncheckedAccount<'info>,
+    pub actor: UncheckedAccount<'info>,
 }
 
 impl ResizeFolio<'_> {

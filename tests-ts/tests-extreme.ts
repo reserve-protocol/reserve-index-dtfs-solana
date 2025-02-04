@@ -11,6 +11,7 @@ import {
   initDtfSigner,
   addToPendingBasket,
   mintFolioToken,
+  setDaoFeeConfig,
 } from "../utils/dtf-helper";
 import { initToken, mintToken } from "../utils/token-helper";
 import {
@@ -38,6 +39,9 @@ describe("Extrme DTFs Tests", () => {
   Tokens that can be included in the folio
   */
   const NUMBER_OF_TOKENS = 16;
+
+  const feeRecipient: PublicKey = Keypair.generate().publicKey;
+  const feeRecipientNumerator: BN = new BN("500000000000000000"); //50% in D18
 
   const tokenMints = Array.from({ length: NUMBER_OF_TOKENS }, () => ({
     mint: Keypair.generate(),
@@ -129,6 +133,13 @@ describe("Extrme DTFs Tests", () => {
         );
       }
     }
+
+    await setDaoFeeConfig(
+      connection,
+      adminKeypair,
+      feeRecipient,
+      feeRecipientNumerator
+    );
   });
 
   it("should allow user to init mint folio tokens and mint folio tokens with all token mints we have", async () => {

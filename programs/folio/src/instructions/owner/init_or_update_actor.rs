@@ -15,15 +15,39 @@ pub struct InitOrUpdateActor<'info> {
     #[account(mut)]
     pub folio_owner: Signer<'info>,
 
-    /// CHECK: Wallet, DAO, multisig that will be the new actor
+    /*
+    Accounts to validate
+    */
+    #[account(
+        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
+        bump,
+        seeds::program = dtf_program.key(),
+    )]
+    pub dtf_program_signer: Signer<'info>,
+
+    /// CHECK: DTF program used
     #[account()]
-    pub new_actor_authority: UncheckedAccount<'info>,
+    pub dtf_program: UncheckedAccount<'info>,
+
+    /// CHECK: DTF program data to validate program deployment slot
+    #[account()]
+    pub dtf_program_data: UncheckedAccount<'info>,
+
+    #[account(
+        seeds = [PROGRAM_REGISTRAR_SEEDS],
+        bump = program_registrar.bump
+    )]
+    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
 
     #[account(
         seeds = [ACTOR_SEEDS, folio_owner.key().as_ref(), folio_owner_actor.folio.key().as_ref()],
         bump = folio_owner_actor.bump,
     )]
     pub folio_owner_actor: Box<Account<'info, Actor>>,
+
+    /// CHECK: Wallet, DAO, multisig that will be the new actor
+    #[account()]
+    pub new_actor_authority: UncheckedAccount<'info>,
 
     /*
     Init if needed because we use the same functionality to add roles to the actor
@@ -38,30 +62,6 @@ pub struct InitOrUpdateActor<'info> {
 
     #[account()]
     pub folio: AccountLoader<'info, Folio>,
-
-    /*
-    Accounts to validate
-    */
-    #[account(
-        seeds = [PROGRAM_REGISTRAR_SEEDS],
-        bump = program_registrar.bump
-    )]
-    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
-
-    /// CHECK: DTF program used
-    #[account()]
-    pub dtf_program: UncheckedAccount<'info>,
-
-    #[account(
-        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
-        bump,
-        seeds::program = dtf_program.key(),
-    )]
-    pub dtf_program_signer: Signer<'info>,
-
-    /// CHECK: DTF program data to validate program deployment slot
-    #[account()]
-    pub dtf_program_data: UncheckedAccount<'info>,
 }
 
 impl InitOrUpdateActor<'_> {

@@ -18,10 +18,6 @@ pub struct AddToBasket<'info> {
     #[account(mut)]
     pub folio_owner: Signer<'info>,
 
-    /// CHECK: Done within the folio program
-    #[account()]
-    pub actor: UncheckedAccount<'info>,
-
     /*
     DTF Program Accounts
     */
@@ -43,6 +39,10 @@ pub struct AddToBasket<'info> {
     )]
     pub dtf_program_data: UncheckedAccount<'info>,
 
+    /// CHECK: Done within the folio program
+    #[account()]
+    pub program_registrar: UncheckedAccount<'info>,
+
     /*
     Folio Program Accounts
     */
@@ -51,12 +51,12 @@ pub struct AddToBasket<'info> {
     pub folio_program: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
-    #[account(mut)]
-    pub folio: UncheckedAccount<'info>,
+    #[account()]
+    pub actor: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
     #[account(mut)]
-    pub folio_basket: UncheckedAccount<'info>,
+    pub folio: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
     #[account(mut)]
@@ -64,11 +64,11 @@ pub struct AddToBasket<'info> {
 
     /// CHECK: Done within the folio program
     #[account(mut)]
-    pub owner_folio_token_account: UncheckedAccount<'info>,
+    pub folio_basket: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
-    #[account()]
-    pub program_registrar: UncheckedAccount<'info>,
+    #[account(mut)]
+    pub owner_folio_token_account: UncheckedAccount<'info>,
     /*
     The remaining accounts need to match the order of amounts as parameter
 

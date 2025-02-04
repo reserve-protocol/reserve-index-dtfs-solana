@@ -145,6 +145,10 @@ pub mod dtfs {
         close_user_pending_token_amount::handler(ctx)
     }
 
+    pub fn poke_folio<'info>(ctx: Context<'_, '_, 'info, 'info, PokeFolio<'info>>) -> Result<()> {
+        poke_folio::handler(ctx)
+    }
+
     pub fn distribute_fees<'info>(
         ctx: Context<'_, '_, 'info, 'info, DistributeFees<'info>>,
         index: u64,

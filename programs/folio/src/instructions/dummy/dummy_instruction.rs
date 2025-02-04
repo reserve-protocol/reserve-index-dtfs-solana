@@ -8,7 +8,11 @@ This is used to trigger anchor idl generation for accounts that aren't explicite
 
 #[derive(Accounts)]
 pub struct IdlIncludeAccount<'info> {
-    pub test_proop: Account<'info, UserRewardInfo>,
+    // Always crash
+    #[account(
+        constraint = dummy_idl_account.key() == Pubkey::default() && dummy_idl_account.key() != Pubkey::default()
+    )]
+    pub dummy_idl_account: Account<'info, UserRewardInfo>,
 }
 
 /// Dummy instruction to ensure the account is added to the IDL

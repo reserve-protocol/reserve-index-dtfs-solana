@@ -1,10 +1,10 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::Mint;
 use shared::check_condition;
-use shared::constants::DAO_FEE_CONFIG_SEEDS;
+use shared::constants::{DAO_FEE_CONFIG_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, PROGRAM_REGISTRAR_SEEDS};
 use shared::{errors::ErrorCode, structs::FolioStatus};
 
-use crate::state::Folio;
+use crate::state::{Folio, ProgramRegistrar};
 use crate::DtfProgram;
 
 #[derive(Accounts)]
@@ -14,41 +14,56 @@ pub struct PokeFolio<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
+    /*
+    Accounts to validate
+    */
+    #[account(
+        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
+        bump,
+        seeds::program = dtf_program.key(),
+    )]
+    pub dtf_program_signer: Signer<'info>,
+
+    /// CHECK: DTF program used for creating owner record
+    #[account()]
+    pub dtf_program: UncheckedAccount<'info>,
+
+    /// CHECK: DTF program data to validate program deployment slot
+    #[account()]
+    pub dtf_program_data: UncheckedAccount<'info>,
+
+    #[account(
+        seeds = [PROGRAM_REGISTRAR_SEEDS],
+        bump = program_registrar.bump
+    )]
+    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
+
+    /// CHECK: DAO fee config
+    #[account(
+            seeds = [DAO_FEE_CONFIG_SEEDS],
+            bump,
+            seeds::program = dtf_program.key(),
+        )]
+    pub dao_fee_config: UncheckedAccount<'info>,
+
     #[account(mut)]
     pub folio: AccountLoader<'info, Folio>,
 
     #[account(mut)]
     pub folio_token_mint: Box<InterfaceAccount<'info, Mint>>,
-
-    /// CHECK: DTF program
-    #[account()]
-    pub dtf_program: UncheckedAccount<'info>,
-
-    /// CHECK: DAO fee config
-    #[account(
-        seeds = [DAO_FEE_CONFIG_SEEDS],
-        bump,
-        seeds::program = dtf_program.key(),
-    )]
-    pub dao_fee_config: UncheckedAccount<'info>,
 }
 
 impl PokeFolio<'_> {
     pub fn validate(&self, folio: &Folio) -> Result<()> {
         folio.validate_folio_program_post_init(
             &self.folio.key(),
-            None,
-            None,
-            None,
+            Some(&self.program_registrar),
+            Some(&self.dtf_program),
+            Some(&self.dtf_program_data),
             None,
             None,
             Some(vec![FolioStatus::Initialized]),
         )?;
-
-        check_condition!(
-            folio.program_version == self.dtf_program.key(),
-            InvalidProgram
-        );
 
         check_condition!(
             self.folio_token_mint.key() == folio.folio_token_mint,

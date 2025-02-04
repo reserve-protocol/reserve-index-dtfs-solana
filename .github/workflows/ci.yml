@@ -10,7 +10,7 @@ env:
   CARGO_TERM_COLOR: always
   SOLANA_VERSION: 1.18.18
   ANCHOR_VERSION: 0.30.1
-  ADMIN_PUBKEY: 99zqUzQGohamfYxyo8ykTEbi91iom3CLmwCA75FK5zTg
+  ADMIN_PUBKEY: AXF3tTrMUD5BLzv5Fmyj63KXwvkuGdxMQemSJHtTag4j
   SPL_GOVERNANCE_PROGRAM_ID: GovER5Lthms3bLBqWub97yVrMmEogzX7xNjdXpPPCVZw
 
 jobs:
@@ -73,19 +73,19 @@ jobs:
           cargo llvm-cov --workspace --html \
           --ignore-filename-regex "(.*/instructions/.*|.*/external/.*|.*events\.rs$|.*state\.rs$|.*lib\.rs$|.*errors\.rs$)"
 
-      # - name: Upload coverage report
-      #   if: always()
-      #   continue-on-error: true
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: coverage-report
-      #     path: target/llvm-cov/html
-      #     retention-days: 7
+      - name: Upload coverage report
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: target/llvm-cov/html
+          retention-days: 7
 
-      # - name: Anchor Test
-      #   run: |
-      #     export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
-      #     anchor test
+      - name: Anchor Test
+        run: |
+          export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
+          anchor test
 
       - name: Bankrun Test
         run: |

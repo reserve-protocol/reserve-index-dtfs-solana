@@ -36,6 +36,9 @@ pub struct DistributeFees<'info> {
     )]
     pub dtf_program_data: UncheckedAccount<'info>,
 
+    /// CHECK: Done within the folio program
+    pub program_registrar: UncheckedAccount<'info>,
+
     /// CHECK: DAO fee config to get fee for minting
     #[account()]
     pub dao_fee_config: UncheckedAccount<'info>,
@@ -66,9 +69,6 @@ pub struct DistributeFees<'info> {
     /// CHECK: Done within the folio program
     #[account(mut)]
     pub dao_fee_recipient: UncheckedAccount<'info>,
-
-    /// CHECK: Done within the folio program
-    pub program_registrar: UncheckedAccount<'info>,
     /*
     Remaining accounts will be the token accounts of the fee recipients, needs to follow the
     order of the indices passed as parameters.

@@ -35,6 +35,9 @@ pub struct OpenTradePermissionless<'info> {
     )]
     pub dtf_program_data: UncheckedAccount<'info>,
 
+    /// CHECK: Done within the folio program
+    pub program_registrar: UncheckedAccount<'info>,
+
     /*
     Folio Program Accounts
     */
@@ -49,9 +52,6 @@ pub struct OpenTradePermissionless<'info> {
     /// CHECK: Done within the folio program
     #[account(mut)]
     pub trade: UncheckedAccount<'info>,
-
-    /// CHECK: Done within the folio program
-    pub program_registrar: UncheckedAccount<'info>,
 }
 
 impl OpenTradePermissionless<'_> {

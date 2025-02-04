@@ -39,6 +39,9 @@ pub struct BurnFolioToken<'info> {
     )]
     pub dtf_program_data: UncheckedAccount<'info>,
 
+    /// CHECK: Done within the folio program
+    pub program_registrar: UncheckedAccount<'info>,
+
     /*
     Folio Program Accounts
     */
@@ -63,9 +66,6 @@ pub struct BurnFolioToken<'info> {
 
     #[account(mut)]
     pub user_folio_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
-
-    /// CHECK: Done within the folio program
-    pub program_registrar: UncheckedAccount<'info>,
     /*
     The remaining accounts need to match the order of amounts as parameter
 

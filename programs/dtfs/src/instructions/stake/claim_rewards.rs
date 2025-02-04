@@ -35,6 +35,9 @@ pub struct ClaimRewards<'info> {
     )]
     pub dtf_program_data: UncheckedAccount<'info>,
 
+    /// CHECK: Done within the folio program
+    pub program_registrar: UncheckedAccount<'info>,
+
     /*
     Folio Program Accounts
     */
@@ -57,9 +60,6 @@ pub struct ClaimRewards<'info> {
     /// CHECK: Done within the folio program
     #[account()]
     pub folio_reward_tokens: UncheckedAccount<'info>,
-
-    /// CHECK: Done within the folio program
-    pub program_registrar: UncheckedAccount<'info>,
 }
 
 impl ClaimRewards<'_> {

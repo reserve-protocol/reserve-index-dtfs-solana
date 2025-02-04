@@ -12,9 +12,6 @@ pub struct CloseUserPendingTokenAmount<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
-    /// CHECK: Done within the folio program
-    pub program_registrar: UncheckedAccount<'info>,
-
     #[account(
         seeds = [DTF_PROGRAM_SIGNER_SEEDS],
         bump = dtf_program_signer.bump
@@ -32,6 +29,9 @@ pub struct CloseUserPendingTokenAmount<'info> {
         seeds::program = &bpf_loader_upgradeable::id()
     )]
     pub dtf_program_data: UncheckedAccount<'info>,
+
+    /// CHECK: Done within the folio program
+    pub program_registrar: UncheckedAccount<'info>,
 
     /// CHECK: Folio Program
     #[account(address = FOLIO_ID)]

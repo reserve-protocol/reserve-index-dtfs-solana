@@ -14,10 +14,6 @@ pub struct RemoveFromBasket<'info> {
     #[account(mut)]
     pub folio_owner: Signer<'info>,
 
-    /// CHECK: Done within the folio program
-    #[account()]
-    pub actor: UncheckedAccount<'info>,
-
     /*
     DTF Program Accounts
     */
@@ -39,6 +35,10 @@ pub struct RemoveFromBasket<'info> {
     )]
     pub dtf_program_data: UncheckedAccount<'info>,
 
+    /// CHECK: Done within the folio program
+    #[account()]
+    pub program_registrar: UncheckedAccount<'info>,
+
     /*
     Folio Program Accounts
     */
@@ -48,15 +48,15 @@ pub struct RemoveFromBasket<'info> {
 
     /// CHECK: Done within the folio program
     #[account()]
+    pub actor: UncheckedAccount<'info>,
+
+    /// CHECK: Done within the folio program
+    #[account()]
     pub folio: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
     #[account(mut)]
     pub folio_basket: UncheckedAccount<'info>,
-
-    /// CHECK: Done within the folio program
-    #[account()]
-    pub program_registrar: UncheckedAccount<'info>,
 }
 
 impl RemoveFromBasket<'_> {

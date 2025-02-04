@@ -178,12 +178,6 @@ describe("Bankrun - Fees", () => {
 
   const TEST_CASES_POKE_FOLIO = [
     {
-      desc: "(program version is not valid)",
-      // Constraint seeds because one of the seed takes the expected dtf program id
-      expectedError: "ConstraintSeeds",
-      programVersion: Keypair.generate().publicKey,
-    },
-    {
       desc: "(folio token mint is not valid)",
       expectedError: "InvalidFolioTokenMint",
       customFolioTokenMint: Keypair.generate(),
@@ -492,11 +486,12 @@ describe("Bankrun - Fees", () => {
     const generalIxPokeFolio = () =>
       pokeFolio<true>(
         banksClient,
-        programFolio,
+        programDtf,
         userKeypair,
         folioPDA,
         folioTokenMint.publicKey,
         DTF_PROGRAM_ID,
+        getProgramDataPDA(DTF_PROGRAM_ID),
         true
       );
 
@@ -536,6 +531,22 @@ describe("Bankrun - Fees", () => {
 
     describe("should run general tests for poke folio", () => {
       it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and INITIALIZING`, async () => {
+        it(`should run ${GeneralTestCases.InvalidDtfProgramDeploymentSlot}`, async () => {
+          await assertInvalidDtfProgramDeploymentSlotTestCase(
+            context,
+            VALID_DEPLOYMENT_SLOT.add(new BN(1)),
+            generalIxPokeFolio
+          );
+        });
+
+        it(`should run ${GeneralTestCases.ProgramNotInRegistrar}`, async () => {
+          await assertProgramNotInRegistrarTestCase(
+            context,
+            programFolio,
+            generalIxPokeFolio
+          );
+        });
+
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
@@ -708,11 +719,12 @@ describe("Bankrun - Fees", () => {
 
             txnResult = await pokeFolio<true>(
               banksClient,
-              programFolio,
+              programDtf,
               userKeypair,
               folioPDA,
               tokenMintToUse.publicKey,
               programVersion,
+              getProgramDataPDA(DTF_PROGRAM_ID),
               true
             );
           });

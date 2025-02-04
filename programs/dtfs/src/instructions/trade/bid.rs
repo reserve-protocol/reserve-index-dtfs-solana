@@ -40,6 +40,9 @@ pub struct Bid<'info> {
     )]
     pub dtf_program_data: UncheckedAccount<'info>,
 
+    /// CHECK: Done within the folio program
+    pub program_registrar: UncheckedAccount<'info>,
+
     /*
     Folio Program Accounts
     */
@@ -86,9 +89,6 @@ pub struct Bid<'info> {
     /// CHECK: Done within the folio program
     #[account(mut)]
     pub bidder_buy_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
-
-    /// CHECK: Done within the folio program
-    pub program_registrar: UncheckedAccount<'info>,
 }
 
 impl Bid<'_> {

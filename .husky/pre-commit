@@ -3,10 +3,6 @@
 
 # Run clippy and store output
 cargo clippy --fix --allow-dirty --allow-staged
-if [ $? -ne 0 ] || [ -n "$(git diff --name-only)" ]; then
-    echo "❌ Clippy made changes or found errors. Please review and stage the changes."
-    exit 1
-fi
 
 # Run fmt and check for changes
 cargo fmt

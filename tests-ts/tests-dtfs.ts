@@ -13,7 +13,6 @@ import {
   initFolio,
   initFolioSigner,
   initProgramRegistrar,
-  pokeFolio,
 } from "../utils/folio-helper";
 import * as assert from "assert";
 import {
@@ -54,6 +53,7 @@ import {
   removeRewardToken,
   accrueRewards,
   claimRewards,
+  pokeFolio,
 } from "../utils/dtf-helper";
 import {
   getOrCreateAtaAddress,
@@ -67,7 +67,6 @@ import {
   getMint,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { createGovernanceAccounts } from "../utils/data-helper";
 import { deserializeU256 } from "../utils/math-helper";
 import {
   DEFAULT_DECIMALS_MUL,
@@ -77,6 +76,7 @@ import {
   MAX_TRADE_DELAY,
   MIN_DAO_MINTING_FEE,
 } from "../utils/constants";
+import { createGovernanceAccounts } from "../utils/data-helper";
 
 describe("DTFs Tests", () => {
   let connection: Connection;
@@ -96,7 +96,7 @@ describe("DTFs Tests", () => {
   let folioPDA: PublicKey;
 
   const feeRecipient: PublicKey = Keypair.generate().publicKey;
-  const feeRecipientNumerator: BN = new BN("600000000000000000"); //60% in D18
+  const feeRecipientNumerator: BN = new BN("500000000000000000"); //50% in D18
 
   const newFeeRecipient = [
     {
@@ -874,13 +874,13 @@ describe("DTFs Tests", () => {
 
     assert.equal(
       folioAfter.daoPendingFeeShares.eq(
-        folioBefore.daoPendingFeeShares.add(new BN(1800001))
+        folioBefore.daoPendingFeeShares.add(new BN(1500001))
       ),
       true
     );
     assert.equal(
       folioAfter.feeRecipientsPendingFeeShares.eq(
-        folioBefore.feeRecipientsPendingFeeShares.add(new BN(1199999))
+        folioBefore.feeRecipientsPendingFeeShares.add(new BN(1499999))
       ),
       true
     );

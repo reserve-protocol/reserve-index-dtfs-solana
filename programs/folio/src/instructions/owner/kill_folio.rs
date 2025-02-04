@@ -14,24 +14,9 @@ pub struct KillFolio<'info> {
     #[account(mut)]
     pub folio_owner: Signer<'info>,
 
-    #[account(
-        seeds = [ACTOR_SEEDS, folio_owner.key().as_ref(), folio.key().as_ref()],
-        bump = actor.bump,
-    )]
-    pub actor: Account<'info, Actor>,
-
-    #[account(mut)]
-    pub folio: AccountLoader<'info, Folio>,
-
     /*
     Account to validate
     */
-    #[account(
-        seeds = [PROGRAM_REGISTRAR_SEEDS],
-        bump = program_registrar.bump
-    )]
-    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
-
     #[account(
         seeds = [DTF_PROGRAM_SIGNER_SEEDS],
         bump,
@@ -46,6 +31,21 @@ pub struct KillFolio<'info> {
     /// CHECK: DTF program data to validate program deployment slot
     #[account()]
     pub dtf_program_data: UncheckedAccount<'info>,
+
+    #[account(
+        seeds = [PROGRAM_REGISTRAR_SEEDS],
+        bump = program_registrar.bump
+    )]
+    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
+
+    #[account(
+        seeds = [ACTOR_SEEDS, folio_owner.key().as_ref(), folio.key().as_ref()],
+        bump = actor.bump,
+    )]
+    pub actor: Account<'info, Actor>,
+
+    #[account(mut)]
+    pub folio: AccountLoader<'info, Folio>,
 }
 
 impl KillFolio<'_> {

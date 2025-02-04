@@ -24,6 +24,33 @@ pub struct CrankFeeDistribution<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
+    /*
+    Accounts to validate
+    */
+    #[account(
+        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
+        bump,
+        seeds::program = dtf_program.key(),
+    )]
+    pub dtf_program_signer: Signer<'info>,
+
+    /// CHECK: DTF program used for creating owner record
+    #[account()]
+    pub dtf_program: UncheckedAccount<'info>,
+
+    /// CHECK: DTF program data to validate program deployment slot
+    #[account()]
+    pub dtf_program_data: UncheckedAccount<'info>,
+
+    #[account(
+        seeds = [PROGRAM_REGISTRAR_SEEDS],
+        bump = program_registrar.bump
+    )]
+    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
+
+    /*
+    Specific for the instruction
+     */
     /// CHECK: Cranker account
     #[account(mut)]
     pub cranker: UncheckedAccount<'info>,
@@ -36,30 +63,6 @@ pub struct CrankFeeDistribution<'info> {
 
     #[account(mut)]
     pub fee_distribution: AccountLoader<'info, FeeDistribution>,
-
-    /*
-    Accounts to validate
-    */
-    #[account(
-        seeds = [PROGRAM_REGISTRAR_SEEDS],
-        bump = program_registrar.bump
-    )]
-    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
-
-    /// CHECK: DTF program used for creating owner record
-    #[account()]
-    pub dtf_program: UncheckedAccount<'info>,
-
-    /// CHECK: DTF program data to validate program deployment slot
-    #[account()]
-    pub dtf_program_data: UncheckedAccount<'info>,
-
-    #[account(
-        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
-        bump,
-        seeds::program = dtf_program.key(),
-    )]
-    pub dtf_program_signer: Signer<'info>,
     /*
     Remaining accounts will be the token accounts of the fee recipients, needs to follow the
     order of the indices passed as parameters.

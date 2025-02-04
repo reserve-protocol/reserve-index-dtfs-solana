@@ -22,6 +22,7 @@ use crate::KillTrade;
 use crate::MintFolioToken;
 use crate::OpenTrade;
 use crate::OpenTradePermissionless;
+use crate::PokeFolio;
 use crate::RedeemFromPendingBasket;
 use crate::RemoveActor;
 use crate::RemoveFromBasket;
@@ -612,6 +613,7 @@ impl FolioProgram {
             buy_mint: ctx.accounts.buy_mint.to_account_info(),
             sell_mint: ctx.accounts.sell_mint.to_account_info(),
             program_registrar: ctx.accounts.program_registrar.to_account_info(),
+            dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
             dtf_program: ctx.accounts.dtf_program.to_account_info(),
             dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
         };
@@ -649,6 +651,7 @@ impl FolioProgram {
             folio: ctx.accounts.folio.to_account_info(),
             trade: ctx.accounts.trade.to_account_info(),
             program_registrar: ctx.accounts.program_registrar.to_account_info(),
+            dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
             dtf_program: ctx.accounts.dtf_program.to_account_info(),
             dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
         };
@@ -684,6 +687,7 @@ impl FolioProgram {
             folio: ctx.accounts.folio.to_account_info(),
             trade: ctx.accounts.trade.to_account_info(),
             program_registrar: ctx.accounts.program_registrar.to_account_info(),
+            dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
             dtf_program: ctx.accounts.dtf_program.to_account_info(),
             dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
         };
@@ -712,6 +716,7 @@ impl FolioProgram {
             folio: ctx.accounts.folio.to_account_info(),
             trade: ctx.accounts.trade.to_account_info(),
             program_registrar: ctx.accounts.program_registrar.to_account_info(),
+            dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
             dtf_program: ctx.accounts.dtf_program.to_account_info(),
             dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
         };
@@ -756,6 +761,7 @@ impl FolioProgram {
             bidder_sell_token_account: ctx.accounts.bidder_sell_token_account.to_account_info(),
             bidder_buy_token_account: ctx.accounts.bidder_buy_token_account.to_account_info(),
             program_registrar: ctx.accounts.program_registrar.to_account_info(),
+            dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
             dtf_program: ctx.accounts.dtf_program.to_account_info(),
             dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
         };
@@ -957,6 +963,36 @@ impl FolioProgram {
         let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
 
         folio::cpi::claim_rewards(cpi_ctx)?;
+
+        Ok(())
+    }
+
+    pub fn poke_folio<'info>(ctx: Context<'_, '_, 'info, 'info, PokeFolio<'info>>) -> Result<()> {
+        let cpi_program = ctx.accounts.folio_program.to_account_info();
+
+        let cpi_accounts = folio::cpi::accounts::PokeFolio {
+            system_program: ctx.accounts.system_program.to_account_info(),
+            user: ctx.accounts.user.to_account_info(),
+            folio: ctx.accounts.folio.to_account_info(),
+            folio_token_mint: ctx.accounts.folio_token_mint.to_account_info(),
+            dtf_program: ctx.accounts.dtf_program.to_account_info(),
+            dtf_program_data: ctx.accounts.dtf_program_data.to_account_info(),
+            program_registrar: ctx.accounts.program_registrar.to_account_info(),
+            dtf_program_signer: ctx.accounts.dtf_program_signer.to_account_info(),
+            dao_fee_config: ctx.accounts.dao_fee_config.to_account_info(),
+        };
+
+        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+
+        let seeds = &[
+            DTF_PROGRAM_SIGNER_SEEDS,
+            &[ctx.accounts.dtf_program_signer.bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
+
+        let cpi_ctx = cpi_ctx.with_signer(signer_seeds);
+
+        folio::cpi::poke_folio(cpi_ctx)?;
 
         Ok(())
     }

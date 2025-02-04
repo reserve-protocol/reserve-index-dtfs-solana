@@ -15,18 +15,6 @@ pub struct RemoveActor<'info> {
     #[account(mut)]
     pub folio_owner: Signer<'info>,
 
-    /// CHECK: Wallet, DAO, multisig
-    #[account()]
-    pub actor_authority: UncheckedAccount<'info>,
-
-    /// CHECK: Done within the folio program
-    #[account()]
-    pub folio_owner_actor: UncheckedAccount<'info>,
-
-    /// CHECK: Done within the folio program
-    #[account(mut)]
-    pub actor_to_remove: UncheckedAccount<'info>,
-
     /*
     DTF Program Accounts
      */
@@ -48,6 +36,10 @@ pub struct RemoveActor<'info> {
     )]
     pub dtf_program_data: UncheckedAccount<'info>,
 
+    /// CHECK: Done within the folio program
+    #[account()]
+    pub program_registrar: UncheckedAccount<'info>,
+
     /*
     Folio Program Accounts
     */
@@ -61,7 +53,15 @@ pub struct RemoveActor<'info> {
 
     /// CHECK: Done within the folio program
     #[account()]
-    pub program_registrar: UncheckedAccount<'info>,
+    pub folio_owner_actor: UncheckedAccount<'info>,
+
+    /// CHECK: Wallet, DAO, multisig
+    #[account()]
+    pub actor_authority: UncheckedAccount<'info>,
+
+    /// CHECK: Done within the folio program
+    #[account(mut)]
+    pub actor_to_remove: UncheckedAccount<'info>,
 }
 
 impl RemoveActor<'_> {

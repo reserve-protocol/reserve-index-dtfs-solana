@@ -3,7 +3,11 @@ use crate::{
     state::{Folio, Trade},
 };
 use anchor_lang::prelude::*;
-use shared::{check_condition, constants::PROGRAM_REGISTRAR_SEEDS, structs::FolioStatus};
+use shared::{
+    check_condition,
+    constants::{DTF_PROGRAM_SIGNER_SEEDS, PROGRAM_REGISTRAR_SEEDS},
+    structs::FolioStatus,
+};
 
 use crate::state::ProgramRegistrar;
 use shared::errors::ErrorCode;
@@ -15,20 +19,15 @@ pub struct OpenTradePermissionless<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
-    #[account()]
-    pub folio: AccountLoader<'info, Folio>,
-
-    #[account(mut)]
-    pub trade: AccountLoader<'info, Trade>,
-
     /*
     Account to validate
     */
     #[account(
-        seeds = [PROGRAM_REGISTRAR_SEEDS],
-        bump = program_registrar.bump
+        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
+        bump,
+        seeds::program = dtf_program.key(),
     )]
-    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
+    pub dtf_program_signer: Signer<'info>,
 
     /// CHECK: DTF program used for creating owner record
     #[account()]
@@ -37,6 +36,18 @@ pub struct OpenTradePermissionless<'info> {
     /// CHECK: DTF program data to validate program deployment slot
     #[account()]
     pub dtf_program_data: UncheckedAccount<'info>,
+
+    #[account(
+        seeds = [PROGRAM_REGISTRAR_SEEDS],
+        bump = program_registrar.bump
+    )]
+    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
+
+    #[account()]
+    pub folio: AccountLoader<'info, Folio>,
+
+    #[account(mut)]
+    pub trade: AccountLoader<'info, Trade>,
 }
 
 impl OpenTradePermissionless<'_> {

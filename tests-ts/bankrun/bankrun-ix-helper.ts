@@ -8,10 +8,12 @@ import {
   getFolioBasketPDA,
   getFolioFeeRecipientsPDA,
   getFolioPDA,
+  getFolioRewardTokensPDA,
   getFolioSignerPDA,
   getMetadataPDA,
   getProgramDataPDA,
   getProgramRegistrarPDA,
+  getRewardInfoPDA,
   getUserPendingBasketPDA,
 } from "../../utils/pda-helper";
 import {
@@ -37,7 +39,12 @@ import {
   OTHER_ADMIN_KEY,
   TOKEN_METADATA_PROGRAM_ID,
 } from "../../utils/constants";
-import { buildRemainingAccounts, roleToStruct } from "./bankrun-account-helper";
+import {
+  buildRemainingAccounts,
+  buildRemainingAccountsForAccruesRewards,
+  buildRemainingAccountsForClaimRewards,
+  roleToStruct,
+} from "./bankrun-account-helper";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
 
 /*
@@ -952,4 +959,247 @@ export async function crankFeeDistribution<T extends boolean = true>(
   }
 
   return { ix: crankFeeDistribution, extraSigners: [] } as any;
+}
+
+export async function addRewardToken<T extends boolean = true>(
+  context: ProgramTestContext,
+  client: BanksClient,
+  programDtf: Program<Dtfs>,
+  ownerKeypair: Keypair,
+  folio: PublicKey,
+  rewardToken: PublicKey,
+  rewardPeriod: BN,
+  programId: PublicKey,
+  programDataAddress: PublicKey,
+  executeTxn: T = true as T,
+  rewardTokenATA: PublicKey = null
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const addRewardToken = await programDtf.methods
+    .addRewardToken(rewardPeriod)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      folioOwner: ownerKeypair.publicKey,
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: programId,
+      dtfProgramData: programDataAddress,
+      folioProgram: FOLIO_PROGRAM_ID,
+      actor: getActorPDA(ownerKeypair.publicKey, folio),
+      folio,
+      folioRewardTokens: getFolioRewardTokensPDA(folio),
+      rewardTokenRewardInfo: getRewardInfoPDA(folio, rewardToken),
+      rewardToken,
+      rewardTokenAccount:
+        rewardTokenATA ??
+        (await getOrCreateAtaAddress(
+          context,
+          rewardToken,
+          getFolioRewardTokensPDA(folio)
+        )),
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, ownerKeypair, [
+      ...getComputeLimitInstruction(800_000),
+      addRewardToken,
+    ]) as any;
+  }
+
+  return { ix: addRewardToken, extraSigners: [] } as any;
+}
+
+export async function removeRewardToken<T extends boolean = true>(
+  client: BanksClient,
+  programDtf: Program<Dtfs>,
+  ownerKeypair: Keypair,
+  folio: PublicKey,
+  rewardTokenToRemove: PublicKey,
+  programId: PublicKey,
+  programDataAddress: PublicKey,
+  executeTxn: T = true as T
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const removeRewardToken = await programDtf.methods
+    .removeRewardToken()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      folioOwner: ownerKeypair.publicKey,
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: programId,
+      dtfProgramData: programDataAddress,
+      folioProgram: FOLIO_PROGRAM_ID,
+      actor: getActorPDA(ownerKeypair.publicKey, folio),
+      folio,
+      folioRewardTokens: getFolioRewardTokensPDA(folio),
+      rewardTokenToRemove,
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, ownerKeypair, [
+      removeRewardToken,
+    ]) as any;
+  }
+
+  return { ix: removeRewardToken, extraSigners: [] } as any;
+}
+
+export async function initOrSetRewardRatio<T extends boolean = true>(
+  client: BanksClient,
+  programDtf: Program<Dtfs>,
+  ownerKeypair: Keypair,
+  folio: PublicKey,
+  rewardPeriod: BN,
+  programId: PublicKey,
+  programDataAddress: PublicKey,
+  executeTxn: T = true as T
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const initOrSetRewardRatio = await programDtf.methods
+    .initOrSetRewardRatio(rewardPeriod)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      folioOwner: ownerKeypair.publicKey,
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: programId,
+      dtfProgramData: programDataAddress,
+      folioProgram: FOLIO_PROGRAM_ID,
+      actor: getActorPDA(ownerKeypair.publicKey, folio),
+      folio,
+      folioRewardTokens: getFolioRewardTokensPDA(folio),
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, ownerKeypair, [
+      initOrSetRewardRatio,
+    ]) as any;
+  }
+
+  return { ix: initOrSetRewardRatio, extraSigners: [] } as any;
+}
+
+export async function accrueRewards<T extends boolean = true>(
+  context: ProgramTestContext,
+  client: BanksClient,
+  programDtf: Program<Dtfs>,
+  callerKeypair: Keypair,
+  folioOwner: PublicKey,
+  folio: PublicKey,
+  rewardTokens: PublicKey[],
+  extraUser: PublicKey = callerKeypair.publicKey,
+  programId: PublicKey,
+  programDataAddress: PublicKey,
+  executeTxn: T = true as T,
+  remainingAccounts: AccountMeta[] = []
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const accrueRewards = await programDtf.methods
+    .accrueRewards()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      caller: callerKeypair.publicKey,
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: programId,
+      dtfProgramData: programDataAddress,
+      folioProgram: FOLIO_PROGRAM_ID,
+      folioOwner,
+      actor: getActorPDA(folioOwner, folio),
+      folio,
+      folioRewardTokens: getFolioRewardTokensPDA(folio),
+      user: extraUser,
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .remainingAccounts(
+      remainingAccounts.length > 0
+        ? remainingAccounts
+        : await buildRemainingAccountsForAccruesRewards(
+            context,
+            callerKeypair,
+            folio,
+            folioOwner,
+            rewardTokens,
+            extraUser
+          )
+    )
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, callerKeypair, [
+      ...getComputeLimitInstruction(400_000),
+      accrueRewards,
+    ]) as any;
+  }
+
+  return { ix: accrueRewards, extraSigners: [] } as any;
+}
+
+export async function claimRewards<T extends boolean = true>(
+  context: ProgramTestContext,
+  client: BanksClient,
+  programDtf: Program<Dtfs>,
+  userKeypair: Keypair,
+  folioOwner: PublicKey,
+  folio: PublicKey,
+  rewardTokens: PublicKey[],
+  programId: PublicKey,
+  programDataAddress: PublicKey,
+  executeTxn: T = true as T,
+  remainingAccounts: AccountMeta[] = []
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const claimRewards = await programDtf.methods
+    .claimRewards()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      user: userKeypair.publicKey,
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgram: programId,
+      dtfProgramData: programDataAddress,
+      folioProgram: FOLIO_PROGRAM_ID,
+      folioOwner,
+      actor: getActorPDA(folioOwner, folio),
+      folio,
+      folioRewardTokens: getFolioRewardTokensPDA(folio),
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .remainingAccounts(
+      remainingAccounts.length > 0
+        ? remainingAccounts
+        : await buildRemainingAccountsForClaimRewards(
+            context,
+            userKeypair,
+            folio,
+            rewardTokens
+          )
+    )
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, userKeypair, [
+      claimRewards,
+    ]) as any;
+  }
+
+  return { ix: claimRewards, extraSigners: [] } as any;
 }

@@ -10,11 +10,14 @@ import {
   getFolioFeeRecipientsPDAWithBump,
   getFolioPDAWithBump,
   getFolioRewardTokensPDA,
+  getFolioRewardTokensPDAWithBump,
   getProgramDataPDA,
   getProgramRegistrarPDAWithBump,
   getRewardInfoPDA,
+  getRewardInfoPDAWithBump,
   getUserPendingBasketPDAWithBump,
   getUserRewardInfoPDA,
+  getUserRewardInfoPDAWithBump,
   getUserTokenRecordRealmsPDA,
 } from "../../utils/pda-helper";
 import { createFakeTokenOwnerRecordV2 } from "../../utils/data-helper";
@@ -34,6 +37,7 @@ import {
   DTF_PROGRAM_ID,
   MAX_FOLIO_TOKEN_AMOUNTS,
   MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
+  MAX_REWARD_TOKENS,
 } from "../../utils/constants";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
 
@@ -278,7 +282,7 @@ export async function createAndSetFeeRecipients(
     _padding: [0, 0, 0, 0, 0, 0, 0],
     distributionIndex: distributionIndex,
     folio: folio,
-    fee_recipients: feeRecipientsInitial.map((fr) => ({
+    feeRecipients: feeRecipientsInitial.map((fr) => ({
       receiver: fr.receiver,
       portion: fr.portion,
     })),
@@ -315,7 +319,7 @@ export async function createAndSetFeeRecipients(
   offset += 32;
 
   // Encode fee recipients
-  feeRecipients.fee_recipients.forEach((fr: any) => {
+  feeRecipients.feeRecipients.forEach((fr: any) => {
     fr.receiver.toBuffer().copy(buffer, offset);
     offset += 32;
     fr.portion.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
@@ -558,6 +562,237 @@ export async function createAndSetUserPendingBasket(
     userPendingBasketPDAWithBump[0],
     "userPendingBasket",
     userPendingBasket,
+    buffer
+  );
+}
+
+export async function createAndSetFolioRewardTokens(
+  ctx: ProgramTestContext,
+  program: Program<Folio>,
+  folio: PublicKey,
+  rewardRatio: BN,
+  rewardTokens: PublicKey[],
+  disallowedToken: PublicKey[]
+) {
+  const folioRewardTokensPDAWithBump = getFolioRewardTokensPDAWithBump(folio);
+
+  const folioRewardTokens = {
+    bump: folioRewardTokensPDAWithBump[1],
+    _padding: [0, 0, 0, 0, 0, 0, 0],
+    rewardRatio: rewardRatio,
+    folio: folio,
+    rewardTokens: rewardTokens,
+    disallowedToken: disallowedToken,
+  };
+
+  // Manual encoding for fee recipients
+  const buffer = Buffer.alloc(2000);
+  let offset = 0;
+
+  // Encode discriminator
+  const discriminator = getAccountDiscriminator("FolioRewardTokens");
+  discriminator.copy(buffer, offset);
+  offset += 8;
+
+  // Encode bump
+  buffer.writeUInt8(folioRewardTokens.bump, offset);
+  offset += 1;
+
+  // Encode padding
+  folioRewardTokens._padding.forEach((pad: number) => {
+    buffer.writeUInt8(pad, offset);
+    offset += 1;
+  });
+
+  // Encode folio pubkey
+  folioRewardTokens.folio.toBuffer().copy(buffer, offset);
+  offset += 32;
+
+  // Encode reward ratio (4x u64 for u256)
+  const rewardRatioValue = folioRewardTokens.rewardRatio.toArrayLike(
+    Buffer,
+    "le",
+    32
+  );
+  for (let i = 0; i < 4; i++) {
+    buffer.writeBigUInt64LE(BigInt(rewardRatioValue[i]), offset);
+    offset += 8;
+  }
+
+  // Fill reward tokens array with provided tokens and pad with PublicKey.default
+  const paddedRewardTokens = [
+    ...folioRewardTokens.rewardTokens,
+    ...Array(MAX_REWARD_TOKENS - folioRewardTokens.rewardTokens.length).fill(
+      PublicKey.default
+    ),
+  ];
+
+  paddedRewardTokens.forEach((token: PublicKey) => {
+    token.toBuffer().copy(buffer, offset);
+    offset += 32;
+  });
+
+  // Encode disallowed token
+  folioRewardTokens.disallowedToken.forEach((dt: any) => {
+    dt.toBuffer().copy(buffer, offset);
+    offset += 32;
+  });
+
+  await setFolioAccountInfo(
+    ctx,
+    program,
+    folioRewardTokensPDAWithBump[0],
+    "folioRewardTokens",
+    folioRewardTokens,
+    buffer
+  );
+}
+
+export async function createAndSetRewardInfo(
+  ctx: ProgramTestContext,
+  program: Program<Folio>,
+  folio: PublicKey,
+  rewardToken: PublicKey,
+  payoutLastPaid: BN = new BN(0),
+  rewardIndex: BN = new BN(1),
+  balanceAccounted: BN = new BN(0),
+  balanceLastKnown: BN = new BN(0),
+  totalClaimed: BN = new BN(0)
+) {
+  const rewardInfoPDAWithBump = getRewardInfoPDAWithBump(folio, rewardToken);
+
+  const rewardInfo = {
+    bump: rewardInfoPDAWithBump[1],
+    folio: folio,
+    folioRewardToken: rewardToken,
+    payoutLastPaid: payoutLastPaid,
+    rewardIndex: rewardIndex,
+    balanceAccounted: balanceAccounted,
+    balanceLastKnown: balanceLastKnown,
+    totalClaimed: totalClaimed,
+  };
+
+  // Manual encoding for fee recipients
+  const buffer = Buffer.alloc(137);
+  let offset = 0;
+
+  // Encode discriminator
+  const discriminator = getAccountDiscriminator("RewardInfo");
+  discriminator.copy(buffer, offset);
+  offset += 8;
+
+  // Encode bump
+  buffer.writeUInt8(rewardInfo.bump, offset);
+  offset += 1;
+
+  // Encode folio pubkey
+  rewardInfo.folio.toBuffer().copy(buffer, offset);
+  offset += 32;
+
+  // Encode folio reward token
+  rewardInfo.folioRewardToken.toBuffer().copy(buffer, offset);
+  offset += 32;
+
+  // Encode payout last paid
+  rewardInfo.payoutLastPaid.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+  offset += 8;
+
+  // Encode reward ratio (4x u64 for u256)
+  const rewardIndexValue = rewardInfo.rewardIndex.toArrayLike(Buffer, "le", 32);
+  for (let i = 0; i < 4; i++) {
+    buffer.writeBigUInt64LE(BigInt(rewardIndexValue[i]), offset);
+    offset += 8;
+  }
+
+  // Encode balance accounted
+  rewardInfo.balanceAccounted.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+  offset += 8;
+
+  // Encode balance last known
+  rewardInfo.balanceLastKnown.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+  offset += 8;
+
+  // Encode total claimed
+  rewardInfo.totalClaimed.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+  offset += 8;
+
+  await setFolioAccountInfo(
+    ctx,
+    program,
+    rewardInfoPDAWithBump[0],
+    "rewardInfo",
+    rewardInfo,
+    buffer
+  );
+}
+
+export async function createAndSetUserRewardInfo(
+  ctx: ProgramTestContext,
+  program: Program<Folio>,
+  folio: PublicKey,
+  rewardToken: PublicKey,
+  user: PublicKey,
+  lastRewardIndex: BN = new BN(1),
+  accruedRewards: BN = new BN(0)
+) {
+  const userRewardInfoPDAWithBump = getUserRewardInfoPDAWithBump(
+    folio,
+    rewardToken,
+    user
+  );
+
+  const userRewardInfo = {
+    bump: userRewardInfoPDAWithBump[1],
+    folio: folio,
+    folioRewardToken: rewardToken,
+    lastRewardIndex: lastRewardIndex,
+    accruedRewards: accruedRewards,
+  };
+
+  // Manual encoding for fee recipients
+  const buffer = Buffer.alloc(113);
+  let offset = 0;
+
+  // Encode discriminator
+  const discriminator = getAccountDiscriminator("UserRewardInfo");
+  discriminator.copy(buffer, offset);
+  offset += 8;
+
+  // Encode bump
+  buffer.writeUInt8(userRewardInfo.bump, offset);
+  offset += 1;
+
+  // Encode folio pubkey
+  userRewardInfo.folio.toBuffer().copy(buffer, offset);
+  offset += 32;
+
+  // Encode folio reward token
+  userRewardInfo.folioRewardToken.toBuffer().copy(buffer, offset);
+  offset += 32;
+
+  // Encode last reward index
+  const lastRewardIndexValue = userRewardInfo.lastRewardIndex.toArrayLike(
+    Buffer,
+    "le",
+    32
+  );
+  for (let i = 0; i < 4; i++) {
+    buffer.writeBigUInt64LE(BigInt(lastRewardIndexValue[i]), offset);
+    offset += 8;
+  }
+
+  // Encode accrued rewards
+  userRewardInfo.accruedRewards
+    .toArrayLike(Buffer, "le", 8)
+    .copy(buffer, offset);
+  offset += 8;
+
+  await setFolioAccountInfo(
+    ctx,
+    program,
+    userRewardInfoPDAWithBump[0],
+    "userRewardInfo",
+    userRewardInfo,
     buffer
   );
 }

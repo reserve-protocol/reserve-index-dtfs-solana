@@ -36,6 +36,9 @@ pub struct AddToPendingBasket<'info> {
     )]
     pub dtf_program_data: UncheckedAccount<'info>,
 
+    /// CHECK: Done within the folio program
+    pub program_registrar: UncheckedAccount<'info>,
+
     /*
     Folio Program Accounts
     */
@@ -54,9 +57,6 @@ pub struct AddToPendingBasket<'info> {
     /// CHECK: Done within the folio program
     #[account(mut)]
     pub user_pending_basket: UncheckedAccount<'info>,
-
-    /// CHECK: Done within the folio program
-    pub program_registrar: UncheckedAccount<'info>,
     /*
     The remaining accounts need to match the order of amounts as parameter
 

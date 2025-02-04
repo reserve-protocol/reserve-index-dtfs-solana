@@ -14,10 +14,6 @@ pub struct OpenTrade<'info> {
     #[account(mut)]
     pub trade_launcher: Signer<'info>,
 
-    /// CHECK: Done within the folio program
-    #[account()]
-    pub actor: UncheckedAccount<'info>,
-
     /*
     DTF Program Accounts
     */
@@ -39,6 +35,9 @@ pub struct OpenTrade<'info> {
     )]
     pub dtf_program_data: UncheckedAccount<'info>,
 
+    /// CHECK: Done within the folio program
+    pub program_registrar: UncheckedAccount<'info>,
+
     /*
     Folio Program Accounts
     */
@@ -48,14 +47,15 @@ pub struct OpenTrade<'info> {
 
     /// CHECK: Done within the folio program
     #[account()]
+    pub actor: UncheckedAccount<'info>,
+
+    /// CHECK: Done within the folio program
+    #[account()]
     pub folio: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
     #[account(mut)]
     pub trade: UncheckedAccount<'info>,
-
-    /// CHECK: Done within the folio program
-    pub program_registrar: UncheckedAccount<'info>,
 }
 
 impl OpenTrade<'_> {

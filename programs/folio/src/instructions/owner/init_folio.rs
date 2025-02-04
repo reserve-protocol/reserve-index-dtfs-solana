@@ -31,6 +31,23 @@ pub struct InitFolio<'info> {
     #[account(mut)]
     pub folio_owner: Signer<'info>,
 
+    /*
+    Account to validate
+    */
+    /// CHECK: DTF program used for creating owner record
+    #[account()]
+    pub dtf_program: UncheckedAccount<'info>,
+
+    /// CHECK: DTF program data to validate program deployment slot
+    #[account()]
+    pub dtf_program_data: UncheckedAccount<'info>,
+
+    #[account(
+        seeds = [PROGRAM_REGISTRAR_SEEDS],
+        bump = program_registrar.bump
+    )]
+    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
+
     #[account(init,
         payer = folio_owner,
         space = Folio::SIZE,
@@ -63,23 +80,6 @@ pub struct InitFolio<'info> {
         the fee_recipients will be created in the update function (if needed)
         the folio_basket will be created in the init tokens (if needed)
     */
-
-    /*
-    Account to validate
-    */
-    #[account(
-        seeds = [PROGRAM_REGISTRAR_SEEDS],
-        bump = program_registrar.bump
-    )]
-    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
-
-    /// CHECK: DTF program used for creating owner record
-    #[account()]
-    pub dtf_program: UncheckedAccount<'info>,
-
-    /// CHECK: DTF program data to validate program deployment slot
-    #[account()]
-    pub dtf_program_data: UncheckedAccount<'info>,
 
     /*
     Metaplex accounts for metadata

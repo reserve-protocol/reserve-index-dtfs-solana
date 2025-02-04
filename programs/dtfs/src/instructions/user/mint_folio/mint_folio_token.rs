@@ -27,12 +27,6 @@ pub struct MintFolioToken<'info> {
     )]
     pub dtf_program_signer: Account<'info, DtfProgramSigner>,
 
-    #[account(
-        seeds = [DAO_FEE_CONFIG_SEEDS],
-        bump = dao_fee_config.bump
-    )]
-    pub dao_fee_config: Account<'info, DAOFeeConfig>,
-
     /// CHECK: DTF Program
     #[account(address = DTF_PROGRAM_ID)]
     pub dtf_program: UncheckedAccount<'info>,
@@ -44,6 +38,15 @@ pub struct MintFolioToken<'info> {
         seeds::program = &bpf_loader_upgradeable::id()
     )]
     pub dtf_program_data: UncheckedAccount<'info>,
+
+    /// CHECK: Done within the folio program
+    pub program_registrar: UncheckedAccount<'info>,
+
+    #[account(
+        seeds = [DAO_FEE_CONFIG_SEEDS],
+        bump = dao_fee_config.bump
+    )]
+    pub dao_fee_config: Account<'info, DAOFeeConfig>,
 
     /*
     Folio Program Accounts
@@ -69,9 +72,6 @@ pub struct MintFolioToken<'info> {
 
     #[account(mut)]
     pub user_folio_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
-
-    /// CHECK: Done within the folio program
-    pub program_registrar: UncheckedAccount<'info>,
     /*
     The remaining accounts need to match the order of amounts as parameter
 

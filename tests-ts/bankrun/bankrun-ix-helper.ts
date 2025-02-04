@@ -252,38 +252,6 @@ export async function initFolio<T extends boolean = true>(
   return { ix: initFolio, extraSigners: [folioTokenMint] } as any;
 }
 
-export async function pokeFolio<T extends boolean = true>(
-  client: BanksClient,
-  programFolio: Program<Folio>,
-  userKeypair: Keypair,
-  folioPDA: PublicKey,
-  folioTokenMint: PublicKey,
-  programId: PublicKey,
-  executeTxn: T = true as T
-): Promise<
-  T extends true
-    ? BanksTransactionResultWithMeta
-    : { ix: TransactionInstruction; extraSigners: any[] }
-> {
-  const pokeFolio = await programFolio.methods
-    .pokeFolio()
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      user: userKeypair.publicKey,
-      folio: folioPDA,
-      folioTokenMint: folioTokenMint,
-      dtfProgram: programId,
-      daoFeeConfig: getDAOFeeConfigPDA(),
-    })
-    .instruction();
-
-  if (executeTxn) {
-    return createAndProcessTransaction(client, userKeypair, [pokeFolio]) as any;
-  }
-
-  return { ix: pokeFolio, extraSigners: [] } as any;
-}
-
 /*
 Through DTF proxy
 */
@@ -842,6 +810,43 @@ export async function redeemFromPendingBasket<T extends boolean = true>(
   }
 
   return { ix: redeemFromPendingBasket, extraSigners: [] } as any;
+}
+
+export async function pokeFolio<T extends boolean = true>(
+  client: BanksClient,
+  programDtf: Program<Dtfs>,
+  userKeypair: Keypair,
+  folioPDA: PublicKey,
+  folioTokenMint: PublicKey,
+  programId: PublicKey,
+  programDataAddress: PublicKey,
+  executeTxn: T = true as T
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const pokeFolio = await programDtf.methods
+    .pokeFolio()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      user: userKeypair.publicKey,
+      folio: folioPDA,
+      folioTokenMint: folioTokenMint,
+      dtfProgram: programId,
+      folioProgram: FOLIO_PROGRAM_ID,
+      daoFeeConfig: getDAOFeeConfigPDA(),
+      dtfProgramSigner: getDtfSignerPDA(),
+      dtfProgramData: programDataAddress,
+      programRegistrar: getProgramRegistrarPDA(),
+    })
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, userKeypair, [pokeFolio]) as any;
+  }
+
+  return { ix: pokeFolio, extraSigners: [] } as any;
 }
 
 export async function distributeFees<T extends boolean = true>(

@@ -23,6 +23,41 @@ pub struct DistributeFees<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
+    /*
+    Accounts to validate
+    */
+    #[account(
+        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
+        bump,
+        seeds::program = dtf_program.key(),
+    )]
+    pub dtf_program_signer: Signer<'info>,
+
+    /// CHECK: DTF program used for creating owner record
+    #[account()]
+    pub dtf_program: UncheckedAccount<'info>,
+
+    /// CHECK: DTF program data to validate program deployment slot
+    #[account()]
+    pub dtf_program_data: UncheckedAccount<'info>,
+
+    #[account(
+        seeds = [PROGRAM_REGISTRAR_SEEDS],
+        bump = program_registrar.bump
+    )]
+    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
+
+    /// CHECK: DAO fee config to get fee for minting
+    #[account(
+            seeds = [DAO_FEE_CONFIG_SEEDS],
+            bump,
+            seeds::program = dtf_program.key(),
+        )]
+    pub dao_fee_config: UncheckedAccount<'info>,
+
+    /*
+    Specific for the instruction
+     */
     #[account(mut)]
     pub folio: AccountLoader<'info, Folio>,
 
@@ -46,38 +81,6 @@ pub struct DistributeFees<'info> {
 
     #[account(mut)]
     pub dao_fee_recipient: Box<InterfaceAccount<'info, TokenAccount>>,
-
-    /*
-    Accounts to validate
-    */
-    #[account(
-        seeds = [PROGRAM_REGISTRAR_SEEDS],
-        bump = program_registrar.bump
-    )]
-    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
-
-    /// CHECK: DTF program used for creating owner record
-    #[account()]
-    pub dtf_program: UncheckedAccount<'info>,
-
-    /// CHECK: DTF program data to validate program deployment slot
-    #[account()]
-    pub dtf_program_data: UncheckedAccount<'info>,
-
-    #[account(
-        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
-        bump,
-        seeds::program = dtf_program.key(),
-    )]
-    pub dtf_program_signer: Signer<'info>,
-
-    /// CHECK: DAO fee config to get fee for minting
-    #[account(
-        seeds = [DAO_FEE_CONFIG_SEEDS],
-        bump,
-        seeds::program = dtf_program.key(),
-    )]
-    pub dao_fee_config: UncheckedAccount<'info>,
 }
 
 impl DistributeFees<'_> {

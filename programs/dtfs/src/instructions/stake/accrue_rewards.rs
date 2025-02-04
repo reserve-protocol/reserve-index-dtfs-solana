@@ -33,6 +33,9 @@ pub struct AccrueRewards<'info> {
     )]
     pub dtf_program_data: UncheckedAccount<'info>,
 
+    /// CHECK: Done within the folio program
+    pub program_registrar: UncheckedAccount<'info>,
+
     /*
     Folio Program Accounts
     */
@@ -59,9 +62,6 @@ pub struct AccrueRewards<'info> {
     /// CHECK: Done within the folio program
     #[account()]
     pub user: UncheckedAccount<'info>,
-
-    /// CHECK: Done within the folio program
-    pub program_registrar: UncheckedAccount<'info>,
 }
 
 impl AccrueRewards<'_> {

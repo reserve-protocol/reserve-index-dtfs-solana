@@ -33,6 +33,9 @@ pub struct RemoveRewardToken<'info> {
     )]
     pub dtf_program_data: UncheckedAccount<'info>,
 
+    /// CHECK: Done within the folio program
+    pub program_registrar: UncheckedAccount<'info>,
+
     /*
     Folio Program Accounts
     */
@@ -55,9 +58,6 @@ pub struct RemoveRewardToken<'info> {
     /// CHECK: Done within the folio program
     #[account()]
     pub reward_token_to_remove: Box<InterfaceAccount<'info, Mint>>,
-
-    /// CHECK: Done within the folio program
-    pub program_registrar: UncheckedAccount<'info>,
 }
 
 impl RemoveRewardToken<'_> {

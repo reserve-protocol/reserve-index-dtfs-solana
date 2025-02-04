@@ -34,6 +34,9 @@ pub struct AddRewardToken<'info> {
     )]
     pub dtf_program_data: UncheckedAccount<'info>,
 
+    /// CHECK: Done within the folio program
+    pub program_registrar: UncheckedAccount<'info>,
+
     /*
     Folio Program Accounts
     */
@@ -63,9 +66,6 @@ pub struct AddRewardToken<'info> {
 
     #[account()]
     pub reward_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
-
-    /// CHECK: Done within the folio program
-    pub program_registrar: UncheckedAccount<'info>,
 }
 
 impl AddRewardToken<'_> {

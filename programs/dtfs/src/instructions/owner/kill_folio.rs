@@ -14,10 +14,6 @@ pub struct KillFolio<'info> {
     #[account(mut)]
     pub folio_owner: Signer<'info>,
 
-    /// CHECK: Done within the folio program
-    #[account()]
-    pub actor: UncheckedAccount<'info>,
-
     /*
     DTF Program Accounts
     */
@@ -39,6 +35,9 @@ pub struct KillFolio<'info> {
     )]
     pub dtf_program_data: UncheckedAccount<'info>,
 
+    /// CHECK: Done within the folio program
+    pub program_registrar: UncheckedAccount<'info>,
+
     /*
     Folio Program Accounts
     */
@@ -51,7 +50,8 @@ pub struct KillFolio<'info> {
     pub folio: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
-    pub program_registrar: UncheckedAccount<'info>,
+    #[account()]
+    pub actor: UncheckedAccount<'info>,
 }
 
 impl KillFolio<'_> {

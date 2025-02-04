@@ -36,6 +36,9 @@ pub struct CrankFeeDistribution<'info> {
     )]
     pub dtf_program_data: UncheckedAccount<'info>,
 
+    /// CHECK: Done within the folio program
+    pub program_registrar: UncheckedAccount<'info>,
+
     /*
     Folio Program Accounts
     */
@@ -58,9 +61,6 @@ pub struct CrankFeeDistribution<'info> {
     /// CHECK: Done within the folio program
     #[account(mut)]
     pub fee_distribution: UncheckedAccount<'info>,
-
-    /// CHECK: Done within the folio program
-    pub program_registrar: UncheckedAccount<'info>,
     /*
     Remaining accounts will be the token accounts of the fee recipients, needs to follow the
     order of the indices passed as parameters.

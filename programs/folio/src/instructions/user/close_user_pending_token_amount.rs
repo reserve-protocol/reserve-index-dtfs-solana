@@ -15,23 +15,15 @@ pub struct CloseUserPendingTokenAmount<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
-    #[account()]
-    pub folio: AccountLoader<'info, Folio>,
-
-    #[account(mut,
-        seeds = [USER_PENDING_BASKET_SEEDS, folio.key().as_ref(), user.key().as_ref()],
-        bump
-    )]
-    pub user_pending_basket: AccountLoader<'info, UserPendingBasket>,
-
     /*
     Accounts to validate
     */
     #[account(
-        seeds = [PROGRAM_REGISTRAR_SEEDS],
-        bump = program_registrar.bump
+        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
+        bump,
+        seeds::program = dtf_program.key(),
     )]
-    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
+    pub dtf_program_signer: Signer<'info>,
 
     /// CHECK: DTF program used for creating owner record
     #[account()]
@@ -42,11 +34,19 @@ pub struct CloseUserPendingTokenAmount<'info> {
     pub dtf_program_data: UncheckedAccount<'info>,
 
     #[account(
-        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
-        bump,
-        seeds::program = dtf_program.key(),
+        seeds = [PROGRAM_REGISTRAR_SEEDS],
+        bump = program_registrar.bump
     )]
-    pub dtf_program_signer: Signer<'info>,
+    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
+
+    #[account()]
+    pub folio: AccountLoader<'info, Folio>,
+
+    #[account(mut,
+        seeds = [USER_PENDING_BASKET_SEEDS, folio.key().as_ref(), user.key().as_ref()],
+        bump
+    )]
+    pub user_pending_basket: AccountLoader<'info, UserPendingBasket>,
 }
 
 impl CloseUserPendingTokenAmount<'_> {

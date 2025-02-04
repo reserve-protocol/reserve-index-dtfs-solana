@@ -4,8 +4,8 @@ use anchor_lang::{
     solana_program::{program::invoke_signed, system_instruction},
 };
 
-pub fn next_account<'a, 'b>(
-    iter: &'a mut std::slice::Iter<'b, AccountInfo<'b>>,
+pub fn next_account<'b>(
+    iter: &mut std::slice::Iter<'b, AccountInfo<'b>>,
     must_be_signer: bool,
     must_be_writable: bool,
 ) -> Result<&'b AccountInfo<'b>> {

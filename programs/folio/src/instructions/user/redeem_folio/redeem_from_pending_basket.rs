@@ -26,30 +26,9 @@ pub struct RedeemFromPendingBasket<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
-    #[account()]
-    pub folio: AccountLoader<'info, Folio>,
-
-    #[account(mut,
-        seeds = [FOLIO_BASKET_SEEDS, folio.key().as_ref()],
-        bump
-    )]
-    pub folio_basket: AccountLoader<'info, FolioBasket>,
-
-    #[account(mut,
-        seeds = [USER_PENDING_BASKET_SEEDS, folio.key().as_ref(), user.key().as_ref()],
-        bump
-    )]
-    pub user_pending_basket: AccountLoader<'info, UserPendingBasket>,
-
     /*
     Accounts to validate
     */
-    #[account(
-        seeds = [PROGRAM_REGISTRAR_SEEDS],
-        bump = program_registrar.bump
-    )]
-    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
-
     #[account(
         seeds = [DTF_PROGRAM_SIGNER_SEEDS],
         bump,
@@ -64,6 +43,27 @@ pub struct RedeemFromPendingBasket<'info> {
     /// CHECK: DTF program data to validate program deployment slot
     #[account()]
     pub dtf_program_data: UncheckedAccount<'info>,
+
+    #[account(
+        seeds = [PROGRAM_REGISTRAR_SEEDS],
+        bump = program_registrar.bump
+    )]
+    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
+
+    #[account()]
+    pub folio: AccountLoader<'info, Folio>,
+
+    #[account(mut,
+        seeds = [FOLIO_BASKET_SEEDS, folio.key().as_ref()],
+        bump
+    )]
+    pub folio_basket: AccountLoader<'info, FolioBasket>,
+
+    #[account(mut,
+        seeds = [USER_PENDING_BASKET_SEEDS, folio.key().as_ref(), user.key().as_ref()],
+        bump
+    )]
+    pub user_pending_basket: AccountLoader<'info, UserPendingBasket>,
     /*
     The remaining accounts need to match the order of amounts as parameter
 

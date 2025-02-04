@@ -92,8 +92,8 @@ impl Folio {
 
         let deployment_slot = DtfProgram::get_program_deployment_slot(
             &dtf_program.key(),
-            &dtf_program.to_account_info(),
-            &dtf_program_data.to_account_info(),
+            dtf_program,
+            dtf_program_data,
         )?;
 
         check_condition!(

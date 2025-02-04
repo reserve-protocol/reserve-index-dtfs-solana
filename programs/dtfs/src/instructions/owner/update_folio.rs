@@ -16,10 +16,6 @@ pub struct UpdateFolio<'info> {
     #[account(mut)]
     pub folio_owner: Signer<'info>,
 
-    /// CHECK: Done within the folio program
-    #[account()]
-    pub actor: UncheckedAccount<'info>,
-
     /*
     DTF Program Accounts
     */
@@ -41,6 +37,10 @@ pub struct UpdateFolio<'info> {
     )]
     pub dtf_program_data: UncheckedAccount<'info>,
 
+    /// CHECK: Done within the folio program
+    #[account()]
+    pub program_registrar: UncheckedAccount<'info>,
+
     /*
     Folio Program Accounts
     */
@@ -53,12 +53,12 @@ pub struct UpdateFolio<'info> {
     pub folio: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
-    #[account(mut)]
-    pub fee_recipients: UncheckedAccount<'info>,
+    #[account()]
+    pub actor: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
-    #[account()]
-    pub program_registrar: UncheckedAccount<'info>,
+    #[account(mut)]
+    pub fee_recipients: UncheckedAccount<'info>,
 }
 
 impl UpdateFolio<'_> {

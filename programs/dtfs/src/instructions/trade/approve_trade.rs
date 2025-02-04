@@ -16,10 +16,6 @@ pub struct ApproveTrade<'info> {
     #[account(mut)]
     pub trade_proposer: Signer<'info>,
 
-    /// CHECK: Done within the folio program
-    #[account()]
-    pub actor: UncheckedAccount<'info>,
-
     /*
     DTF Program Accounts
     */
@@ -41,12 +37,19 @@ pub struct ApproveTrade<'info> {
     )]
     pub dtf_program_data: UncheckedAccount<'info>,
 
+    /// CHECK: Done within the folio program
+    pub program_registrar: UncheckedAccount<'info>,
+
     /*
     Folio Program Accounts
     */
     /// CHECK: Folio Program
     #[account(address = FOLIO_ID)]
     pub folio_program: UncheckedAccount<'info>,
+
+    /// CHECK: Done within the folio program
+    #[account()]
+    pub actor: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
     #[account(mut)]
@@ -63,9 +66,6 @@ pub struct ApproveTrade<'info> {
     /// CHECK: Done within the folio program
     #[account()]
     pub sell_mint: UncheckedAccount<'info>,
-
-    /// CHECK: Done within the folio program
-    pub program_registrar: UncheckedAccount<'info>,
 }
 
 impl ApproveTrade<'_> {

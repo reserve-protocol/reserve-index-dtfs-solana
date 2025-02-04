@@ -1,16 +1,16 @@
-use crate::state::DtfProgramSigner;
-use crate::{FolioProgram, ID as DTF_PROGRAM_ID};
-use anchor_lang::prelude::*;
-use anchor_lang::solana_program::bpf_loader_upgradeable;
-use folio::ID as FOLIO_ID;
+use anchor_lang::{prelude::*, solana_program::bpf_loader_upgradeable};
 use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
 
+use crate::ID as DTF_PROGRAM_ID;
+use crate::{state::DtfProgramSigner, FolioProgram};
+use folio::ID as FOLIO_ID;
+
 #[derive(Accounts)]
-pub struct InitOrSetRewardRatio<'info> {
+pub struct PokeFolio<'info> {
     pub system_program: Program<'info, System>,
 
     #[account(mut)]
-    pub folio_owner: Signer<'info>,
+    pub user: Signer<'info>,
 
     /*
     DTF Program Accounts
@@ -36,6 +36,10 @@ pub struct InitOrSetRewardRatio<'info> {
     /// CHECK: Done within the folio program
     pub program_registrar: UncheckedAccount<'info>,
 
+    /// CHECK: DAO fee config to get fee for minting
+    #[account()]
+    pub dao_fee_config: UncheckedAccount<'info>,
+
     /*
     Folio Program Accounts
     */
@@ -44,30 +48,24 @@ pub struct InitOrSetRewardRatio<'info> {
     pub folio_program: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
-    #[account()]
-    pub actor: UncheckedAccount<'info>,
-
-    /// CHECK: Done within the folio program
-    #[account()]
+    #[account(mut)]
     pub folio: UncheckedAccount<'info>,
 
     /// CHECK: Done within the folio program
     #[account(mut)]
-    pub folio_reward_tokens: UncheckedAccount<'info>,
+    pub folio_token_mint: UncheckedAccount<'info>,
 }
 
-impl InitOrSetRewardRatio<'_> {
+impl PokeFolio<'_> {
     pub fn validate(&self) -> Result<()> {
         Ok(())
     }
 }
 
-pub fn handler<'info>(
-    ctx: Context<'_, '_, 'info, 'info, InitOrSetRewardRatio<'info>>,
-    reward_period: u64,
-) -> Result<()> {
+pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, PokeFolio<'info>>) -> Result<()> {
     ctx.accounts.validate()?;
 
-    FolioProgram::init_or_set_reward_ratio(ctx, reward_period)?;
+    FolioProgram::poke_folio(ctx)?;
+
     Ok(())
 }

@@ -264,7 +264,7 @@ impl CustomPreciseNumber {
         let mut n = 1u64;
 
         while n <= Self::MAX_ITERATIONS as u64 {
-            term = term.mul(&self)?.div_generic(n)?;
+            term = term.mul(self)?.div_generic(n)?;
             result = result.add(&term)?;
 
             if term.0 < Self::EPSILON {

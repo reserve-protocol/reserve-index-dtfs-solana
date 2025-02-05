@@ -12,3 +12,15 @@ export function deserializeU256(value: BN[]): bigint {
     (BigInt(value[3].toString()) << BigInt(192))
   );
 }
+
+export function serializeU256(value: number | bigint): number[] {
+  const bigIntValue = BigInt(value);
+  const mask = BigInt("0xFFFFFFFFFFFFFFFF"); // 64-bit mask
+
+  return [
+    Number(bigIntValue & mask),
+    Number((bigIntValue >> BigInt(64)) & mask),
+    Number((bigIntValue >> BigInt(128)) & mask),
+    Number((bigIntValue >> BigInt(192)) & mask),
+  ];
+}

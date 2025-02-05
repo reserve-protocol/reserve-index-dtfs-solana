@@ -1014,6 +1014,7 @@ export async function accrueRewards(
   callerKeypair: Keypair,
   folioOwner: PublicKey,
   folio: PublicKey,
+  folioTokenMint: PublicKey,
   rewardTokens: PublicKey[],
   extraUser: PublicKey = callerKeypair.publicKey
 ) {
@@ -1039,6 +1040,7 @@ export async function accrueRewards(
         connection,
         callerKeypair,
         folio,
+        folioTokenMint,
         folioOwner,
         rewardTokens,
         extraUser

@@ -41,7 +41,6 @@ import {
 } from "../../utils/constants";
 import {
   buildRemainingAccounts,
-  buildRemainingAccountsForAccruesRewards,
   buildRemainingAccountsForClaimRewards,
   roleToStruct,
 } from "./bankrun-account-helper";
@@ -1123,26 +1122,15 @@ export async function accrueRewards<T extends boolean = true>(
       actor: getActorPDA(folioOwner, folio),
       folio,
       folioRewardTokens: getFolioRewardTokensPDA(folio),
-      user: extraUser,
+      user: extraUser ?? callerKeypair.publicKey,
       programRegistrar: getProgramRegistrarPDA(),
     })
-    .remainingAccounts(
-      remainingAccounts.length > 0
-        ? remainingAccounts
-        : await buildRemainingAccountsForAccruesRewards(
-            context,
-            callerKeypair,
-            folio,
-            folioOwner,
-            rewardTokens,
-            extraUser
-          )
-    )
+    .remainingAccounts(remainingAccounts)
     .instruction();
 
   if (executeTxn) {
     return createAndProcessTransaction(client, callerKeypair, [
-      ...getComputeLimitInstruction(400_000),
+      ...getComputeLimitInstruction(600_000),
       accrueRewards,
     ]) as any;
   }

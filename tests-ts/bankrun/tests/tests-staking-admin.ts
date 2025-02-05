@@ -60,7 +60,7 @@ import {
 
 import * as assert from "assert";
 import { deserializeU256 } from "../../../utils/math-helper";
-describe("Bankrun - Fees", () => {
+describe("Bankrun - Staking Admin", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
   let banksClient: BanksClient;

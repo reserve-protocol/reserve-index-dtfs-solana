@@ -83,6 +83,11 @@ impl CustomPreciseNumber {
         Ok(CustomPreciseNumber(result))
     }
 
+    pub fn pow_mul(&self, other: &Self) -> Result<Self> {
+        let raw_result = self.0.checked_mul(other.0).ok_or(MathOverflow)?;
+        Ok(CustomPreciseNumber(raw_result))
+    }
+
     pub fn div(&self, other: &Self) -> Result<Self> {
         let result = self
             .0
@@ -108,10 +113,10 @@ impl CustomPreciseNumber {
 
         while exp > 0 {
             if exp & 1 == 1 {
-                result = result.mul(&base)?;
+                result = result.pow_mul(&base)?;
             }
             if exp > 1 {
-                base = base.mul(&base)?;
+                base = base.pow_mul(&base)?;
             }
             exp >>= 1;
         }

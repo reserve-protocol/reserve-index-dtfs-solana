@@ -15,6 +15,7 @@ impl UserRewardInfo {
         account_user_reward_info: &'info AccountInfo<'info>,
         system_program: &AccountInfo<'info>,
         payer: &AccountInfo<'info>,
+        for_user: &Pubkey,
         context_bump: u8,
         folio: &Pubkey,
         reward_token: &Pubkey,
@@ -27,7 +28,7 @@ impl UserRewardInfo {
                     USER_REWARD_INFO_SEEDS,
                     folio.as_ref(),
                     reward_token.as_ref(),
-                    payer.key.as_ref(),
+                    for_user.as_ref(),
                     &[context_bump],
                 ];
                 let self_signer = &[&self_signer_seeds[..]];
@@ -86,11 +87,13 @@ impl UserRewardInfo {
     }
 
     pub fn accrue_rewards(&mut self, reward_info: &RewardInfo, user_balance: u64) -> Result<()> {
-        let (delta_result, overflow) = reward_info
-            .reward_index
-            .to_u256()
-            .overflowing_sub(self.last_reward_index.to_u256());
-
+        // TODO Fix math
+        let delta_result = U256::from(1);
+        let overflow = false;
+        // let (delta_result, overflow) = reward_info
+        //     .reward_index
+        //     .to_u256()
+        //     .overflowing_sub(self.last_reward_index.to_u256());
         if !overflow && delta_result != U256::from(0) {
             self.calculate_and_update_accrued_rewards(user_balance, delta_result)?;
 

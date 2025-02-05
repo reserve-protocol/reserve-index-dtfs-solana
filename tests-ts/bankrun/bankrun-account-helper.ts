@@ -40,6 +40,7 @@ import {
   MAX_REWARD_TOKENS,
 } from "../../utils/constants";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
+import { serializeU256 } from "../../utils/math-helper";
 
 export enum Role {
   Owner = 0b00000001, // 1
@@ -90,6 +91,68 @@ export class MintInfo {
   mint: PublicKey;
   decimals: BN;
   supply: BN;
+}
+
+export class RewardInfo {
+  folioRewardToken: PublicKey;
+  payoutLastPaid: BN;
+  rewardIndex: BN;
+  balanceAccounted: BN;
+  balanceLastKnown: BN;
+  totalClaimed: BN;
+
+  constructor(
+    folioRewardToken: PublicKey,
+    payoutLastPaid: BN,
+    rewardIndex: BN,
+    balanceAccounted: BN,
+    balanceLastKnown: BN,
+    totalClaimed: BN
+  ) {
+    this.folioRewardToken = folioRewardToken;
+    this.payoutLastPaid = payoutLastPaid;
+    this.rewardIndex = rewardIndex;
+    this.balanceAccounted = balanceAccounted;
+    this.balanceLastKnown = balanceLastKnown;
+    this.totalClaimed = totalClaimed;
+  }
+
+  public static async default(
+    context: ProgramTestContext,
+    folioRewardToken: PublicKey
+  ) {
+    return new RewardInfo(
+      folioRewardToken,
+      new BN((await context.banksClient.getClock()).unixTimestamp.toString()),
+      new BN(1),
+      new BN(0),
+      new BN(0),
+      new BN(0)
+    );
+  }
+}
+
+export class UserRewardInfo {
+  folioRewardToken: PublicKey;
+  user: PublicKey;
+  lastRewardIndex: BN;
+  accruedRewards: BN;
+
+  constructor(
+    folioRewardToken: PublicKey,
+    user: PublicKey,
+    lastRewardIndex: BN,
+    accruedRewards: BN
+  ) {
+    this.folioRewardToken = folioRewardToken;
+    this.user = user;
+    this.lastRewardIndex = lastRewardIndex;
+    this.accruedRewards = accruedRewards;
+  }
+
+  public static default(folioRewardToken: PublicKey, user: PublicKey) {
+    return new UserRewardInfo(folioRewardToken, user, new BN(1), new BN(0));
+  }
 }
 
 function getAccountDiscriminator(accountName: string): Buffer {
@@ -608,12 +671,8 @@ export async function createAndSetFolioRewardTokens(
   folioRewardTokens.folio.toBuffer().copy(buffer, offset);
   offset += 32;
 
-  // Encode reward ratio (4x u64 for u256)
-  const rewardRatioValue = folioRewardTokens.rewardRatio.toArrayLike(
-    Buffer,
-    "le",
-    32
-  );
+  // Encode reward ratio (u256)
+  const rewardRatioValue = serializeU256(BigInt(rewardRatio.toString()));
   for (let i = 0; i < 4; i++) {
     buffer.writeBigUInt64LE(BigInt(rewardRatioValue[i]), offset);
     offset += 8;
@@ -652,24 +711,22 @@ export async function createAndSetRewardInfo(
   ctx: ProgramTestContext,
   program: Program<Folio>,
   folio: PublicKey,
-  rewardToken: PublicKey,
-  payoutLastPaid: BN = new BN(0),
-  rewardIndex: BN = new BN(1),
-  balanceAccounted: BN = new BN(0),
-  balanceLastKnown: BN = new BN(0),
-  totalClaimed: BN = new BN(0)
+  providedRewardInfo: RewardInfo
 ) {
-  const rewardInfoPDAWithBump = getRewardInfoPDAWithBump(folio, rewardToken);
+  const rewardInfoPDAWithBump = getRewardInfoPDAWithBump(
+    folio,
+    providedRewardInfo.folioRewardToken
+  );
 
   const rewardInfo = {
     bump: rewardInfoPDAWithBump[1],
     folio: folio,
-    folioRewardToken: rewardToken,
-    payoutLastPaid: payoutLastPaid,
-    rewardIndex: rewardIndex,
-    balanceAccounted: balanceAccounted,
-    balanceLastKnown: balanceLastKnown,
-    totalClaimed: totalClaimed,
+    folioRewardToken: providedRewardInfo.folioRewardToken,
+    payoutLastPaid: providedRewardInfo.payoutLastPaid,
+    rewardIndex: providedRewardInfo.rewardIndex,
+    balanceAccounted: providedRewardInfo.balanceAccounted,
+    balanceLastKnown: providedRewardInfo.balanceLastKnown,
+    totalClaimed: providedRewardInfo.totalClaimed,
   };
 
   // Manual encoding for fee recipients
@@ -698,7 +755,9 @@ export async function createAndSetRewardInfo(
   offset += 8;
 
   // Encode reward ratio (4x u64 for u256)
-  const rewardIndexValue = rewardInfo.rewardIndex.toArrayLike(Buffer, "le", 32);
+  const rewardIndexValue = serializeU256(
+    BigInt(rewardInfo.rewardIndex.toString())
+  );
   for (let i = 0; i < 4; i++) {
     buffer.writeBigUInt64LE(BigInt(rewardIndexValue[i]), offset);
     offset += 8;
@@ -730,23 +789,20 @@ export async function createAndSetUserRewardInfo(
   ctx: ProgramTestContext,
   program: Program<Folio>,
   folio: PublicKey,
-  rewardToken: PublicKey,
-  user: PublicKey,
-  lastRewardIndex: BN = new BN(1),
-  accruedRewards: BN = new BN(0)
+  userRewardInfoProvided: UserRewardInfo
 ) {
   const userRewardInfoPDAWithBump = getUserRewardInfoPDAWithBump(
     folio,
-    rewardToken,
-    user
+    userRewardInfoProvided.folioRewardToken,
+    userRewardInfoProvided.user
   );
 
   const userRewardInfo = {
     bump: userRewardInfoPDAWithBump[1],
     folio: folio,
-    folioRewardToken: rewardToken,
-    lastRewardIndex: lastRewardIndex,
-    accruedRewards: accruedRewards,
+    folioRewardToken: userRewardInfoProvided.folioRewardToken,
+    lastRewardIndex: userRewardInfoProvided.lastRewardIndex,
+    accruedRewards: userRewardInfoProvided.accruedRewards,
   };
 
   // Manual encoding for fee recipients
@@ -942,6 +998,7 @@ export async function buildRemainingAccountsForAccruesRewards(
   context: ProgramTestContext,
   callerKeypair: Keypair,
   folio: PublicKey,
+  folioTokenMint: PublicKey,
   folioOwner: PublicKey, // Is the realm
   rewardTokens: PublicKey[],
   extraUser: PublicKey = callerKeypair.publicKey
@@ -978,7 +1035,7 @@ export async function buildRemainingAccountsForAccruesRewards(
     remainingAccounts.push({
       pubkey: getUserTokenRecordRealmsPDA(
         folioOwner,
-        token,
+        folioTokenMint,
         callerKeypair.publicKey
       ),
       isSigner: false,
@@ -992,7 +1049,11 @@ export async function buildRemainingAccountsForAccruesRewards(
         isWritable: true,
       });
       remainingAccounts.push({
-        pubkey: getUserTokenRecordRealmsPDA(folioOwner, token, extraUser),
+        pubkey: getUserTokenRecordRealmsPDA(
+          folioOwner,
+          folioTokenMint,
+          extraUser
+        ),
         isSigner: false,
         isWritable: false,
       });

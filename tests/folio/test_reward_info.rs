@@ -3,9 +3,9 @@ mod tests {
 
     use anchor_lang::prelude::Pubkey;
     use folio::state::RewardInfo;
+    use folio::utils::math_util::U256Number;
     use shared::constants::{LN_2, MIN_REWARD_HALF_LIFE};
     use shared::errors::ErrorCode::MathOverflow;
-    use shared::util::math_util::U256Number;
     use spl_math::uint::U256;
 
     fn setup_reward_info() -> RewardInfo {

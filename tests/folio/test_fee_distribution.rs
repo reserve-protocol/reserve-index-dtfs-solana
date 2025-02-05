@@ -2,7 +2,8 @@
 mod tests {
     use anchor_lang::prelude::Pubkey;
     use folio::state::FeeDistribution;
-    use shared::{constants::MAX_FEE_RECIPIENTS, structs::FeeRecipient};
+    use folio::utils::structs::FeeRecipient;
+    use shared::constants::MAX_FEE_RECIPIENTS;
 
     #[test]
     fn test_is_fully_distributed() {

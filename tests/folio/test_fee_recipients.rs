@@ -2,8 +2,8 @@
 mod tests {
     use anchor_lang::prelude::Pubkey;
     use folio::state::FeeRecipients;
+    use folio::utils::structs::FeeRecipient;
     use shared::errors::ErrorCode;
-    use shared::structs::FeeRecipient;
 
     const HALF: u64 = 500_000_000;
     const SCALAR: u64 = 1_000_000_000;

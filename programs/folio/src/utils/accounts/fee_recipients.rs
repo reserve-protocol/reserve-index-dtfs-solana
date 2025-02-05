@@ -1,8 +1,9 @@
 use crate::events::FeeRecipientSet;
 use crate::state::FeeRecipients;
+use crate::utils::structs::FeeRecipient;
 use anchor_lang::prelude::*;
 use shared::errors::ErrorCode;
-use shared::{check_condition, constants::MAX_FEE_RECIPIENTS, structs::FeeRecipient};
+use shared::{check_condition, constants::MAX_FEE_RECIPIENTS};
 
 impl FeeRecipients {
     pub fn process_init_if_needed(

@@ -1,38 +1,12 @@
-use anchor_lang::prelude::*;
-use shared::{
-    constants::{
-        MAX_CONCURRENT_TRADES, MAX_FEE_RECIPIENTS, MAX_FOLIO_TOKEN_AMOUNTS, MAX_REWARD_TOKENS,
-        MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
-    },
+use crate::utils::{
+    math_util::U256Number,
     structs::{FeeRecipient, Range, TokenAmount, TradeEnd},
-    util::math_util::U256Number,
 };
-
-/// PDA Seeds ["folio_program_signer"]
-#[account]
-#[derive(Default, InitSpace)]
-pub struct FolioProgramSigner {
-    pub bump: u8,
-}
-
-impl FolioProgramSigner {
-    pub const SIZE: usize = 8 + FolioProgramSigner::INIT_SPACE;
-}
-
-/// PDA Seeds ["program_registrar"]
-#[account]
-#[derive(Default, InitSpace)]
-pub struct ProgramRegistrar {
-    pub bump: u8,
-
-    pub accepted_programs: [Pubkey; ProgramRegistrar::MAX_ACCEPTED_PROGRAMS],
-}
-
-impl ProgramRegistrar {
-    pub const SIZE: usize = 8 + ProgramRegistrar::INIT_SPACE;
-
-    pub const MAX_ACCEPTED_PROGRAMS: usize = 10;
-}
+use anchor_lang::prelude::*;
+use shared::constants::{
+    MAX_CONCURRENT_TRADES, MAX_FEE_RECIPIENTS, MAX_FOLIO_TOKEN_AMOUNTS, MAX_REWARD_TOKENS,
+    MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
+};
 
 /// PDA Seeds ["actor", auth pubkey, folio pubkey]
 #[account]
@@ -57,18 +31,13 @@ All numbers for calculations are u64 (up to 9 "decimals")
 /// PDA Seeds ["folio", folio token pubkey]
 #[account(zero_copy)]
 #[derive(Default, InitSpace)]
+#[repr(C)]
 pub struct Folio {
     pub bump: u8,
 
     pub status: u8,
 
-    pub _padding: [u8; 6],
-
-    // Represents the program it can interact with
-    pub program_version: Pubkey,
-
-    // To also check if the program at the same address was updated (in case of upgrade authority takeover)
-    pub program_deployment_slot: u64,
+    pub _padding: [u8; 14],
 
     // The mint of the folio token (Circulating supply is stored in the token mint automatically)
     pub folio_token_mint: Pubkey,

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
 
-    use shared::structs::Role;
+    use folio::utils::structs::Role;
 
     #[test]
     fn test_role_bits() {

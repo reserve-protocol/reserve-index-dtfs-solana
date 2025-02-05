@@ -3,18 +3,15 @@ use anchor_spl::{
     associated_token::get_associated_token_address_with_program_id,
     token_interface::{self, Mint, TokenInterface, TransferChecked},
 };
-use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
+use shared::errors::ErrorCode;
 use shared::{
     check_condition,
-    constants::{
-        PendingBasketType, FOLIO_BASKET_SEEDS, PROGRAM_REGISTRAR_SEEDS, USER_PENDING_BASKET_SEEDS,
-    },
-    structs::TokenAmount,
-    util::account_util::next_account,
+    constants::{PendingBasketType, FOLIO_BASKET_SEEDS, USER_PENDING_BASKET_SEEDS},
 };
-use shared::{errors::ErrorCode, structs::FolioStatus};
 
-use crate::state::{Folio, FolioBasket, ProgramRegistrar, UserPendingBasket};
+use crate::state::{Folio, FolioBasket, UserPendingBasket};
+use crate::utils::account_util::next_account;
+use crate::utils::structs::{FolioStatus, TokenAmount};
 
 #[derive(Accounts)]
 pub struct AddToPendingBasket<'info> {
@@ -24,30 +21,6 @@ pub struct AddToPendingBasket<'info> {
 
     #[account(mut)]
     pub user: Signer<'info>,
-
-    /*
-    Account to validate
-    */
-    #[account(
-        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
-        bump,
-        seeds::program = dtf_program.key(),
-    )]
-    pub dtf_program_signer: Signer<'info>,
-
-    /// CHECK: DTF program used for creating owner record
-    #[account()]
-    pub dtf_program: UncheckedAccount<'info>,
-
-    /// CHECK: DTF program data to validate program deployment slot
-    #[account()]
-    pub dtf_program_data: UncheckedAccount<'info>,
-
-    #[account(
-        seeds = [PROGRAM_REGISTRAR_SEEDS],
-        bump = program_registrar.bump
-    )]
-    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
 
     #[account()]
     pub folio: AccountLoader<'info, Folio>,
@@ -78,11 +51,8 @@ pub struct AddToPendingBasket<'info> {
 impl AddToPendingBasket<'_> {
     pub fn validate(&self) -> Result<()> {
         let folio = self.folio.load()?;
-        folio.validate_folio_program_post_init(
+        folio.validate_folio(
             &self.folio.key(),
-            Some(&self.program_registrar),
-            Some(&self.dtf_program),
-            Some(&self.dtf_program_data),
             None,
             None,
             Some(vec![FolioStatus::Initialized]),

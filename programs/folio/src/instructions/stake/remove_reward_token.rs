@@ -1,15 +1,12 @@
 use crate::events::RewardTokenRemoved;
-use crate::state::{Actor, Folio, FolioRewardTokens, ProgramRegistrar};
+use crate::state::{Actor, Folio, FolioRewardTokens};
+use crate::utils::structs::{FolioStatus, Role};
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::Mint;
 use shared::check_condition;
+use shared::constants::ACTOR_SEEDS;
 use shared::constants::FOLIO_REWARD_TOKENS_SEEDS;
 use shared::errors::ErrorCode;
-use shared::structs::FolioStatus;
-use shared::{
-    constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, PROGRAM_REGISTRAR_SEEDS},
-    structs::Role,
-};
 
 #[derive(Accounts)]
 pub struct RemoveRewardToken<'info> {
@@ -17,30 +14,6 @@ pub struct RemoveRewardToken<'info> {
 
     #[account(mut)]
     pub folio_owner: Signer<'info>,
-
-    /*
-    Account to validate
-    */
-    #[account(
-        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
-        bump,
-        seeds::program = dtf_program.key(),
-    )]
-    pub dtf_program_signer: Signer<'info>,
-
-    /// CHECK: DTF program used for creating owner record
-    #[account()]
-    pub dtf_program: UncheckedAccount<'info>,
-
-    /// CHECK: DTF program data to validate program deployment slot
-    #[account()]
-    pub dtf_program_data: UncheckedAccount<'info>,
-
-    #[account(
-        seeds = [PROGRAM_REGISTRAR_SEEDS],
-        bump = program_registrar.bump
-    )]
-    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
 
     #[account(
         seeds = [ACTOR_SEEDS, folio_owner.key().as_ref(), folio.key().as_ref()],
@@ -63,11 +36,8 @@ pub struct RemoveRewardToken<'info> {
 
 impl RemoveRewardToken<'_> {
     pub fn validate(&self, folio: &Folio) -> Result<()> {
-        folio.validate_folio_program_post_init(
+        folio.validate_folio(
             &self.folio.key(),
-            Some(&self.program_registrar),
-            Some(&self.dtf_program),
-            Some(&self.dtf_program_data),
             Some(&self.actor),
             Some(Role::Owner),
             Some(vec![FolioStatus::Initializing, FolioStatus::Initialized]),

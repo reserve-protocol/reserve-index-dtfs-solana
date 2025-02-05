@@ -917,7 +917,6 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "bytemuck",
- "folio",
  "shared",
 ]
 
@@ -1000,6 +999,7 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "bytemuck",
+ "dtfs",
  "mpl-token-metadata",
  "shared",
  "spl-governance",

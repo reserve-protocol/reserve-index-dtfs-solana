@@ -1,14 +1,10 @@
+use crate::utils::structs::{FolioStatus, Role};
 use crate::{
     events::TradeOpened,
     state::{Actor, Folio, Trade},
 };
 use anchor_lang::prelude::*;
-use shared::{
-    constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, PROGRAM_REGISTRAR_SEEDS},
-    structs::{FolioStatus, Role},
-};
-
-use crate::state::ProgramRegistrar;
+use shared::constants::ACTOR_SEEDS;
 
 #[derive(Accounts)]
 pub struct OpenTrade<'info> {
@@ -16,30 +12,6 @@ pub struct OpenTrade<'info> {
 
     #[account(mut)]
     pub trade_launcher: Signer<'info>,
-
-    /*
-    Account to validate
-    */
-    #[account(
-        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
-        bump,
-        seeds::program = dtf_program.key(),
-    )]
-    pub dtf_program_signer: Signer<'info>,
-
-    /// CHECK: DTF program used for creating owner record
-    #[account()]
-    pub dtf_program: UncheckedAccount<'info>,
-
-    /// CHECK: DTF program data to validate program deployment slot
-    #[account()]
-    pub dtf_program_data: UncheckedAccount<'info>,
-
-    #[account(
-        seeds = [PROGRAM_REGISTRAR_SEEDS],
-        bump = program_registrar.bump
-    )]
-    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
 
     #[account(
         seeds = [ACTOR_SEEDS, trade_launcher.key().as_ref(), folio.key().as_ref()],
@@ -64,11 +36,8 @@ impl OpenTrade<'_> {
         start_price: u128,
         end_price: u128,
     ) -> Result<()> {
-        folio.validate_folio_program_post_init(
+        folio.validate_folio(
             &self.folio.key(),
-            Some(&self.program_registrar),
-            Some(&self.dtf_program),
-            Some(&self.dtf_program_data),
             Some(&self.actor),
             Some(Role::TradeLauncher),
             Some(vec![FolioStatus::Initialized, FolioStatus::Initializing]),

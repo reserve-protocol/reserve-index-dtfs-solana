@@ -1,10 +1,10 @@
+use crate::utils::structs::TokenAmount;
 use anchor_lang::prelude::*;
 use shared::check_condition;
 use shared::constants::{PendingBasketType, MAX_FOLIO_TOKEN_AMOUNTS};
 use shared::errors::ErrorCode;
 use shared::errors::ErrorCode::InvalidAddedTokenMints;
 use shared::errors::ErrorCode::*;
-use shared::structs::TokenAmount;
 
 use crate::events::BasketTokenRemoved;
 use crate::state::FolioBasket;

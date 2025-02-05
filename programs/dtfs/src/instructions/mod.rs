@@ -1,13 +1,7 @@
-pub mod admin;
-pub mod crank;
-pub mod owner;
-pub mod stake;
-pub mod trade;
-pub mod user;
+pub mod init_program_registrar;
+pub mod set_dao_fee_config;
+pub mod update_program_registrar;
 
-pub use admin::*;
-pub use crank::*;
-pub use owner::*;
-pub use stake::*;
-pub use trade::*;
-pub use user::*;
+pub use init_program_registrar::*;
+pub use set_dao_fee_config::*;
+pub use update_program_registrar::*;

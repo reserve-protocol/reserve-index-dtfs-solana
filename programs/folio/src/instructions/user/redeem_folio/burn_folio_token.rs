@@ -4,14 +4,12 @@ use anchor_spl::{
     token,
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
-use shared::constants::{DTF_PROGRAM_SIGNER_SEEDS, FOLIO_BASKET_SEEDS, USER_PENDING_BASKET_SEEDS};
-use shared::{
-    check_condition,
-    constants::{PendingBasketType, PROGRAM_REGISTRAR_SEEDS},
-};
-use shared::{errors::ErrorCode, structs::FolioStatus};
+use shared::constants::{FOLIO_BASKET_SEEDS, USER_PENDING_BASKET_SEEDS};
+use shared::errors::ErrorCode;
+use shared::{check_condition, constants::PendingBasketType};
 
-use crate::state::{Folio, FolioBasket, ProgramRegistrar, UserPendingBasket};
+use crate::state::{Folio, FolioBasket, UserPendingBasket};
+use crate::utils::structs::FolioStatus;
 
 #[derive(Accounts)]
 pub struct BurnFolioToken<'info> {
@@ -21,30 +19,6 @@ pub struct BurnFolioToken<'info> {
 
     #[account(mut)]
     pub user: Signer<'info>,
-
-    /*
-    Accounts to validate
-    */
-    #[account(
-        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
-        bump,
-        seeds::program = dtf_program.key(),
-    )]
-    pub dtf_program_signer: Signer<'info>,
-
-    /// CHECK: DTF program used for creating owner record
-    #[account()]
-    pub dtf_program: UncheckedAccount<'info>,
-
-    /// CHECK: DTF program data to validate program deployment slot
-    #[account()]
-    pub dtf_program_data: UncheckedAccount<'info>,
-
-    #[account(
-        seeds = [PROGRAM_REGISTRAR_SEEDS],
-        bump = program_registrar.bump
-    )]
-    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
 
     #[account()]
     pub folio: AccountLoader<'info, Folio>,
@@ -79,11 +53,8 @@ pub struct BurnFolioToken<'info> {
 
 impl BurnFolioToken<'_> {
     pub fn validate(&self, folio: &Folio) -> Result<()> {
-        folio.validate_folio_program_post_init(
+        folio.validate_folio(
             &self.folio.key(),
-            Some(&self.program_registrar),
-            Some(&self.dtf_program),
-            Some(&self.dtf_program_data),
             None,
             None,
             Some(vec![FolioStatus::Initialized, FolioStatus::Killed]),

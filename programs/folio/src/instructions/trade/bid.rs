@@ -1,3 +1,5 @@
+use crate::utils::math_util::CustomPreciseNumber;
+use crate::utils::structs::FolioStatus;
 use crate::{
     cpi_call,
     events::TradeBid,
@@ -10,15 +12,9 @@ use anchor_spl::{
 };
 use shared::{
     check_condition,
-    constants::{
-        D27, DTF_PROGRAM_SIGNER_SEEDS, FOLIO_BASKET_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS,
-    },
-    structs::FolioStatus,
-    util::math_util::CustomPreciseNumber,
+    constants::{D27, FOLIO_BASKET_SEEDS, FOLIO_SEEDS},
+    errors::ErrorCode,
 };
-
-use crate::state::ProgramRegistrar;
-use shared::errors::ErrorCode;
 
 #[derive(Accounts)]
 pub struct Bid<'info> {
@@ -28,30 +24,6 @@ pub struct Bid<'info> {
 
     #[account(mut)]
     pub bidder: Signer<'info>,
-
-    /*
-    Account to validate
-    */
-    #[account(
-        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
-        bump,
-        seeds::program = dtf_program.key(),
-    )]
-    pub dtf_program_signer: Signer<'info>,
-
-    /// CHECK: DTF program used for creating owner record
-    #[account()]
-    pub dtf_program: UncheckedAccount<'info>,
-
-    /// CHECK: DTF program data to validate program deployment slot
-    #[account()]
-    pub dtf_program_data: UncheckedAccount<'info>,
-
-    #[account(
-        seeds = [PROGRAM_REGISTRAR_SEEDS],
-        bump = program_registrar.bump
-    )]
-    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
 
     #[account(mut)]
     pub folio: AccountLoader<'info, Folio>,
@@ -104,11 +76,8 @@ pub struct Bid<'info> {
 
 impl Bid<'_> {
     pub fn validate(&self, folio: &Folio, trade: &Trade) -> Result<()> {
-        folio.validate_folio_program_post_init(
+        folio.validate_folio(
             &self.folio.key(),
-            Some(&self.program_registrar),
-            Some(&self.dtf_program),
-            Some(&self.dtf_program_data),
             None,
             None,
             Some(vec![FolioStatus::Initialized, FolioStatus::Initializing]),

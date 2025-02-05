@@ -2,9 +2,9 @@
 mod tests {
     use anchor_lang::prelude::Pubkey;
     use folio::state::UserPendingBasket;
+    use folio::utils::structs::TokenAmount;
     use shared::constants::PendingBasketType;
     use shared::errors::ErrorCode;
-    use shared::structs::TokenAmount;
 
     #[test]
     fn test_add_token_amounts_new_mint() {

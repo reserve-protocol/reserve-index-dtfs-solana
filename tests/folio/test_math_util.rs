@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
 
+    use folio::utils::math_util::CustomPreciseNumber;
     use shared::constants::D18;
-    use shared::util::math_util::CustomPreciseNumber;
     use spl_math::uint::U256;
     mod basic_operations {
 

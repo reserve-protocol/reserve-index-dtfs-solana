@@ -2,7 +2,6 @@
 use anchor_lang::prelude::*;
 
 use instructions::*;
-use shared::structs::{FeeRecipient, Range, Role};
 use utils::*;
 
 pub mod events;
@@ -16,24 +15,6 @@ declare_id!("n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG");
 pub mod folio {
 
     use super::*;
-
-    /*
-    Admin functions
-    */
-    pub fn init_program_registrar(
-        ctx: Context<InitProgramRegistrar>,
-        program_id: Pubkey,
-    ) -> Result<()> {
-        init_program_registrar::handler(ctx, program_id)
-    }
-
-    pub fn update_program_registrar(
-        ctx: Context<UpdateProgramRegistrar>,
-        program_ids: Vec<Pubkey>,
-        remove: bool,
-    ) -> Result<()> {
-        update_program_registrar::handler(ctx, program_ids, remove)
-    }
 
     /*
     Folio functions
@@ -68,8 +49,6 @@ pub mod folio {
     #[allow(clippy::too_many_arguments)]
     pub fn update_folio(
         ctx: Context<UpdateFolio>,
-        program_version: Option<Pubkey>,
-        program_deployment_slot: Option<u64>,
         folio_fee: Option<u128>,
         minting_fee: Option<u128>,
         trade_delay: Option<u64>,
@@ -79,8 +58,6 @@ pub mod folio {
     ) -> Result<()> {
         update_folio::handler(
             ctx,
-            program_version,
-            program_deployment_slot,
             folio_fee,
             minting_fee,
             trade_delay,

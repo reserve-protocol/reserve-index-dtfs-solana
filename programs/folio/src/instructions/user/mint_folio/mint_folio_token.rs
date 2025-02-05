@@ -1,21 +1,20 @@
+use crate::state::{Folio, FolioBasket, UserPendingBasket};
+use crate::utils::structs::FolioStatus;
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
     token,
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
+use dtfs::state::DAOFeeConfig;
+use dtfs::ID as DTF_PROGRAM_ID;
 use shared::constants::{
-    PendingBasketType, DTF_PROGRAM_SIGNER_SEEDS, FOLIO_BASKET_SEEDS, USER_PENDING_BASKET_SEEDS,
+    PendingBasketType, DAO_FEE_DENOMINATOR, FOLIO_BASKET_SEEDS, USER_PENDING_BASKET_SEEDS,
 };
+use shared::errors::ErrorCode;
 use shared::{
     check_condition,
-    constants::{DAO_FEE_CONFIG_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS},
-};
-use shared::{errors::ErrorCode, structs::FolioStatus};
-
-use crate::{
-    state::{Folio, FolioBasket, ProgramRegistrar, UserPendingBasket},
-    DtfProgram,
+    constants::{DAO_FEE_CONFIG_SEEDS, FOLIO_SEEDS},
 };
 
 #[derive(Accounts)]
@@ -27,37 +26,12 @@ pub struct MintFolioToken<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
-    /*
-    Accounts to validate
-    */
-    #[account(
-        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
-        bump,
-        seeds::program = dtf_program.key(),
-    )]
-    pub dtf_program_signer: Signer<'info>,
-
-    /// CHECK: DTF program used for creating owner record
-    #[account()]
-    pub dtf_program: UncheckedAccount<'info>,
-
-    /// CHECK: DTF program data to validate program deployment slot
-    #[account()]
-    pub dtf_program_data: UncheckedAccount<'info>,
-
-    #[account(
-        seeds = [PROGRAM_REGISTRAR_SEEDS],
-        bump = program_registrar.bump
-    )]
-    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
-
-    /// CHECK: DAO fee config to get fee for minting
     #[account(
         seeds = [DAO_FEE_CONFIG_SEEDS],
         bump,
-        seeds::program = dtf_program.key(),
+        seeds::program = DTF_PROGRAM_ID,
     )]
-    pub dao_fee_config: UncheckedAccount<'info>,
+    pub dao_fee_config: Account<'info, DAOFeeConfig>,
 
     #[account(mut)]
     pub folio: AccountLoader<'info, Folio>,
@@ -92,11 +66,8 @@ pub struct MintFolioToken<'info> {
 
 impl MintFolioToken<'_> {
     pub fn validate(&self, folio: &Folio) -> Result<()> {
-        folio.validate_folio_program_post_init(
+        folio.validate_folio(
             &self.folio.key(),
-            Some(&self.program_registrar),
-            Some(&self.dtf_program),
-            Some(&self.dtf_program_data),
             None,
             None,
             Some(vec![FolioStatus::Initialized]),
@@ -155,13 +126,11 @@ pub fn handler<'info>(
     )?;
 
     // Mint folio token to user based on shares
-    let (dao_fee_numerator, dao_fee_denominator, _) =
-        DtfProgram::get_dao_fee_config(&ctx.accounts.dao_fee_config.to_account_info())?;
 
     let fee_shares = ctx.accounts.folio.load_mut()?.calculate_fees_for_minting(
         shares,
-        dao_fee_numerator,
-        dao_fee_denominator,
+        ctx.accounts.dao_fee_config.fee_recipient_numerator,
+        DAO_FEE_DENOMINATOR,
     )?;
 
     let folio_token_amount_to_mint = shares

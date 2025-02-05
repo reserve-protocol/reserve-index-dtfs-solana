@@ -65,8 +65,8 @@ pub struct ClaimRewards<'info> {
     Remaining accounts are
 
     - Reward token mint
-    - Fee recipient reward token account (mut) (to send) (IS NOT THE DAO's TOKEN ACCOUNTS, it's the folio token rewards' token account)
     - Reward info for the token mint (mut)
+    - Fee recipient reward token account (mut) (to send) (IS NOT THE DAO's TOKEN ACCOUNTS, it's the folio token rewards' token account)
     - User reward info (mut)
     - User reward token account (mut) (to receive)
      */
@@ -128,9 +128,9 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
 
     for _ in 0..ctx.remaining_accounts.len() / 5 {
         let reward_token = next_account(&mut remaining_accounts_iter, false, false)?;
+        let reward_info = next_account(&mut remaining_accounts_iter, false, true)?;
         // This is the folio reward tokens' token account, not the DAO's
         let fee_recipient_token_account = next_account(&mut remaining_accounts_iter, false, true)?;
-        let reward_info = next_account(&mut remaining_accounts_iter, false, true)?;
         let user_reward_info = next_account(&mut remaining_accounts_iter, false, true)?;
         let user_reward_token_account = next_account(&mut remaining_accounts_iter, false, true)?;
 

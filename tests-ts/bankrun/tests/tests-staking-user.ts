@@ -23,6 +23,7 @@ import {
   createAndSetUserRewardInfo,
   buildRemainingAccountsForAccruesRewards,
   createGovernanceAccount,
+  buildRemainingAccountsForClaimRewards,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
 import { Dtfs } from "../../../target/types/dtfs";
@@ -33,7 +34,9 @@ import {
   MIN_DAO_MINTING_FEE,
 } from "../../../utils/constants";
 import {
+  assertExpectedBalancesChanges,
   getOrCreateAtaAddress,
+  getTokenBalancesFromMints,
   initToken,
   mintToken,
   resetTokenBalance,
@@ -145,34 +148,34 @@ describe("Bankrun - Staking User", () => {
   };
 
   const TEST_ACCRUE_REWARDS = [
-    // {
-    //   desc: "(passes the wrong folio owner as account [not as signer, just not the right one], errors out)",
-    //   expectedError: "InvalidFolioOwner",
-    //   customRole: Role.TradeLauncher,
-    // },
-    // {
-    //   desc: "(passes wrong number of remaining accounts, errors out)",
-    //   expectedError: "InvalidNumberOfRemainingAccounts",
-    //   remainingAccounts: () => [
-    //     {
-    //       pubkey: PublicKey.default,
-    //       isWritable: false,
-    //       isSigner: false,
-    //     },
-    //   ],
-    // },
-    // {
-    //   desc: "(passes wrong pda for reward info, errors out)",
-    //   expectedError: "InvalidRewardInfo",
-    //   rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
-    //   indexAccountToInvalidate: INDEX_FOR_REMAINING_ACCOUNTS.REWARD_INFO,
-    // },
-    // {
-    //   desc: "(passes wrong pda for caller's reward info, errors out)",
-    //   expectedError: "InvalidUserRewardInfo",
-    //   rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
-    //   indexAccountToInvalidate: INDEX_FOR_REMAINING_ACCOUNTS.USER_REWARD_INFO,
-    // },
+    {
+      desc: "(passes the wrong folio owner as account [not as signer, just not the right one], errors out)",
+      expectedError: "InvalidFolioOwner",
+      customRole: Role.TradeLauncher,
+    },
+    {
+      desc: "(passes wrong number of remaining accounts, errors out)",
+      expectedError: "InvalidNumberOfRemainingAccounts",
+      remainingAccounts: () => [
+        {
+          pubkey: PublicKey.default,
+          isWritable: false,
+          isSigner: false,
+        },
+      ],
+    },
+    {
+      desc: "(passes wrong pda for reward info, errors out)",
+      expectedError: "InvalidRewardInfo",
+      rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
+      indexAccountToInvalidate: INDEX_FOR_REMAINING_ACCOUNTS.REWARD_INFO,
+    },
+    {
+      desc: "(passes wrong pda for caller's reward info, errors out)",
+      expectedError: "InvalidUserRewardInfo",
+      rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
+      indexAccountToInvalidate: INDEX_FOR_REMAINING_ACCOUNTS.USER_REWARD_INFO,
+    },
     {
       desc: "(passes wrong fee recipient token account, eerrors out)",
       expectedError: "InvalidFeeRecipientTokenAccount",
@@ -227,172 +230,218 @@ describe("Bankrun - Staking User", () => {
       },
     },
     // Not for the user (if pass extra user account)
-    // {
-    //   desc: "(passes wrong pda for user's reward info, errors out)",
-    //   expectedError: "InvalidUserRewardInfo",
-    //   rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
-    //   indexAccountToInvalidate:
-    //     INDEX_FOR_REMAINING_ACCOUNTS.EXTRA_USER_REWARD_INFO,
-    //   extraUserToClaimFor: rewardedUser2.publicKey,
-    // },
-    // {
-    //   desc: "(passes wrong pda for user's governance account, errors out)",
-    //   expectedError: "InvalidGovernanceAccount",
-    //   rewardInfosAlreadyThere: async () => [
-    //     await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
-    //   ],
-    //   rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
-    //   indexAccountToInvalidate:
-    //     INDEX_FOR_REMAINING_ACCOUNTS.EXTRA_USER_GOVERNANCE,
-    //   extraUserToClaimFor: rewardedUser2.publicKey,
-    // },
-    // {
-    //   desc: "(accrue for both users and rewards, does not error out)",
-    //   expectedError: null,
-    //   rewardInfosAlreadyThere: async () => [
-    //     await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
-    //     await RewardInfo.default(context, REWARD_TOKEN_MINTS[1].publicKey),
-    //   ],
-    //   userStakedBalances: {
-    //     [rewardedUser1.publicKey.toBase58()]: new BN(100),
-    //     [rewardedUser2.publicKey.toBase58()]: new BN(200),
-    //   },
-    //   folioRewardTokenBalances: {
-    //     [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100),
-    //     [REWARD_TOKEN_MINTS[1].publicKey.toBase58()]: new BN(1000),
-    //   },
-    //   rewardsTokenToClaim: [
-    //     REWARD_TOKEN_MINTS[0].publicKey,
-    //     // REWARD_TOKEN_MINTS[1].publicKey,
-    //   ],
-    //   timeToAddToClock: new BN(10),
-    //   extraUserToClaimFor: rewardedUser2.publicKey,
-    //   expectedRewardBalanceChanges: [
-    //     new BN(100),
-    //     new BN(1000),
-    //     new BN(100),
-    //     new BN(1000),
-    //   ],
-    //   runTwice: true,
-    // },
-    // // Testing how long before we get a math overflow
-    // {
-    //   desc: "(accrue for both users and rewards, 60 seconds later, errors out)",
-    //   expectedError: null,
-    //   rewardInfosAlreadyThere: async () => [
-    //     await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
-    //     await RewardInfo.default(context, REWARD_TOKEN_MINTS[1].publicKey),
-    //   ],
-    //   userStakedBalances: {
-    //     [rewardedUser1.publicKey.toBase58()]: new BN(100),
-    //     [rewardedUser2.publicKey.toBase58()]: new BN(200),
-    //   },
-    //   folioRewardTokenBalances: {
-    //     [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100),
-    //     [REWARD_TOKEN_MINTS[1].publicKey.toBase58()]: new BN(1000),
-    //   },
-    //   rewardsTokenToClaim: [
-    //     REWARD_TOKEN_MINTS[0].publicKey,
-    //     // REWARD_TOKEN_MINTS[1].publicKey,
-    //   ],
-    //   timeToAddToClock: new BN(60),
-    //   extraUserToClaimFor: rewardedUser2.publicKey,
-    //   expectedRewardBalanceChanges: [
-    //     new BN(100),
-    //     new BN(1000),
-    //     new BN(100),
-    //     new BN(1000),
-    //   ],
-    //   runTwice: true,
-    // },
-    // {
-    //   desc: "(accrue for both users and rewards, 3,600 seconds (1h) later, errors out)",
-    //   expectedError: null,
-    //   rewardInfosAlreadyThere: async () => [
-    //     await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
-    //     await RewardInfo.default(context, REWARD_TOKEN_MINTS[1].publicKey),
-    //   ],
-    //   userStakedBalances: {
-    //     [rewardedUser1.publicKey.toBase58()]: new BN(100),
-    //     [rewardedUser2.publicKey.toBase58()]: new BN(200),
-    //   },
-    //   folioRewardTokenBalances: {
-    //     [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100),
-    //     [REWARD_TOKEN_MINTS[1].publicKey.toBase58()]: new BN(1000),
-    //   },
-    //   rewardsTokenToClaim: [
-    //     REWARD_TOKEN_MINTS[0].publicKey,
-    //     // REWARD_TOKEN_MINTS[1].publicKey,
-    //   ],
-    //   timeToAddToClock: new BN(3600),
-    //   extraUserToClaimFor: rewardedUser2.publicKey,
-    //   expectedRewardBalanceChanges: [
-    //     new BN(100),
-    //     new BN(1000),
-    //     new BN(100),
-    //     new BN(1000),
-    //   ],
-    //   runTwice: true,
-    // },
-    // {
-    //   desc: "(accrue for both users and rewards, 86,400 seconds (1d) later, errors out)",
-    //   expectedError: null,
-    //   rewardInfosAlreadyThere: async () => [
-    //     await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
-    //     await RewardInfo.default(context, REWARD_TOKEN_MINTS[1].publicKey),
-    //   ],
-    //   userStakedBalances: {
-    //     [rewardedUser1.publicKey.toBase58()]: new BN(100),
-    //     [rewardedUser2.publicKey.toBase58()]: new BN(200),
-    //   },
-    //   folioRewardTokenBalances: {
-    //     [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100),
-    //     [REWARD_TOKEN_MINTS[1].publicKey.toBase58()]: new BN(1000),
-    //   },
-    //   rewardsTokenToClaim: [
-    //     REWARD_TOKEN_MINTS[0].publicKey,
-    //     // REWARD_TOKEN_MINTS[1].publicKey,
-    //   ],
-    //   timeToAddToClock: new BN(86400),
-    //   extraUserToClaimFor: rewardedUser2.publicKey,
-    //   expectedRewardBalanceChanges: [
-    //     new BN(100),
-    //     new BN(1000),
-    //     new BN(100),
-    //     new BN(1000),
-    //   ],
-    //   runTwice: true,
-    // },
+    {
+      desc: "(passes wrong pda for user's reward info, errors out)",
+      expectedError: "InvalidUserRewardInfo",
+      rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
+      indexAccountToInvalidate:
+        INDEX_FOR_REMAINING_ACCOUNTS.EXTRA_USER_REWARD_INFO,
+      extraUserToClaimFor: rewardedUser2.publicKey,
+    },
+    {
+      desc: "(passes wrong pda for user's governance account, errors out)",
+      expectedError: "InvalidGovernanceAccount",
+      rewardInfosAlreadyThere: async () => [
+        await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
+      ],
+      rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
+      indexAccountToInvalidate:
+        INDEX_FOR_REMAINING_ACCOUNTS.EXTRA_USER_GOVERNANCE,
+      extraUserToClaimFor: rewardedUser2.publicKey,
+    },
+    {
+      desc: "(accrue for both users and rewards, does not error out)",
+      expectedError: null,
+      rewardInfosAlreadyThere: async () => [
+        await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
+        await RewardInfo.default(context, REWARD_TOKEN_MINTS[1].publicKey),
+      ],
+      userStakedBalances: {
+        [rewardedUser1.publicKey.toBase58()]: new BN(100),
+        [rewardedUser2.publicKey.toBase58()]: new BN(200),
+      },
+      folioRewardTokenBalances: {
+        [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100),
+        [REWARD_TOKEN_MINTS[1].publicKey.toBase58()]: new BN(1000),
+      },
+      rewardsTokenToClaim: [
+        REWARD_TOKEN_MINTS[0].publicKey,
+        // REWARD_TOKEN_MINTS[1].publicKey,
+      ],
+      timeToAddToClock: new BN(10),
+      extraUserToClaimFor: rewardedUser2.publicKey,
+      expectedRewardBalanceChanges: [
+        new BN(100),
+        new BN(1000),
+        new BN(100),
+        new BN(1000),
+      ],
+      runTwice: true,
+    },
+    // Testing how long before we get a math overflow
+    {
+      desc: "(accrue for both users and rewards, 60 seconds later, errors out)",
+      expectedError: null,
+      rewardInfosAlreadyThere: async () => [
+        await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
+        await RewardInfo.default(context, REWARD_TOKEN_MINTS[1].publicKey),
+      ],
+      userStakedBalances: {
+        [rewardedUser1.publicKey.toBase58()]: new BN(100),
+        [rewardedUser2.publicKey.toBase58()]: new BN(200),
+      },
+      folioRewardTokenBalances: {
+        [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100),
+        [REWARD_TOKEN_MINTS[1].publicKey.toBase58()]: new BN(1000),
+      },
+      rewardsTokenToClaim: [
+        REWARD_TOKEN_MINTS[0].publicKey,
+        // REWARD_TOKEN_MINTS[1].publicKey,
+      ],
+      timeToAddToClock: new BN(60),
+      extraUserToClaimFor: rewardedUser2.publicKey,
+      expectedRewardBalanceChanges: [
+        new BN(100),
+        new BN(1000),
+        new BN(100),
+        new BN(1000),
+      ],
+      runTwice: true,
+    },
+    {
+      desc: "(accrue for both users and rewards, 3,600 seconds (1h) later, errors out)",
+      expectedError: null,
+      rewardInfosAlreadyThere: async () => [
+        await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
+        await RewardInfo.default(context, REWARD_TOKEN_MINTS[1].publicKey),
+      ],
+      userStakedBalances: {
+        [rewardedUser1.publicKey.toBase58()]: new BN(100),
+        [rewardedUser2.publicKey.toBase58()]: new BN(200),
+      },
+      folioRewardTokenBalances: {
+        [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100),
+        [REWARD_TOKEN_MINTS[1].publicKey.toBase58()]: new BN(1000),
+      },
+      rewardsTokenToClaim: [
+        REWARD_TOKEN_MINTS[0].publicKey,
+        // REWARD_TOKEN_MINTS[1].publicKey,
+      ],
+      timeToAddToClock: new BN(3600),
+      extraUserToClaimFor: rewardedUser2.publicKey,
+      expectedRewardBalanceChanges: [
+        new BN(100),
+        new BN(1000),
+        new BN(100),
+        new BN(1000),
+      ],
+      runTwice: true,
+    },
+    {
+      desc: "(accrue for both users and rewards, 86,400 seconds (1d) later, errors out)",
+      expectedError: null,
+      rewardInfosAlreadyThere: async () => [
+        await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
+        await RewardInfo.default(context, REWARD_TOKEN_MINTS[1].publicKey),
+      ],
+      userStakedBalances: {
+        [rewardedUser1.publicKey.toBase58()]: new BN(100),
+        [rewardedUser2.publicKey.toBase58()]: new BN(200),
+      },
+      folioRewardTokenBalances: {
+        [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100),
+        [REWARD_TOKEN_MINTS[1].publicKey.toBase58()]: new BN(1000),
+      },
+      rewardsTokenToClaim: [
+        REWARD_TOKEN_MINTS[0].publicKey,
+        // REWARD_TOKEN_MINTS[1].publicKey,
+      ],
+      timeToAddToClock: new BN(86400),
+      extraUserToClaimFor: rewardedUser2.publicKey,
+      expectedRewardBalanceChanges: [
+        new BN(100),
+        new BN(1000),
+        new BN(100),
+        new BN(1000),
+      ],
+      runTwice: true,
+    },
   ];
 
   const TEST_CLAIM_REWARDS = [
     {
       desc: "(passes the wrong folio owner as account [not as signer, just not the right one], errors out)",
       expectedError: "InvalidFolioOwner",
+      customRole: Role.TradeLauncher,
     },
     {
       desc: "(passes wrong number of remaining accounts, errors out)",
       expectedError: "InvalidNumberOfRemainingAccounts",
+      remainingAccounts: () => [
+        {
+          pubkey: PublicKey.default,
+          isWritable: false,
+          isSigner: false,
+        },
+      ],
     },
     {
       desc: "(passes wrong pda for reward info, errors out)",
       expectedError: "InvalidRewardInfo",
+      rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
+      indexAccountToInvalidate: INDEX_FOR_REMAINING_ACCOUNTS.REWARD_INFO,
     },
     {
       desc: "(passes wrong pda for user's reward info, errors out)",
       expectedError: "InvalidUserRewardInfo",
+      rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
+      indexAccountToInvalidate: INDEX_FOR_REMAINING_ACCOUNTS.USER_REWARD_INFO,
     },
     {
       desc: "(passes wrong fee recipient token account, errors out)",
       expectedError: "InvalidFeeRecipientTokenAccount",
+      rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
+      indexAccountToInvalidate: INDEX_FOR_REMAINING_ACCOUNTS.REWARD_TOKEN_ATA,
     },
     {
       desc: "(claimable rewards == 0, errors out)",
       expectedError: "NoRewardsToClaim",
+      folioRewardTokenBalances: {
+        [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100),
+      },
+      rewardInfosAlreadyThere: async () => [
+        await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
+      ],
+      userRewardInfosAlreadyThere: [
+        new UserRewardInfo(
+          REWARD_TOKEN_MINTS[0].publicKey,
+          rewardedUser1.publicKey,
+          new BN(0),
+          new BN(0)
+        ),
+      ],
+      rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
+      expectedRewardBalanceChanges: [new BN(0)],
     },
     {
       desc: "(claimable rewards != 0, claims rewards)",
       expectedError: null,
+      folioRewardTokenBalances: {
+        [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100),
+      },
+      rewardInfosAlreadyThere: async () => [
+        await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
+      ],
+      userRewardInfosAlreadyThere: [
+        new UserRewardInfo(
+          REWARD_TOKEN_MINTS[0].publicKey,
+          rewardedUser1.publicKey,
+          new BN(1),
+          new BN(5)
+        ),
+      ],
+      rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
+      expectedRewardBalanceChanges: [new BN(5)],
     },
   ];
 
@@ -997,6 +1046,158 @@ describe("Bankrun - Staking User", () => {
                 true
               );
             }
+          });
+        }
+      });
+    });
+  });
+
+  describe("Specific Cases - Claim Rewards", () => {
+    TEST_CLAIM_REWARDS.forEach(({ desc, expectedError, ...restOfParams }) => {
+      describe(`When ${desc}`, () => {
+        let txnResult: BanksTransactionResultWithMeta;
+        const {
+          customRole,
+          rewardInfosAlreadyThere,
+          userRewardInfosAlreadyThere,
+          folioRewardTokenBalances,
+          rewardsTokenToClaim,
+          indexAccountToInvalidate,
+          remainingAccounts,
+          expectedRewardBalanceChanges,
+        } = {
+          ...DEFAULT_PARAMS,
+          ...restOfParams,
+        };
+
+        let rewardInfosBefore: RewardInfo[];
+        let userRewardInfosBefore: UserRewardInfo[];
+
+        let rewardTokenBalancesBefore: any;
+
+        before(async () => {
+          const rewardInfosAlreadyThereToUse = await rewardInfosAlreadyThere();
+
+          await initBaseCase(
+            folioTokenMint,
+            customRole,
+            new BN(1000_000_000_000),
+            folioRewardTokenBalances,
+            rewardInfosAlreadyThereToUse,
+            userRewardInfosAlreadyThere
+          );
+
+          await createAndSetFolio(
+            context,
+            programFolio,
+            folioTokenMint.publicKey,
+            DTF_PROGRAM_ID,
+            VALID_DEPLOYMENT_SLOT
+          );
+
+          await travelFutureSlot(context);
+
+          // We'll build remaining accounts outside, so we can test the different cases
+          let remainingAccountsToUse = await remainingAccounts();
+
+          if (remainingAccountsToUse.length === 0) {
+            remainingAccountsToUse =
+              await buildRemainingAccountsForClaimRewards(
+                context,
+                rewardedUser1,
+                folioPDA,
+                rewardsTokenToClaim
+              );
+          }
+
+          if (indexAccountToInvalidate) {
+            remainingAccountsToUse = await buildRemainingAccountsAccrue(
+              remainingAccountsToUse,
+              indexAccountToInvalidate
+            );
+          }
+
+          // Save before values, for our later assertions (only if no error, else useless)
+          if (!expectedError) {
+            ({
+              rewardInfos: rewardInfosBefore,
+              userRewardInfos: userRewardInfosBefore,
+            } = await getRewardsInfoAndUserRewardInfos(
+              rewardsTokenToClaim,
+              rewardedUser1.publicKey
+            ));
+
+            rewardTokenBalancesBefore = await getTokenBalancesFromMints(
+              context,
+              rewardsTokenToClaim,
+              [rewardedUser1.publicKey]
+            );
+          }
+
+          txnResult = await claimRewards<true>(
+            context,
+            banksClient,
+            programDtf,
+            rewardedUser1,
+            folioOwnerKeypair.publicKey,
+            folioPDA,
+            rewardsTokenToClaim,
+            DTF_PROGRAM_ID,
+            getProgramDataPDA(DTF_PROGRAM_ID),
+            true,
+            remainingAccountsToUse
+          );
+        });
+
+        if (expectedError) {
+          it("should fail with expected error", () => {
+            assertError(txnResult, expectedError);
+          });
+        } else {
+          it("should succeed", async () => {
+            await travelFutureSlot(context);
+
+            const { rewardInfos, userRewardInfos } =
+              await getRewardsInfoAndUserRewardInfos(
+                rewardsTokenToClaim,
+                rewardedUser1.publicKey
+              );
+
+            // Assert reward infos (only total claimed changed)
+            for (let i = 0; i < rewardInfos.length; i++) {
+              assert.equal(
+                rewardInfos[i].totalClaimed.eq(
+                  rewardInfosBefore[i].totalClaimed.add(
+                    expectedRewardBalanceChanges[i]
+                  )
+                ),
+                true
+              );
+            }
+
+            // Assert user reward infos (only accrued rewards and last reward index changed)
+            for (let i = 0; i < userRewardInfos.length; i++) {
+              // Need to be reset to 0
+              assert.equal(
+                userRewardInfos[i].accruedRewards.eq(new BN(0)),
+                true
+              );
+              assert.equal(
+                userRewardInfos[i].lastRewardIndex.eq(
+                  userRewardInfosBefore[i].lastRewardIndex
+                ),
+                true
+              );
+            }
+
+            // Assert reward token balances
+            await assertExpectedBalancesChanges(
+              context,
+              rewardTokenBalancesBefore,
+              rewardsTokenToClaim,
+              [rewardedUser1.publicKey],
+              expectedRewardBalanceChanges
+            );
           });
         }
       });

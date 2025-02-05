@@ -147,18 +147,18 @@ export async function buildRemainingAccountsForClaimRewards(
     });
 
     remainingAccounts.push({
+      pubkey: getRewardInfoPDA(folio, token),
+      isSigner: false,
+      isWritable: true,
+    });
+
+    remainingAccounts.push({
       pubkey: await getOrCreateAtaAddress(
         connection,
         token,
         callerKeypair,
         folioRewardTokensPDA
       ),
-      isSigner: false,
-      isWritable: true,
-    });
-
-    remainingAccounts.push({
-      pubkey: getRewardInfoPDA(folio, token),
       isSigner: false,
       isWritable: true,
     });

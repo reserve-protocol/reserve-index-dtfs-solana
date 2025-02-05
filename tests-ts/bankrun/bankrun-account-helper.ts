@@ -1081,13 +1081,13 @@ export async function buildRemainingAccountsForClaimRewards(
     });
 
     remainingAccounts.push({
-      pubkey: await getOrCreateAtaAddress(context, token, folioRewardTokensPDA),
+      pubkey: getRewardInfoPDA(folio, token),
       isSigner: false,
       isWritable: true,
     });
 
     remainingAccounts.push({
-      pubkey: getRewardInfoPDA(folio, token),
+      pubkey: await getOrCreateAtaAddress(context, token, folioRewardTokensPDA),
       isSigner: false,
       isWritable: true,
     });

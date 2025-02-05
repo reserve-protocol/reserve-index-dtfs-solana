@@ -4,14 +4,12 @@ import { ProgramTestContext } from "solana-bankrun";
 import {
   getActorPDAWithBump,
   getDaoFeeConfigPDAWithBump,
-  getDtfSignerPDAWithBump,
   getFeeDistributionPDAWithBump,
   getFolioBasketPDAWithBump,
   getFolioFeeRecipientsPDAWithBump,
   getFolioPDAWithBump,
   getFolioRewardTokensPDA,
   getFolioRewardTokensPDAWithBump,
-  getProgramDataPDA,
   getProgramRegistrarPDAWithBump,
   getRewardInfoPDA,
   getRewardInfoPDAWithBump,
@@ -33,7 +31,6 @@ import {
   MIN_DAO_MINTING_FEE,
   MAX_FOLIO_FEE,
   SPL_GOVERNANCE_PROGRAM_ID,
-  BPF_PROGRAM_USED_BY_BANKRUN,
   DTF_PROGRAM_ID,
   MAX_FOLIO_TOKEN_AMOUNTS,
   MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
@@ -187,32 +184,6 @@ export function createGovernanceAccount(
   });
 }
 
-export async function mockDTFProgramData(
-  context: ProgramTestContext,
-  programId: PublicKey,
-  slot: BN
-) {
-  const programDataAddress = getProgramDataPDA(programId);
-
-  // Mock Program Data Account
-  const programDataAccountData = Buffer.alloc(45);
-  programDataAccountData.writeInt32LE(3, 0); // variant 3 for ProgramData
-  programDataAccountData.writeBigUInt64LE(BigInt(slot.toNumber()), 4);
-
-  context.setAccount(programDataAddress, {
-    executable: false,
-    // Bankrun uses the non upgradeable loader
-    owner: BPF_PROGRAM_USED_BY_BANKRUN,
-    lamports: 1000000000,
-    data: programDataAccountData,
-  });
-
-  return {
-    programId,
-    programDataAddress,
-  };
-}
-
 export async function closeAccount(
   ctx: ProgramTestContext,
   accountAddress: PublicKey
@@ -251,35 +222,10 @@ export async function setFolioAccountInfo(
   ctx.setAccount(accountAddress, accountInfo);
 }
 
-export async function createAndSetProgramRegistrar(
-  ctx: ProgramTestContext,
-  program: Program<Folio>,
-  acceptedPrograms: PublicKey[]
-) {
-  const programRegistrarPDAWithBump = getProgramRegistrarPDAWithBump();
-
-  const programRegistrar = {
-    bump: programRegistrarPDAWithBump[1],
-    acceptedPrograms: acceptedPrograms.concat(
-      Array(10 - acceptedPrograms.length).fill(PublicKey.default)
-    ),
-  };
-
-  await setFolioAccountInfo(
-    ctx,
-    program,
-    programRegistrarPDAWithBump[0],
-    "programRegistrar",
-    programRegistrar
-  );
-}
-
 export async function createAndSetFolio(
   ctx: ProgramTestContext,
   program: Program<Folio>,
   folioTokenMint: PublicKey,
-  programVersion: PublicKey,
-  programDeploymentSlot: BN,
   status: FolioStatus = FolioStatus.Initialized,
   customFolioMintingFee: BN | null = null,
   lastPoke: BN = new BN(0),
@@ -291,9 +237,7 @@ export async function createAndSetFolio(
   const folio = {
     bump: folioPDAWithBump[1],
     status: status,
-    _padding: [0, 0, 0, 0, 0, 0],
-    programVersion: programVersion,
-    programDeploymentSlot: programDeploymentSlot,
+    _padding: Array(14).fill(0),
     folioTokenMint: folioTokenMint,
     folioFee: MAX_FOLIO_FEE,
     mintingFee: customFolioMintingFee ?? MIN_DAO_MINTING_FEE,
@@ -876,25 +820,6 @@ export async function setDTFAccountInfo(
   });
 }
 
-export async function createAndSetDTFProgramSigner(
-  ctx: ProgramTestContext,
-  program: Program<Dtfs>
-) {
-  const dtfProgramSigner = getDtfSignerPDAWithBump();
-
-  const dtfProgramSignerData = {
-    bump: dtfProgramSigner[1],
-  };
-
-  await setDTFAccountInfo(
-    ctx,
-    program,
-    dtfProgramSigner[0],
-    "dtfProgramSigner",
-    dtfProgramSignerData
-  );
-}
-
 export async function createAndSetDaoFeeConfig(
   ctx: ProgramTestContext,
   program: Program<Dtfs>,
@@ -937,6 +862,29 @@ export async function createAndSetDaoFeeConfig(
     "daoFeeConfig",
     daoFeeConfig,
     buffer
+  );
+}
+
+export async function createAndSetProgramRegistrar(
+  ctx: ProgramTestContext,
+  program: Program<Dtfs>,
+  acceptedPrograms: PublicKey[]
+) {
+  const programRegistrarPDAWithBump = getProgramRegistrarPDAWithBump();
+
+  const programRegistrar = {
+    bump: programRegistrarPDAWithBump[1],
+    acceptedPrograms: acceptedPrograms.concat(
+      Array(10 - acceptedPrograms.length).fill(PublicKey.default)
+    ),
+  };
+
+  await setDTFAccountInfo(
+    ctx,
+    program,
+    programRegistrarPDAWithBump[0],
+    "programRegistrar",
+    programRegistrar
   );
 }
 

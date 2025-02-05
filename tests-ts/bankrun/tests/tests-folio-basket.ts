@@ -14,19 +14,12 @@ import {
   travelFutureSlot,
 } from "../bankrun-program-helper";
 
-import {
-  getFolioBasketPDA,
-  getFolioPDA,
-  getProgramDataPDA,
-} from "../../../utils/pda-helper";
+import { getFolioBasketPDA, getFolioPDA } from "../../../utils/pda-helper";
 import { addToBasket, removeFromBasket } from "../bankrun-ix-helper";
 import {
   createAndSetFolio,
-  createAndSetProgramRegistrar,
   Role,
   createAndSetActor,
-  mockDTFProgramData,
-  createAndSetDTFProgramSigner,
   createAndSetFolioBasket,
   closeAccount,
   buildRemainingAccounts,
@@ -37,16 +30,13 @@ import {
 import { Folio } from "../../../target/types/folio";
 import { Dtfs } from "../../../target/types/dtfs";
 import {
-  assertInvalidDtfProgramDeploymentSlotTestCase,
   assertInvalidFolioStatusTestCase,
   assertNotOwnerTestCase,
-  assertProgramNotInRegistrarTestCase,
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
 
 import {
   DEFAULT_DECIMALS,
-  DTF_PROGRAM_ID,
   MAX_FOLIO_TOKEN_AMOUNTS,
 } from "../../../utils/constants";
 import {
@@ -248,18 +238,11 @@ describe("Bankrun - Folio basket", () => {
   }
 
   async function initBaseCase(folioStatus?: FolioStatus) {
-    await createAndSetDTFProgramSigner(context, programDtf);
-    await createAndSetProgramRegistrar(context, programFolio, [
-      DTF_PROGRAM_ID,
-      PROGRAM_VERSION_VALID,
-    ]);
-
     await createAndSetFolio(
       context,
       programFolio,
       folioTokenMint.publicKey,
-      DTF_PROGRAM_ID,
-      VALID_DEPLOYMENT_SLOT,
+
       folioStatus
     );
 
@@ -278,8 +261,6 @@ describe("Bankrun - Folio basket", () => {
       folioPDA,
       Role.Owner
     );
-
-    await mockDTFProgramData(context, DTF_PROGRAM_ID, VALID_DEPLOYMENT_SLOT);
 
     // Reinit account for folio basket
     await closeAccount(context, getFolioBasketPDA(folioPDA));
@@ -312,26 +293,24 @@ describe("Bankrun - Folio basket", () => {
       addToBasket<true>(
         context,
         banksClient,
-        programDtf,
+        programFolio,
         folioOwnerKeypair,
         folioPDA,
         [],
         new BN(0),
         folioTokenMint.publicKey,
-        DTF_PROGRAM_ID,
-        getProgramDataPDA(DTF_PROGRAM_ID),
+
         true
       );
 
     const generalIxRemoveFromBasket = () =>
       removeFromBasket<true>(
         banksClient,
-        programDtf,
+        programFolio,
         folioOwnerKeypair,
         folioPDA,
         [],
-        DTF_PROGRAM_ID,
-        getProgramDataPDA(DTF_PROGRAM_ID),
+
         true
       );
 
@@ -350,29 +329,12 @@ describe("Bankrun - Folio basket", () => {
         );
       });
 
-      it(`should run ${GeneralTestCases.InvalidDtfProgramDeploymentSlot}`, async () => {
-        await assertInvalidDtfProgramDeploymentSlotTestCase(
-          context,
-          VALID_DEPLOYMENT_SLOT.add(new BN(1)),
-          generalIxAddToBasket
-        );
-      });
-
-      it(`should run ${GeneralTestCases.ProgramNotInRegistrar}`, async () => {
-        await assertProgramNotInRegistrarTestCase(
-          context,
-          programFolio,
-          generalIxAddToBasket
-        );
-      });
-
       it(`should run ${GeneralTestCases.InvalidFolioStatus}`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
           folioTokenMint.publicKey,
-          DTF_PROGRAM_ID,
-          VALID_DEPLOYMENT_SLOT,
+
           generalIxAddToBasket
         );
       });
@@ -393,29 +355,12 @@ describe("Bankrun - Folio basket", () => {
         );
       });
 
-      it(`should run ${GeneralTestCases.InvalidDtfProgramDeploymentSlot}`, async () => {
-        await assertInvalidDtfProgramDeploymentSlotTestCase(
-          context,
-          VALID_DEPLOYMENT_SLOT.add(new BN(1)),
-          generalIxRemoveFromBasket
-        );
-      });
-
-      it(`should run ${GeneralTestCases.ProgramNotInRegistrar}`, async () => {
-        await assertProgramNotInRegistrarTestCase(
-          context,
-          programFolio,
-          generalIxRemoveFromBasket
-        );
-      });
-
       it(`should run ${GeneralTestCases.InvalidFolioStatus}`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
           folioTokenMint.publicKey,
-          DTF_PROGRAM_ID,
-          VALID_DEPLOYMENT_SLOT,
+
           generalIxRemoveFromBasket
         );
       });
@@ -474,14 +419,13 @@ describe("Bankrun - Folio basket", () => {
             txnResult = await addToBasket<true>(
               context,
               banksClient,
-              programDtf,
+              programFolio,
               folioOwnerKeypair,
               folioPDA,
               tokens,
               initialShares,
               folioTokenMint.publicKey,
-              DTF_PROGRAM_ID,
-              getProgramDataPDA(DTF_PROGRAM_ID),
+
               true,
               await remainingAccounts()
             );
@@ -593,12 +537,11 @@ describe("Bankrun - Folio basket", () => {
 
             txnResult = await removeFromBasket<true>(
               banksClient,
-              programDtf,
+              programFolio,
               folioOwnerKeypair,
               folioPDA,
               removedMints,
-              DTF_PROGRAM_ID,
-              getProgramDataPDA(DTF_PROGRAM_ID),
+
               true
             );
           });

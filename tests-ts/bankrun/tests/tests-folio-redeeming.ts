@@ -11,10 +11,7 @@ import {
   TokenAmount,
   buildRemainingAccounts,
   createAndSetActor,
-  mockDTFProgramData,
-  createAndSetDTFProgramSigner,
   createAndSetFolio,
-  createAndSetProgramRegistrar,
   FolioStatus,
   createAndSetUserPendingBasket,
   createAndSetDaoFeeConfig,
@@ -30,7 +27,6 @@ import { Folio } from "../../../target/types/folio";
 import { Dtfs } from "../../../target/types/dtfs";
 import {
   DEFAULT_DECIMALS,
-  DTF_PROGRAM_ID,
   MAX_FOLIO_TOKEN_AMOUNTS,
   MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
   MIN_DAO_MINTING_FEE,
@@ -48,14 +44,11 @@ import {
 import {
   getFolioBasketPDA,
   getFolioPDA,
-  getProgramDataPDA,
   getUserPendingBasketPDA,
 } from "../../../utils/pda-helper";
 import { burnFolioToken, redeemFromPendingBasket } from "../bankrun-ix-helper";
 import {
-  assertInvalidDtfProgramDeploymentSlotTestCase,
   assertInvalidFolioStatusTestCase,
-  assertProgramNotInRegistrarTestCase,
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
 import * as assert from "assert";
@@ -373,12 +366,6 @@ describe("Bankrun - Folio redeeming", () => {
     customFolioTokenSupply: BN = new BN(0),
     customInitialUserShares: BN = new BN(0)
   ) {
-    await createAndSetDTFProgramSigner(context, programDtf);
-    await createAndSetProgramRegistrar(context, programFolio, [
-      DTF_PROGRAM_ID,
-      PROGRAM_VERSION_VALID,
-    ]);
-
     await createAndSetDaoFeeConfig(
       context,
       programDtf,
@@ -386,13 +373,7 @@ describe("Bankrun - Folio redeeming", () => {
       MIN_DAO_MINTING_FEE
     );
 
-    await createAndSetFolio(
-      context,
-      programFolio,
-      folioTokenMint.publicKey,
-      DTF_PROGRAM_ID,
-      VALID_DEPLOYMENT_SLOT
-    );
+    await createAndSetFolio(context, programFolio, folioTokenMint.publicKey);
 
     initToken(
       context,
@@ -439,8 +420,6 @@ describe("Bankrun - Folio redeeming", () => {
       folioBasketTokens
     );
 
-    await mockDTFProgramData(context, DTF_PROGRAM_ID, VALID_DEPLOYMENT_SLOT);
-
     // Reinit account for pending user basket
     await createAndSetUserPendingBasket(
       context,
@@ -480,14 +459,13 @@ describe("Bankrun - Folio redeeming", () => {
       burnFolioToken<true>(
         context,
         banksClient,
-        programDtf,
+        programFolio,
         userKeypair,
         folioPDA,
         folioTokenMint.publicKey,
         new BN(0),
         [],
-        DTF_PROGRAM_ID,
-        getProgramDataPDA(DTF_PROGRAM_ID),
+
         true
       );
 
@@ -495,12 +473,11 @@ describe("Bankrun - Folio redeeming", () => {
       redeemFromPendingBasket<true>(
         context,
         banksClient,
-        programDtf,
+        programFolio,
         userKeypair,
         folioPDA,
         [],
-        DTF_PROGRAM_ID,
-        getProgramDataPDA(DTF_PROGRAM_ID),
+
         true
       );
 
@@ -509,29 +486,12 @@ describe("Bankrun - Folio redeeming", () => {
     });
 
     describe("should run general tests for burn folio token", () => {
-      it(`should run ${GeneralTestCases.InvalidDtfProgramDeploymentSlot}`, async () => {
-        await assertInvalidDtfProgramDeploymentSlotTestCase(
-          context,
-          VALID_DEPLOYMENT_SLOT.add(new BN(1)),
-          generalIxBurnFolioToken
-        );
-      });
-
-      it(`should run ${GeneralTestCases.ProgramNotInRegistrar}`, async () => {
-        await assertProgramNotInRegistrarTestCase(
-          context,
-          programFolio,
-          generalIxBurnFolioToken
-        );
-      });
-
       it(`should run ${GeneralTestCases.InvalidFolioStatus} for INITIALIZING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
           folioTokenMint.publicKey,
-          DTF_PROGRAM_ID,
-          VALID_DEPLOYMENT_SLOT,
+
           generalIxBurnFolioToken,
           FolioStatus.Initializing
         );
@@ -539,29 +499,12 @@ describe("Bankrun - Folio redeeming", () => {
     });
 
     describe("should run general tests for redeem from pending basket", () => {
-      it(`should run ${GeneralTestCases.InvalidDtfProgramDeploymentSlot}`, async () => {
-        await assertInvalidDtfProgramDeploymentSlotTestCase(
-          context,
-          VALID_DEPLOYMENT_SLOT.add(new BN(1)),
-          generalIxRedeemFromPendingBasket
-        );
-      });
-
-      it(`should run ${GeneralTestCases.ProgramNotInRegistrar}`, async () => {
-        await assertProgramNotInRegistrarTestCase(
-          context,
-          programFolio,
-          generalIxRedeemFromPendingBasket
-        );
-      });
-
       it(`should run ${GeneralTestCases.InvalidFolioStatus} for INITIALIZING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
           folioTokenMint.publicKey,
-          DTF_PROGRAM_ID,
-          VALID_DEPLOYMENT_SLOT,
+
           generalIxRedeemFromPendingBasket,
           FolioStatus.Initializing
         );
@@ -642,14 +585,13 @@ describe("Bankrun - Folio redeeming", () => {
               txnResult = await burnFolioToken<true>(
                 context,
                 banksClient,
-                programDtf,
+                programFolio,
                 userKeypair,
                 folioPDA,
                 tokenMintToUse.publicKey,
                 shares,
                 tokens,
-                DTF_PROGRAM_ID,
-                getProgramDataPDA(DTF_PROGRAM_ID),
+
                 true,
                 remainingAccounts()
               );
@@ -855,12 +797,11 @@ describe("Bankrun - Folio redeeming", () => {
               txnResult = await redeemFromPendingBasket<true>(
                 context,
                 banksClient,
-                programDtf,
+                programFolio,
                 userKeypair,
                 folioPDA,
                 tokens,
-                DTF_PROGRAM_ID,
-                getProgramDataPDA(DTF_PROGRAM_ID),
+
                 true,
                 await remainingAccounts()
               );

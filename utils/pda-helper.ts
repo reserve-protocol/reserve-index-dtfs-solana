@@ -3,7 +3,6 @@ import {
   FOLIO_PROGRAM_ID,
   DTF_PROGRAM_ID,
   TOKEN_METADATA_PROGRAM_ID,
-  BPF_LOADER_PROGRAM_ID,
   SPL_GOVERNANCE_PROGRAM_ID,
 } from "./constants";
 import BN from "bn.js";
@@ -11,14 +10,14 @@ import BN from "bn.js";
 export function getProgramRegistrarPDA() {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("program_registrar")],
-    FOLIO_PROGRAM_ID
+    DTF_PROGRAM_ID
   )[0];
 }
 
 export function getProgramRegistrarPDAWithBump() {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("program_registrar")],
-    FOLIO_PROGRAM_ID
+    DTF_PROGRAM_ID
   );
 }
 
@@ -47,27 +46,6 @@ export function getActorPDAWithBump(authority: PublicKey, folioPDA: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("actor"), authority.toBuffer(), folioPDA.toBuffer()],
     FOLIO_PROGRAM_ID
-  );
-}
-
-export function getProgramDataPDA(programId: PublicKey) {
-  return PublicKey.findProgramAddressSync(
-    [programId.toBuffer()],
-    BPF_LOADER_PROGRAM_ID
-  )[0];
-}
-
-export function getDtfSignerPDA() {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("dtf_program_signer")],
-    DTF_PROGRAM_ID
-  )[0];
-}
-
-export function getDtfSignerPDAWithBump() {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("dtf_program_signer")],
-    DTF_PROGRAM_ID
   );
 }
 
@@ -235,14 +213,14 @@ export function getUserRewardInfoPDAWithBump(
 
 export function getUserTokenRecordRealmsPDA(
   folioOwner: PublicKey, // Is the realm
-  rewardToken: PublicKey,
+  folioTokenMint: PublicKey,
   user: PublicKey
 ) {
   return PublicKey.findProgramAddressSync(
     [
       Buffer.from("governance"),
       folioOwner.toBuffer(),
-      rewardToken.toBuffer(),
+      folioTokenMint.toBuffer(),
       user.toBuffer(),
     ],
     SPL_GOVERNANCE_PROGRAM_ID

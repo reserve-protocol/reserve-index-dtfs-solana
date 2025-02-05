@@ -10,10 +10,7 @@ import {
 
 import {
   createAndSetActor,
-  mockDTFProgramData,
-  createAndSetDTFProgramSigner,
   createAndSetFolio,
-  createAndSetProgramRegistrar,
   FolioStatus,
   createAndSetDaoFeeConfig,
   createAndSetFeeRecipients,
@@ -24,7 +21,6 @@ import { Folio } from "../../../target/types/folio";
 import { Dtfs } from "../../../target/types/dtfs";
 import {
   DEFAULT_DECIMALS,
-  DTF_PROGRAM_ID,
   MIN_DAO_MINTING_FEE,
   TOTAL_PORTION_FEE_RECIPIENT,
 } from "../../../utils/constants";
@@ -47,7 +43,6 @@ import {
   getFeeDistributionPDA,
   getFolioFeeRecipientsPDA,
   getFolioPDA,
-  getProgramDataPDA,
 } from "../../../utils/pda-helper";
 import {
   crankFeeDistribution,
@@ -55,9 +50,7 @@ import {
   pokeFolio,
 } from "../bankrun-ix-helper";
 import {
-  assertInvalidDtfProgramDeploymentSlotTestCase,
   assertInvalidFolioStatusTestCase,
-  assertProgramNotInRegistrarTestCase,
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
 import * as assert from "assert";
@@ -89,9 +82,6 @@ describe("Bankrun - Fees", () => {
 
   let userKeypair: Keypair;
 
-  const VALID_DEPLOYMENT_SLOT = new BN(1);
-  const PROGRAM_VERSION_VALID = Keypair.generate().publicKey;
-
   const DEFAULT_PARAMS: {
     remainingAccounts: () => AccountMeta[];
     customFolioTokenMint: Keypair | null;
@@ -111,8 +101,6 @@ describe("Bankrun - Fees", () => {
     feeDistributionIndex: BN;
 
     daoFeeRecipient: Keypair;
-
-    programVersion: PublicKey;
 
     feeRecipients: FeeRecipient[];
 
@@ -155,8 +143,6 @@ describe("Bankrun - Fees", () => {
     feeDistributionIndex: new BN(1),
 
     daoFeeRecipient: null,
-
-    programVersion: DTF_PROGRAM_ID,
 
     feeRecipients: [],
 
@@ -382,12 +368,6 @@ describe("Bankrun - Fees", () => {
     customFolioTokenMint: Keypair | null = null,
     customFolioTokenSupply: BN = new BN(0)
   ) {
-    await createAndSetDTFProgramSigner(context, programDtf);
-    await createAndSetProgramRegistrar(context, programFolio, [
-      DTF_PROGRAM_ID,
-      PROGRAM_VERSION_VALID,
-    ]);
-
     await createAndSetDaoFeeConfig(
       context,
       programDtf,
@@ -395,13 +375,7 @@ describe("Bankrun - Fees", () => {
       MIN_DAO_MINTING_FEE
     );
 
-    await createAndSetFolio(
-      context,
-      programFolio,
-      folioTokenMint.publicKey,
-      DTF_PROGRAM_ID,
-      VALID_DEPLOYMENT_SLOT
-    );
+    await createAndSetFolio(context, programFolio, folioTokenMint.publicKey);
 
     initToken(
       context,
@@ -439,8 +413,6 @@ describe("Bankrun - Fees", () => {
     await createAndSetFolioBasket(context, programFolio, folioPDA, []);
 
     await createAndSetFeeRecipients(context, programFolio, folioPDA, []);
-
-    await mockDTFProgramData(context, DTF_PROGRAM_ID, VALID_DEPLOYMENT_SLOT);
 
     // Reset token balance for clean slate
     for (const feeRecipient of [
@@ -486,33 +458,29 @@ describe("Bankrun - Fees", () => {
     const generalIxPokeFolio = () =>
       pokeFolio<true>(
         banksClient,
-        programDtf,
+        programFolio,
         userKeypair,
         folioPDA,
         folioTokenMint.publicKey,
-        DTF_PROGRAM_ID,
-        getProgramDataPDA(DTF_PROGRAM_ID),
         true
       );
 
     const generalIxDistributeFees = () =>
       distributeFees<true>(
         banksClient,
-        programDtf,
+        programFolio,
         userKeypair,
         folioPDA,
         folioTokenMint.publicKey,
         getAtaAddress(folioTokenMint.publicKey, feeReceiver.publicKey),
         new BN(0),
-        DTF_PROGRAM_ID,
-        getProgramDataPDA(DTF_PROGRAM_ID),
         true
       );
 
     const generalIxCrankFeeDistribution = () =>
       crankFeeDistribution<true>(
         banksClient,
-        programDtf,
+        programFolio,
         userKeypair,
         folioPDA,
         folioTokenMint.publicKey,
@@ -520,8 +488,6 @@ describe("Bankrun - Fees", () => {
         new BN(0),
         [],
         [],
-        DTF_PROGRAM_ID,
-        getProgramDataPDA(DTF_PROGRAM_ID),
         true
       );
 
@@ -530,29 +496,11 @@ describe("Bankrun - Fees", () => {
     });
 
     describe("should run general tests for poke folio", () => {
-      it(`should run ${GeneralTestCases.InvalidDtfProgramDeploymentSlot}`, async () => {
-        await assertInvalidDtfProgramDeploymentSlotTestCase(
-          context,
-          VALID_DEPLOYMENT_SLOT.add(new BN(1)),
-          generalIxPokeFolio
-        );
-      });
-
-      it(`should run ${GeneralTestCases.ProgramNotInRegistrar}`, async () => {
-        await assertProgramNotInRegistrarTestCase(
-          context,
-          programFolio,
-          generalIxPokeFolio
-        );
-      });
-
       it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and INITIALIZING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
           folioTokenMint.publicKey,
-          DTF_PROGRAM_ID,
-          VALID_DEPLOYMENT_SLOT,
           generalIxPokeFolio,
           FolioStatus.Killed
         );
@@ -561,8 +509,7 @@ describe("Bankrun - Fees", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-          DTF_PROGRAM_ID,
-          VALID_DEPLOYMENT_SLOT,
+
           generalIxPokeFolio,
           FolioStatus.Initializing
         );
@@ -570,29 +517,12 @@ describe("Bankrun - Fees", () => {
     });
 
     describe("should run general tests for distribute fees", () => {
-      it(`should run ${GeneralTestCases.InvalidDtfProgramDeploymentSlot}`, async () => {
-        await assertInvalidDtfProgramDeploymentSlotTestCase(
-          context,
-          VALID_DEPLOYMENT_SLOT.add(new BN(1)),
-          generalIxDistributeFees
-        );
-      });
-
-      it(`should run ${GeneralTestCases.ProgramNotInRegistrar}`, async () => {
-        await assertProgramNotInRegistrarTestCase(
-          context,
-          programFolio,
-          generalIxDistributeFees
-        );
-      });
-
       it(`should run ${GeneralTestCases.InvalidFolioStatus} for INITIALIZING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
           folioTokenMint.publicKey,
-          DTF_PROGRAM_ID,
-          VALID_DEPLOYMENT_SLOT,
+
           generalIxDistributeFees,
           FolioStatus.Initializing
         );
@@ -601,8 +531,7 @@ describe("Bankrun - Fees", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-          DTF_PROGRAM_ID,
-          VALID_DEPLOYMENT_SLOT,
+
           generalIxDistributeFees,
           FolioStatus.Killed
         );
@@ -622,29 +551,12 @@ describe("Bankrun - Fees", () => {
         );
       });
 
-      it(`should run ${GeneralTestCases.InvalidDtfProgramDeploymentSlot}`, async () => {
-        await assertInvalidDtfProgramDeploymentSlotTestCase(
-          context,
-          VALID_DEPLOYMENT_SLOT.add(new BN(1)),
-          generalIxCrankFeeDistribution
-        );
-      });
-
-      it(`should run ${GeneralTestCases.ProgramNotInRegistrar}`, async () => {
-        await assertProgramNotInRegistrarTestCase(
-          context,
-          programFolio,
-          generalIxCrankFeeDistribution
-        );
-      });
-
       it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and INITIALIZING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
           folioTokenMint.publicKey,
-          DTF_PROGRAM_ID,
-          VALID_DEPLOYMENT_SLOT,
+
           generalIxCrankFeeDistribution,
           FolioStatus.Killed
         );
@@ -653,8 +565,7 @@ describe("Bankrun - Fees", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-          DTF_PROGRAM_ID,
-          VALID_DEPLOYMENT_SLOT,
+
           generalIxCrankFeeDistribution,
           FolioStatus.Initializing
         );
@@ -672,7 +583,6 @@ describe("Bankrun - Fees", () => {
             expectedFeeReceiverShares,
             customFolioTokenMint,
             addedClockTime,
-            programVersion,
             initialDaoPendingFeeShares,
             initialFeeReceiverPendingFeeShares,
           } = {
@@ -692,8 +602,6 @@ describe("Bankrun - Fees", () => {
               context,
               programFolio,
               folioTokenMint.publicKey,
-              DTF_PROGRAM_ID,
-              VALID_DEPLOYMENT_SLOT,
               undefined,
               undefined,
               new BN(currentClock.unixTimestamp.toString()),
@@ -719,12 +627,10 @@ describe("Bankrun - Fees", () => {
 
             txnResult = await pokeFolio<true>(
               banksClient,
-              programDtf,
+              programFolio,
               userKeypair,
               folioPDA,
               tokenMintToUse.publicKey,
-              programVersion,
-              getProgramDataPDA(DTF_PROGRAM_ID),
               true
             );
           });
@@ -797,8 +703,7 @@ describe("Bankrun - Fees", () => {
               context,
               programFolio,
               folioTokenMint.publicKey,
-              DTF_PROGRAM_ID,
-              VALID_DEPLOYMENT_SLOT,
+
               undefined,
               undefined,
               new BN(currentClock.unixTimestamp.toString()),
@@ -833,7 +738,7 @@ describe("Bankrun - Fees", () => {
 
             txnResult = await distributeFees<true>(
               banksClient,
-              programDtf,
+              programFolio,
               userKeypair,
               folioPDA,
               tokenMintToUse.publicKey,
@@ -843,8 +748,7 @@ describe("Bankrun - Fees", () => {
                 daoFeeRecipientToUse.publicKey
               ),
               feeDistributionIndex,
-              DTF_PROGRAM_ID,
-              getProgramDataPDA(DTF_PROGRAM_ID),
+
               true
             );
           });
@@ -951,8 +855,7 @@ describe("Bankrun - Fees", () => {
               context,
               programFolio,
               folioTokenMint.publicKey,
-              DTF_PROGRAM_ID,
-              VALID_DEPLOYMENT_SLOT,
+
               undefined,
               undefined,
               new BN(currentClock.unixTimestamp.toString()),
@@ -994,7 +897,7 @@ describe("Bankrun - Fees", () => {
             try {
               txnResult = await crankFeeDistribution<true>(
                 banksClient,
-                programDtf,
+                programFolio,
                 userKeypair,
                 folioPDA,
                 tokenMintToUse.publicKey,
@@ -1005,8 +908,7 @@ describe("Bankrun - Fees", () => {
                   (_, i) => new BN(i)
                 ),
                 feeRecipientsATA,
-                DTF_PROGRAM_ID,
-                getProgramDataPDA(DTF_PROGRAM_ID),
+
                 true
               );
             } catch (e) {

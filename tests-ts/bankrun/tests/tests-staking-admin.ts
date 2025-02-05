@@ -9,10 +9,7 @@ import {
 
 import {
   createAndSetActor,
-  mockDTFProgramData,
-  createAndSetDTFProgramSigner,
   createAndSetFolio,
-  createAndSetProgramRegistrar,
   FolioStatus,
   createAndSetDaoFeeConfig,
   createAndSetFolioRewardTokens,
@@ -21,7 +18,6 @@ import { Folio } from "../../../target/types/folio";
 import { Dtfs } from "../../../target/types/dtfs";
 import {
   DEFAULT_DECIMALS,
-  DTF_PROGRAM_ID,
   MAX_REWARD_HALF_LIFE,
   MAX_REWARD_TOKENS,
   MIN_DAO_MINTING_FEE,
@@ -43,7 +39,6 @@ import {
 import {
   getFolioPDA,
   getFolioRewardTokensPDA,
-  getProgramDataPDA,
 } from "../../../utils/pda-helper";
 import {
   addRewardToken,
@@ -51,10 +46,8 @@ import {
   removeRewardToken,
 } from "../bankrun-ix-helper";
 import {
-  assertInvalidDtfProgramDeploymentSlotTestCase,
   assertInvalidFolioStatusTestCase,
   assertNotOwnerTestCase,
-  assertProgramNotInRegistrarTestCase,
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
 
@@ -246,12 +239,6 @@ describe("Bankrun - Staking Admin", () => {
     customFolioTokenMint: Keypair | null = null,
     customFolioTokenSupply: BN = new BN(0)
   ) {
-    await createAndSetDTFProgramSigner(context, programDtf);
-    await createAndSetProgramRegistrar(context, programFolio, [
-      DTF_PROGRAM_ID,
-      PROGRAM_VERSION_VALID,
-    ]);
-
     await createAndSetDaoFeeConfig(
       context,
       programDtf,
@@ -264,9 +251,7 @@ describe("Bankrun - Staking Admin", () => {
     await createAndSetFolio(
       context,
       programFolio,
-      folioTokenMintToUse.publicKey,
-      DTF_PROGRAM_ID,
-      VALID_DEPLOYMENT_SLOT
+      folioTokenMintToUse.publicKey
     );
 
     folioPDA = getFolioPDA(folioTokenMintToUse.publicKey);
@@ -303,8 +288,6 @@ describe("Bankrun - Staking Admin", () => {
         rewardedUser2.publicKey
       );
     }
-
-    await mockDTFProgramData(context, DTF_PROGRAM_ID, VALID_DEPLOYMENT_SLOT);
   }
 
   before(async () => {
@@ -337,37 +320,34 @@ describe("Bankrun - Staking Admin", () => {
       addRewardToken<true>(
         context,
         banksClient,
-        programDtf,
+        programFolio,
         folioOwnerKeypair,
         folioPDA,
         REWARD_TOKEN_MINTS[0].publicKey,
         new BN(0),
-        DTF_PROGRAM_ID,
-        getProgramDataPDA(DTF_PROGRAM_ID),
+
         true
       );
 
     const generalIxRemoveRewardToken = () =>
       removeRewardToken<true>(
         banksClient,
-        programDtf,
+        programFolio,
         folioOwnerKeypair,
         folioPDA,
         REWARD_TOKEN_MINTS[0].publicKey,
-        DTF_PROGRAM_ID,
-        getProgramDataPDA(DTF_PROGRAM_ID),
+
         true
       );
 
     const generalIxInitOrSetRewardRatio = () =>
       initOrSetRewardRatio<true>(
         banksClient,
-        programDtf,
+        programFolio,
         folioOwnerKeypair,
         folioPDA,
         new BN(0),
-        DTF_PROGRAM_ID,
-        getProgramDataPDA(DTF_PROGRAM_ID),
+
         true
       );
 
@@ -376,22 +356,6 @@ describe("Bankrun - Staking Admin", () => {
     });
 
     describe("should run general tests for add reward token", () => {
-      it(`should run ${GeneralTestCases.InvalidDtfProgramDeploymentSlot}`, async () => {
-        await assertInvalidDtfProgramDeploymentSlotTestCase(
-          context,
-          VALID_DEPLOYMENT_SLOT.add(new BN(1)),
-          generalIxAddRewardToken
-        );
-      });
-
-      it(`should run ${GeneralTestCases.ProgramNotInRegistrar}`, async () => {
-        await assertProgramNotInRegistrarTestCase(
-          context,
-          programFolio,
-          generalIxAddRewardToken
-        );
-      });
-
       it(`should run ${GeneralTestCases.NotOwner}`, async () => {
         await assertNotOwnerTestCase(
           context,
@@ -407,8 +371,7 @@ describe("Bankrun - Staking Admin", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-          DTF_PROGRAM_ID,
-          VALID_DEPLOYMENT_SLOT,
+
           generalIxAddRewardToken,
           FolioStatus.Killed
         );
@@ -427,22 +390,6 @@ describe("Bankrun - Staking Admin", () => {
         );
       });
 
-      it(`should run ${GeneralTestCases.InvalidDtfProgramDeploymentSlot}`, async () => {
-        await assertInvalidDtfProgramDeploymentSlotTestCase(
-          context,
-          VALID_DEPLOYMENT_SLOT.add(new BN(1)),
-          generalIxRemoveRewardToken
-        );
-      });
-
-      it(`should run ${GeneralTestCases.ProgramNotInRegistrar}`, async () => {
-        await assertProgramNotInRegistrarTestCase(
-          context,
-          programFolio,
-          generalIxRemoveRewardToken
-        );
-      });
-
       it(`should run ${GeneralTestCases.NotOwner}`, async () => {
         await assertNotOwnerTestCase(
           context,
@@ -458,8 +405,7 @@ describe("Bankrun - Staking Admin", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-          DTF_PROGRAM_ID,
-          VALID_DEPLOYMENT_SLOT,
+
           generalIxRemoveRewardToken,
           FolioStatus.Killed
         );
@@ -467,22 +413,6 @@ describe("Bankrun - Staking Admin", () => {
     });
 
     describe("should run general tests for init or set reward ratio", () => {
-      it(`should run ${GeneralTestCases.InvalidDtfProgramDeploymentSlot}`, async () => {
-        await assertInvalidDtfProgramDeploymentSlotTestCase(
-          context,
-          VALID_DEPLOYMENT_SLOT.add(new BN(1)),
-          generalIxInitOrSetRewardRatio
-        );
-      });
-
-      it(`should run ${GeneralTestCases.ProgramNotInRegistrar}`, async () => {
-        await assertProgramNotInRegistrarTestCase(
-          context,
-          programFolio,
-          generalIxInitOrSetRewardRatio
-        );
-      });
-
       it(`should run ${GeneralTestCases.NotOwner}`, async () => {
         await assertNotOwnerTestCase(
           context,
@@ -498,8 +428,7 @@ describe("Bankrun - Staking Admin", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-          DTF_PROGRAM_ID,
-          VALID_DEPLOYMENT_SLOT,
+
           generalIxInitOrSetRewardRatio,
           FolioStatus.Killed
         );
@@ -535,9 +464,7 @@ describe("Bankrun - Staking Admin", () => {
             await createAndSetFolio(
               context,
               programFolio,
-              folioMintToUse.publicKey,
-              DTF_PROGRAM_ID,
-              VALID_DEPLOYMENT_SLOT
+              folioMintToUse.publicKey
             );
 
             await createAndSetFolioRewardTokens(
@@ -554,13 +481,12 @@ describe("Bankrun - Staking Admin", () => {
             txnResult = await addRewardToken<true>(
               context,
               banksClient,
-              programDtf,
+              programFolio,
               folioOwnerKeypair,
               folioPDA,
               rewardToken,
               rewardPeriod,
-              DTF_PROGRAM_ID,
-              getProgramDataPDA(DTF_PROGRAM_ID),
+
               true,
               await rewardTokenATA()
             );
@@ -631,9 +557,7 @@ describe("Bankrun - Staking Admin", () => {
             await createAndSetFolio(
               context,
               programFolio,
-              folioMintToUse.publicKey,
-              DTF_PROGRAM_ID,
-              VALID_DEPLOYMENT_SLOT
+              folioMintToUse.publicKey
             );
 
             await createAndSetFolioRewardTokens(
@@ -649,12 +573,11 @@ describe("Bankrun - Staking Admin", () => {
 
             txnResult = await removeRewardToken<true>(
               banksClient,
-              programDtf,
+              programFolio,
               folioOwnerKeypair,
               folioPDA,
               rewardToken,
-              DTF_PROGRAM_ID,
-              getProgramDataPDA(DTF_PROGRAM_ID),
+
               true
             );
           });
@@ -723,9 +646,7 @@ describe("Bankrun - Staking Admin", () => {
             await createAndSetFolio(
               context,
               programFolio,
-              folioMintToUse.publicKey,
-              DTF_PROGRAM_ID,
-              VALID_DEPLOYMENT_SLOT
+              folioMintToUse.publicKey
             );
 
             await createAndSetFolioRewardTokens(
@@ -741,12 +662,11 @@ describe("Bankrun - Staking Admin", () => {
 
             txnResult = await initOrSetRewardRatio<true>(
               banksClient,
-              programDtf,
+              programFolio,
               folioOwnerKeypair,
               folioPDA,
               rewardPeriod,
-              DTF_PROGRAM_ID,
-              getProgramDataPDA(DTF_PROGRAM_ID),
+
               true
             );
           });

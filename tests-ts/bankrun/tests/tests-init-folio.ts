@@ -18,11 +18,6 @@ import { getActorPDA, getFolioPDA } from "../../../utils/pda-helper";
 import { initFolio } from "../bankrun-ix-helper";
 import * as assert from "assert";
 import {
-  createAndSetProgramRegistrar,
-  mockDTFProgramData,
-} from "../bankrun-account-helper";
-import {
-  DTF_PROGRAM_ID,
   MAX_FOLIO_FEE,
   MAX_TRADE_DELAY,
   MIN_DAO_MINTING_FEE,
@@ -115,11 +110,6 @@ describe("Bankrun - Init folio", () => {
     await airdrop(context, adminKeypair.publicKey, 1000);
     await airdrop(context, folioOwnerKeypair.publicKey, 1000);
     await airdrop(context, userKeypair.publicKey, 1000);
-
-    // Init
-    await createAndSetProgramRegistrar(context, programFolio, [DTF_PROGRAM_ID]);
-
-    await mockDTFProgramData(context, DTF_PROGRAM_ID, new BN(1));
   });
 
   TEST_CASES.forEach(({ desc, expectedError, ...restOfParams }) => {
@@ -135,9 +125,7 @@ describe("Bankrun - Init folio", () => {
           programFolio,
           folioOwnerKeypair,
           folioTokenMint,
-          restOfParams["dtfProgramId"] || DTF_PROGRAM_ID,
-          // @ts-ignore
-          { ...DEFAULT_PARAMS, ...restOfParams }
+          { ...DEFAULT_PARAMS, ...restOfParams } // @ts-ignore
         );
       });
 
@@ -156,7 +144,6 @@ describe("Bankrun - Init folio", () => {
           assert.notEqual(folio.bump, 0);
           assert.equal(folio.folioFee.eq(MAX_FOLIO_FEE), true);
           assert.equal(folio.mintingFee.eq(MIN_DAO_MINTING_FEE), true);
-          assert.deepEqual(folio.programVersion, DTF_PROGRAM_ID);
           assert.deepEqual(folio.folioTokenMint, folioTokenMint.publicKey);
           assert.equal(folio.tradeDelay.eq(MAX_TRADE_DELAY), true);
           assert.equal(folio.auctionLength.eq(MAX_AUCTION_LENGTH), true);

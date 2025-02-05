@@ -8,13 +8,6 @@ import {
 } from "./constants";
 import BN from "bn.js";
 
-export function getFolioSignerPDA() {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("folio_program_signer")],
-    FOLIO_PROGRAM_ID
-  )[0];
-}
-
 export function getProgramRegistrarPDA() {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("program_registrar")],

@@ -9,7 +9,6 @@ import {
   getFolioFeeRecipientsPDA,
   getFolioPDA,
   getFolioRewardTokensPDA,
-  getFolioSignerPDA,
   getMetadataPDA,
   getProgramDataPDA,
   getProgramRegistrarPDA,
@@ -108,32 +107,6 @@ export async function setDaoFeeConfig<T extends boolean = true>(
 /*
 Through Folio directly
 */
-export async function initFolioSigner<T extends boolean = true>(
-  client: BanksClient,
-  programFolio: Program<Folio>,
-  adminKeypair: Keypair,
-  executeTxn: T = true as T
-): Promise<
-  T extends true
-    ? BanksTransactionResultWithMeta
-    : { ix: TransactionInstruction; extraSigners: any[] }
-> {
-  const ix = await programFolio.methods
-    .initFolioSigner()
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      rent: SYSVAR_RENT_PUBKEY,
-      admin: !executeTxn ? OTHER_ADMIN_KEY.publicKey : adminKeypair.publicKey,
-      folioProgramSigner: getFolioSignerPDA(),
-    })
-    .instruction();
-
-  if (executeTxn) {
-    return createAndProcessTransaction(client, adminKeypair, [ix]) as any;
-  }
-
-  return { ix, extraSigners: [] } as any;
-}
 
 export async function initProgramRegistrar<T extends boolean = true>(
   client: BanksClient,

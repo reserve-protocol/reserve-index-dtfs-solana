@@ -20,10 +20,6 @@ pub mod folio {
     /*
     Admin functions
     */
-    pub fn init_folio_signer(ctx: Context<InitFolioSigner>) -> Result<()> {
-        init_folio_signer::handler(ctx)
-    }
-
     pub fn init_program_registrar(
         ctx: Context<InitProgramRegistrar>,
         program_id: Pubkey,

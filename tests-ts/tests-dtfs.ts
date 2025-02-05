@@ -9,11 +9,7 @@ import { Dtfs } from "../target/types/dtfs";
 import { Folio } from "../target/types/folio";
 import { BN, Program } from "@coral-xyz/anchor";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
-import {
-  initFolio,
-  initFolioSigner,
-  initProgramRegistrar,
-} from "../utils/folio-helper";
+import { initFolio, initProgramRegistrar } from "../utils/folio-helper";
 import * as assert from "assert";
 import {
   getActorPDA,
@@ -165,7 +161,6 @@ describe("DTFs Tests", () => {
     await airdrop(connection, tradeLauncherKeypair.publicKey, 1000);
 
     // Init folio related accounts
-    await initFolioSigner(connection, payerKeypair);
     await initProgramRegistrar(connection, adminKeypair, DTF_PROGRAM_ID);
     ({ folioTokenMint, folioPDA } = await initFolio(
       connection,

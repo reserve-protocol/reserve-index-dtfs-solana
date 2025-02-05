@@ -13,7 +13,6 @@ import { pSendAndConfirmTxn } from "./program-helper";
 import {
   getActorPDA,
   getFolioPDA,
-  getFolioSignerPDA,
   getMetadataPDA,
   getProgramDataPDA,
   getProgramRegistrarPDA,
@@ -45,36 +44,6 @@ export function getFolioProgram(
   }
 
   return folioProgram;
-}
-
-export async function initFolioSigner(
-  connection: Connection,
-  adminKeypair: Keypair
-) {
-  const folioProgram = getFolioProgram(connection, adminKeypair);
-
-  const folioSigner =
-    await folioProgram.account.folioProgramSigner.fetchNullable(
-      getFolioSignerPDA()
-    );
-
-  if (folioSigner) {
-    return;
-  }
-
-  const initFolioSigner = await folioProgram.methods
-    .initFolioSigner()
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      rent: SYSVAR_RENT_PUBKEY,
-      admin: adminKeypair.publicKey,
-      folioProgramSigner: getFolioSignerPDA(),
-    })
-    .instruction();
-
-  await pSendAndConfirmTxn(folioProgram, [initFolioSigner], [], {
-    skipPreflight: SKIP_PREFLIGHT,
-  });
 }
 
 export async function initProgramRegistrar(

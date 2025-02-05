@@ -4,7 +4,6 @@ import { Program } from "@coral-xyz/anchor";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import {
   initFolio,
-  initFolioSigner,
   initProgramRegistrar,
   updateProgramRegistrar,
 } from "../utils/folio-helper";
@@ -13,7 +12,6 @@ import * as assert from "assert";
 import {
   getActorPDA,
   getFolioFeeRecipientsPDA,
-  getFolioSignerPDA,
   getProgramRegistrarPDA,
 } from "../utils/pda-helper";
 import {
@@ -50,18 +48,6 @@ describe("Folio Tests", () => {
     await airdrop(connection, adminKeypair.publicKey, 1000);
     await airdrop(connection, folioOwnerKeypair.publicKey, 1000);
     await airdrop(connection, userKeypair.publicKey, 1000);
-  });
-
-  it("should initialize a folio signer", async () => {
-    await initFolioSigner(connection, payerKeypair);
-
-    const folioSignerPDA = getFolioSignerPDA();
-
-    const folioSigner = await program.account.folioProgramSigner.fetch(
-      folioSignerPDA
-    );
-
-    assert.notEqual(folioSigner.bump, 0);
   });
 
   it("should initialize program registrar", async () => {

@@ -1,11 +1,7 @@
 import { airdrop, getConnectors } from "../utils/program-helper";
 import { BN } from "@coral-xyz/anchor";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
-import {
-  initFolio,
-  initFolioSigner,
-  initProgramRegistrar,
-} from "../utils/folio-helper";
+import { initFolio, initProgramRegistrar } from "../utils/folio-helper";
 import {
   addToBasket,
   initDtfSigner,
@@ -63,7 +59,6 @@ describe("Extrme DTFs Tests", () => {
     await airdrop(connection, userKeypair.publicKey, 1000);
 
     // Init folio related accounts
-    await initFolioSigner(connection, payerKeypair);
     await initProgramRegistrar(connection, adminKeypair, DTF_PROGRAM_ID);
     ({ folioTokenMint, folioPDA } = await initFolio(
       connection,

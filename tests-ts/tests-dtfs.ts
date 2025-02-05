@@ -1512,6 +1512,7 @@ describe("DTFs Tests", () => {
       userKeypair,
       folioOwnerKeypair.publicKey,
       folioPDA,
+      folioTokenMint.publicKey,
       [rewardTokenMints[1].mint.publicKey],
       userKeypair.publicKey
     );
@@ -1536,6 +1537,7 @@ describe("DTFs Tests", () => {
       userKeypair,
       folioOwnerKeypair.publicKey,
       folioPDA,
+      folioTokenMint.publicKey,
       [rewardTokenMints[1].mint.publicKey],
       userKeypair.publicKey
     );

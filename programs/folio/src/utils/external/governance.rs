@@ -9,14 +9,14 @@ impl GovernanceUtil {
     pub fn get_governance_account_balance(
         token_owner_record_governance_account: &AccountInfo,
         realm: &Pubkey,
-        reward_token: &Pubkey,
+        folio_token_mint: &Pubkey,
         user: &Pubkey,
     ) -> Result<u64> {
         let (governance_account_pda, _) = Pubkey::find_program_address(
             &[
                 GOVERNANCE_SEEDS,
                 realm.as_ref(),
-                reward_token.as_ref(),
+                folio_token_mint.as_ref(),
                 user.as_ref(),
             ],
             &SPL_GOVERNANCE_PROGRAM_ID,

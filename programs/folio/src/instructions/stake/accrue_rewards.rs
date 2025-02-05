@@ -123,6 +123,8 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
     let folio = ctx.accounts.folio.load()?;
     ctx.accounts.validate(&folio)?;
 
+    let folio_token_mint = folio.folio_token_mint;
+
     let folio_reward_tokens = ctx.accounts.folio_reward_tokens.load()?;
 
     let remaining_account_divider = if ctx.accounts.user.key() == ctx.accounts.caller.key() {
@@ -207,7 +209,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
         let caller_governance_account_balance = GovernanceUtil::get_governance_account_balance(
             caller_governance_account,
             &realm_key,
-            &reward_token.key(),
+            &folio_token_mint,
             &caller_key,
         )?;
 
@@ -215,6 +217,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
             caller_reward_info,
             &ctx.accounts.system_program,
             &ctx.accounts.caller,
+            ctx.accounts.caller.key,
             expected_pda_for_caller.1,
             &folio_key,
             &reward_token.key(),
@@ -223,7 +226,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
         )?;
 
         // All the logic for the extra user if user != caller
-        if remaining_account_divider == 4 {
+        if remaining_account_divider == REMAINING_ACCOUNT_DIVIDER_FOR_USER {
             let user_reward_info = next_account(&mut remaining_accounts_iter, false, true)?;
             let user_governance_account = next_account(&mut remaining_accounts_iter, false, false)?;
 
@@ -246,7 +249,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
             let user_governance_account_balance = GovernanceUtil::get_governance_account_balance(
                 user_governance_account,
                 &realm_key,
-                &reward_token.key(),
+                &folio_token_mint,
                 &user_key,
             )?;
 
@@ -254,6 +257,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
                 user_reward_info,
                 &ctx.accounts.system_program,
                 &ctx.accounts.caller,
+                &user_key,
                 expected_pda_for_user.1,
                 &folio_key,
                 &reward_token.key(),

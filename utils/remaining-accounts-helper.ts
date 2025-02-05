@@ -59,6 +59,7 @@ export async function buildRemainingAccountsForAccruesRewards(
   connection: Connection,
   callerKeypair: Keypair,
   folio: PublicKey,
+  folioTokenMint: PublicKey,
   folioOwner: PublicKey, // Is the realm
   rewardTokens: PublicKey[],
   extraUser: PublicKey = callerKeypair.publicKey
@@ -100,7 +101,7 @@ export async function buildRemainingAccountsForAccruesRewards(
     remainingAccounts.push({
       pubkey: getUserTokenRecordRealmsPDA(
         folioOwner,
-        token,
+        folioTokenMint,
         callerKeypair.publicKey
       ),
       isSigner: false,
@@ -114,7 +115,11 @@ export async function buildRemainingAccountsForAccruesRewards(
         isWritable: true,
       });
       remainingAccounts.push({
-        pubkey: getUserTokenRecordRealmsPDA(folioOwner, token, extraUser),
+        pubkey: getUserTokenRecordRealmsPDA(
+          folioOwner,
+          folioTokenMint,
+          extraUser
+        ),
         isSigner: false,
         isWritable: false,
       });
@@ -142,18 +147,18 @@ export async function buildRemainingAccountsForClaimRewards(
     });
 
     remainingAccounts.push({
+      pubkey: getRewardInfoPDA(folio, token),
+      isSigner: false,
+      isWritable: true,
+    });
+
+    remainingAccounts.push({
       pubkey: await getOrCreateAtaAddress(
         connection,
         token,
         callerKeypair,
         folioRewardTokensPDA
       ),
-      isSigner: false,
-      isWritable: true,
-    });
-
-    remainingAccounts.push({
-      pubkey: getRewardInfoPDA(folio, token),
       isSigner: false,
       isWritable: true,
     });

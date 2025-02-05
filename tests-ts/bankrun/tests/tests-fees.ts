@@ -530,23 +530,23 @@ describe("Bankrun - Fees", () => {
     });
 
     describe("should run general tests for poke folio", () => {
+      it(`should run ${GeneralTestCases.InvalidDtfProgramDeploymentSlot}`, async () => {
+        await assertInvalidDtfProgramDeploymentSlotTestCase(
+          context,
+          VALID_DEPLOYMENT_SLOT.add(new BN(1)),
+          generalIxPokeFolio
+        );
+      });
+
+      it(`should run ${GeneralTestCases.ProgramNotInRegistrar}`, async () => {
+        await assertProgramNotInRegistrarTestCase(
+          context,
+          programFolio,
+          generalIxPokeFolio
+        );
+      });
+
       it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and INITIALIZING`, async () => {
-        it(`should run ${GeneralTestCases.InvalidDtfProgramDeploymentSlot}`, async () => {
-          await assertInvalidDtfProgramDeploymentSlotTestCase(
-            context,
-            VALID_DEPLOYMENT_SLOT.add(new BN(1)),
-            generalIxPokeFolio
-          );
-        });
-
-        it(`should run ${GeneralTestCases.ProgramNotInRegistrar}`, async () => {
-          await assertProgramNotInRegistrarTestCase(
-            context,
-            programFolio,
-            generalIxPokeFolio
-          );
-        });
-
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,

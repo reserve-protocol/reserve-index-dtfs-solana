@@ -184,11 +184,28 @@ export function getFolioRewardTokensPDA(folio: PublicKey) {
   )[0];
 }
 
+export function getFolioRewardTokensPDAWithBump(folio: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("folio_reward_tokens"), folio.toBuffer()],
+    FOLIO_PROGRAM_ID
+  );
+}
+
 export function getRewardInfoPDA(folio: PublicKey, rewardToken: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("reward_info"), folio.toBuffer(), rewardToken.toBuffer()],
     FOLIO_PROGRAM_ID
   )[0];
+}
+
+export function getRewardInfoPDAWithBump(
+  folio: PublicKey,
+  rewardToken: PublicKey
+) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("reward_info"), folio.toBuffer(), rewardToken.toBuffer()],
+    FOLIO_PROGRAM_ID
+  );
 }
 
 export function getUserRewardInfoPDA(
@@ -205,6 +222,22 @@ export function getUserRewardInfoPDA(
     ],
     FOLIO_PROGRAM_ID
   )[0];
+}
+
+export function getUserRewardInfoPDAWithBump(
+  folio: PublicKey,
+  rewardToken: PublicKey,
+  user: PublicKey
+) {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("user_reward_info"),
+      folio.toBuffer(),
+      rewardToken.toBuffer(),
+      user.toBuffer(),
+    ],
+    FOLIO_PROGRAM_ID
+  );
 }
 
 export function getUserTokenRecordRealmsPDA(

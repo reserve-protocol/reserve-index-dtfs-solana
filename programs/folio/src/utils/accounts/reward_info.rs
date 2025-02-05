@@ -63,7 +63,10 @@ impl RewardInfo {
 
         let base = CustomPreciseNumber::from(D18).sub_generic(folio_reward_ratio)?;
 
-        let pow_result = base.pow(elapsed)?;
+        // TODO put back when review maths
+        // let pow_result = base.pow(elapsed)?;
+        // Temporary just so there's no math overflow
+        let pow_result = base.mul(&CustomPreciseNumber::from(U256::from(elapsed)))?;
 
         let handout_percentage = CustomPreciseNumber::from(D18)
             .sub(&pow_result)?

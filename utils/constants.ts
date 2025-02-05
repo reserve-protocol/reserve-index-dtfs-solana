@@ -42,5 +42,8 @@ export const MAX_FEE_RECIPIENTS = 64;
 export const MAX_FOLIO_TOKEN_AMOUNTS = 16;
 export const MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS = 20;
 export const TOTAL_PORTION_FEE_RECIPIENT = new BN(1_000_000_000);
+export const MAX_REWARD_HALF_LIFE = new BN(1_209_600);
+export const MIN_REWARD_HALF_LIFE = new BN(86400);
+export const MAX_REWARD_TOKENS = 30;
 
 export const MAX_CONCURRENT_TRADES = 16;

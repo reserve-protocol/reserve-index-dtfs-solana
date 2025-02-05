@@ -3,15 +3,12 @@ import { Dtfs } from "../../target/types/dtfs";
 import {
   getActorPDA,
   getDAOFeeConfigPDA,
-  getDtfSignerPDA,
   getFeeDistributionPDA,
   getFolioBasketPDA,
   getFolioFeeRecipientsPDA,
   getFolioPDA,
   getFolioRewardTokensPDA,
-  getFolioSignerPDA,
   getMetadataPDA,
-  getProgramDataPDA,
   getProgramRegistrarPDA,
   getRewardInfoPDA,
   getUserPendingBasketPDA,
@@ -35,7 +32,6 @@ import { Folio } from "../../target/types/folio";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { getComputeLimitInstruction } from "../../utils/program-helper";
 import {
-  FOLIO_PROGRAM_ID,
   OTHER_ADMIN_KEY,
   TOKEN_METADATA_PROGRAM_ID,
 } from "../../utils/constants";
@@ -47,35 +43,8 @@ import {
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
 
 /*
-DTF Directly
+DTF
 */
-export async function initDtfSigner<T extends boolean = true>(
-  client: BanksClient,
-  programDtf: Program<Dtfs>,
-  adminKeypair: Keypair,
-  executeTxn: T = true as T
-): Promise<
-  T extends true
-    ? BanksTransactionResultWithMeta
-    : { ix: TransactionInstruction; extraSigners: any[] }
-> {
-  const ix = await programDtf.methods
-    .initDtfSigner()
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      rent: SYSVAR_RENT_PUBKEY,
-      admin: !executeTxn ? OTHER_ADMIN_KEY.publicKey : adminKeypair.publicKey,
-      dtfProgramSigner: getDtfSignerPDA(),
-    })
-    .instruction();
-
-  if (executeTxn) {
-    return createAndProcessTransaction(client, adminKeypair, [ix]) as any;
-  }
-
-  return { ix, extraSigners: [] } as any;
-}
-
 export async function setDaoFeeConfig<T extends boolean = true>(
   client: BanksClient,
   programDtf: Program<Dtfs>,
@@ -105,49 +74,19 @@ export async function setDaoFeeConfig<T extends boolean = true>(
   return { ix, extraSigners: [] } as any;
 }
 
-/*
-Through Folio directly
-*/
-export async function initFolioSigner<T extends boolean = true>(
-  client: BanksClient,
-  programFolio: Program<Folio>,
-  adminKeypair: Keypair,
-  executeTxn: T = true as T
-): Promise<
-  T extends true
-    ? BanksTransactionResultWithMeta
-    : { ix: TransactionInstruction; extraSigners: any[] }
-> {
-  const ix = await programFolio.methods
-    .initFolioSigner()
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      rent: SYSVAR_RENT_PUBKEY,
-      admin: !executeTxn ? OTHER_ADMIN_KEY.publicKey : adminKeypair.publicKey,
-      folioProgramSigner: getFolioSignerPDA(),
-    })
-    .instruction();
-
-  if (executeTxn) {
-    return createAndProcessTransaction(client, adminKeypair, [ix]) as any;
-  }
-
-  return { ix, extraSigners: [] } as any;
-}
-
 export async function initProgramRegistrar<T extends boolean = true>(
   client: BanksClient,
-  programFolio: Program<Folio>,
+  programDtf: Program<Dtfs>,
   adminKeypair: Keypair,
-  dtfAcceptedProgramId: PublicKey,
+  folioAcceptedProgramId: PublicKey,
   executeTxn: T = true as T
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  const registerProgram = await programFolio.methods
-    .initProgramRegistrar(dtfAcceptedProgramId)
+  const registerProgram = await programDtf.methods
+    .initProgramRegistrar(folioAcceptedProgramId)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
@@ -167,7 +106,7 @@ export async function initProgramRegistrar<T extends boolean = true>(
 
 export async function updateProgramRegistrar<T extends boolean = true>(
   client: BanksClient,
-  programFolio: Program<Folio>,
+  programDtf: Program<Dtfs>,
   adminKeypair: Keypair,
   dtfProgramIds: PublicKey[],
   toRemove: boolean,
@@ -177,7 +116,7 @@ export async function updateProgramRegistrar<T extends boolean = true>(
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  const updateProgramRegistrar = await programFolio.methods
+  const updateProgramRegistrar = await programDtf.methods
     .updateProgramRegistrar(dtfProgramIds, toRemove)
     .accountsPartial({
       admin: !executeTxn ? OTHER_ADMIN_KEY.publicKey : adminKeypair.publicKey,
@@ -194,12 +133,14 @@ export async function updateProgramRegistrar<T extends boolean = true>(
   return { ix: updateProgramRegistrar, extraSigners: [] } as any;
 }
 
+/*
+Folio
+*/
 export async function initFolio<T extends boolean = true>(
   client: BanksClient,
   programFolio: Program<Folio>,
   folioOwner: Keypair,
   folioTokenMint: Keypair,
-  dtfProgramId: PublicKey,
   params: {
     folioFee: BN;
     mintingFee: BN;
@@ -235,11 +176,8 @@ export async function initFolio<T extends boolean = true>(
       folioOwner: !executeTxn
         ? OTHER_ADMIN_KEY.publicKey
         : folioOwner.publicKey,
-      programRegistrar: getProgramRegistrarPDA(),
       folio: folioPDA,
       folioTokenMint: folioTokenMint.publicKey,
-      dtfProgram: dtfProgramId,
-      dtfProgramData: getProgramDataPDA(dtfProgramId),
       actor: getActorPDA(folioOwner.publicKey, folioPDA),
       tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
       metadata: getMetadataPDA(folioTokenMint.publicKey),
@@ -258,24 +196,20 @@ export async function initFolio<T extends boolean = true>(
   return { ix: initFolio, extraSigners: [folioTokenMint] } as any;
 }
 
-/*
-Through DTF proxy
-*/
 export async function resizeFolio<T extends boolean = true>(
   client: BanksClient,
-  programDtf: Program<Dtfs>,
+  programFolio: Program<Folio>,
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
   newSize: BN,
-  programId: PublicKey,
-  programDataAddress: PublicKey,
+
   executeTxn: T = true as T
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  const resizeFolio = await programDtf.methods
+  const resizeFolio = await programFolio.methods
     .resizeFolio(newSize)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
@@ -284,12 +218,8 @@ export async function resizeFolio<T extends boolean = true>(
         ? OTHER_ADMIN_KEY.publicKey
         : folioOwnerKeypair.publicKey,
       actor: getActorPDA(folioOwnerKeypair.publicKey, folio),
-      dtfProgramSigner: getDtfSignerPDA(),
-      dtfProgram: programId,
-      dtfProgramData: programDataAddress,
-      folioProgram: FOLIO_PROGRAM_ID,
+
       folio: folio,
-      programRegistrar: getProgramRegistrarPDA(),
     })
     .instruction();
 
@@ -304,29 +234,23 @@ export async function resizeFolio<T extends boolean = true>(
 
 export async function updateFolio<T extends boolean = true>(
   client: BanksClient,
-  programDtf: Program<Dtfs>,
+  programFolio: Program<Folio>,
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
-  programVersion: PublicKey | null,
-  programDeploymentSlot: BN | null,
   folioFee: BN | null,
   mintingFee: BN | null,
   tradeDelay: BN | null,
   auctionLength: BN | null,
   feeRecipientsToAdd: { receiver: PublicKey; portion: BN }[],
   feeRecipientsToRemove: PublicKey[],
-  programId: PublicKey,
-  programDataAddress: PublicKey,
   executeTxn: T = true as T
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  const updateFolio = await programDtf.methods
+  const updateFolio = await programFolio.methods
     .updateFolio(
-      programVersion,
-      programDeploymentSlot,
       folioFee,
       mintingFee,
       tradeDelay,
@@ -341,13 +265,9 @@ export async function updateFolio<T extends boolean = true>(
         ? OTHER_ADMIN_KEY.publicKey
         : folioOwnerKeypair.publicKey,
       actor: getActorPDA(folioOwnerKeypair.publicKey, folio),
-      dtfProgramSigner: getDtfSignerPDA(),
-      dtfProgram: programId,
-      dtfProgramData: programDataAddress,
-      folioProgram: FOLIO_PROGRAM_ID,
+
       folio: folio,
       feeRecipients: getFolioFeeRecipientsPDA(folio),
-      programRegistrar: getProgramRegistrarPDA(),
     })
     .instruction();
 
@@ -363,20 +283,19 @@ export async function updateFolio<T extends boolean = true>(
 
 export async function addOrUpdateActor<T extends boolean = true>(
   client: BanksClient,
-  programDtf: Program<Dtfs>,
+  programFolio: Program<Folio>,
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
   newActorAuthority: PublicKey,
   role: number,
-  programId: PublicKey,
-  programDataAddress: PublicKey,
+
   executeTxn: T = true as T
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  const addOrUpdateActor = await programDtf.methods
+  const addOrUpdateActor = await programFolio.methods
     .initOrUpdateActor(roleToStruct(role) as any)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
@@ -387,12 +306,8 @@ export async function addOrUpdateActor<T extends boolean = true>(
       newActorAuthority: newActorAuthority,
       folioOwnerActor: getActorPDA(folioOwnerKeypair.publicKey, folio),
       newActor: getActorPDA(newActorAuthority, folio),
-      dtfProgramSigner: getDtfSignerPDA(),
-      dtfProgram: programId,
-      dtfProgramData: programDataAddress,
-      folioProgram: FOLIO_PROGRAM_ID,
+
       folio: folio,
-      programRegistrar: getProgramRegistrarPDA(),
     })
     .instruction();
 
@@ -407,21 +322,20 @@ export async function addOrUpdateActor<T extends boolean = true>(
 
 export async function removeActor<T extends boolean = true>(
   client: BanksClient,
-  programDtf: Program<Dtfs>,
+  programFolio: Program<Folio>,
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
   actorAuthority: PublicKey,
   role: number,
   closeActor: boolean,
-  programId: PublicKey,
-  programDataAddress: PublicKey,
+
   executeTxn: T = true as T
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  const removeActor = await programDtf.methods
+  const removeActor = await programFolio.methods
     .removeActor(roleToStruct(role) as any, closeActor)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
@@ -432,12 +346,8 @@ export async function removeActor<T extends boolean = true>(
       actorAuthority: actorAuthority,
       folioOwnerActor: getActorPDA(folioOwnerKeypair.publicKey, folio),
       actorToRemove: getActorPDA(actorAuthority, folio),
-      dtfProgramSigner: getDtfSignerPDA(),
-      dtfProgram: programId,
-      dtfProgramData: programDataAddress,
-      folioProgram: FOLIO_PROGRAM_ID,
+
       folio: folio,
-      programRegistrar: getProgramRegistrarPDA(),
     })
     .instruction();
 
@@ -453,14 +363,13 @@ export async function removeActor<T extends boolean = true>(
 export async function addToBasket<T extends boolean = true>(
   context: ProgramTestContext,
   client: BanksClient,
-  programDtf: Program<Dtfs>,
+  programFolio: Program<Folio>,
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
   tokens: { mint: PublicKey; amount: BN }[],
   initialShares: BN,
   folioTokenMint: PublicKey,
-  programId: PublicKey,
-  programDataAddress: PublicKey,
+
   executeTxn: T = true as T,
   remainingAccounts: AccountMeta[] = []
 ): Promise<
@@ -468,7 +377,7 @@ export async function addToBasket<T extends boolean = true>(
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  const addToBasket = await programDtf.methods
+  const addToBasket = await programFolio.methods
     .addToBasket(
       tokens.map((token) => token.amount),
       initialShares
@@ -480,10 +389,7 @@ export async function addToBasket<T extends boolean = true>(
         ? OTHER_ADMIN_KEY.publicKey
         : folioOwnerKeypair.publicKey,
       actor: getActorPDA(folioOwnerKeypair.publicKey, folio),
-      dtfProgramSigner: getDtfSignerPDA(),
-      dtfProgram: programId,
-      dtfProgramData: programDataAddress,
-      folioProgram: FOLIO_PROGRAM_ID,
+
       folio: folio,
       folioTokenMint,
       ownerFolioTokenAccount: await getOrCreateAtaAddress(
@@ -492,7 +398,6 @@ export async function addToBasket<T extends boolean = true>(
         folioOwnerKeypair.publicKey
       ),
       folioBasket: getFolioBasketPDA(folio),
-      programRegistrar: getProgramRegistrarPDA(),
     })
     .remainingAccounts(
       remainingAccounts.length > 0
@@ -518,19 +423,18 @@ export async function addToBasket<T extends boolean = true>(
 
 export async function removeFromBasket<T extends boolean = true>(
   client: BanksClient,
-  programDtf: Program<Dtfs>,
+  programFolio: Program<Folio>,
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
   tokensToRemove: PublicKey[],
-  programId: PublicKey,
-  programDataAddress: PublicKey,
+
   executeTxn: T = true as T
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  const removeFromBasket = await programDtf.methods
+  const removeFromBasket = await programFolio.methods
     .removeFromBasket(tokensToRemove)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
@@ -538,13 +442,9 @@ export async function removeFromBasket<T extends boolean = true>(
         ? OTHER_ADMIN_KEY.publicKey
         : folioOwnerKeypair.publicKey,
       actor: getActorPDA(folioOwnerKeypair.publicKey, folio),
-      dtfProgramSigner: getDtfSignerPDA(),
-      dtfProgram: programId,
-      dtfProgramData: programDataAddress,
-      folioProgram: FOLIO_PROGRAM_ID,
+
       folio: folio,
       folioBasket: getFolioBasketPDA(folio),
-      programRegistrar: getProgramRegistrarPDA(),
     })
     .instruction();
 
@@ -560,12 +460,11 @@ export async function removeFromBasket<T extends boolean = true>(
 export async function addToPendingBasket<T extends boolean = true>(
   context: ProgramTestContext,
   client: BanksClient,
-  programDtf: Program<Dtfs>,
+  programFolio: Program<Folio>,
   userKeypair: Keypair,
   folio: PublicKey,
   tokens: { mint: PublicKey; amount: BN }[],
-  programId: PublicKey,
-  programDataAddress: PublicKey,
+
   executeTxn: T = true as T,
   remainingAccounts: AccountMeta[] = []
 ): Promise<
@@ -573,21 +472,17 @@ export async function addToPendingBasket<T extends boolean = true>(
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  const addToPendingBasket = await programDtf.methods
+  const addToPendingBasket = await programFolio.methods
     .addToPendingBasket(tokens.map((token) => token.amount))
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
       tokenProgram: TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,
-      programRegistrar: getProgramRegistrarPDA(),
+
       folio,
       folioBasket: getFolioBasketPDA(folio),
       userPendingBasket: getUserPendingBasketPDA(folio, userKeypair.publicKey),
-      folioProgram: FOLIO_PROGRAM_ID,
-      dtfProgramSigner: getDtfSignerPDA(),
-      dtfProgram: programId,
-      dtfProgramData: programDataAddress,
     })
     .remainingAccounts(
       remainingAccounts.length > 0
@@ -614,12 +509,11 @@ export async function addToPendingBasket<T extends boolean = true>(
 export async function removeFromPendingBasket<T extends boolean = true>(
   context: ProgramTestContext,
   client: BanksClient,
-  programDtf: Program<Dtfs>,
+  programFolio: Program<Folio>,
   userKeypair: Keypair,
   folio: PublicKey,
   tokens: { mint: PublicKey; amount: BN }[],
-  programId: PublicKey,
-  programDataAddress: PublicKey,
+
   executeTxn: T = true as T,
   remainingAccounts: AccountMeta[] = []
 ): Promise<
@@ -627,20 +521,16 @@ export async function removeFromPendingBasket<T extends boolean = true>(
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  const removeFromPendingBasket = await programDtf.methods
+  const removeFromPendingBasket = await programFolio.methods
     .removeFromPendingBasket(tokens.map((token) => token.amount))
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,
-      programRegistrar: getProgramRegistrarPDA(),
+
       folio,
       folioBasket: getFolioBasketPDA(folio),
       userPendingBasket: getUserPendingBasketPDA(folio, userKeypair.publicKey),
-      folioProgram: FOLIO_PROGRAM_ID,
-      dtfProgramSigner: getDtfSignerPDA(),
-      dtfProgram: programId,
-      dtfProgramData: programDataAddress,
     })
     .remainingAccounts(
       remainingAccounts.length > 0
@@ -666,24 +556,23 @@ export async function removeFromPendingBasket<T extends boolean = true>(
 export async function mintFolioToken<T extends boolean = true>(
   context: ProgramTestContext,
   client: BanksClient,
-  programDtf: Program<Dtfs>,
+  programFolio: Program<Folio>,
   userKeypair: Keypair,
   folio: PublicKey,
   folioTokenMint: PublicKey,
   tokens: { mint: PublicKey; amount: BN }[],
   shares: BN,
-  programId: PublicKey,
-  programDataAddress: PublicKey,
+
   executeTxn: T = true as T,
   remainingAccounts: AccountMeta[] = []
 ) {
-  const mintFolioToken = await programDtf.methods
+  const mintFolioToken = await programFolio.methods
     .mintFolioToken(shares)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,
-      programRegistrar: getProgramRegistrarPDA(),
+
       folio,
       folioTokenMint,
       folioBasket: getFolioBasketPDA(folio),
@@ -693,10 +582,6 @@ export async function mintFolioToken<T extends boolean = true>(
         folioTokenMint,
         userKeypair.publicKey
       ),
-      dtfProgramSigner: getDtfSignerPDA(),
-      dtfProgram: programId,
-      dtfProgramData: programDataAddress,
-      folioProgram: FOLIO_PROGRAM_ID,
     })
     .remainingAccounts(
       remainingAccounts.length > 0
@@ -718,29 +603,24 @@ export async function mintFolioToken<T extends boolean = true>(
 export async function burnFolioToken<T extends boolean = true>(
   context: ProgramTestContext,
   client: BanksClient,
-  programDtf: Program<Dtfs>,
+  programFolio: Program<Folio>,
   userKeypair: Keypair,
   folio: PublicKey,
   folioTokenMint: PublicKey,
   amountToBurn: BN,
   tokens: { mint: PublicKey; amount: BN }[],
-  programId: PublicKey,
-  programDataAddress: PublicKey,
+
   executeTxn: T = true as T,
   remainingAccounts: AccountMeta[] = []
 ) {
-  const burnFolioTokenIx = await programDtf.methods
+  const burnFolioTokenIx = await programFolio.methods
     .burnFolioToken(amountToBurn)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,
-      programRegistrar: getProgramRegistrarPDA(),
-      dtfProgramSigner: getDtfSignerPDA(),
-      dtfProgram: programId,
-      dtfProgramData: programDataAddress,
-      folioProgram: FOLIO_PROGRAM_ID,
+
       folio,
       folioTokenMint,
       folioBasket: getFolioBasketPDA(folio),
@@ -771,27 +651,22 @@ export async function burnFolioToken<T extends boolean = true>(
 export async function redeemFromPendingBasket<T extends boolean = true>(
   context: ProgramTestContext,
   client: BanksClient,
-  programDtf: Program<Dtfs>,
+  programFolio: Program<Folio>,
   userKeypair: Keypair,
   folio: PublicKey,
   tokens: { mint: PublicKey; amount: BN }[],
-  programId: PublicKey,
-  programDataAddress: PublicKey,
+
   executeTxn: T = true as T,
   remainingAccounts: AccountMeta[] = []
 ) {
-  const redeemFromPendingBasket = await programDtf.methods
+  const redeemFromPendingBasket = await programFolio.methods
     .redeemFromPendingBasket(tokens.map((token) => token.amount))
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
       tokenProgram: TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,
-      programRegistrar: getProgramRegistrarPDA(),
-      dtfProgramSigner: getDtfSignerPDA(),
-      dtfProgram: programId,
-      dtfProgramData: programDataAddress,
-      folioProgram: FOLIO_PROGRAM_ID,
+
       folio,
       folioBasket: getFolioBasketPDA(folio),
       userPendingBasket: getUserPendingBasketPDA(folio, userKeypair.publicKey),
@@ -820,31 +695,26 @@ export async function redeemFromPendingBasket<T extends boolean = true>(
 
 export async function pokeFolio<T extends boolean = true>(
   client: BanksClient,
-  programDtf: Program<Dtfs>,
+  programFolio: Program<Folio>,
   userKeypair: Keypair,
   folioPDA: PublicKey,
   folioTokenMint: PublicKey,
-  programId: PublicKey,
-  programDataAddress: PublicKey,
+
   executeTxn: T = true as T
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  const pokeFolio = await programDtf.methods
+  const pokeFolio = await programFolio.methods
     .pokeFolio()
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       user: userKeypair.publicKey,
       folio: folioPDA,
       folioTokenMint: folioTokenMint,
-      dtfProgram: programId,
-      folioProgram: FOLIO_PROGRAM_ID,
+
       daoFeeConfig: getDAOFeeConfigPDA(),
-      dtfProgramSigner: getDtfSignerPDA(),
-      dtfProgramData: programDataAddress,
-      programRegistrar: getProgramRegistrarPDA(),
     })
     .instruction();
 
@@ -857,38 +727,34 @@ export async function pokeFolio<T extends boolean = true>(
 
 export async function distributeFees<T extends boolean = true>(
   client: BanksClient,
-  programDtf: Program<Dtfs>,
+  programFolio: Program<Folio>,
   userKeypair: Keypair,
   folio: PublicKey,
   folioTokenMint: PublicKey,
   daoFeeRecipient: PublicKey,
   index: BN,
-  programId: PublicKey,
-  programDataAddress: PublicKey,
+
   executeTxn: T = true as T
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  const distributeFees = await programDtf.methods
+  const distributeFees = await programFolio.methods
     .distributeFees(index)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
       tokenProgram: TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,
-      dtfProgramSigner: getDtfSignerPDA(),
-      dtfProgram: programId,
-      dtfProgramData: programDataAddress,
+
       daoFeeConfig: getDAOFeeConfigPDA(),
-      folioProgram: FOLIO_PROGRAM_ID,
+
       folio: folio,
       folioTokenMint,
       feeRecipients: getFolioFeeRecipientsPDA(folio),
       feeDistribution: getFeeDistributionPDA(folio, index),
       daoFeeRecipient,
-      programRegistrar: getProgramRegistrarPDA(),
     })
     .instruction();
 
@@ -903,7 +769,7 @@ export async function distributeFees<T extends boolean = true>(
 
 export async function crankFeeDistribution<T extends boolean = true>(
   client: BanksClient,
-  programDtf: Program<Dtfs>,
+  programFolio: Program<Folio>,
   userKeypair: Keypair,
   folio: PublicKey,
   folioTokenMint: PublicKey,
@@ -911,8 +777,7 @@ export async function crankFeeDistribution<T extends boolean = true>(
   feeDistributionIndex: BN,
   indices: BN[],
   feeRecipients: PublicKey[],
-  programId: PublicKey,
-  programDataAddress: PublicKey,
+
   executeTxn: T = true as T,
   remainingAccounts: AccountMeta[] = []
 ): Promise<
@@ -920,22 +785,18 @@ export async function crankFeeDistribution<T extends boolean = true>(
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  const crankFeeDistribution = await programDtf.methods
+  const crankFeeDistribution = await programFolio.methods
     .crankFeeDistribution(indices)
     .accountsPartial({
       rent: SYSVAR_RENT_PUBKEY,
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,
-      dtfProgramSigner: getDtfSignerPDA(),
-      dtfProgram: programId,
-      dtfProgramData: programDataAddress,
-      folioProgram: FOLIO_PROGRAM_ID,
+
       folio: folio,
       folioTokenMint,
       cranker,
       feeDistribution: getFeeDistributionPDA(folio, feeDistributionIndex),
-      programRegistrar: getProgramRegistrarPDA(),
     })
     .remainingAccounts(
       remainingAccounts.length > 0
@@ -963,13 +824,12 @@ export async function crankFeeDistribution<T extends boolean = true>(
 export async function addRewardToken<T extends boolean = true>(
   context: ProgramTestContext,
   client: BanksClient,
-  programDtf: Program<Dtfs>,
+  programFolio: Program<Folio>,
   ownerKeypair: Keypair,
   folio: PublicKey,
   rewardToken: PublicKey,
   rewardPeriod: BN,
-  programId: PublicKey,
-  programDataAddress: PublicKey,
+
   executeTxn: T = true as T,
   rewardTokenATA: PublicKey = null
 ): Promise<
@@ -977,15 +837,12 @@ export async function addRewardToken<T extends boolean = true>(
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  const addRewardToken = await programDtf.methods
+  const addRewardToken = await programFolio.methods
     .addRewardToken(rewardPeriod)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       folioOwner: ownerKeypair.publicKey,
-      dtfProgramSigner: getDtfSignerPDA(),
-      dtfProgram: programId,
-      dtfProgramData: programDataAddress,
-      folioProgram: FOLIO_PROGRAM_ID,
+
       actor: getActorPDA(ownerKeypair.publicKey, folio),
       folio,
       folioRewardTokens: getFolioRewardTokensPDA(folio),
@@ -998,7 +855,6 @@ export async function addRewardToken<T extends boolean = true>(
           rewardToken,
           getFolioRewardTokensPDA(folio)
         )),
-      programRegistrar: getProgramRegistrarPDA(),
     })
     .instruction();
 
@@ -1014,32 +870,27 @@ export async function addRewardToken<T extends boolean = true>(
 
 export async function removeRewardToken<T extends boolean = true>(
   client: BanksClient,
-  programDtf: Program<Dtfs>,
+  programFolio: Program<Folio>,
   ownerKeypair: Keypair,
   folio: PublicKey,
   rewardTokenToRemove: PublicKey,
-  programId: PublicKey,
-  programDataAddress: PublicKey,
+
   executeTxn: T = true as T
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  const removeRewardToken = await programDtf.methods
+  const removeRewardToken = await programFolio.methods
     .removeRewardToken()
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       folioOwner: ownerKeypair.publicKey,
-      dtfProgramSigner: getDtfSignerPDA(),
-      dtfProgram: programId,
-      dtfProgramData: programDataAddress,
-      folioProgram: FOLIO_PROGRAM_ID,
+
       actor: getActorPDA(ownerKeypair.publicKey, folio),
       folio,
       folioRewardTokens: getFolioRewardTokensPDA(folio),
       rewardTokenToRemove,
-      programRegistrar: getProgramRegistrarPDA(),
     })
     .instruction();
 
@@ -1054,31 +905,26 @@ export async function removeRewardToken<T extends boolean = true>(
 
 export async function initOrSetRewardRatio<T extends boolean = true>(
   client: BanksClient,
-  programDtf: Program<Dtfs>,
+  programFolio: Program<Folio>,
   ownerKeypair: Keypair,
   folio: PublicKey,
   rewardPeriod: BN,
-  programId: PublicKey,
-  programDataAddress: PublicKey,
+
   executeTxn: T = true as T
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  const initOrSetRewardRatio = await programDtf.methods
+  const initOrSetRewardRatio = await programFolio.methods
     .initOrSetRewardRatio(rewardPeriod)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       folioOwner: ownerKeypair.publicKey,
-      dtfProgramSigner: getDtfSignerPDA(),
-      dtfProgram: programId,
-      dtfProgramData: programDataAddress,
-      folioProgram: FOLIO_PROGRAM_ID,
+
       actor: getActorPDA(ownerKeypair.publicKey, folio),
       folio,
       folioRewardTokens: getFolioRewardTokensPDA(folio),
-      programRegistrar: getProgramRegistrarPDA(),
     })
     .instruction();
 
@@ -1094,14 +940,13 @@ export async function initOrSetRewardRatio<T extends boolean = true>(
 export async function accrueRewards<T extends boolean = true>(
   context: ProgramTestContext,
   client: BanksClient,
-  programDtf: Program<Dtfs>,
+  programFolio: Program<Folio>,
   callerKeypair: Keypair,
   folioOwner: PublicKey,
   folio: PublicKey,
   rewardTokens: PublicKey[],
   extraUser: PublicKey = callerKeypair.publicKey,
-  programId: PublicKey,
-  programDataAddress: PublicKey,
+
   executeTxn: T = true as T,
   remainingAccounts: AccountMeta[] = []
 ): Promise<
@@ -1109,21 +954,17 @@ export async function accrueRewards<T extends boolean = true>(
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  const accrueRewards = await programDtf.methods
+  const accrueRewards = await programFolio.methods
     .accrueRewards()
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       caller: callerKeypair.publicKey,
-      dtfProgramSigner: getDtfSignerPDA(),
-      dtfProgram: programId,
-      dtfProgramData: programDataAddress,
-      folioProgram: FOLIO_PROGRAM_ID,
+
       folioOwner,
       actor: getActorPDA(folioOwner, folio),
       folio,
       folioRewardTokens: getFolioRewardTokensPDA(folio),
       user: extraUser ?? callerKeypair.publicKey,
-      programRegistrar: getProgramRegistrarPDA(),
     })
     .remainingAccounts(remainingAccounts)
     .instruction();
@@ -1141,13 +982,12 @@ export async function accrueRewards<T extends boolean = true>(
 export async function claimRewards<T extends boolean = true>(
   context: ProgramTestContext,
   client: BanksClient,
-  programDtf: Program<Dtfs>,
+  programFolio: Program<Folio>,
   userKeypair: Keypair,
   folioOwner: PublicKey,
   folio: PublicKey,
   rewardTokens: PublicKey[],
-  programId: PublicKey,
-  programDataAddress: PublicKey,
+
   executeTxn: T = true as T,
   remainingAccounts: AccountMeta[] = []
 ): Promise<
@@ -1155,21 +995,17 @@ export async function claimRewards<T extends boolean = true>(
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  const claimRewards = await programDtf.methods
+  const claimRewards = await programFolio.methods
     .claimRewards()
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,
-      dtfProgramSigner: getDtfSignerPDA(),
-      dtfProgram: programId,
-      dtfProgramData: programDataAddress,
-      folioProgram: FOLIO_PROGRAM_ID,
+
       folioOwner,
       actor: getActorPDA(folioOwner, folio),
       folio,
       folioRewardTokens: getFolioRewardTokensPDA(folio),
-      programRegistrar: getProgramRegistrarPDA(),
     })
     .remainingAccounts(
       remainingAccounts.length > 0

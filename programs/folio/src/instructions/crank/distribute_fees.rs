@@ -1,17 +1,19 @@
+use crate::utils::structs::FolioStatus;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 use anchor_spl::token;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use dtfs::state::DAOFeeConfig;
+use dtfs::ID as DTF_PROGRAM_ID;
 use shared::check_condition;
 use shared::constants::{
-    DAO_FEE_CONFIG_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, FEE_DISTRIBUTION_SEEDS, FEE_RECIPIENTS_SEEDS,
-    FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS,
+    DAO_FEE_CONFIG_SEEDS, DAO_FEE_DENOMINATOR, FEE_DISTRIBUTION_SEEDS, FEE_RECIPIENTS_SEEDS,
+    FOLIO_SEEDS,
 };
-use shared::{errors::ErrorCode, structs::FolioStatus};
+use shared::errors::ErrorCode;
 
 use crate::events::ProtocolFeePaid;
-use crate::state::{FeeDistribution, FeeRecipients, Folio, ProgramRegistrar};
-use crate::DtfProgram;
+use crate::state::{FeeDistribution, FeeRecipients, Folio};
 
 #[derive(Accounts)]
 #[instruction(index: u64)]
@@ -23,37 +25,12 @@ pub struct DistributeFees<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
-    /*
-    Accounts to validate
-    */
-    #[account(
-        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
-        bump,
-        seeds::program = dtf_program.key(),
-    )]
-    pub dtf_program_signer: Signer<'info>,
-
-    /// CHECK: DTF program used for creating owner record
-    #[account()]
-    pub dtf_program: UncheckedAccount<'info>,
-
-    /// CHECK: DTF program data to validate program deployment slot
-    #[account()]
-    pub dtf_program_data: UncheckedAccount<'info>,
-
-    #[account(
-        seeds = [PROGRAM_REGISTRAR_SEEDS],
-        bump = program_registrar.bump
-    )]
-    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
-
-    /// CHECK: DAO fee config to get fee for minting
     #[account(
             seeds = [DAO_FEE_CONFIG_SEEDS],
             bump,
-            seeds::program = dtf_program.key(),
+            seeds::program = DTF_PROGRAM_ID,
         )]
-    pub dao_fee_config: UncheckedAccount<'info>,
+    pub dao_fee_config: Account<'info, DAOFeeConfig>,
 
     /*
     Specific for the instruction
@@ -90,11 +67,8 @@ impl DistributeFees<'_> {
         fee_recipients: &FeeRecipients,
         index: u64,
     ) -> Result<()> {
-        folio.validate_folio_program_post_init(
+        folio.validate_folio(
             &self.folio.key(),
-            Some(&self.program_registrar),
-            Some(&self.dtf_program),
-            Some(&self.dtf_program_data),
             None,
             None,
             Some(vec![FolioStatus::Initialized]),
@@ -124,14 +98,13 @@ pub fn handler<'info>(
 
         ctx.accounts.validate(folio, &fee_recipients, index)?;
 
-        let (dao_fee_numerator, dao_fee_denominator, dao_fee_recipient) =
-            DtfProgram::get_dao_fee_config(&ctx.accounts.dao_fee_config.to_account_info())?;
+        let dao_fee_config = &ctx.accounts.dao_fee_config;
 
         // Validate token account
         check_condition!(
             ctx.accounts.dao_fee_recipient.key()
                 == get_associated_token_address_with_program_id(
-                    &dao_fee_recipient.key(),
+                    &dao_fee_config.fee_recipient,
                     &ctx.accounts.folio_token_mint.key(),
                     &ctx.accounts.token_program.key(),
                 ),
@@ -143,8 +116,8 @@ pub fn handler<'info>(
         folio.poke(
             ctx.accounts.folio_token_mint.supply,
             current_time,
-            dao_fee_numerator,
-            dao_fee_denominator,
+            dao_fee_config.fee_recipient_numerator,
+            DAO_FEE_DENOMINATOR,
         )?;
     }
 

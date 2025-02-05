@@ -17,31 +17,23 @@ import {
 import {
   getFolioFeeRecipientsPDA,
   getFolioPDA,
-  getProgramDataPDA,
 } from "../../../utils/pda-helper";
 import { updateFolio } from "../bankrun-ix-helper";
 import {
   createAndSetFolio,
-  createAndSetProgramRegistrar,
   Role,
   createAndSetActor,
   FeeRecipient,
   createAndSetFeeRecipients,
-  mockDTFProgramData,
-  createAndSetDTFProgramSigner,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
-import { Dtfs } from "../../../target/types/dtfs";
 import {
-  assertInvalidDtfProgramDeploymentSlotTestCase,
   assertNotOwnerTestCase,
-  assertProgramNotInRegistrarTestCase,
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
 
 import * as assert from "assert";
 import {
-  DTF_PROGRAM_ID,
   MAX_FEE_RECIPIENTS,
   MAX_MINTING_FEE,
   MIN_AUCTION_LENGTH,
@@ -56,7 +48,6 @@ describe("Bankrun - Update folio", () => {
   let provider: BankrunProvider;
   let banksClient: BanksClient;
 
-  let programDtf: Program<Dtfs>;
   let programFolio: Program<Folio>;
 
   let keys: any;
@@ -70,17 +61,12 @@ describe("Bankrun - Update folio", () => {
 
   let folioPDA: PublicKey;
 
-  const VALID_DEPLOYMENT_SLOT = new BN(1);
-
   const FEE_PORTION_SUM = new BN(1000000000);
   const EQUAL_PORTION = FEE_PORTION_SUM.div(new BN(MAX_FEE_RECIPIENTS));
 
   const FEE_RECIPIENT_KEYPAIR = Keypair.generate();
-  const PROGRAM_VERSION_VALID = Keypair.generate().publicKey;
 
   const DEFAULT_PARAMS: {
-    programVersion: PublicKey;
-    programDeploymentSlot: BN;
     folioFee: BN;
     mintingFee: BN;
     tradeDelay: BN;
@@ -89,8 +75,6 @@ describe("Bankrun - Update folio", () => {
     feeRecipientsToAdd: FeeRecipient[];
     feeRecipientsToRemove: PublicKey[];
   } = {
-    programVersion: DTF_PROGRAM_ID,
-    programDeploymentSlot: VALID_DEPLOYMENT_SLOT,
     folioFee: MAX_FOLIO_FEE,
     mintingFee: MIN_DAO_MINTING_FEE,
     tradeDelay: MAX_TRADE_DELAY,
@@ -101,27 +85,6 @@ describe("Bankrun - Update folio", () => {
   };
 
   const TEST_CASES = [
-    {
-      desc: "(should update program version only, not in the program registrar)",
-      programVersion: Keypair.generate().publicKey,
-      expectedError: "ProgramNotInRegistrar",
-    },
-    {
-      desc: "(should update program version only, success)",
-      programVersion: PROGRAM_VERSION_VALID,
-      expectedError: null,
-    },
-    {
-      desc: "(should update deployment slot only, success)",
-      programDeploymentSlot: VALID_DEPLOYMENT_SLOT.add(new BN(1)),
-      expectedError: null,
-    },
-    {
-      desc: "(should update program version and deployment slot, success)",
-      programVersion: PROGRAM_VERSION_VALID,
-      programDeploymentSlot: VALID_DEPLOYMENT_SLOT.add(new BN(1)),
-      expectedError: null,
-    },
     {
       desc: "(should update folio fee, fee too high)",
       folioFee: MAX_FOLIO_FEE.add(new BN(1)),
@@ -232,19 +195,7 @@ describe("Bankrun - Update folio", () => {
   ];
 
   async function initBaseCase() {
-    await createAndSetDTFProgramSigner(context, programDtf);
-    await createAndSetProgramRegistrar(context, programFolio, [
-      DTF_PROGRAM_ID,
-      PROGRAM_VERSION_VALID,
-    ]);
-
-    await createAndSetFolio(
-      context,
-      programFolio,
-      folioTokenMint.publicKey,
-      DTF_PROGRAM_ID,
-      VALID_DEPLOYMENT_SLOT
-    );
+    await createAndSetFolio(context, programFolio, folioTokenMint.publicKey);
 
     await createAndSetActor(
       context,
@@ -253,13 +204,10 @@ describe("Bankrun - Update folio", () => {
       folioPDA,
       Role.Owner
     );
-
-    await mockDTFProgramData(context, DTF_PROGRAM_ID, VALID_DEPLOYMENT_SLOT);
   }
 
   before(async () => {
-    ({ keys, programDtf, programFolio, provider, context } =
-      await getConnectors());
+    ({ keys, programFolio, provider, context } = await getConnectors());
 
     banksClient = context.banksClient;
 
@@ -283,19 +231,16 @@ describe("Bankrun - Update folio", () => {
     const generalIxUpdateFolio = () =>
       updateFolio<true>(
         banksClient,
-        programDtf,
+        programFolio,
         folioOwnerKeypair,
         folioPDA,
         null,
         null,
         null,
         null,
-        null,
-        null,
         [],
         [],
-        DTF_PROGRAM_ID,
-        getProgramDataPDA(DTF_PROGRAM_ID),
+
         true
       );
 
@@ -312,22 +257,6 @@ describe("Bankrun - Update folio", () => {
         generalIxUpdateFolio
       );
     });
-
-    it(`should run ${GeneralTestCases.InvalidDtfProgramDeploymentSlot}`, async () => {
-      await assertInvalidDtfProgramDeploymentSlotTestCase(
-        context,
-        VALID_DEPLOYMENT_SLOT.add(new BN(1)),
-        generalIxUpdateFolio
-      );
-    });
-
-    it(`should run ${GeneralTestCases.ProgramNotInRegistrar}`, async () => {
-      await assertProgramNotInRegistrarTestCase(
-        context,
-        programFolio,
-        generalIxUpdateFolio
-      );
-    });
   });
 
   /*
@@ -338,8 +267,6 @@ describe("Bankrun - Update folio", () => {
       describe(`When ${desc}`, () => {
         let txnResult: BanksTransactionResultWithMeta;
         const {
-          programVersion,
-          programDeploymentSlot,
           folioFee,
           mintingFee,
           tradeDelay,
@@ -363,19 +290,15 @@ describe("Bankrun - Update folio", () => {
 
           txnResult = await updateFolio<true>(
             banksClient,
-            programDtf,
+            programFolio,
             folioOwnerKeypair,
             folioPDA,
-            programVersion,
-            programDeploymentSlot,
             folioFee,
             mintingFee,
             tradeDelay,
             auctionLength,
             feeRecipientsToAdd,
-            feeRecipientsToRemove,
-            DTF_PROGRAM_ID,
-            getProgramDataPDA(DTF_PROGRAM_ID)
+            feeRecipientsToRemove
           );
         });
 
@@ -389,11 +312,6 @@ describe("Bankrun - Update folio", () => {
 
             const folio = await programFolio.account.folio.fetch(folioPDA);
 
-            assert.deepEqual(folio.programVersion, programVersion);
-            assert.equal(
-              folio.programDeploymentSlot.eq(programDeploymentSlot),
-              true
-            );
             assert.equal(folio.folioFee.eq(folioFee), true);
             assert.equal(folio.mintingFee.eq(mintingFee), true);
             assert.equal(folio.tradeDelay.eq(tradeDelay), true);

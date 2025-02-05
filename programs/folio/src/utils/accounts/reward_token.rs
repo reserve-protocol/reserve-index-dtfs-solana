@@ -1,10 +1,10 @@
 use crate::events::RewardRatioSet;
 use crate::state::FolioRewardTokens;
+use crate::utils::math_util::U256Number;
 use anchor_lang::prelude::*;
 use shared::check_condition;
 use shared::constants::{LN_2, MAX_REWARD_HALF_LIFE, MIN_REWARD_HALF_LIFE};
 use shared::errors::ErrorCode;
-use shared::util::math_util::U256Number;
 use spl_math::uint::U256;
 
 impl FolioRewardTokens {

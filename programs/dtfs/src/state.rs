@@ -1,16 +1,5 @@
 use anchor_lang::prelude::*;
 
-/// PDA Seeds ["dtf_program_signer"]
-#[account]
-#[derive(Default, InitSpace)]
-pub struct DtfProgramSigner {
-    pub bump: u8,
-}
-
-impl DtfProgramSigner {
-    pub const SIZE: usize = 8 + DtfProgramSigner::INIT_SPACE;
-}
-
 /// PDA Seeds ["dao_fee_config"]
 /// *** DAO FEE REGISTY == PLATFORM FEE REGISTY == COMMUNITY ***
 #[account]
@@ -24,4 +13,19 @@ pub struct DAOFeeConfig {
 
 impl DAOFeeConfig {
     pub const SIZE: usize = 8 + DAOFeeConfig::INIT_SPACE;
+}
+
+/// PDA Seeds ["program_registrar"]
+#[account]
+#[derive(Default, InitSpace)]
+pub struct ProgramRegistrar {
+    pub bump: u8,
+
+    pub accepted_programs: [Pubkey; ProgramRegistrar::MAX_ACCEPTED_PROGRAMS],
+}
+
+impl ProgramRegistrar {
+    pub const SIZE: usize = 8 + ProgramRegistrar::INIT_SPACE;
+
+    pub const MAX_ACCEPTED_PROGRAMS: usize = 10;
 }

@@ -1,3 +1,5 @@
+use crate::utils::math_util::U256Number;
+use crate::utils::structs::{FolioStatus, Range, Role};
 use crate::{
     events::TradeApproved,
     state::{Actor, Folio, Trade},
@@ -6,16 +8,9 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::Mint;
 use shared::{
     check_condition,
-    constants::{
-        ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, MAX_RATE, MAX_TTL, PROGRAM_REGISTRAR_SEEDS,
-        TRADE_SEEDS,
-    },
-    structs::{FolioStatus, Range, Role},
-    util::math_util::U256Number,
+    constants::{ACTOR_SEEDS, MAX_RATE, MAX_TTL, TRADE_SEEDS},
+    errors::ErrorCode,
 };
-
-use crate::state::ProgramRegistrar;
-use shared::errors::ErrorCode;
 
 #[derive(Accounts)]
 #[instruction(trade_id: u64)]
@@ -25,30 +20,6 @@ pub struct ApproveTrade<'info> {
 
     #[account(mut)]
     pub trade_proposer: Signer<'info>,
-
-    /*
-    Account to validate
-    */
-    #[account(
-        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
-        bump,
-        seeds::program = dtf_program.key(),
-    )]
-    pub dtf_program_signer: Signer<'info>,
-
-    /// CHECK: DTF program used for creating owner record
-    #[account()]
-    pub dtf_program: UncheckedAccount<'info>,
-
-    /// CHECK: DTF program data to validate program deployment slot
-    #[account()]
-    pub dtf_program_data: UncheckedAccount<'info>,
-
-    #[account(
-        seeds = [PROGRAM_REGISTRAR_SEEDS],
-        bump = program_registrar.bump
-    )]
-    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
 
     #[account(
         seeds = [ACTOR_SEEDS, trade_proposer.key().as_ref(), folio.key().as_ref()],
@@ -86,11 +57,8 @@ impl ApproveTrade<'_> {
         end_price: u128,
         ttl: u64,
     ) -> Result<()> {
-        folio.validate_folio_program_post_init(
+        folio.validate_folio(
             &self.folio.key(),
-            Some(&self.program_registrar),
-            Some(&self.dtf_program),
-            Some(&self.dtf_program_data),
             Some(&self.actor),
             Some(Role::TradeProposer),
             Some(vec![FolioStatus::Initialized, FolioStatus::Initializing]),

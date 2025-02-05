@@ -1,18 +1,16 @@
+use crate::utils::account_util::next_account;
+use crate::utils::structs::FolioStatus;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 use anchor_spl::token;
 use anchor_spl::token_interface::{Mint, TokenInterface};
 use shared::check_condition;
-use shared::constants::{
-    DTF_PROGRAM_SIGNER_SEEDS, FEE_DISTRIBUTION_SEEDS, FOLIO_SEEDS, MAX_FEE_RECIPIENTS_PORTION,
-    PROGRAM_REGISTRAR_SEEDS,
-};
-use shared::util::account_util::next_account;
-use shared::{errors::ErrorCode, structs::FolioStatus};
+use shared::constants::{FEE_DISTRIBUTION_SEEDS, FOLIO_SEEDS, MAX_FEE_RECIPIENTS_PORTION};
+use shared::errors::ErrorCode;
 
 use crate::events::FolioFeePaid;
 use crate::program::Folio as FolioProgram;
-use crate::state::{FeeDistribution, Folio, ProgramRegistrar};
+use crate::state::{FeeDistribution, Folio};
 
 #[derive(Accounts)]
 
@@ -23,30 +21,6 @@ pub struct CrankFeeDistribution<'info> {
 
     #[account(mut)]
     pub user: Signer<'info>,
-
-    /*
-    Accounts to validate
-    */
-    #[account(
-        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
-        bump,
-        seeds::program = dtf_program.key(),
-    )]
-    pub dtf_program_signer: Signer<'info>,
-
-    /// CHECK: DTF program used for creating owner record
-    #[account()]
-    pub dtf_program: UncheckedAccount<'info>,
-
-    /// CHECK: DTF program data to validate program deployment slot
-    #[account()]
-    pub dtf_program_data: UncheckedAccount<'info>,
-
-    #[account(
-        seeds = [PROGRAM_REGISTRAR_SEEDS],
-        bump = program_registrar.bump
-    )]
-    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
 
     /*
     Specific for the instruction
@@ -71,11 +45,8 @@ pub struct CrankFeeDistribution<'info> {
 
 impl CrankFeeDistribution<'_> {
     pub fn validate(&self, folio: &Folio, fee_distribution: &FeeDistribution) -> Result<()> {
-        folio.validate_folio_program_post_init(
+        folio.validate_folio(
             &self.folio.key(),
-            Some(&self.program_registrar),
-            Some(&self.dtf_program),
-            Some(&self.dtf_program_data),
             None,
             None,
             Some(vec![FolioStatus::Initialized]),

@@ -1,15 +1,15 @@
 use crate::program::Folio as FolioProgram;
-use crate::state::{Actor, Folio, FolioRewardTokens, ProgramRegistrar, RewardInfo, UserRewardInfo};
+use crate::state::{Actor, Folio, FolioRewardTokens, RewardInfo, UserRewardInfo};
+use crate::utils::account_util::next_account;
+use crate::utils::structs::{FolioStatus, Role};
 use crate::GovernanceUtil;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::{self};
 use anchor_spl::token_interface::{Mint, TokenAccount};
 use shared::check_condition;
-use shared::constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, PROGRAM_REGISTRAR_SEEDS};
+use shared::constants::ACTOR_SEEDS;
 use shared::constants::{FOLIO_REWARD_TOKENS_SEEDS, REWARD_INFO_SEEDS, USER_REWARD_INFO_SEEDS};
 use shared::errors::ErrorCode;
-use shared::structs::{FolioStatus, Role};
-use shared::util::account_util::next_account;
 
 const REMAINING_ACCOUNT_DIVIDER_FOR_CALLER: usize = 5;
 const REMAINING_ACCOUNT_DIVIDER_FOR_USER: usize = 7;
@@ -24,30 +24,6 @@ pub struct AccrueRewards<'info> {
     /// CHECK: Folio owner
     #[account()]
     pub folio_owner: UncheckedAccount<'info>,
-
-    /*
-    Account to validate
-    */
-    #[account(
-        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
-        bump,
-        seeds::program = dtf_program.key(),
-    )]
-    pub dtf_program_signer: Signer<'info>,
-
-    /// CHECK: DTF program used for creating owner record
-    #[account()]
-    pub dtf_program: UncheckedAccount<'info>,
-
-    /// CHECK: DTF program data to validate program deployment slot
-    #[account()]
-    pub dtf_program_data: UncheckedAccount<'info>,
-
-    #[account(
-        seeds = [PROGRAM_REGISTRAR_SEEDS],
-        bump = program_registrar.bump
-    )]
-    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
 
     #[account(
         seeds = [ACTOR_SEEDS, folio_owner.key().as_ref(), folio.key().as_ref()],
@@ -82,11 +58,8 @@ pub struct AccrueRewards<'info> {
 
 impl AccrueRewards<'_> {
     pub fn validate(&self, folio: &Folio) -> Result<()> {
-        folio.validate_folio_program_post_init(
+        folio.validate_folio(
             &self.folio.key(),
-            Some(&self.program_registrar),
-            Some(&self.dtf_program),
-            Some(&self.dtf_program_data),
             None,
             None,
             Some(vec![FolioStatus::Initializing, FolioStatus::Initialized]),

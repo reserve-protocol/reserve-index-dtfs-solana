@@ -1,13 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use crate::fixtures::fixtures::TestFixture;
-
     use anchor_lang::prelude::*;
-    use folio::state::{Folio, ProgramRegistrar};
-    use shared::{
-        constants::{DAO_FEE_DENOMINATOR, MAX_FOLIO_FEE, MAX_MINTING_FEE},
-        structs::TradeEnd,
-    };
+    use folio::state::Folio;
+    use folio::utils::structs::TradeEnd;
+    use shared::constants::{DAO_FEE_DENOMINATOR, MAX_FOLIO_FEE, MAX_MINTING_FEE};
 
     fn setup_folio() -> Folio {
         let mut folio = Folio::default();
@@ -16,28 +12,6 @@ mod tests {
         folio.last_poke = 1000;
         folio
     }
-
-    /*
-    This is the only test done with accounts, because of the complexity of mocking / doing fixtures for accounts.
-     */
-    #[test]
-    fn test_validate_folio_program_for_init() {
-        let mut fixture = TestFixture::<ProgramRegistrar>::new();
-        fixture.setup();
-
-        let dtf_program = fixture.get_dtf_program().clone();
-
-        let program_registrar = fixture.get_program_registrar_mut();
-        program_registrar
-            .add_to_registrar(&mut vec![dtf_program.key()])
-            .unwrap();
-
-        assert!(Folio::validate_folio_program_for_init(program_registrar, &dtf_program).is_ok());
-    }
-
-    /*
-    Non accounts tests
-     */
 
     #[test]
     fn test_calculate_fees_for_minting() {

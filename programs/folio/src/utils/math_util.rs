@@ -1,7 +1,7 @@
-use crate::constants::D18;
-use crate::errors::ErrorCode::MathOverflow;
 use anchor_lang::prelude::*;
 use bytemuck::{Pod, Zeroable};
+use shared::constants::D18;
+use shared::errors::ErrorCode::MathOverflow;
 use spl_math::uint::U256;
 
 #[derive(Debug, Clone)]

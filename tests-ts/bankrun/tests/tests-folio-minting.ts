@@ -12,10 +12,7 @@ import {
   buildRemainingAccounts,
   closeAccount,
   createAndSetActor,
-  mockDTFProgramData,
-  createAndSetDTFProgramSigner,
   createAndSetFolio,
-  createAndSetProgramRegistrar,
   FolioStatus,
   createAndSetUserPendingBasket,
   createAndSetDaoFeeConfig,
@@ -31,7 +28,6 @@ import { Folio } from "../../../target/types/folio";
 import { Dtfs } from "../../../target/types/dtfs";
 import {
   DEFAULT_DECIMALS,
-  DTF_PROGRAM_ID,
   MAX_FOLIO_TOKEN_AMOUNTS,
   MAX_MINTING_FEE,
   MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
@@ -50,7 +46,6 @@ import {
 import {
   getFolioBasketPDA,
   getFolioPDA,
-  getProgramDataPDA,
   getUserPendingBasketPDA,
 } from "../../../utils/pda-helper";
 import {
@@ -59,9 +54,7 @@ import {
   removeFromPendingBasket,
 } from "../bankrun-ix-helper";
 import {
-  assertInvalidDtfProgramDeploymentSlotTestCase,
   assertInvalidFolioStatusTestCase,
-  assertProgramNotInRegistrarTestCase,
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
 import * as assert from "assert";
@@ -523,12 +516,6 @@ describe("Bankrun - Folio minting", () => {
     customDAOMintingFee: BN | null = null,
     customFolioMintingFee: BN | null = null
   ) {
-    await createAndSetDTFProgramSigner(context, programDtf);
-    await createAndSetProgramRegistrar(context, programFolio, [
-      DTF_PROGRAM_ID,
-      PROGRAM_VERSION_VALID,
-    ]);
-
     await createAndSetDaoFeeConfig(
       context,
       programDtf,
@@ -540,8 +527,6 @@ describe("Bankrun - Folio minting", () => {
       context,
       programFolio,
       folioTokenMint.publicKey,
-      DTF_PROGRAM_ID,
-      VALID_DEPLOYMENT_SLOT,
       FolioStatus.Initialized,
       customFolioMintingFee
     );
@@ -585,8 +570,6 @@ describe("Bankrun - Folio minting", () => {
       folioBasketTokens
     );
 
-    await mockDTFProgramData(context, DTF_PROGRAM_ID, VALID_DEPLOYMENT_SLOT);
-
     // Reinit account for pending user basket
     await closeAccount(
       context,
@@ -625,12 +608,11 @@ describe("Bankrun - Folio minting", () => {
       addToPendingBasket<true>(
         context,
         banksClient,
-        programDtf,
+        programFolio,
         userKeypair,
         folioPDA,
         [],
-        DTF_PROGRAM_ID,
-        getProgramDataPDA(DTF_PROGRAM_ID),
+
         true
       );
 
@@ -638,12 +620,11 @@ describe("Bankrun - Folio minting", () => {
       removeFromPendingBasket<true>(
         context,
         banksClient,
-        programDtf,
+        programFolio,
         userKeypair,
         folioPDA,
         [],
-        DTF_PROGRAM_ID,
-        getProgramDataPDA(DTF_PROGRAM_ID),
+
         true
       );
 
@@ -651,14 +632,13 @@ describe("Bankrun - Folio minting", () => {
       mintFolioToken<true>(
         context,
         banksClient,
-        programDtf,
+        programFolio,
         userKeypair,
         folioPDA,
         folioTokenMint.publicKey,
         [],
         new BN(0),
-        DTF_PROGRAM_ID,
-        getProgramDataPDA(DTF_PROGRAM_ID),
+
         true
       );
 
@@ -667,29 +647,12 @@ describe("Bankrun - Folio minting", () => {
     });
 
     describe("should run general tests for add to pending basket", () => {
-      it(`should run ${GeneralTestCases.InvalidDtfProgramDeploymentSlot}`, async () => {
-        await assertInvalidDtfProgramDeploymentSlotTestCase(
-          context,
-          VALID_DEPLOYMENT_SLOT.add(new BN(1)),
-          generalIxAddToPendingBasket
-        );
-      });
-
-      it(`should run ${GeneralTestCases.ProgramNotInRegistrar}`, async () => {
-        await assertProgramNotInRegistrarTestCase(
-          context,
-          programFolio,
-          generalIxAddToPendingBasket
-        );
-      });
-
       it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and INITIALIZING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
           folioTokenMint.publicKey,
-          DTF_PROGRAM_ID,
-          VALID_DEPLOYMENT_SLOT,
+
           generalIxAddToPendingBasket,
           FolioStatus.Killed
         );
@@ -698,8 +661,7 @@ describe("Bankrun - Folio minting", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-          DTF_PROGRAM_ID,
-          VALID_DEPLOYMENT_SLOT,
+
           generalIxAddToPendingBasket,
           FolioStatus.Initializing
         );
@@ -717,29 +679,12 @@ describe("Bankrun - Folio minting", () => {
         );
       });
 
-      it(`should run ${GeneralTestCases.InvalidDtfProgramDeploymentSlot}`, async () => {
-        await assertInvalidDtfProgramDeploymentSlotTestCase(
-          context,
-          VALID_DEPLOYMENT_SLOT.add(new BN(1)),
-          generalIxRemoveFromPendingBasket
-        );
-      });
-
-      it(`should run ${GeneralTestCases.ProgramNotInRegistrar}`, async () => {
-        await assertProgramNotInRegistrarTestCase(
-          context,
-          programFolio,
-          generalIxRemoveFromPendingBasket
-        );
-      });
-
       it(`should run ${GeneralTestCases.InvalidFolioStatus} for INITIALIZING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
           folioTokenMint.publicKey,
-          DTF_PROGRAM_ID,
-          VALID_DEPLOYMENT_SLOT,
+
           generalIxAddToPendingBasket,
           FolioStatus.Initializing
         );
@@ -757,29 +702,12 @@ describe("Bankrun - Folio minting", () => {
         );
       });
 
-      it(`should run ${GeneralTestCases.InvalidDtfProgramDeploymentSlot}`, async () => {
-        await assertInvalidDtfProgramDeploymentSlotTestCase(
-          context,
-          VALID_DEPLOYMENT_SLOT.add(new BN(1)),
-          generalIxMintFolioToken
-        );
-      });
-
-      it(`should run ${GeneralTestCases.ProgramNotInRegistrar}`, async () => {
-        await assertProgramNotInRegistrarTestCase(
-          context,
-          programFolio,
-          generalIxMintFolioToken
-        );
-      });
-
       it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and INITIALIZING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
           folioTokenMint.publicKey,
-          DTF_PROGRAM_ID,
-          VALID_DEPLOYMENT_SLOT,
+
           generalIxMintFolioToken,
           FolioStatus.Killed
         );
@@ -788,8 +716,7 @@ describe("Bankrun - Folio minting", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-          DTF_PROGRAM_ID,
-          VALID_DEPLOYMENT_SLOT,
+
           generalIxMintFolioToken,
           FolioStatus.Initializing
         );
@@ -848,12 +775,11 @@ describe("Bankrun - Folio minting", () => {
               txnResult = await addToPendingBasket<true>(
                 context,
                 banksClient,
-                programDtf,
+                programFolio,
                 userKeypair,
                 folioPDA,
                 tokens,
-                DTF_PROGRAM_ID,
-                getProgramDataPDA(DTF_PROGRAM_ID),
+
                 true,
                 await remainingAccounts()
               );
@@ -1034,12 +960,11 @@ describe("Bankrun - Folio minting", () => {
               txnResult = await removeFromPendingBasket<true>(
                 context,
                 banksClient,
-                programDtf,
+                programFolio,
                 userKeypair,
                 folioPDA,
                 tokens,
-                DTF_PROGRAM_ID,
-                getProgramDataPDA(DTF_PROGRAM_ID),
+
                 true,
                 await remainingAccounts()
               );
@@ -1235,14 +1160,13 @@ describe("Bankrun - Folio minting", () => {
               txnResult = await mintFolioToken<true>(
                 context,
                 banksClient,
-                programDtf,
+                programFolio,
                 userKeypair,
                 folioPDA,
                 tokenMintToUse.publicKey,
                 tokens,
                 shares,
-                DTF_PROGRAM_ID,
-                getProgramDataPDA(DTF_PROGRAM_ID),
+
                 true,
                 remainingAccounts()
               );

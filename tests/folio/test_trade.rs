@@ -2,7 +2,8 @@
 mod tests {
 
     use folio::state::{Folio, Trade};
-    use shared::{constants::D18, structs::TradeStatus};
+    use folio::utils::structs::TradeStatus;
+    use shared::constants::D18;
     use spl_math::uint::U256;
 
     fn setup_trade() -> Trade {

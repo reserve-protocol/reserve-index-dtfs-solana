@@ -2,11 +2,9 @@
 mod tests {
     use anchor_lang::prelude::Pubkey;
     use folio::state::FolioBasket;
-    use shared::{
-        constants::{PendingBasketType, MAX_FOLIO_TOKEN_AMOUNTS},
-        errors::ErrorCode::*,
-        structs::TokenAmount,
-    };
+    use folio::utils::structs::TokenAmount;
+    use shared::constants::{PendingBasketType, MAX_FOLIO_TOKEN_AMOUNTS};
+    use shared::errors::ErrorCode::*;
 
     fn setup_folio_basket() -> FolioBasket {
         let mut basket = FolioBasket {

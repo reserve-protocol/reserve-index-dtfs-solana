@@ -1,7 +1,7 @@
 use crate::{
     events::FolioCreated,
     state::{Actor, Folio},
-    CreateMetadataAccount, DtfProgram, Metaplex,
+    CreateMetadataAccount, Metaplex,
 };
 use anchor_lang::prelude::*;
 use anchor_spl::{
@@ -13,12 +13,10 @@ use shared::{
     constants::{
         ACTOR_SEEDS, FOLIO_SEEDS, MAX_AUCTION_LENGTH, MAX_CONCURRENT_TRADES, MAX_FOLIO_FEE,
         MAX_MINTING_FEE, MAX_TRADE_DELAY, METADATA_SEEDS, MIN_AUCTION_LENGTH, MIN_DAO_MINTING_FEE,
-        PROGRAM_REGISTRAR_SEEDS,
     },
-    structs::{FolioStatus, Role, TradeEnd},
 };
 
-use crate::state::ProgramRegistrar;
+use crate::utils::structs::{FolioStatus, Role, TradeEnd};
 use shared::errors::ErrorCode;
 
 #[derive(Accounts)]
@@ -30,23 +28,6 @@ pub struct InitFolio<'info> {
 
     #[account(mut)]
     pub folio_owner: Signer<'info>,
-
-    /*
-    Account to validate
-    */
-    /// CHECK: DTF program used for creating owner record
-    #[account()]
-    pub dtf_program: UncheckedAccount<'info>,
-
-    /// CHECK: DTF program data to validate program deployment slot
-    #[account()]
-    pub dtf_program_data: UncheckedAccount<'info>,
-
-    #[account(
-        seeds = [PROGRAM_REGISTRAR_SEEDS],
-        bump = program_registrar.bump
-    )]
-    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
 
     #[account(init,
         payer = folio_owner,
@@ -110,8 +91,6 @@ impl InitFolio<'_> {
         trade_delay: u64,
         auction_length: u64,
     ) -> Result<()> {
-        Folio::validate_folio_program_for_init(&self.program_registrar, &self.dtf_program)?;
-
         check_condition!(folio_fee <= MAX_FOLIO_FEE, InvalidFeePerSecond);
 
         check_condition!(
@@ -163,15 +142,7 @@ pub fn handler(
     {
         let folio = &mut ctx.accounts.folio.load_init()?;
 
-        let deployment_slot = DtfProgram::get_program_deployment_slot(
-            &ctx.accounts.dtf_program.key(),
-            &ctx.accounts.dtf_program.to_account_info(),
-            &ctx.accounts.dtf_program_data.to_account_info(),
-        )?;
-
         folio.bump = ctx.bumps.folio;
-        folio.program_version = ctx.accounts.dtf_program.key();
-        folio.program_deployment_slot = deployment_slot;
         folio.folio_token_mint = folio_token_mint_key;
         folio.set_folio_fee(folio_fee)?;
         folio.minting_fee = minting_fee;

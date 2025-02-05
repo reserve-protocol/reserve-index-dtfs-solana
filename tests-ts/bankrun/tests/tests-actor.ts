@@ -1,7 +1,6 @@
-import { BN, Program } from "@coral-xyz/anchor";
+import { Program } from "@coral-xyz/anchor";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { Folio } from "../../../target/types/folio";
-import { Dtfs } from "../../../target/types/dtfs";
 import { BankrunProvider } from "anchor-bankrun";
 import {
   BanksClient,
@@ -9,11 +8,7 @@ import {
   ProgramTestContext,
 } from "solana-bankrun";
 
-import {
-  getActorPDA,
-  getFolioPDA,
-  getProgramDataPDA,
-} from "../../../utils/pda-helper";
+import { getActorPDA, getFolioPDA } from "../../../utils/pda-helper";
 
 import {
   airdrop,
@@ -23,17 +18,11 @@ import {
 } from "../bankrun-program-helper";
 import {
   createAndSetActor,
-  createAndSetDTFProgramSigner,
   createAndSetFolio,
-  createAndSetProgramRegistrar,
-  mockDTFProgramData,
   Role,
 } from "../bankrun-account-helper";
-import { DTF_PROGRAM_ID } from "../../../utils/constants";
 import {
-  assertInvalidDtfProgramDeploymentSlotTestCase,
   assertNotOwnerTestCase,
-  assertProgramNotInRegistrarTestCase,
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
 import { addOrUpdateActor, removeActor } from "../bankrun-ix-helper";
@@ -44,7 +33,6 @@ describe("Bankrun - Actor", () => {
   let provider: BankrunProvider;
   let banksClient: BanksClient;
 
-  let programDtf: Program<Dtfs>;
   let programFolio: Program<Folio>;
 
   let keys: any;
@@ -57,8 +45,6 @@ describe("Bankrun - Actor", () => {
   let folioTokenMint: Keypair;
 
   let folioPDA: PublicKey;
-
-  const VALID_DEPLOYMENT_SLOT = new BN(1);
 
   const TEST_CASES_ADD_OR_UPDATE_ACTOR = [
     {
@@ -113,16 +99,7 @@ describe("Bankrun - Actor", () => {
   ];
 
   async function initBaseCase() {
-    await createAndSetDTFProgramSigner(context, programDtf);
-    await createAndSetProgramRegistrar(context, programFolio, [DTF_PROGRAM_ID]);
-
-    await createAndSetFolio(
-      context,
-      programFolio,
-      folioTokenMint.publicKey,
-      DTF_PROGRAM_ID,
-      VALID_DEPLOYMENT_SLOT
-    );
+    await createAndSetFolio(context, programFolio, folioTokenMint.publicKey);
 
     await createAndSetActor(
       context,
@@ -131,13 +108,10 @@ describe("Bankrun - Actor", () => {
       folioPDA,
       Role.Owner
     );
-
-    await mockDTFProgramData(context, DTF_PROGRAM_ID, VALID_DEPLOYMENT_SLOT);
   }
 
   before(async () => {
-    ({ keys, programDtf, programFolio, provider, context } =
-      await getConnectors());
+    ({ keys, programFolio, provider, context } = await getConnectors());
 
     banksClient = context.banksClient;
 
@@ -165,26 +139,22 @@ describe("Bankrun - Actor", () => {
     const generalIxInitOrUpdateActor = () =>
       addOrUpdateActor<true>(
         banksClient,
-        programDtf,
+        programFolio,
         folioOwnerKeypair,
         folioPDA,
         newActorKeypair.publicKey,
-        Role.Owner,
-        DTF_PROGRAM_ID,
-        getProgramDataPDA(DTF_PROGRAM_ID)
+        Role.Owner
       );
 
     const generalIxRemoveActor = () =>
       removeActor<true>(
         banksClient,
-        programDtf,
+        programFolio,
         folioOwnerKeypair,
         folioPDA,
         newActorKeypair.publicKey,
         Role.Owner,
-        false,
-        DTF_PROGRAM_ID,
-        getProgramDataPDA(DTF_PROGRAM_ID)
+        false
       );
 
     describe("should run general tests for init or update actor", () => {
@@ -194,22 +164,6 @@ describe("Bankrun - Actor", () => {
           programFolio,
           folioOwnerKeypair,
           folioPDA,
-          generalIxInitOrUpdateActor
-        );
-      });
-
-      it(`should run ${GeneralTestCases.InvalidDtfProgramDeploymentSlot}`, async () => {
-        await assertInvalidDtfProgramDeploymentSlotTestCase(
-          context,
-          VALID_DEPLOYMENT_SLOT.add(new BN(1)),
-          generalIxInitOrUpdateActor
-        );
-      });
-
-      it(`should run ${GeneralTestCases.ProgramNotInRegistrar}`, async () => {
-        await assertProgramNotInRegistrarTestCase(
-          context,
-          programFolio,
           generalIxInitOrUpdateActor
         );
       });
@@ -232,22 +186,6 @@ describe("Bankrun - Actor", () => {
           programFolio,
           folioOwnerKeypair,
           folioPDA,
-          generalIxRemoveActor
-        );
-      });
-
-      it(`should run ${GeneralTestCases.InvalidDtfProgramDeploymentSlot}`, async () => {
-        await assertInvalidDtfProgramDeploymentSlotTestCase(
-          context,
-          VALID_DEPLOYMENT_SLOT.add(new BN(1)),
-          generalIxRemoveActor
-        );
-      });
-
-      it(`should run ${GeneralTestCases.ProgramNotInRegistrar}`, async () => {
-        await assertProgramNotInRegistrarTestCase(
-          context,
-          programFolio,
           generalIxRemoveActor
         );
       });
@@ -281,13 +219,11 @@ describe("Bankrun - Actor", () => {
 
             txnResult = await addOrUpdateActor<true>(
               banksClient,
-              programDtf,
+              programFolio,
               folioOwnerKeypair,
               folioPDA,
               newActorKeypair.publicKey,
-              newRole,
-              DTF_PROGRAM_ID,
-              getProgramDataPDA(DTF_PROGRAM_ID)
+              newRole
             );
           });
 
@@ -342,14 +278,12 @@ describe("Bankrun - Actor", () => {
 
             txnResult = await removeActor<true>(
               banksClient,
-              programDtf,
+              programFolio,
               folioOwnerKeypair,
               folioPDA,
               newActorKeypair.publicKey,
               roleToRemove,
-              accountIsClosed,
-              DTF_PROGRAM_ID,
-              getProgramDataPDA(DTF_PROGRAM_ID)
+              accountIsClosed
             );
           });
 

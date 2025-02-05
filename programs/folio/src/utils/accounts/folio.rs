@@ -1,52 +1,27 @@
+use crate::utils::math_util::CustomPreciseNumber;
+use crate::utils::structs::{FolioStatus, Role, TradeEnd};
 use crate::{
     events::FolioFeeSet,
     program::Folio as FolioProgram,
-    state::{Actor, Folio, ProgramRegistrar},
-    DtfProgram,
+    state::{Actor, Folio},
 };
 use anchor_lang::prelude::*;
 use shared::{
     check_condition,
     constants::{D18, FOLIO_SEEDS, MAX_FOLIO_FEE, MIN_DAO_MINTING_FEE},
     errors::ErrorCode,
-    structs::{FolioStatus, Role, TradeEnd},
-    util::math_util::CustomPreciseNumber,
 };
 use spl_math::uint::U256;
 
 impl Folio {
-    pub fn validate_folio_program_for_init<'info>(
-        program_registrar: &Account<'info, ProgramRegistrar>,
-        dtf_program: &AccountInfo<'info>,
-    ) -> Result<()> {
-        check_condition!(
-            program_registrar.is_in_registrar(dtf_program.key()),
-            ProgramNotInRegistrar
-        );
-
-        Ok(())
-    }
-
     #[allow(clippy::too_many_arguments)]
-    pub fn validate_folio_program_post_init<'info>(
+    pub fn validate_folio(
         &self,
         folio_pubkey: &Pubkey,
-        program_registrar: Option<&Account<'info, ProgramRegistrar>>,
-        dtf_program: Option<&AccountInfo<'info>>,
-        dtf_program_data: Option<&AccountInfo<'info>>,
-        actor: Option<&Account<'info, Actor>>,
+        actor: Option<&Account<'_, Actor>>,
         required_role: Option<Role>,
         expected_statuses: Option<Vec<FolioStatus>>,
     ) -> Result<()> {
-        /*
-        Validate program is in registrar and has same deployment slot
-         */
-        if let (Some(program_registrar), Some(dtf_program), Some(dtf_program_data)) =
-            (program_registrar, dtf_program, dtf_program_data)
-        {
-            self.validate_program_registrar(program_registrar, dtf_program, dtf_program_data)?;
-        }
-
         // Validate folio seeds & bump
         let folio_token_mint = self.folio_token_mint.key();
         check_condition!(
@@ -70,36 +45,6 @@ impl Folio {
                 InvalidFolioStatus
             );
         }
-
-        Ok(())
-    }
-
-    fn validate_program_registrar<'info>(
-        &self,
-        program_registrar: &Account<'info, ProgramRegistrar>,
-        dtf_program: &AccountInfo<'info>,
-        dtf_program_data: &AccountInfo<'info>,
-    ) -> Result<()> {
-        check_condition!(
-            dtf_program.key() == self.program_version,
-            InvalidProgramVersion
-        );
-
-        check_condition!(
-            program_registrar.is_in_registrar(dtf_program.key()),
-            ProgramNotInRegistrar
-        );
-
-        let deployment_slot = DtfProgram::get_program_deployment_slot(
-            &dtf_program.key(),
-            dtf_program,
-            dtf_program_data,
-        )?;
-
-        check_condition!(
-            self.program_deployment_slot == deployment_slot,
-            InvalidProgram
-        );
 
         Ok(())
     }

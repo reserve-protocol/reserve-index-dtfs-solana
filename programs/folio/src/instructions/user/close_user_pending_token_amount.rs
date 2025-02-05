@@ -1,12 +1,8 @@
+use crate::state::{Folio, UserPendingBasket};
+use crate::utils::structs::FolioStatus;
 use anchor_lang::prelude::*;
-use shared::constants::DTF_PROGRAM_SIGNER_SEEDS;
-use shared::{
-    check_condition,
-    constants::{PROGRAM_REGISTRAR_SEEDS, USER_PENDING_BASKET_SEEDS},
-};
-use shared::{errors::ErrorCode, structs::FolioStatus};
-
-use crate::state::{Folio, ProgramRegistrar, UserPendingBasket};
+use shared::errors::ErrorCode;
+use shared::{check_condition, constants::USER_PENDING_BASKET_SEEDS};
 
 #[derive(Accounts)]
 pub struct CloseUserPendingTokenAmount<'info> {
@@ -14,30 +10,6 @@ pub struct CloseUserPendingTokenAmount<'info> {
 
     #[account(mut)]
     pub user: Signer<'info>,
-
-    /*
-    Accounts to validate
-    */
-    #[account(
-        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
-        bump,
-        seeds::program = dtf_program.key(),
-    )]
-    pub dtf_program_signer: Signer<'info>,
-
-    /// CHECK: DTF program used for creating owner record
-    #[account()]
-    pub dtf_program: UncheckedAccount<'info>,
-
-    /// CHECK: DTF program data to validate program deployment slot
-    #[account()]
-    pub dtf_program_data: UncheckedAccount<'info>,
-
-    #[account(
-        seeds = [PROGRAM_REGISTRAR_SEEDS],
-        bump = program_registrar.bump
-    )]
-    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
 
     #[account()]
     pub folio: AccountLoader<'info, Folio>,
@@ -51,11 +23,8 @@ pub struct CloseUserPendingTokenAmount<'info> {
 
 impl CloseUserPendingTokenAmount<'_> {
     pub fn validate(&self) -> Result<()> {
-        self.folio.load()?.validate_folio_program_post_init(
+        self.folio.load()?.validate_folio(
             &self.folio.key(),
-            Some(&self.program_registrar),
-            Some(&self.dtf_program),
-            Some(&self.dtf_program_data),
             None,
             None,
             Some(vec![FolioStatus::Initialized, FolioStatus::Killed]),

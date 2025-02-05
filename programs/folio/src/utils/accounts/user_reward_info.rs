@@ -1,13 +1,13 @@
 use std::io::Write;
 
 use crate::state::{RewardInfo, UserRewardInfo};
+use crate::utils::account_util::init_pda_account_rent;
+use crate::utils::math_util::U256Number;
 use crate::ID as FOLIO_ID;
 use anchor_lang::{prelude::*, Discriminator};
 use shared::check_condition;
 use shared::constants::{D18, USER_REWARD_INFO_SEEDS};
 use shared::errors::ErrorCode;
-use shared::util::account_util::init_pda_account_rent;
-use shared::util::math_util::U256Number;
 use spl_math::uint::U256;
 
 impl UserRewardInfo {

@@ -3,9 +3,9 @@ mod tests {
 
     use anchor_lang::prelude::Pubkey;
     use folio::state::FolioRewardTokens;
+    use folio::utils::math_util::U256Number;
     use shared::constants::{MAX_REWARD_HALF_LIFE, MAX_REWARD_TOKENS, MIN_REWARD_HALF_LIFE};
     use shared::errors::ErrorCode::*;
-    use shared::util::math_util::U256Number;
     use spl_math::uint::U256;
 
     fn setup_folio_reward_tokens() -> FolioRewardTokens {

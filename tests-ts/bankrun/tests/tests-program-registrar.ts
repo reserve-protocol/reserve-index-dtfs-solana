@@ -1,7 +1,6 @@
 import { Program } from "@coral-xyz/anchor";
 import { BankrunProvider } from "anchor-bankrun";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { Folio } from "../../../target/types/folio";
 import {
   BanksClient,
   BanksTransactionResultWithMeta,
@@ -25,18 +24,19 @@ import {
   closeAccount,
   createAndSetProgramRegistrar,
 } from "../bankrun-account-helper";
-import { DTF_PROGRAM_ID } from "../../../utils/constants";
 import {
   GeneralTestCases,
   assertNonAdminTestCase,
 } from "../bankrun-general-tests-helper";
+import { Dtfs } from "../../../target/types/dtfs";
+import { FOLIO_PROGRAM_ID } from "../../../utils/constants";
 
 describe("Bankrun - Program Registrar", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
   let banksClient: BanksClient;
 
-  let programFolio: Program<Folio>;
+  let programDtf: Program<Dtfs>;
 
   let keys: any;
 
@@ -65,7 +65,7 @@ describe("Bankrun - Program Registrar", () => {
     {
       desc: "(add one)",
       programIdChanges: {
-        addedPrograms: [DTF_PROGRAM_ID],
+        addedPrograms: [FOLIO_PROGRAM_ID],
         removedPrograms: [],
       },
       expectedError: null,
@@ -79,7 +79,7 @@ describe("Bankrun - Program Registrar", () => {
         Keypair.generate().publicKey
       ),
       programIdChanges: {
-        addedPrograms: [DTF_PROGRAM_ID],
+        addedPrograms: [FOLIO_PROGRAM_ID],
         removedPrograms: [],
       },
       expectedError: "InvalidProgramCount",
@@ -88,7 +88,7 @@ describe("Bankrun - Program Registrar", () => {
       desc: "(add one, is empty)",
       preAddedPrograms: [],
       programIdChanges: {
-        addedPrograms: [DTF_PROGRAM_ID],
+        addedPrograms: [FOLIO_PROGRAM_ID],
         removedPrograms: [],
       },
       expectedError: null,
@@ -99,17 +99,17 @@ describe("Bankrun - Program Registrar", () => {
         Keypair.generate().publicKey
       ),
       programIdChanges: {
-        addedPrograms: [DTF_PROGRAM_ID],
+        addedPrograms: [FOLIO_PROGRAM_ID],
         removedPrograms: [],
       },
       expectedError: null,
     },
     {
       desc: "(remove one, is empty)",
-      preAddedPrograms: [DTF_PROGRAM_ID],
+      preAddedPrograms: [FOLIO_PROGRAM_ID],
       programIdChanges: {
         addedPrograms: [],
-        removedPrograms: [DTF_PROGRAM_ID],
+        removedPrograms: [FOLIO_PROGRAM_ID],
       },
       expectedError: null,
     },
@@ -117,18 +117,18 @@ describe("Bankrun - Program Registrar", () => {
       desc: "(remove one, is full)",
       preAddedPrograms: [
         ...Array(MAX_NUMBER_OF_PROGRAMS - 1).fill(Keypair.generate().publicKey),
-        DTF_PROGRAM_ID,
+        FOLIO_PROGRAM_ID,
       ],
       programIdChanges: {
         addedPrograms: [],
-        removedPrograms: [DTF_PROGRAM_ID],
+        removedPrograms: [FOLIO_PROGRAM_ID],
       },
       expectedError: null,
     },
   ];
 
   before(async () => {
-    ({ keys, programFolio, provider, context } = await getConnectors());
+    ({ keys, programDtf, provider, context } = await getConnectors());
 
     banksClient = context.banksClient;
 
@@ -144,18 +144,18 @@ describe("Bankrun - Program Registrar", () => {
     const generalIxInitProgramRegistrar = () =>
       initProgramRegistrar<false>(
         banksClient,
-        programFolio,
+        programDtf,
         adminKeypair,
-        DTF_PROGRAM_ID,
+        FOLIO_PROGRAM_ID,
         false
       );
 
     const generalIxUpdateProgramRegistrar = () =>
       updateProgramRegistrar<false>(
         banksClient,
-        programFolio,
+        programDtf,
         adminKeypair,
-        [DTF_PROGRAM_ID],
+        [FOLIO_PROGRAM_ID],
         false,
         false
       );
@@ -168,7 +168,7 @@ describe("Bankrun - Program Registrar", () => {
 
     describe("should run general tests for update program registrar", () => {
       beforeEach(async () => {
-        await createAndSetProgramRegistrar(context, programFolio, []);
+        await createAndSetProgramRegistrar(context, programDtf, []);
       });
 
       it(`should run ${GeneralTestCases.NotAdmin}`, async () => {
@@ -191,7 +191,7 @@ describe("Bankrun - Program Registrar", () => {
 
         txnResult = await initProgramRegistrar<true>(
           banksClient,
-          programFolio,
+          programDtf,
           getKeypair(),
           addedPrograms[0]
         );
@@ -207,7 +207,7 @@ describe("Bankrun - Program Registrar", () => {
           const programRegistrarPDA = getProgramRegistrarPDA();
 
           const programRegistrar =
-            await programFolio.account.programRegistrar.fetch(
+            await programDtf.account.programRegistrar.fetch(
               programRegistrarPDA
             );
 
@@ -232,7 +232,7 @@ describe("Bankrun - Program Registrar", () => {
       before(async () => {
         await createAndSetProgramRegistrar(
           context,
-          programFolio,
+          programDtf,
           preAddedPrograms
         );
 
@@ -240,7 +240,7 @@ describe("Bankrun - Program Registrar", () => {
 
         txnResult = await updateProgramRegistrar<true>(
           banksClient,
-          programFolio,
+          programDtf,
           getKeypair(),
           addedPrograms.length > 0 ? addedPrograms : removedPrograms,
           removedPrograms.length > 0
@@ -258,7 +258,7 @@ describe("Bankrun - Program Registrar", () => {
           const programRegistrarPDA = getProgramRegistrarPDA();
 
           const programRegistrar =
-            await programFolio.account.programRegistrar.fetch(
+            await programDtf.account.programRegistrar.fetch(
               programRegistrarPDA
             );
 

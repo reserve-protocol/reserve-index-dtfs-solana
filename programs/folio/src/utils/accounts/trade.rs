@@ -4,8 +4,9 @@ use anchor_lang::prelude::*;
 use shared::constants::{D18, MAX_PRICE_RANGE, MAX_RATE};
 use shared::errors::ErrorCode;
 
-use shared::util::math_util::{CustomPreciseNumber, U256Number};
-use shared::{check_condition, constants::TRADE_SEEDS, structs::TradeStatus};
+use crate::utils::math_util::{CustomPreciseNumber, U256Number};
+use crate::utils::structs::TradeStatus;
+use shared::{check_condition, constants::TRADE_SEEDS};
 
 impl Trade {
     pub fn validate_trade(&self, trade_pubkey: &Pubkey, folio_pubkey: &Pubkey) -> Result<()> {

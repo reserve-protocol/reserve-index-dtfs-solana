@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use anchor_lang::prelude::*;
-    use folio::state::ProgramRegistrar;
+    use dtfs::state::ProgramRegistrar;
     use shared::errors::ErrorCode;
 
     fn setup_registrar() -> ProgramRegistrar {

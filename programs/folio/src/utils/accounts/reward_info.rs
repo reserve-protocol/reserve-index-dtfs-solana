@@ -1,9 +1,9 @@
 use crate::state::RewardInfo;
+use crate::utils::math_util::{CustomPreciseNumber, U256Number};
 use anchor_lang::prelude::*;
 use shared::check_condition;
 use shared::constants::D18;
 use shared::errors::ErrorCode;
-use shared::util::math_util::{CustomPreciseNumber, U256Number};
 use spl_math::uint::U256;
 
 impl RewardInfo {

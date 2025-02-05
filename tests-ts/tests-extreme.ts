@@ -2,20 +2,14 @@ import { airdrop, getConnectors } from "../utils/program-helper";
 import { BN } from "@coral-xyz/anchor";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import {
-  initFolio,
-  initFolioSigner,
-  initProgramRegistrar,
-} from "../utils/folio-helper";
-import {
   addToBasket,
-  initDtfSigner,
   addToPendingBasket,
+  initFolio,
   mintFolioToken,
-  setDaoFeeConfig,
-} from "../utils/dtf-helper";
+} from "../utils/folio-helper";
+import { setDaoFeeConfig } from "../utils/dtf-helper";
 import { initToken, mintToken } from "../utils/token-helper";
 import {
-  DTF_PROGRAM_ID,
   MAX_TRADE_DELAY,
   MAX_FOLIO_FEE,
   MIN_AUCTION_LENGTH,
@@ -62,12 +56,13 @@ describe("Extrme DTFs Tests", () => {
     await airdrop(connection, folioOwnerKeypair.publicKey, 1000);
     await airdrop(connection, userKeypair.publicKey, 1000);
 
+    folioTokenMint = Keypair.generate();
+
     // Init folio related accounts
-    await initFolioSigner(connection, payerKeypair);
-    await initProgramRegistrar(connection, adminKeypair, DTF_PROGRAM_ID);
-    ({ folioTokenMint, folioPDA } = await initFolio(
+    folioPDA = await initFolio(
       connection,
       folioOwnerKeypair,
+      folioTokenMint,
       MAX_FOLIO_FEE,
       MIN_DAO_MINTING_FEE,
       MAX_TRADE_DELAY,
@@ -75,10 +70,7 @@ describe("Extrme DTFs Tests", () => {
       "Test Folio",
       "TFOL",
       "https://test.com"
-    ));
-
-    // Init dtf related accounts
-    await initDtfSigner(connection, adminKeypair);
+    );
 
     // Create the tokens that can be included in the folio
     for (const tokenMint of tokenMints) {

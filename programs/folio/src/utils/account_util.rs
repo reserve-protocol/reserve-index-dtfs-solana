@@ -1,8 +1,8 @@
-use crate::{check_condition, errors::ErrorCode};
 use anchor_lang::{
     prelude::*,
     solana_program::{program::invoke_signed, system_instruction},
 };
+use shared::{check_condition, errors::ErrorCode};
 
 pub fn next_account<'b>(
     iter: &mut std::slice::Iter<'b, AccountInfo<'b>>,

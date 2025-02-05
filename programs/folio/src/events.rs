@@ -1,5 +1,5 @@
+use crate::utils::math_util::U256Number;
 use anchor_lang::prelude::*;
-use shared::util::math_util::U256Number;
 
 #[event]
 pub struct FolioCreated {
@@ -8,12 +8,6 @@ pub struct FolioCreated {
 
 #[event]
 pub struct FolioKilled {}
-
-#[event]
-pub struct ProgramRegistryUpdate {
-    pub program_ids: Vec<Pubkey>,
-    pub remove: bool,
-}
 
 #[event]
 pub struct BasketTokenAdded {

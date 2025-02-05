@@ -5,6 +5,7 @@ use spl_math::uint::U256;
 Included in build
 
 ADMIN
+SPL_GOVERNANCE_PROGRAM_ID
 */
 include!(concat!(env!("OUT_DIR"), "/config.rs"));
 

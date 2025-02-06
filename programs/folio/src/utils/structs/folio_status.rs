@@ -11,6 +11,8 @@ pub enum FolioStatus {
     Initialized = 1,
     /// Folio has been killed
     Killed = 2,
+    /// Folio is migrating to a new program
+    Migrating = 3,
 }
 
 impl From<u8> for FolioStatus {
@@ -19,6 +21,7 @@ impl From<u8> for FolioStatus {
             0 => FolioStatus::Initializing,
             1 => FolioStatus::Initialized,
             2 => FolioStatus::Killed,
+            3 => FolioStatus::Migrating,
             _ => panic!("Invalid enum value"),
         }
     }
@@ -30,6 +33,7 @@ impl FolioStatus {
             0 => Some(FolioStatus::Initializing),
             1 => Some(FolioStatus::Initialized),
             2 => Some(FolioStatus::Killed),
+            3 => Some(FolioStatus::Migrating),
             _ => None,
         }
     }

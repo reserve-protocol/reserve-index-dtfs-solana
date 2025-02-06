@@ -11,6 +11,8 @@ use shared::constants::ACTOR_SEEDS;
 use shared::constants::{FOLIO_REWARD_TOKENS_SEEDS, REWARD_INFO_SEEDS, USER_REWARD_INFO_SEEDS};
 use shared::errors::ErrorCode;
 
+const REMAINING_ACCOUNTS_DIVIDER: usize = 5;
+
 #[derive(Accounts)]
 pub struct ClaimRewards<'info> {
     pub system_program: Program<'info, System>,
@@ -54,7 +56,13 @@ impl ClaimRewards<'_> {
             &self.folio.key(),
             None,
             None,
-            Some(vec![FolioStatus::Initializing, FolioStatus::Initialized]),
+            // Still want to let it be claimed even if migrating or killed
+            Some(vec![
+                FolioStatus::Initializing,
+                FolioStatus::Initialized,
+                FolioStatus::Migrating,
+                FolioStatus::Killed,
+            ]),
         )?;
 
         // Validate that the folio owner is the correct one
@@ -78,6 +86,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
     let folio_reward_tokens_key = ctx.accounts.folio_reward_tokens.key();
     let folio_key = ctx.accounts.folio.key();
     let user_key = ctx.accounts.user.key();
+    let token_program_id = ctx.accounts.token_program.key();
 
     let folio = ctx.accounts.folio.load()?;
     ctx.accounts.validate(&folio)?;
@@ -93,13 +102,13 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
     let signer_seeds = &[&folio_reward_tokens_seeds[..]];
 
     check_condition!(
-        ctx.remaining_accounts.len() % 5 == 0,
+        ctx.remaining_accounts.len() % REMAINING_ACCOUNTS_DIVIDER == 0,
         InvalidNumberOfRemainingAccounts
     );
 
     let mut remaining_accounts_iter = ctx.remaining_accounts.iter();
 
-    for _ in 0..ctx.remaining_accounts.len() / 5 {
+    for _ in 0..ctx.remaining_accounts.len() / REMAINING_ACCOUNTS_DIVIDER {
         let reward_token = next_account(&mut remaining_accounts_iter, false, false)?;
         let reward_info = next_account(&mut remaining_accounts_iter, false, true)?;
         // This is the folio reward tokens' token account, not the DAO's
@@ -142,9 +151,10 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
 
         check_condition!(
             fee_recipient_token_account.key()
-                == associated_token::get_associated_token_address(
+                == associated_token::get_associated_token_address_with_program_id(
                     &folio_reward_tokens_key,
                     &reward_token.key(),
+                    &token_program_id,
                 ),
             InvalidFeeRecipientTokenAccount
         );

@@ -1,5 +1,4 @@
 use crate::state::{Folio, UserPendingBasket};
-use crate::utils::structs::FolioStatus;
 use anchor_lang::prelude::*;
 use shared::errors::ErrorCode;
 use shared::{check_condition, constants::USER_PENDING_BASKET_SEEDS};
@@ -27,7 +26,8 @@ impl CloseUserPendingTokenAmount<'_> {
             &self.folio.key(),
             None,
             None,
-            Some(vec![FolioStatus::Initialized, FolioStatus::Killed]),
+            // User should always be able to close their pending tokens
+            None,
         )?;
 
         Ok(())

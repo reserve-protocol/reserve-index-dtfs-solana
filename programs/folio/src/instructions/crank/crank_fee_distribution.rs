@@ -49,7 +49,12 @@ impl CrankFeeDistribution<'_> {
             &self.folio.key(),
             None,
             None,
-            Some(vec![FolioStatus::Initialized]),
+            // Still want the user to be able to distribute the fees even if folio is migrating or killed
+            Some(vec![
+                FolioStatus::Initialized,
+                FolioStatus::Migrating,
+                FolioStatus::Killed,
+            ]),
         )?;
 
         // Validate fee distribution

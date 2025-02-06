@@ -40,7 +40,7 @@ impl OpenTrade<'_> {
             &self.folio.key(),
             Some(&self.actor),
             Some(Role::TradeLauncher),
-            Some(vec![FolioStatus::Initialized, FolioStatus::Initializing]),
+            Some(vec![FolioStatus::Initialized]),
         )?;
 
         // Validate trade

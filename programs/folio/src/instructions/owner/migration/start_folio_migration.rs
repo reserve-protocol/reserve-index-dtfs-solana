@@ -1,16 +1,18 @@
-use crate::state::{Actor, Folio};
+use crate::{
+    state::{Actor, Folio},
+    utils::{FolioStatus, Role},
+};
 use anchor_lang::prelude::*;
 use anchor_spl::{
     token_2022::spl_token_2022::instruction::AuthorityType,
     token_interface::{self, Mint, TokenInterface},
 };
+use folio_admin::{state::ProgramRegistrar, ID as FOLIO_ADMIN_PROGRAM_ID};
 use shared::{
     check_condition,
-    constants::{ACTOR_SEEDS, DTF_PROGRAM_SIGNER_SEEDS, FOLIO_SEEDS},
-    structs::{FolioStatus, Role},
+    constants::{ACTOR_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS},
 };
 
-use crate::state::ProgramRegistrar;
 use shared::errors::ErrorCode;
 
 #[derive(Accounts)]
@@ -21,33 +23,12 @@ pub struct StartFolioMigration<'info> {
     #[account(mut)]
     pub folio_owner: Signer<'info>,
 
-    /*
-    Account to validate
-    */
-    #[account(
-        seeds = [DTF_PROGRAM_SIGNER_SEEDS],
-        bump,
-        seeds::program = old_dtf_program.key(),
-    )]
-    pub old_dtf_program_signer: Signer<'info>,
-
-    /// CHECK: DTF program used for old folio
-    #[account(executable)]
-    pub old_dtf_program: UncheckedAccount<'info>,
-
-    /// CHECK: DTF program data to validate program deployment slot
-    #[account()]
-    pub old_dtf_program_data: UncheckedAccount<'info>,
-
     #[account(
         seeds = [PROGRAM_REGISTRAR_SEEDS],
-        bump = program_registrar.bump
+        bump = program_registrar.bump,
+        seeds::program = FOLIO_ADMIN_PROGRAM_ID,
     )]
     pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
-
-    /// CHECK: DTF program used for new folio
-    #[account(executable)]
-    pub new_dtf_program: UncheckedAccount<'info>,
 
     /// CHECK: Folio program used for new folio
     #[account(executable)]
@@ -62,6 +43,7 @@ pub struct StartFolioMigration<'info> {
     #[account(mut)]
     pub old_folio: AccountLoader<'info, Folio>,
 
+    /// CHECK: The new folio
     #[account(mut)]
     pub new_folio: UncheckedAccount<'info>,
 
@@ -75,23 +57,26 @@ pub struct StartFolioMigration<'info> {
 impl StartFolioMigration<'_> {
     pub fn validate(&self, old_folio: &Folio) -> Result<()> {
         // Validate old folio, make sure the owner is the one calling the instruction
-        old_folio.validate_folio_program_post_init(
+        old_folio.validate_folio(
             &self.old_folio.key(),
-            Some(&self.program_registrar),
-            Some(&self.old_dtf_program),
-            Some(&self.old_dtf_program_data),
             Some(&self.actor),
             Some(Role::Owner),
+            // TODO want to let it be migrated even if killed?
             Some(vec![FolioStatus::Initialized]),
         )?;
+
+        check_condition!(
+            old_folio.folio_token_mint == self.folio_token_mint.key(),
+            InvalidFolioTokenMint
+        );
 
         /*
         New Folio Validation
          */
-        // Make sure the new dtf program is in the registrar
+        // Make sure the new folio program is in the registrar
         check_condition!(
             self.program_registrar
-                .is_in_registrar(self.new_dtf_program.key()),
+                .is_in_registrar(self.new_folio_program.key()),
             ProgramNotInRegistrar
         );
 
@@ -104,7 +89,7 @@ impl StartFolioMigration<'_> {
 
         check_condition!(
             expected_new_folio_pda.0 == self.new_folio.key(),
-            NewFolioNotOwnedByNewDTF
+            NewFolioNotOwnedByNewFolio
         );
 
         Ok(())
@@ -112,7 +97,6 @@ impl StartFolioMigration<'_> {
 }
 
 pub fn handler(ctx: Context<StartFolioMigration>) -> Result<()> {
-    // TODO how do we validate the new folio program ?
     let old_folio = &mut ctx.accounts.old_folio.load_mut()?;
 
     ctx.accounts.validate(old_folio)?;
@@ -151,6 +135,8 @@ pub fn handler(ctx: Context<StartFolioMigration>) -> Result<()> {
         AuthorityType::FreezeAccount,
         Some(ctx.accounts.new_folio.key()),
     )?;
+
+    // No need to transfer tokens of the folio token mint, as we're minting / burning, never holding them.
 
     Ok(())
 }

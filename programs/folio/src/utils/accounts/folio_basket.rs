@@ -171,4 +171,14 @@ impl FolioBasket {
             .filter(|ta| ta.mint != Pubkey::default())
             .count() as u8
     }
+
+    pub fn get_migrate_balance(&self, token_balance: u64, mint: &Pubkey) -> Result<u64> {
+        let token_amount = self.token_amounts.iter().find(|ta| ta.mint == *mint);
+
+        if let Some(token_amount) = token_amount {
+            FolioBasket::get_clean_token_balance(token_balance, token_amount)
+        } else {
+            Err(error!(TokenMintNotInOldFolioBasket))
+        }
+    }
 }

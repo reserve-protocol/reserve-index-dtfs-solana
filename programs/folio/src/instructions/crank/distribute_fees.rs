@@ -71,6 +71,7 @@ impl DistributeFees<'_> {
             &self.folio.key(),
             None,
             None,
+            // TODO want to let it be distributed even if the folio is migrating or killed
             Some(vec![FolioStatus::Initialized]),
         )?;
 

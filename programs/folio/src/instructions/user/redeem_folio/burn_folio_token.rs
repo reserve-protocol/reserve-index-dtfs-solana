@@ -57,7 +57,7 @@ impl BurnFolioToken<'_> {
             &self.folio.key(),
             None,
             None,
-            Some(vec![FolioStatus::Initialized, FolioStatus::Killed]),
+            Some(vec![FolioStatus::Initialized]),
         )?;
 
         check_condition!(

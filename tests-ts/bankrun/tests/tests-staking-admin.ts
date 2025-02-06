@@ -363,7 +363,7 @@ describe("Bankrun - Staking Admin", () => {
         );
       });
 
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and MIGRATING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
@@ -371,6 +371,15 @@ describe("Bankrun - Staking Admin", () => {
 
           generalIxAddRewardToken,
           FolioStatus.Killed
+        );
+
+        await assertInvalidFolioStatusTestCase(
+          context,
+          programFolio,
+          folioTokenMint.publicKey,
+
+          generalIxAddRewardToken,
+          FolioStatus.Migrating
         );
       });
     });
@@ -397,7 +406,7 @@ describe("Bankrun - Staking Admin", () => {
         );
       });
 
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and MIGRATING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
@@ -405,6 +414,15 @@ describe("Bankrun - Staking Admin", () => {
 
           generalIxRemoveRewardToken,
           FolioStatus.Killed
+        );
+
+        await assertInvalidFolioStatusTestCase(
+          context,
+          programFolio,
+          folioTokenMint.publicKey,
+
+          generalIxRemoveRewardToken,
+          FolioStatus.Migrating
         );
       });
     });
@@ -420,7 +438,7 @@ describe("Bankrun - Staking Admin", () => {
         );
       });
 
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and MIGRATING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
@@ -428,6 +446,15 @@ describe("Bankrun - Staking Admin", () => {
 
           generalIxInitOrSetRewardRatio,
           FolioStatus.Killed
+        );
+
+        await assertInvalidFolioStatusTestCase(
+          context,
+          programFolio,
+          folioTokenMint.publicKey,
+
+          generalIxInitOrSetRewardRatio,
+          FolioStatus.Migrating
         );
       });
     });

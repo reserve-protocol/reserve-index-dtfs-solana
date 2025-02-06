@@ -613,18 +613,6 @@ describe("Bankrun - Folio minting", () => {
         true
       );
 
-    const generalIxRemoveFromPendingBasket = () =>
-      removeFromPendingBasket<true>(
-        context,
-        banksClient,
-        programFolio,
-        userKeypair,
-        folioPDA,
-        [],
-
-        true
-      );
-
     const generalIxMintFolioToken = () =>
       mintFolioToken<true>(
         context,
@@ -644,7 +632,7 @@ describe("Bankrun - Folio minting", () => {
     });
 
     describe("should run general tests for add to pending basket", () => {
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and INITIALIZING`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and INITIALIZING abnnd MIGRATING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
@@ -662,28 +650,13 @@ describe("Bankrun - Folio minting", () => {
           generalIxAddToPendingBasket,
           FolioStatus.Initializing
         );
-      });
-    });
 
-    describe("should run general tests for remove from pending basket", () => {
-      beforeEach(async () => {
-        await createAndSetUserPendingBasket(
-          context,
-          programFolio,
-          folioPDA,
-          userKeypair.publicKey,
-          []
-        );
-      });
-
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for INITIALIZING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
           folioTokenMint.publicKey,
-
           generalIxAddToPendingBasket,
-          FolioStatus.Initializing
+          FolioStatus.Migrating
         );
       });
     });
@@ -699,7 +672,7 @@ describe("Bankrun - Folio minting", () => {
         );
       });
 
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and INITIALIZING`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and INITIALIZING and MIGRATING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
@@ -716,6 +689,14 @@ describe("Bankrun - Folio minting", () => {
 
           generalIxMintFolioToken,
           FolioStatus.Initializing
+        );
+
+        await assertInvalidFolioStatusTestCase(
+          context,
+          programFolio,
+          folioTokenMint.publicKey,
+          generalIxMintFolioToken,
+          FolioStatus.Migrating
         );
       });
     });

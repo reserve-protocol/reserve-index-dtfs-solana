@@ -11,4 +11,5 @@ describe("Bankrun", () => {
   require("./tests/tests-fees");
   require("./tests/tests-staking-admin");
   require("./tests/tests-staking-user");
+  require("./tests/tests-migration");
 });

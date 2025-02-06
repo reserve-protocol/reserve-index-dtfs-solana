@@ -323,13 +323,21 @@ describe("Bankrun - Folio basket", () => {
         );
       });
 
-      it(`should run ${GeneralTestCases.InvalidFolioStatus}`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for MIGRATING & KILLED`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
           folioTokenMint.publicKey,
+          generalIxAddToBasket,
+          FolioStatus.Migrating
+        );
 
-          generalIxAddToBasket
+        await assertInvalidFolioStatusTestCase(
+          context,
+          programFolio,
+          folioTokenMint.publicKey,
+          generalIxAddToBasket,
+          FolioStatus.Killed
         );
       });
     });
@@ -349,13 +357,21 @@ describe("Bankrun - Folio basket", () => {
         );
       });
 
-      it(`should run ${GeneralTestCases.InvalidFolioStatus}`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for MIGRATING & KILLED`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
           folioTokenMint.publicKey,
+          generalIxRemoveFromBasket,
+          FolioStatus.Migrating
+        );
 
-          generalIxRemoveFromBasket
+        await assertInvalidFolioStatusTestCase(
+          context,
+          programFolio,
+          folioTokenMint.publicKey,
+          generalIxRemoveFromBasket,
+          FolioStatus.Killed
         );
       });
     });

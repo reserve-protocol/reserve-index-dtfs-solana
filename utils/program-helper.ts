@@ -18,9 +18,12 @@ import fs from "fs/promises";
 import path from "path";
 import { Folio } from "../target/types/folio";
 import idlFolio from "../target/idl/folio.json";
+import { Folio as SecondFolio } from "../target/types/second_folio";
+import idlSecondFolio from "../target/idl/second_folio.json";
 import * as assert from "assert";
 import { FolioAdmin } from "../target/types/folio_admin";
 import idlFolioAdmin from "../target/idl/folio_admin.json";
+
 export async function getConnectors() {
   let rpcUrl = "";
   let keysFileName = "";
@@ -60,6 +63,9 @@ export async function getConnectors() {
       idlFolioAdmin as FolioAdmin
     ),
     programFolio: new anchor.Program<Folio>(idlFolio as Folio),
+    programSecondFolio: new anchor.Program<SecondFolio>(
+      idlSecondFolio as SecondFolio
+    ),
     anchorProvider,
   };
 }

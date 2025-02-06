@@ -23,8 +23,8 @@ import * as crypto from "crypto";
 import { Folio } from "../../target/types/folio";
 import { BN, Program } from "@coral-xyz/anchor";
 import { FolioAdmin } from "../../target/types/folio_admin";
+import { Folio as FolioSecond } from "../../target/types/second_folio";
 import {
-  FOLIO_PROGRAM_ID,
   MAX_CONCURRENT_TRADES,
   MAX_AUCTION_LENGTH,
   MAX_TRADE_DELAY,
@@ -60,6 +60,7 @@ export enum FolioStatus {
   Initializing = 0,
   Initialized = 1,
   Killed = 2,
+  Migrating = 3,
 }
 
 export class FeeRecipient {
@@ -201,7 +202,7 @@ Folio Accounts
 */
 export async function setFolioAccountInfo(
   ctx: ProgramTestContext,
-  program: Program<Folio>,
+  program: Program<Folio> | Program<FolioSecond>,
   accountAddress: PublicKey,
   accountName: string,
   accountData: any,
@@ -215,7 +216,7 @@ export async function setFolioAccountInfo(
   const accountInfo = {
     lamports: 1_000_000_000,
     data: encodedAccountData,
-    owner: FOLIO_PROGRAM_ID,
+    owner: program.programId,
     executable: false,
   };
 
@@ -224,15 +225,19 @@ export async function setFolioAccountInfo(
 
 export async function createAndSetFolio(
   ctx: ProgramTestContext,
-  program: Program<Folio>,
+  program: Program<Folio> | Program<FolioSecond>,
   folioTokenMint: PublicKey,
   status: FolioStatus = FolioStatus.Initialized,
   customFolioMintingFee: BN | null = null,
   lastPoke: BN = new BN(0),
   daoPendingFeeShares: BN = new BN(0),
-  feeRecipientsPendingFeeShares: BN = new BN(0)
+  feeRecipientsPendingFeeShares: BN = new BN(0),
+  useSecondFolioProgram: boolean = false
 ) {
-  const folioPDAWithBump = getFolioPDAWithBump(folioTokenMint);
+  const folioPDAWithBump = getFolioPDAWithBump(
+    folioTokenMint,
+    useSecondFolioProgram
+  );
 
   const folio = {
     bump: folioPDAWithBump[1],
@@ -1052,6 +1057,38 @@ export async function buildRemainingAccountsForClaimRewards(
         token,
         callerKeypair.publicKey
       ),
+      isSigner: false,
+      isWritable: true,
+    });
+  }
+
+  return remainingAccounts;
+}
+
+export async function buildRemainingAccountsForMigrateFolioTokens(
+  context: ProgramTestContext,
+  userKeypair: Keypair,
+  oldFolio: PublicKey,
+  newFolio: PublicKey,
+  tokens: PublicKey[]
+) {
+  const remainingAccounts: AccountMeta[] = [];
+
+  for (const token of tokens) {
+    remainingAccounts.push({
+      pubkey: token,
+      isSigner: false,
+      isWritable: false,
+    });
+
+    remainingAccounts.push({
+      pubkey: await getOrCreateAtaAddress(context, token, oldFolio),
+      isSigner: false,
+      isWritable: true,
+    });
+
+    remainingAccounts.push({
+      pubkey: await getOrCreateAtaAddress(context, token, newFolio),
       isSigner: false,
       isWritable: true,
     });

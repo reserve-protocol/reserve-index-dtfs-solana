@@ -724,27 +724,21 @@ describe("Bankrun - Staking User", () => {
     });
 
     describe("should run general tests for accrue rewards", () => {
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and MIGRATING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
           folioTokenMint.publicKey,
-
           generalIxAccrueRewards,
           FolioStatus.Killed
         );
-      });
-    });
 
-    describe("should run general tests for claim rewards", () => {
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
           folioTokenMint.publicKey,
-
-          generalIxClaimRewards,
-          FolioStatus.Killed
+          generalIxAccrueRewards,
+          FolioStatus.Migrating
         );
       });
     });

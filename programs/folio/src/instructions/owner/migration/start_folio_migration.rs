@@ -1,3 +1,4 @@
+use crate::ID as FOLIO_PROGRAM_ID;
 use crate::{
     state::{Actor, Folio},
     utils::{FolioStatus, Role},
@@ -8,12 +9,11 @@ use anchor_spl::{
     token_interface::{self, Mint, TokenInterface},
 };
 use folio_admin::{state::ProgramRegistrar, ID as FOLIO_ADMIN_PROGRAM_ID};
+use shared::errors::ErrorCode;
 use shared::{
     check_condition,
     constants::{ACTOR_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS},
 };
-
-use shared::errors::ErrorCode;
 
 #[derive(Accounts)]
 pub struct StartFolioMigration<'info> {
@@ -81,15 +81,14 @@ impl StartFolioMigration<'_> {
         );
 
         // Make sure the new folio is owned by the new folio program
-        let folio_token_mint = self.folio_token_mint.key();
-        let expected_new_folio_pda = Pubkey::find_program_address(
-            &[FOLIO_SEEDS, folio_token_mint.as_ref()],
-            &self.new_folio_program.key(),
+        check_condition!(
+            *self.new_folio.owner == self.new_folio_program.key(),
+            NewFolioNotOwnedByNewFolioProgram
         );
 
         check_condition!(
-            expected_new_folio_pda.0 == self.new_folio.key(),
-            NewFolioNotOwnedByNewFolio
+            self.new_folio_program.key() != FOLIO_PROGRAM_ID,
+            CantMigrateToSameProgram
         );
 
         Ok(())
@@ -97,17 +96,22 @@ impl StartFolioMigration<'_> {
 }
 
 pub fn handler(ctx: Context<StartFolioMigration>) -> Result<()> {
-    let old_folio = &mut ctx.accounts.old_folio.load_mut()?;
+    let old_folio_bump: u8;
+    {
+        let old_folio = &mut ctx.accounts.old_folio.load_mut()?;
 
-    ctx.accounts.validate(old_folio)?;
+        old_folio_bump = old_folio.bump;
 
-    // Update old folio status
-    old_folio.status = FolioStatus::Migrating as u8;
+        ctx.accounts.validate(old_folio)?;
+
+        // Update old folio status
+        old_folio.status = FolioStatus::Migrating as u8;
+    }
 
     // Transfer the mint and freeze authority to the new folio
     let token_mint_key = ctx.accounts.folio_token_mint.key();
 
-    let folio_signer_seeds = &[FOLIO_SEEDS, token_mint_key.as_ref(), &[old_folio.bump]];
+    let folio_signer_seeds = &[FOLIO_SEEDS, token_mint_key.as_ref(), &[old_folio_bump]];
     let folio_signer = &[&folio_signer_seeds[..]];
 
     token_interface::set_authority(

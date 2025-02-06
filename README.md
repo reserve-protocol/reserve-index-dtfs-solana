@@ -73,12 +73,22 @@ anchor build
 
 # How to run tests
 
+### Anchor Tests
+
 ```bash
 # In the first terminal
 ./start-amman
 
 # In the second terminal
 anchor test --skip-local-validator --skip-deploy --skip-build
+```
+
+### Bankrun Tests
+
+```bash
+./build-local.sh
+
+anchor run test-bankrun
 ```
 
 # How to deloy

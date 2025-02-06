@@ -37,6 +37,7 @@ import {
 import {
   buildRemainingAccounts,
   buildRemainingAccountsForClaimRewards,
+  buildRemainingAccountsForMigrateFolioTokens,
   roleToStruct,
 } from "./bankrun-account-helper";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
@@ -959,7 +960,7 @@ export async function accrueRewards<T extends boolean = true>(
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       caller: callerKeypair.publicKey,
-
+      tokenProgram: TOKEN_PROGRAM_ID,
       folioOwner,
       actor: getActorPDA(folioOwner, folio),
       folio,
@@ -1026,4 +1027,94 @@ export async function claimRewards<T extends boolean = true>(
   }
 
   return { ix: claimRewards, extraSigners: [] } as any;
+}
+
+export async function startFolioMigration<T extends boolean = true>(
+  client: BanksClient,
+  programFolio: Program<Folio>,
+  folioOwnerKeypair: Keypair,
+  folioTokenMint: PublicKey,
+  oldFolio: PublicKey,
+  newFolio: PublicKey,
+  newFolioProgram: PublicKey,
+  executeTxn: T = true as T
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const startFolioMigration = await programFolio.methods
+    .startFolioMigration()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      folioOwner: folioOwnerKeypair.publicKey,
+      programRegistrar: getProgramRegistrarPDA(),
+      actor: getActorPDA(folioOwnerKeypair.publicKey, oldFolio),
+      newFolioProgram,
+      oldFolio,
+      newFolio,
+      folioTokenMint,
+    })
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, folioOwnerKeypair, [
+      startFolioMigration,
+    ]) as any;
+  }
+
+  return { ix: startFolioMigration, extraSigners: [] } as any;
+}
+
+export async function migrateFolioTokens<T extends boolean = true>(
+  context: ProgramTestContext,
+  client: BanksClient,
+  programFolio: Program<Folio>,
+  userKeypair: Keypair,
+  oldFolio: PublicKey,
+  newFolio: PublicKey,
+  newFolioProgram: PublicKey,
+  folioTokenMint: PublicKey,
+  tokenMints: PublicKey[],
+  executeTxn: T = true as T,
+  remainingAccounts: AccountMeta[] = []
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const migrateFolioTokens = await programFolio.methods
+    .migrateFolioTokens()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      user: userKeypair.publicKey,
+      programRegistrar: getProgramRegistrarPDA(),
+      newFolioProgram,
+      oldFolio,
+      oldFolioBasket: getFolioBasketPDA(oldFolio),
+      newFolio,
+      folioTokenMint,
+    })
+    .remainingAccounts(
+      remainingAccounts.length > 0
+        ? remainingAccounts
+        : await buildRemainingAccountsForMigrateFolioTokens(
+            context,
+            userKeypair,
+            oldFolio,
+            newFolio,
+            tokenMints
+          )
+    )
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, userKeypair, [
+      migrateFolioTokens,
+    ]) as any;
+  }
+
+  return { ix: migrateFolioTokens, extraSigners: [] } as any;
 }

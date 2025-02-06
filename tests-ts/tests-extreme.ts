@@ -17,7 +17,7 @@ import {
   DEFAULT_DECIMALS_MUL,
 } from "../utils/constants";
 
-describe("Extrme Folio Tests", () => {
+describe("Extreme Folio Tests", () => {
   let connection: Connection;
   let keys: any;
 

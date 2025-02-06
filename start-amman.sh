@@ -16,9 +16,8 @@ if [ ! -f "$PROGRAMS_DIR/squads.so" ]; then
     solana program dump --url mainnet-beta SMPLecH534NA9acpos4G6x7uf3LWbCAwZQE9e8ZekMu "$PROGRAMS_DIR/squads.so"
 fi
 
-# Build the program
-anchor build -- --features dev
+./build-local.sh
 
 killall solana-test-validator
 
-amman start
+amman start --reset

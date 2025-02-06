@@ -1,3 +1,4 @@
+use crate::ID as FOLIO_PROGRAM_ID;
 use crate::{
     state::{Folio, FolioBasket},
     utils::{next_account, FolioStatus},
@@ -9,12 +10,11 @@ use anchor_spl::{
     associated_token::get_associated_token_address_with_program_id, token_interface::TokenAccount,
 };
 use folio_admin::{state::ProgramRegistrar, ID as FOLIO_ADMIN_PROGRAM_ID};
+use shared::errors::ErrorCode;
 use shared::{
     check_condition,
     constants::{FOLIO_BASKET_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS},
 };
-
-use shared::errors::ErrorCode;
 
 const REMAINING_ACCOUT_DIVIDER: usize = 3;
 
@@ -91,16 +91,15 @@ impl MigrateFolioTokens<'_> {
             ProgramNotInRegistrar
         );
 
-        // Make sure the new folio is owned by the new folio program and is linked
-        // via the folio mint of the old folio
-        let expected_new_folio_pda = Pubkey::find_program_address(
-            &[FOLIO_SEEDS, old_folio.folio_token_mint.as_ref()],
-            &self.new_folio_program.key(),
+        // Make sure the new folio is owned by the new folio program
+        check_condition!(
+            *self.new_folio.owner == self.new_folio_program.key(),
+            NewFolioNotOwnedByNewFolioProgram
         );
 
         check_condition!(
-            expected_new_folio_pda.0 == self.new_folio.key(),
-            NewFolioNotOwnedByNewFolio
+            self.new_folio_program.key() != FOLIO_PROGRAM_ID,
+            CantMigrateToSameProgram
         );
 
         Ok(())
@@ -109,18 +108,25 @@ impl MigrateFolioTokens<'_> {
 
 pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'info>>) -> Result<()> {
     let old_folio_key = ctx.accounts.old_folio.key();
-    let old_folio_account_info = ctx.accounts.old_folio.to_account_info();
     let new_folio_key = ctx.accounts.new_folio.key();
     let old_folio_basket = ctx.accounts.old_folio_basket.load()?;
 
-    let old_folio = &mut ctx.accounts.old_folio.load_mut()?;
+    let old_folio_token_mint: Pubkey;
+    let old_folio_bump: u8;
 
-    ctx.accounts.validate(old_folio)?;
+    {
+        let old_folio = &ctx.accounts.old_folio.load()?;
+
+        old_folio_token_mint = old_folio.folio_token_mint;
+        old_folio_bump = old_folio.bump;
+
+        ctx.accounts.validate(old_folio)?;
+    }
 
     let folio_signer_seeds = &[
         FOLIO_SEEDS,
-        old_folio.folio_token_mint.as_ref(),
-        &[old_folio.bump],
+        old_folio_token_mint.as_ref(),
+        &[old_folio_bump],
     ];
     let folio_signer = &[&folio_signer_seeds[..]];
 
@@ -163,20 +169,23 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
         );
 
         // Validate the token mint is in the old folio basket
-        let data = token_mint.try_borrow_data()?;
-        let mint = Mint::try_deserialize(&mut &data[..])?;
+        let mint_decimals = {
+            let data = token_mint.try_borrow_data()?;
+            Mint::try_deserialize(&mut &data[..])?.decimals
+        };
 
-        let sender_token_account_data = sender_token_account.try_borrow_data()?;
-        let sender_token_account_parsed =
-            TokenAccount::try_deserialize(&mut &sender_token_account_data[..])?;
+        let sender_token_account_amount = {
+            let data = sender_token_account.try_borrow_data()?;
+            TokenAccount::try_deserialize(&mut &data[..])?.amount
+        };
 
-        let migrate_balance = old_folio_basket
-            .get_migrate_balance(sender_token_account_parsed.amount, token_mint.key)?;
+        let migrate_balance =
+            old_folio_basket.get_migrate_balance(sender_token_account_amount, token_mint.key)?;
 
         let cpi_accounts = TransferChecked {
             from: sender_token_account.to_account_info(),
             to: receiver_token_account.to_account_info(),
-            authority: old_folio_account_info.clone(),
+            authority: ctx.accounts.old_folio.to_account_info(),
             mint: token_mint.to_account_info(),
         };
 
@@ -185,7 +194,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
         token_interface::transfer_checked(
             CpiContext::new_with_signer(cpi_program, cpi_accounts, folio_signer),
             migrate_balance,
-            mint.decimals,
+            mint_decimals,
         )?;
 
         // TODO remove token from basket?

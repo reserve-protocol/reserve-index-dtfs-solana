@@ -466,44 +466,34 @@ describe("Bankrun - Folio redeeming", () => {
         true
       );
 
-    const generalIxRedeemFromPendingBasket = () =>
-      redeemFromPendingBasket<true>(
-        context,
-        banksClient,
-        programFolio,
-        userKeypair,
-        folioPDA,
-        [],
-
-        true
-      );
-
     beforeEach(async () => {
       await initBaseCase();
     });
 
     describe("should run general tests for burn folio token", () => {
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for INITIALIZING`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for INITIALIZING & KILLED & MIGRATING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
           folioTokenMint.publicKey,
-
           generalIxBurnFolioToken,
           FolioStatus.Initializing
         );
-      });
-    });
 
-    describe("should run general tests for redeem from pending basket", () => {
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for INITIALIZING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
           folioTokenMint.publicKey,
+          generalIxBurnFolioToken,
+          FolioStatus.Killed
+        );
 
-          generalIxRedeemFromPendingBasket,
-          FolioStatus.Initializing
+        await assertInvalidFolioStatusTestCase(
+          context,
+          programFolio,
+          folioTokenMint.publicKey,
+          generalIxBurnFolioToken,
+          FolioStatus.Migrating
         );
       });
     });

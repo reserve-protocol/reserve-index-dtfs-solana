@@ -218,8 +218,11 @@ pub enum ErrorCode {
     #[msg("Invalid Fee Numerator")]
     InvalidFeeNumerator,
 
-    #[msg("New Folio Not Owned By New Folio")]
-    NewFolioNotOwnedByNewFolio,
+    #[msg("New Folio Not Owned By New Folio Program")]
+    NewFolioNotOwnedByNewFolioProgram,
+
+    #[msg("Can't Migrate To Same Program")]
+    CantMigrateToSameProgram,
 }
 
 #[macro_export]

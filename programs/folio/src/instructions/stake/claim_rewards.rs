@@ -1,7 +1,7 @@
 use crate::program::Folio as FolioProgram;
 use crate::state::{Actor, Folio, FolioRewardTokens, RewardInfo, UserRewardInfo};
 use crate::utils::account_util::next_account;
-use crate::utils::structs::{FolioStatus, Role};
+use crate::utils::structs::Role;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::{self};
 use anchor_spl::token_interface;
@@ -52,18 +52,7 @@ pub struct ClaimRewards<'info> {
 
 impl ClaimRewards<'_> {
     pub fn validate(&self, folio: &Folio) -> Result<()> {
-        folio.validate_folio(
-            &self.folio.key(),
-            None,
-            None,
-            // Still want to let it be claimed even if migrating or killed
-            Some(vec![
-                FolioStatus::Initializing,
-                FolioStatus::Initialized,
-                FolioStatus::Migrating,
-                FolioStatus::Killed,
-            ]),
-        )?;
+        folio.validate_folio(&self.folio.key(), None, None, None)?;
 
         // Validate that the folio owner is the correct one
         check_condition!(

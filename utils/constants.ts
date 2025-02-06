@@ -2,9 +2,11 @@ import { BN } from "@coral-xyz/anchor";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import idlFolio from "../target/idl/folio.json";
 import idlFolioAdmin from "../target/idl/folio_admin.json";
+import idlFolioSecond from "../target/idl/second_folio.json";
 
 // Programs
 export const FOLIO_ADMIN_PROGRAM_ID = new PublicKey(idlFolioAdmin.address);
+export const FOLIO_SECOND_PROGRAM_ID = new PublicKey(idlFolioSecond.address);
 export const FOLIO_PROGRAM_ID = new PublicKey(idlFolio.address);
 export const BPF_LOADER_PROGRAM_ID = new PublicKey(
   "BPFLoaderUpgradeab1e11111111111111111111111"

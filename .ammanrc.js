@@ -33,6 +33,11 @@ const programs = [
     programId: "n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG",
     deployPath: path.join(localProgram, `folio.so`),
   },
+  {
+    label: "Folio 2",
+    programId: "7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt",
+    deployPath: path.join(localProgram, `second_folio.so`),
+  },
 ];
 
 const validator = {

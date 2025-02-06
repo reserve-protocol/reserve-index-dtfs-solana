@@ -496,7 +496,7 @@ describe("Bankrun - Fees", () => {
     });
 
     describe("should run general tests for poke folio", () => {
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and INITIALIZING`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and INITIALIZING and MIGRATING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
@@ -509,15 +509,22 @@ describe("Bankrun - Fees", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-
           generalIxPokeFolio,
           FolioStatus.Initializing
+        );
+
+        await assertInvalidFolioStatusTestCase(
+          context,
+          programFolio,
+          folioTokenMint.publicKey,
+          generalIxPokeFolio,
+          FolioStatus.Migrating
         );
       });
     });
 
     describe("should run general tests for distribute fees", () => {
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for INITIALIZING`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for INITIALIZING & KILLED & MIGRATING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
@@ -534,6 +541,14 @@ describe("Bankrun - Fees", () => {
 
           generalIxDistributeFees,
           FolioStatus.Killed
+        );
+
+        await assertInvalidFolioStatusTestCase(
+          context,
+          programFolio,
+          folioTokenMint.publicKey,
+          generalIxDistributeFees,
+          FolioStatus.Migrating
         );
       });
     });
@@ -551,21 +566,11 @@ describe("Bankrun - Fees", () => {
         );
       });
 
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and INITIALIZING`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both INITIALIZING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
           folioTokenMint.publicKey,
-
-          generalIxCrankFeeDistribution,
-          FolioStatus.Killed
-        );
-
-        await assertInvalidFolioStatusTestCase(
-          context,
-          programFolio,
-          folioTokenMint.publicKey,
-
           generalIxCrankFeeDistribution,
           FolioStatus.Initializing
         );

@@ -57,7 +57,6 @@ pub struct InitFolio<'info> {
     /*
         Because of solana's limits with stack size, etc.
 
-        the folio token account will be created in finalize folio (if needed)
         the fee_recipients will be created in the update function (if needed)
         the folio_basket will be created in the init tokens (if needed)
     */

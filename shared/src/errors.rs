@@ -53,6 +53,9 @@ pub enum ErrorCode {
     #[msg("Invalid Receiver Token Account")]
     InvalidReceiverTokenAccount,
 
+    #[msg("Invalid Sender Token Account")]
+    InvalidSenderTokenAccount,
+
     #[msg("Invalid Dao Fee Recipient")]
     InvalidDaoFeeRecipient,
 
@@ -91,6 +94,9 @@ pub enum ErrorCode {
 
     #[msg("Pending Token Amounts Is Not Empty")]
     PendingBasketIsNotEmpty,
+
+    #[msg("Token Mint Not In Old Folio Basket")]
+    TokenMintNotInOldFolioBasket,
 
     #[msg("Invalid Minting Fee")]
     InvalidMintingFee,
@@ -211,6 +217,12 @@ pub enum ErrorCode {
 
     #[msg("Invalid Fee Numerator")]
     InvalidFeeNumerator,
+
+    #[msg("New Folio Not Owned By New Folio Program")]
+    NewFolioNotOwnedByNewFolioProgram,
+
+    #[msg("Can't Migrate To Same Program")]
+    CantMigrateToSameProgram,
 }
 
 #[macro_export]

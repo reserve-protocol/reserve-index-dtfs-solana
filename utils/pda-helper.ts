@@ -1,44 +1,55 @@
 import { PublicKey } from "@solana/web3.js";
 import {
   FOLIO_PROGRAM_ID,
-  DTF_PROGRAM_ID,
+  FOLIO_ADMIN_PROGRAM_ID,
   TOKEN_METADATA_PROGRAM_ID,
   SPL_GOVERNANCE_PROGRAM_ID,
+  FOLIO_SECOND_PROGRAM_ID,
 } from "./constants";
 import BN from "bn.js";
 
 export function getProgramRegistrarPDA() {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("program_registrar")],
-    DTF_PROGRAM_ID
+    FOLIO_ADMIN_PROGRAM_ID
   )[0];
 }
 
 export function getProgramRegistrarPDAWithBump() {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("program_registrar")],
-    DTF_PROGRAM_ID
+    FOLIO_ADMIN_PROGRAM_ID
   );
 }
 
-export function getFolioPDA(folioTokenMint: PublicKey) {
+export function getFolioPDA(
+  folioTokenMint: PublicKey,
+  useSecondFolioProgram: boolean = false
+) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("folio"), folioTokenMint.toBuffer()],
-    FOLIO_PROGRAM_ID
+    useSecondFolioProgram ? FOLIO_SECOND_PROGRAM_ID : FOLIO_PROGRAM_ID
   )[0];
 }
 
-export function getFolioPDAWithBump(folioTokenMint: PublicKey) {
+export function getFolioPDAWithBump(
+  folioTokenMint: PublicKey,
+  useSecondFolioProgram: boolean = false
+) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("folio"), folioTokenMint.toBuffer()],
-    FOLIO_PROGRAM_ID
+    useSecondFolioProgram ? FOLIO_SECOND_PROGRAM_ID : FOLIO_PROGRAM_ID
   );
 }
 
-export function getActorPDA(authority: PublicKey, folioPDA: PublicKey) {
+export function getActorPDA(
+  authority: PublicKey,
+  folioPDA: PublicKey,
+  useSecondFolioProgram: boolean = false
+) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("actor"), authority.toBuffer(), folioPDA.toBuffer()],
-    FOLIO_PROGRAM_ID
+    useSecondFolioProgram ? FOLIO_SECOND_PROGRAM_ID : FOLIO_PROGRAM_ID
   )[0];
 }
 
@@ -52,14 +63,14 @@ export function getActorPDAWithBump(authority: PublicKey, folioPDA: PublicKey) {
 export function getDAOFeeConfigPDA() {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("dao_fee_config")],
-    DTF_PROGRAM_ID
+    FOLIO_ADMIN_PROGRAM_ID
   )[0];
 }
 
 export function getDaoFeeConfigPDAWithBump() {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("dao_fee_config")],
-    DTF_PROGRAM_ID
+    FOLIO_ADMIN_PROGRAM_ID
   );
 }
 

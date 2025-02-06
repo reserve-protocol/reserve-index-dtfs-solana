@@ -13,15 +13,16 @@ import { TransactionInstruction } from "@solana/web3.js";
 import { Keypair } from "@solana/web3.js";
 import { BanksClient } from "solana-bankrun";
 import { SYSTEM_PROGRAM_ID } from "@coral-xyz/anchor/dist/cjs/native/system";
-import { Dtfs } from "../../target/types/dtfs";
-import idlDtfs from "../../target/idl/dtfs.json";
 import { Folio } from "../../target/types/folio";
 import idlFolio from "../../target/idl/folio.json";
+import idlSecondFolio from "../../target/idl/second_folio.json";
+import idlFolioAdmin from "../../target/idl/folio_admin.json";
 import { BankrunProvider } from "anchor-bankrun";
 import * as assert from "assert";
 import { AnchorError } from "@coral-xyz/anchor";
 import { TOKEN_METADATA_PROGRAM_ID } from "../../utils/constants";
-
+import { FolioAdmin } from "../../target/types/folio_admin";
+import { Folio as FolioSecond } from "../../target/types/second_folio";
 export async function getConnectors() {
   const keysFileName = "keys-local.json";
 
@@ -40,8 +41,12 @@ export async function getConnectors() {
   const context = await startAnchor(
     path.join(__dirname, "../.."),
     [
-      { name: "dtfs", programId: new PublicKey(idlDtfs.address) },
+      { name: "folio_admin", programId: new PublicKey(idlFolioAdmin.address) },
       { name: "folio", programId: new PublicKey(idlFolio.address) },
+      {
+        name: "second_folio",
+        programId: new PublicKey(idlSecondFolio.address),
+      },
       { name: "metadata", programId: TOKEN_METADATA_PROGRAM_ID },
     ],
     []
@@ -53,8 +58,13 @@ export async function getConnectors() {
   return {
     context,
     keys,
-    programDtf: new anchor.Program<Dtfs>(idlDtfs as Dtfs),
+    programFolioAdmin: new anchor.Program<FolioAdmin>(
+      idlFolioAdmin as FolioAdmin
+    ),
     programFolio: new anchor.Program<Folio>(idlFolio as Folio),
+    programFolioSecond: new anchor.Program<FolioSecond>(
+      idlSecondFolio as FolioSecond
+    ),
     provider,
   };
 }

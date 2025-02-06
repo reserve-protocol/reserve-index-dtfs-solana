@@ -27,8 +27,8 @@ export function initToken(
       supply: BigInt(supply.toString()),
       decimals,
       isInitialized: true,
-      freezeAuthorityOption: 0,
-      freezeAuthority: PublicKey.default,
+      freezeAuthorityOption: 1,
+      freezeAuthority: mintAuthority,
     },
     mintAccData
   );
@@ -177,6 +177,19 @@ export async function getTokenBalance(
   const tokenAccountInfo = AccountLayout.decode(accountInfo.data);
 
   return tokenAccountInfo.amount;
+}
+
+export async function getMintAuthorities(
+  client: BanksClient,
+  mint: PublicKey
+): Promise<{ mintAuthority: PublicKey; freezeAuthority: PublicKey }> {
+  const mintInfo = await client.getAccount(mint);
+  const mintData = MintLayout.decode(mintInfo.data);
+
+  return {
+    mintAuthority: mintData.mintAuthority,
+    freezeAuthority: mintData.freezeAuthority,
+  };
 }
 
 export async function getTokenBalancesFromMints(

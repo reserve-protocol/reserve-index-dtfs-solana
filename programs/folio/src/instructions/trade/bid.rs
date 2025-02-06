@@ -80,7 +80,7 @@ impl Bid<'_> {
             &self.folio.key(),
             None,
             None,
-            Some(vec![FolioStatus::Initialized, FolioStatus::Initializing]),
+            Some(vec![FolioStatus::Initialized]),
         )?;
 
         check_condition!(

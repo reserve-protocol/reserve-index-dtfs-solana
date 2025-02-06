@@ -5,7 +5,7 @@ use crate::utils::structs::{FolioStatus, Role};
 use crate::GovernanceUtil;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::{self};
-use anchor_spl::token_interface::{Mint, TokenAccount};
+use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use shared::check_condition;
 use shared::constants::ACTOR_SEEDS;
 use shared::constants::{FOLIO_REWARD_TOKENS_SEEDS, REWARD_INFO_SEEDS, USER_REWARD_INFO_SEEDS};
@@ -17,6 +17,7 @@ const REMAINING_ACCOUNT_DIVIDER_FOR_USER: usize = 7;
 #[derive(Accounts)]
 pub struct AccrueRewards<'info> {
     pub system_program: Program<'info, System>,
+    pub token_program: Interface<'info, TokenInterface>,
 
     #[account(mut)]
     pub caller: Signer<'info>,
@@ -88,6 +89,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
     let folio_reward_tokens_key = ctx.accounts.folio_reward_tokens.key();
     let caller_key = ctx.accounts.caller.key();
     let user_key = ctx.accounts.user.key();
+    let token_program_id = ctx.accounts.token_program.key();
     let current_time = Clock::get()?.unix_timestamp as u64;
 
     // The folio owner is the realm (DAO)
@@ -161,9 +163,10 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
 
         check_condition!(
             fee_recipient_token_account.key()
-                == associated_token::get_associated_token_address(
+                == associated_token::get_associated_token_address_with_program_id(
                     &folio_reward_tokens_key,
                     &reward_token.key(),
+                    &token_program_id,
                 ),
             InvalidFeeRecipientTokenAccount
         );

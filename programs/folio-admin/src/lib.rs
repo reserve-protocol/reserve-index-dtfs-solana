@@ -10,7 +10,7 @@ pub mod utils;
 declare_id!("7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn");
 
 #[program]
-pub mod dtfs {
+pub mod folio_admin {
 
     use super::*;
 

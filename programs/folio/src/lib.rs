@@ -9,6 +9,11 @@ pub mod instructions;
 pub mod state;
 pub mod utils;
 
+// This is a second instance to test migration, only deployed with specific flag
+#[cfg(feature = "dev")]
+declare_id!("7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt");
+
+#[cfg(not(feature = "dev"))]
 declare_id!("n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG");
 
 #[program]
@@ -99,6 +104,21 @@ pub mod folio {
 
     pub fn kill_folio(ctx: Context<KillFolio>) -> Result<()> {
         kill_folio::handler(ctx)
+    }
+
+    /*
+    Migration functions
+     */
+    pub fn start_folio_migration<'info>(
+        ctx: Context<'_, '_, 'info, 'info, StartFolioMigration<'info>>,
+    ) -> Result<()> {
+        start_folio_migration::handler(ctx)
+    }
+
+    pub fn migrate_folio_tokens<'info>(
+        ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'info>>,
+    ) -> Result<()> {
+        migrate_folio_tokens::handler(ctx)
     }
 
     /*

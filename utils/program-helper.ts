@@ -16,28 +16,24 @@ import {
 } from "@solana/web3.js";
 import fs from "fs/promises";
 import path from "path";
-import { Dtfs } from "../target/types/dtfs";
-import idlDtfs from "../target/idl/dtfs.json";
 import { Folio } from "../target/types/folio";
 import idlFolio from "../target/idl/folio.json";
+import { Folio as SecondFolio } from "../target/types/second_folio";
+import idlSecondFolio from "../target/idl/second_folio.json";
 import * as assert from "assert";
+import { FolioAdmin } from "../target/types/folio_admin";
+import idlFolioAdmin from "../target/idl/folio_admin.json";
 
 export async function getConnectors() {
   let rpcUrl = "";
   let keysFileName = "";
-  // let dtfsProgramId = "";
-  // let folioProgramId = "";
 
   switch (process.env.NODE_ENV) {
     case "devnet":
-      // dtfsProgramId = "Cr1UEkStzJPQ4wa9Lr6ryJWci83baMvrQLT3skd1eLmG";
-      // folioProgramId = "n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG";
       rpcUrl = "https://api.devnet.solana.com";
       keysFileName = "keys-devnet.json";
       break;
     default:
-      // dtfsProgramId = idlDtfs.address;
-      // folioProgramId = idlFolio.address;
       rpcUrl = "http://127.0.0.1:8899";
       keysFileName = "keys-local.json";
   }
@@ -63,8 +59,13 @@ export async function getConnectors() {
   return {
     connection,
     keys,
-    programDtf: new anchor.Program<Dtfs>(idlDtfs as Dtfs),
+    programFolioAdmin: new anchor.Program<FolioAdmin>(
+      idlFolioAdmin as FolioAdmin
+    ),
     programFolio: new anchor.Program<Folio>(idlFolio as Folio),
+    programSecondFolio: new anchor.Program<SecondFolio>(
+      idlSecondFolio as SecondFolio
+    ),
     anchorProvider,
   };
 }

@@ -15,7 +15,6 @@ import {
   createAndSetFolioRewardTokens,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
-import { Dtfs } from "../../../target/types/dtfs";
 import {
   DEFAULT_DECIMALS,
   MAX_REWARD_HALF_LIFE,
@@ -53,12 +52,13 @@ import {
 
 import * as assert from "assert";
 import { deserializeU256 } from "../../../utils/math-helper";
+import { FolioAdmin } from "../../../target/types/folio_admin";
 describe("Bankrun - Staking Admin", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
   let banksClient: BanksClient;
 
-  let programDtf: Program<Dtfs>;
+  let programFolioAdmin: Program<FolioAdmin>;
   let programFolio: Program<Folio>;
 
   let keys: any;
@@ -76,9 +76,6 @@ describe("Bankrun - Staking Admin", () => {
   const feeReceiver: Keypair = Keypair.generate();
 
   let userKeypair: Keypair;
-
-  const VALID_DEPLOYMENT_SLOT = new BN(1);
-  const PROGRAM_VERSION_VALID = Keypair.generate().publicKey;
 
   const REWARD_TOKEN_MINTS = [Keypair.generate(), Keypair.generate()];
 
@@ -241,7 +238,7 @@ describe("Bankrun - Staking Admin", () => {
   ) {
     await createAndSetDaoFeeConfig(
       context,
-      programDtf,
+      programFolioAdmin,
       feeReceiver.publicKey,
       MIN_DAO_MINTING_FEE
     );
@@ -291,7 +288,7 @@ describe("Bankrun - Staking Admin", () => {
   }
 
   before(async () => {
-    ({ keys, programDtf, programFolio, provider, context } =
+    ({ keys, programFolioAdmin, programFolio, provider, context } =
       await getConnectors());
 
     banksClient = context.banksClient;
@@ -366,7 +363,7 @@ describe("Bankrun - Staking Admin", () => {
         );
       });
 
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and MIGRATING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
@@ -374,6 +371,15 @@ describe("Bankrun - Staking Admin", () => {
 
           generalIxAddRewardToken,
           FolioStatus.Killed
+        );
+
+        await assertInvalidFolioStatusTestCase(
+          context,
+          programFolio,
+          folioTokenMint.publicKey,
+
+          generalIxAddRewardToken,
+          FolioStatus.Migrating
         );
       });
     });
@@ -400,7 +406,7 @@ describe("Bankrun - Staking Admin", () => {
         );
       });
 
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and MIGRATING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
@@ -408,6 +414,15 @@ describe("Bankrun - Staking Admin", () => {
 
           generalIxRemoveRewardToken,
           FolioStatus.Killed
+        );
+
+        await assertInvalidFolioStatusTestCase(
+          context,
+          programFolio,
+          folioTokenMint.publicKey,
+
+          generalIxRemoveRewardToken,
+          FolioStatus.Migrating
         );
       });
     });
@@ -423,7 +438,7 @@ describe("Bankrun - Staking Admin", () => {
         );
       });
 
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and MIGRATING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
@@ -431,6 +446,15 @@ describe("Bankrun - Staking Admin", () => {
 
           generalIxInitOrSetRewardRatio,
           FolioStatus.Killed
+        );
+
+        await assertInvalidFolioStatusTestCase(
+          context,
+          programFolio,
+          folioTokenMint.publicKey,
+
+          generalIxInitOrSetRewardRatio,
+          FolioStatus.Migrating
         );
       });
     });

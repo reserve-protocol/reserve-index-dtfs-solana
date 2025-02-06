@@ -61,7 +61,7 @@ impl ApproveTrade<'_> {
             &self.folio.key(),
             Some(&self.actor),
             Some(Role::TradeProposer),
-            Some(vec![FolioStatus::Initialized, FolioStatus::Initializing]),
+            Some(vec![FolioStatus::Initialized]),
         )?;
 
         check_condition!(folio.current_trade_id + 1 == trade_id, InvalidTradeId);

@@ -1,6 +1,6 @@
 use crate::state::{Folio, FolioBasket, UserPendingBasket};
 use crate::utils::account_util::next_account;
-use crate::utils::structs::{FolioStatus, TokenAmount};
+use crate::utils::structs::TokenAmount;
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::get_associated_token_address_with_program_id,
@@ -50,7 +50,8 @@ impl RemoveFromPendingBasket<'_> {
             &self.folio.key(),
             None,
             None,
-            Some(vec![FolioStatus::Initialized, FolioStatus::Killed]),
+            // User should always be able to take back their pending tokens
+            None,
         )?;
 
         Ok(())

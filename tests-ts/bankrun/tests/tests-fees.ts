@@ -18,7 +18,7 @@ import {
   FeeRecipient,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
-import { Dtfs } from "../../../target/types/dtfs";
+import { FolioAdmin } from "../../../target/types/folio_admin";
 import {
   DEFAULT_DECIMALS,
   MIN_DAO_MINTING_FEE,
@@ -60,7 +60,7 @@ describe("Bankrun - Fees", () => {
   let provider: BankrunProvider;
   let banksClient: BanksClient;
 
-  let programDtf: Program<Dtfs>;
+  let programFolioAdmin: Program<FolioAdmin>;
   let programFolio: Program<Folio>;
 
   let keys: any;
@@ -370,7 +370,7 @@ describe("Bankrun - Fees", () => {
   ) {
     await createAndSetDaoFeeConfig(
       context,
-      programDtf,
+      programFolioAdmin,
       feeReceiver.publicKey,
       MIN_DAO_MINTING_FEE
     );
@@ -430,7 +430,7 @@ describe("Bankrun - Fees", () => {
   }
 
   before(async () => {
-    ({ keys, programDtf, programFolio, provider, context } =
+    ({ keys, programFolioAdmin, programFolio, provider, context } =
       await getConnectors());
 
     banksClient = context.banksClient;
@@ -496,7 +496,7 @@ describe("Bankrun - Fees", () => {
     });
 
     describe("should run general tests for poke folio", () => {
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and INITIALIZING`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and INITIALIZING and MIGRATING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
@@ -509,15 +509,22 @@ describe("Bankrun - Fees", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-
           generalIxPokeFolio,
           FolioStatus.Initializing
+        );
+
+        await assertInvalidFolioStatusTestCase(
+          context,
+          programFolio,
+          folioTokenMint.publicKey,
+          generalIxPokeFolio,
+          FolioStatus.Migrating
         );
       });
     });
 
     describe("should run general tests for distribute fees", () => {
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for INITIALIZING`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for INITIALIZING & KILLED & MIGRATING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
@@ -534,6 +541,14 @@ describe("Bankrun - Fees", () => {
 
           generalIxDistributeFees,
           FolioStatus.Killed
+        );
+
+        await assertInvalidFolioStatusTestCase(
+          context,
+          programFolio,
+          folioTokenMint.publicKey,
+          generalIxDistributeFees,
+          FolioStatus.Migrating
         );
       });
     });
@@ -551,21 +566,11 @@ describe("Bankrun - Fees", () => {
         );
       });
 
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and INITIALIZING`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both INITIALIZING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
           folioTokenMint.publicKey,
-
-          generalIxCrankFeeDistribution,
-          FolioStatus.Killed
-        );
-
-        await assertInvalidFolioStatusTestCase(
-          context,
-          programFolio,
-          folioTokenMint.publicKey,
-
           generalIxCrankFeeDistribution,
           FolioStatus.Initializing
         );

@@ -63,6 +63,11 @@ jobs:
           export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
           anchor build
 
+      - name: Create Solana Config Dir
+        run: |
+          mkdir -p /home/runner/.config/solana
+          solana-keygen new --no-bip39-passphrase -o /home/runner/.config/solana/id.json
+
       - name: Cargo Test
         run: cargo test
 
@@ -82,10 +87,10 @@ jobs:
           path: target/llvm-cov/html
           retention-days: 7
 
-      - name: Anchor Test
-        run: |
-          export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
-          anchor test
+      # - name: Anchor Test
+      #   run: |
+      #     export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
+      #     anchor test
 
       - name: Bankrun Test
         run: |

@@ -1,10 +1,12 @@
 import { BN } from "@coral-xyz/anchor";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import idlFolio from "../target/idl/folio.json";
-import idlDtfs from "../target/idl/dtfs.json";
+import idlFolioAdmin from "../target/idl/folio_admin.json";
+import idlFolioSecond from "../target/idl/second_folio.json";
 
 // Programs
-export const DTF_PROGRAM_ID = new PublicKey(idlDtfs.address);
+export const FOLIO_ADMIN_PROGRAM_ID = new PublicKey(idlFolioAdmin.address);
+export const FOLIO_SECOND_PROGRAM_ID = new PublicKey(idlFolioSecond.address);
 export const FOLIO_PROGRAM_ID = new PublicKey(idlFolio.address);
 export const BPF_LOADER_PROGRAM_ID = new PublicKey(
   "BPFLoaderUpgradeab1e11111111111111111111111"
@@ -30,7 +32,7 @@ export const DEFAULT_DECIMALS_MUL = 10 ** DEFAULT_DECIMALS;
 
 export const DEFAULT_PRECISION = new BN(10 ** 9);
 
-// DTF Constants
+// Folio Admin Constants
 export const MAX_FOLIO_FEE = new BN("500000000000000000");
 export const D18 = new BN("1000000000000000000");
 export const MIN_DAO_MINTING_FEE = new BN("500000000000000");

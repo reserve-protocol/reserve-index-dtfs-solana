@@ -22,6 +22,7 @@ import {
   getFolioPDA,
   getFolioRewardTokensPDA,
   getMetadataPDA,
+  getProgramRegistrarPDA,
   getRewardInfoPDA,
   getTradePDA,
   getUserPendingBasketPDA,
@@ -36,9 +37,13 @@ import {
   buildRemainingAccounts,
   buildRemainingAccountsForAccruesRewards,
   buildRemainingAccountsForClaimRewards,
+  buildRemainingAccountsForMigrateFolioTokens,
 } from "./remaining-accounts-helper";
+import idlSecondFolio from "../target/idl/second_folio.json";
+import { Folio as SecondFolio } from "../target/types/second_folio";
 
 let folioProgram: Program<Folio> = null;
+let secondFolioProgram: Program<SecondFolio> = null;
 
 const SKIP_PREFLIGHT = true;
 
@@ -60,6 +65,26 @@ export function getFolioProgram(
   return folioProgram;
 }
 
+export function getSecondFolioProgram(
+  connection: Connection,
+  wallet: Keypair
+): Program<SecondFolio> {
+  if (
+    !secondFolioProgram ||
+    secondFolioProgram.provider.publicKey != wallet.publicKey
+  ) {
+    secondFolioProgram = new Program<SecondFolio>(
+      idlSecondFolio as SecondFolio,
+      new AnchorProvider(
+        connection,
+        new NodeWallet(wallet),
+        AnchorProvider.defaultOptions()
+      )
+    );
+  }
+  return secondFolioProgram;
+}
+
 export async function initFolio(
   connection: Connection,
   folioOwner: Keypair,
@@ -70,11 +95,14 @@ export async function initFolio(
   auctionLength: BN,
   name: string,
   symbol: string,
-  uri: string
+  uri: string,
+  useSecondFolioProgram: boolean = false
 ): Promise<PublicKey> {
-  const folioProgram = getFolioProgram(connection, folioOwner);
+  const folioProgram = useSecondFolioProgram
+    ? getSecondFolioProgram(connection, folioOwner)
+    : getFolioProgram(connection, folioOwner);
 
-  const folioPDA = getFolioPDA(folioTokenMint.publicKey);
+  const folioPDA = getFolioPDA(folioTokenMint.publicKey, useSecondFolioProgram);
 
   const initFolio = await folioProgram.methods
     .initFolio(
@@ -94,7 +122,7 @@ export async function initFolio(
       folioOwner: folioOwner.publicKey,
       folio: folioPDA,
       folioTokenMint: folioTokenMint.publicKey,
-      actor: getActorPDA(folioOwner.publicKey, folioPDA),
+      actor: getActorPDA(folioOwner.publicKey, folioPDA, useSecondFolioProgram),
       tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
       metadata: getMetadataPDA(folioTokenMint.publicKey),
     })
@@ -964,6 +992,76 @@ export async function claimRewards(
     .instruction();
 
   await pSendAndConfirmTxn(folioProgram, [claimRewards], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+}
+
+export async function startFolioMigration(
+  connection: Connection,
+  folioOwnerKeypair: Keypair,
+  folioTokenMint: PublicKey,
+  oldFolio: PublicKey,
+  newFolio: PublicKey,
+  newFolioProgram: PublicKey
+) {
+  const folioProgram = getFolioProgram(connection, folioOwnerKeypair);
+
+  const startFolioMigration = await folioProgram.methods
+    .startFolioMigration()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      folioOwner: folioOwnerKeypair.publicKey,
+      programRegistrar: getProgramRegistrarPDA(),
+      actor: getActorPDA(folioOwnerKeypair.publicKey, oldFolio),
+      newFolioProgram,
+      oldFolio,
+      newFolio,
+      folioTokenMint,
+    })
+    .instruction();
+
+  await pSendAndConfirmTxn(folioProgram, [startFolioMigration], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+}
+
+export async function migrateFolioTokens(
+  connection: Connection,
+  userKeypair: Keypair,
+  oldFolio: PublicKey,
+  newFolio: PublicKey,
+  newFolioProgram: PublicKey,
+  folioTokenMint: PublicKey,
+  tokenMints: PublicKey[]
+) {
+  const folioProgram = getFolioProgram(connection, userKeypair);
+
+  const migrateFolioTokens = await folioProgram.methods
+    .migrateFolioTokens()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      user: userKeypair.publicKey,
+      programRegistrar: getProgramRegistrarPDA(),
+      newFolioProgram,
+      oldFolio,
+      oldFolioBasket: getFolioBasketPDA(oldFolio),
+      newFolio,
+      folioTokenMint,
+    })
+    .remainingAccounts(
+      await buildRemainingAccountsForMigrateFolioTokens(
+        connection,
+        userKeypair,
+        oldFolio,
+        newFolio,
+        tokenMints
+      )
+    )
+    .instruction();
+
+  await pSendAndConfirmTxn(folioProgram, [migrateFolioTokens], [], {
     skipPreflight: SKIP_PREFLIGHT,
   });
 }

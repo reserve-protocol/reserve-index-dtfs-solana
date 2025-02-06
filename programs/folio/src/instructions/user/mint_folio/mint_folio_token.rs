@@ -6,8 +6,8 @@ use anchor_spl::{
     token,
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
-use dtfs::state::DAOFeeConfig;
-use dtfs::ID as DTF_PROGRAM_ID;
+use folio_admin::state::DAOFeeConfig;
+use folio_admin::ID as FOLIO_ADMIN_PROGRAM_ID;
 use shared::constants::{
     PendingBasketType, DAO_FEE_DENOMINATOR, FOLIO_BASKET_SEEDS, USER_PENDING_BASKET_SEEDS,
 };
@@ -29,7 +29,7 @@ pub struct MintFolioToken<'info> {
     #[account(
         seeds = [DAO_FEE_CONFIG_SEEDS],
         bump,
-        seeds::program = DTF_PROGRAM_ID,
+        seeds::program = FOLIO_ADMIN_PROGRAM_ID,
     )]
     pub dao_fee_config: Account<'info, DAOFeeConfig>,
 

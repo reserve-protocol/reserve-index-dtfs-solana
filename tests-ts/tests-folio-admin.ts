@@ -1,5 +1,5 @@
 import { airdrop, getConnectors } from "../utils/program-helper";
-import { Dtfs } from "../target/types/dtfs";
+import { FolioAdmin } from "../target/types/folio_admin";
 import { BN, Program } from "@coral-xyz/anchor";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import * as assert from "assert";
@@ -11,13 +11,13 @@ import {
   initProgramRegistrar,
   setDaoFeeConfig,
   updateProgramRegistrar,
-} from "../utils/dtf-helper";
+} from "../utils/folio-admin-helper";
 
-import { DTF_PROGRAM_ID } from "../utils/constants";
+import { FOLIO_ADMIN_PROGRAM_ID } from "../utils/constants";
 
-describe("DTFs Tests", () => {
+describe("Folio Admin Tests", () => {
   let connection: Connection;
-  let programDtf: Program<Dtfs>;
+  let programFolioAdmin: Program<FolioAdmin>;
   let keys: any;
 
   let payerKeypair: Keypair;
@@ -29,7 +29,7 @@ describe("DTFs Tests", () => {
   const feeRecipientNumerator: BN = new BN("500000000000000000"); //50% in D18
 
   before(async () => {
-    ({ connection, programDtf, keys } = await getConnectors());
+    ({ connection, programFolioAdmin, keys } = await getConnectors());
 
     payerKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.payer));
     adminKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.admin));
@@ -48,7 +48,7 @@ describe("DTFs Tests", () => {
 
     const daoFeeConfigPDA = getDAOFeeConfigPDA();
 
-    const daoFeeConfig = await programDtf.account.daoFeeConfig.fetch(
+    const daoFeeConfig = await programFolioAdmin.account.daoFeeConfig.fetch(
       daoFeeConfigPDA
     );
 
@@ -61,16 +61,24 @@ describe("DTFs Tests", () => {
   });
 
   it("should initialize program registrar", async () => {
-    await initProgramRegistrar(connection, adminKeypair, DTF_PROGRAM_ID);
+    await initProgramRegistrar(
+      connection,
+      adminKeypair,
+      FOLIO_ADMIN_PROGRAM_ID
+    );
 
     const programRegistrarPDA = getProgramRegistrarPDA();
 
-    const programRegistrar = await programDtf.account.programRegistrar.fetch(
-      programRegistrarPDA
-    );
+    const programRegistrar =
+      await programFolioAdmin.account.programRegistrar.fetch(
+        programRegistrarPDA
+      );
 
     assert.notEqual(programRegistrar.bump, 0);
-    assert.deepEqual(programRegistrar.acceptedPrograms[0], DTF_PROGRAM_ID);
+    assert.deepEqual(
+      programRegistrar.acceptedPrograms[0],
+      FOLIO_ADMIN_PROGRAM_ID
+    );
   });
 
   it("should update program registrar (add new program)", async () => {
@@ -83,9 +91,10 @@ describe("DTFs Tests", () => {
 
     const programRegistrarPDA = getProgramRegistrarPDA();
 
-    const programRegistrar = await programDtf.account.programRegistrar.fetch(
-      programRegistrarPDA
-    );
+    const programRegistrar =
+      await programFolioAdmin.account.programRegistrar.fetch(
+        programRegistrarPDA
+      );
 
     assert.deepEqual(programRegistrar.acceptedPrograms[1], randomProgramId);
   });
@@ -100,9 +109,10 @@ describe("DTFs Tests", () => {
 
     const programRegistrarPDA = getProgramRegistrarPDA();
 
-    const programRegistrar = await programDtf.account.programRegistrar.fetch(
-      programRegistrarPDA
-    );
+    const programRegistrar =
+      await programFolioAdmin.account.programRegistrar.fetch(
+        programRegistrarPDA
+      );
 
     assert.deepEqual(programRegistrar.acceptedPrograms[1], PublicKey.default);
   });

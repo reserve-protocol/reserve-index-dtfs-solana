@@ -1,5 +1,4 @@
 import { AnchorProvider, BN, Program } from "@coral-xyz/anchor";
-import { Dtfs } from "../target/types/dtfs";
 import {
   Connection,
   Keypair,
@@ -7,22 +6,26 @@ import {
   SystemProgram,
   SYSVAR_RENT_PUBKEY,
 } from "@solana/web3.js";
-import idlDtf from "../target/idl/dtfs.json";
+import idlFolioAdmin from "../target/idl/folio_admin.json";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 import { pSendAndConfirmTxn } from "./program-helper";
 import { getProgramRegistrarPDA, getDAOFeeConfigPDA } from "./pda-helper";
+import { FolioAdmin } from "../target/types/folio_admin";
 
-let dtfProgram: Program<Dtfs> = null;
+let folioAdminProgram: Program<FolioAdmin> = null;
 
 const SKIP_PREFLIGHT = true;
 
-export function getDtfProgram(
+export function getFolioAdminProgram(
   connection: Connection,
   wallet: Keypair
-): Program<Dtfs> {
-  if (!dtfProgram || dtfProgram.provider.publicKey != wallet.publicKey) {
-    dtfProgram = new Program<Dtfs>(
-      idlDtf as Dtfs,
+): Program<FolioAdmin> {
+  if (
+    !folioAdminProgram ||
+    folioAdminProgram.provider.publicKey != wallet.publicKey
+  ) {
+    folioAdminProgram = new Program<FolioAdmin>(
+      idlFolioAdmin as FolioAdmin,
       new AnchorProvider(
         connection,
         new NodeWallet(wallet),
@@ -31,7 +34,7 @@ export function getDtfProgram(
     );
   }
 
-  return dtfProgram;
+  return folioAdminProgram;
 }
 
 export async function setDaoFeeConfig(
@@ -40,9 +43,9 @@ export async function setDaoFeeConfig(
   feeRecipient: PublicKey,
   feeRecipientNumerator: BN
 ) {
-  const dtfProgram = getDtfProgram(connection, adminKeypair);
+  const folioAdminProgram = getFolioAdminProgram(connection, adminKeypair);
 
-  const setDaoFeeConfig = await dtfProgram.methods
+  const setDaoFeeConfig = await folioAdminProgram.methods
     .setDaoFeeConfig(feeRecipient, feeRecipientNumerator)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
@@ -52,7 +55,7 @@ export async function setDaoFeeConfig(
     })
     .instruction();
 
-  await pSendAndConfirmTxn(dtfProgram, [setDaoFeeConfig], [], {
+  await pSendAndConfirmTxn(folioAdminProgram, [setDaoFeeConfig], [], {
     skipPreflight: SKIP_PREFLIGHT,
   });
 }
@@ -60,12 +63,12 @@ export async function setDaoFeeConfig(
 export async function initProgramRegistrar(
   connection: Connection,
   adminKeypair: Keypair,
-  dtfAcceptedProgramId: PublicKey
+  folioAcceptedProgramId: PublicKey
 ) {
-  const dtfProgram = getDtfProgram(connection, adminKeypair);
+  const folioAdminProgram = getFolioAdminProgram(connection, adminKeypair);
 
   const programRegistrar =
-    await dtfProgram.account.programRegistrar.fetchNullable(
+    await folioAdminProgram.account.programRegistrar.fetchNullable(
       getProgramRegistrarPDA()
     );
 
@@ -73,8 +76,8 @@ export async function initProgramRegistrar(
     return;
   }
 
-  const registerProgram = await dtfProgram.methods
-    .initProgramRegistrar(dtfAcceptedProgramId)
+  const registerProgram = await folioAdminProgram.methods
+    .initProgramRegistrar(folioAcceptedProgramId)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
@@ -83,7 +86,7 @@ export async function initProgramRegistrar(
     })
     .instruction();
 
-  await pSendAndConfirmTxn(dtfProgram, [registerProgram], [], {
+  await pSendAndConfirmTxn(folioAdminProgram, [registerProgram], [], {
     skipPreflight: SKIP_PREFLIGHT,
   });
 }
@@ -91,20 +94,20 @@ export async function initProgramRegistrar(
 export async function updateProgramRegistrar(
   connection: Connection,
   adminKeypair: Keypair,
-  dtfProgramIds: PublicKey[],
+  folioProgramIds: PublicKey[],
   toRemove: boolean
 ) {
-  const dtfProgram = getDtfProgram(connection, adminKeypair);
+  const folioAdminProgram = getFolioAdminProgram(connection, adminKeypair);
 
-  const updateProgramRegistrar = await dtfProgram.methods
-    .updateProgramRegistrar(dtfProgramIds, toRemove)
+  const updateProgramRegistrar = await folioAdminProgram.methods
+    .updateProgramRegistrar(folioProgramIds, toRemove)
     .accountsPartial({
       admin: adminKeypair.publicKey,
       programRegistrar: getProgramRegistrarPDA(),
     })
     .instruction();
 
-  await pSendAndConfirmTxn(dtfProgram, [updateProgramRegistrar], [], {
+  await pSendAndConfirmTxn(folioAdminProgram, [updateProgramRegistrar], [], {
     skipPreflight: SKIP_PREFLIGHT,
   });
 }

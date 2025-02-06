@@ -24,14 +24,19 @@ const programs = [
   },
   // Our programs
   {
-    label: "DTFS",
+    label: "Folio Admin",
     programId: "7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn",
-    deployPath: path.join(localProgram, `dtfs.so`),
+    deployPath: path.join(localProgram, `folio_admin.so`),
   },
   {
     label: "Folio",
     programId: "n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG",
     deployPath: path.join(localProgram, `folio.so`),
+  },
+  {
+    label: "Folio 2",
+    programId: "7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt",
+    deployPath: path.join(localProgram, `second_folio.so`),
   },
 ];
 

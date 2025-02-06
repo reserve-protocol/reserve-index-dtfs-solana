@@ -183,3 +183,45 @@ export async function buildRemainingAccountsForClaimRewards(
 
   return remainingAccounts;
 }
+
+export async function buildRemainingAccountsForMigrateFolioTokens(
+  connection: Connection,
+  userKeypair: Keypair,
+  oldFolio: PublicKey,
+  newFolio: PublicKey,
+  tokens: PublicKey[]
+) {
+  const remainingAccounts: AccountMeta[] = [];
+
+  for (const token of tokens) {
+    remainingAccounts.push({
+      pubkey: token,
+      isSigner: false,
+      isWritable: false,
+    });
+
+    remainingAccounts.push({
+      pubkey: await getOrCreateAtaAddress(
+        connection,
+        token,
+        userKeypair,
+        oldFolio
+      ),
+      isSigner: false,
+      isWritable: true,
+    });
+
+    remainingAccounts.push({
+      pubkey: await getOrCreateAtaAddress(
+        connection,
+        token,
+        userKeypair,
+        newFolio
+      ),
+      isSigner: false,
+      isWritable: true,
+    });
+  }
+
+  return remainingAccounts;
+}

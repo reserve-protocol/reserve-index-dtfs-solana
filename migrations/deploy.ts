@@ -2,7 +2,7 @@ import { Keypair, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { getConnectors } from "../utils/program-helper";
 
 async function testIx() {
-  const { programDtf: program, keys } = await getConnectors();
+  const { programFolioAdmin: program, keys } = await getConnectors();
 
   const adminKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.admin));
 

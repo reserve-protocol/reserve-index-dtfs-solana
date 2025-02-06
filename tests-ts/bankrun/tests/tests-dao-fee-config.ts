@@ -1,7 +1,6 @@
 import { BN, Program } from "@coral-xyz/anchor";
 import { BankrunProvider } from "anchor-bankrun";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { Dtfs } from "../../../target/types/dtfs";
 import {
   BanksClient,
   BanksTransactionResultWithMeta,
@@ -21,13 +20,14 @@ import {
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
 import { createAndSetDaoFeeConfig } from "../bankrun-account-helper";
+import { FolioAdmin } from "../../../target/types/folio_admin";
 
 describe("Bankrun - Dao Fee Config Tests", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
   let banksClient: BanksClient;
 
-  let programDtf: Program<Dtfs>;
+  let programFolioAdmin: Program<FolioAdmin>;
   let keys: any;
 
   let payerKeypair: Keypair;
@@ -68,7 +68,7 @@ describe("Bankrun - Dao Fee Config Tests", () => {
   ];
 
   before(async () => {
-    ({ keys, programDtf, provider, context } = await getConnectors());
+    ({ keys, programFolioAdmin, provider, context } = await getConnectors());
 
     banksClient = context.banksClient;
 
@@ -86,7 +86,7 @@ describe("Bankrun - Dao Fee Config Tests", () => {
     const generalIx = () =>
       setDaoFeeConfig<false>(
         banksClient,
-        programDtf,
+        programFolioAdmin,
         adminKeypair,
         DEFAULT_PARAMS.expectedFeeRecipient,
         DEFAULT_PARAMS.expectedFeeNumerator,
@@ -111,7 +111,7 @@ describe("Bankrun - Dao Fee Config Tests", () => {
         if (existsBefore) {
           await createAndSetDaoFeeConfig(
             context,
-            programDtf,
+            programFolioAdmin,
             expectedFeeRecipient,
             expectedFeeNumerator
           );
@@ -120,7 +120,7 @@ describe("Bankrun - Dao Fee Config Tests", () => {
 
         txnResult = await setDaoFeeConfig<true>(
           banksClient,
-          programDtf,
+          programFolioAdmin,
           getKeypair(),
           expectedFeeRecipient,
           expectedFeeNumerator
@@ -135,9 +135,8 @@ describe("Bankrun - Dao Fee Config Tests", () => {
         it("should succeed", async () => {
           await travelFutureSlot(context);
 
-          const daoFeeConfig = await programDtf.account.daoFeeConfig.fetch(
-            daoFeeConfigPDA
-          );
+          const daoFeeConfig =
+            await programFolioAdmin.account.daoFeeConfig.fetch(daoFeeConfigPDA);
           assert.equal(
             daoFeeConfig.feeRecipient.toBase58(),
             expectedFeeRecipient.toBase58()

@@ -28,7 +28,6 @@ import {
   getInvalidRemainingAccounts,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
-import { Dtfs } from "../../../target/types/dtfs";
 import {
   assertInvalidFolioStatusTestCase,
   assertNotOwnerTestCase,
@@ -52,7 +51,6 @@ describe("Bankrun - Folio basket", () => {
   let provider: BankrunProvider;
   let banksClient: BanksClient;
 
-  let programDtf: Program<Dtfs>;
   let programFolio: Program<Folio>;
 
   let keys: any;
@@ -65,9 +63,6 @@ describe("Bankrun - Folio basket", () => {
   let folioTokenMint: Keypair;
 
   let folioPDA: PublicKey;
-
-  const VALID_DEPLOYMENT_SLOT = new BN(1);
-  const PROGRAM_VERSION_VALID = Keypair.generate().publicKey;
 
   const MINTS = [Keypair.generate(), Keypair.generate(), Keypair.generate()];
 
@@ -267,8 +262,7 @@ describe("Bankrun - Folio basket", () => {
   }
 
   before(async () => {
-    ({ keys, programDtf, programFolio, provider, context } =
-      await getConnectors());
+    ({ keys, programFolio, provider, context } = await getConnectors());
 
     banksClient = context.banksClient;
 

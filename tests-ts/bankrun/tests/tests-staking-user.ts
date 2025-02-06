@@ -23,7 +23,6 @@ import {
   buildRemainingAccountsForClaimRewards,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
-import { Dtfs } from "../../../target/types/dtfs";
 import {
   DEFAULT_DECIMALS,
   DEFAULT_DECIMALS_MUL,
@@ -54,13 +53,14 @@ import {
 } from "../bankrun-general-tests-helper";
 import { deserializeU256 } from "../../../utils/math-helper";
 import * as assert from "assert";
+import { FolioAdmin } from "../../../target/types/folio_admin";
 
 describe("Bankrun - Staking User", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
   let banksClient: BanksClient;
 
-  let programDtf: Program<Dtfs>;
+  let programFolioAdmin: Program<FolioAdmin>;
   let programFolio: Program<Folio>;
 
   let keys: any;
@@ -74,9 +74,6 @@ describe("Bankrun - Staking User", () => {
 
   const rewardedUser1: Keypair = Keypair.generate();
   const rewardedUser2: Keypair = Keypair.generate();
-
-  const VALID_DEPLOYMENT_SLOT = new BN(1);
-  const PROGRAM_VERSION_VALID = Keypair.generate().publicKey;
 
   const REWARD_TOKEN_MINTS = [Keypair.generate(), Keypair.generate()];
 
@@ -564,7 +561,7 @@ describe("Bankrun - Staking User", () => {
   ) {
     await createAndSetDaoFeeConfig(
       context,
-      programDtf,
+      programFolioAdmin,
       new Keypair().publicKey,
       MIN_DAO_MINTING_FEE
     );
@@ -669,7 +666,7 @@ describe("Bankrun - Staking User", () => {
   }
 
   before(async () => {
-    ({ keys, programDtf, programFolio, provider, context } =
+    ({ keys, programFolioAdmin, programFolio, provider, context } =
       await getConnectors());
 
     banksClient = context.banksClient;

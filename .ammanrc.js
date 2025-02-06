@@ -24,9 +24,9 @@ const programs = [
   },
   // Our programs
   {
-    label: "DTFS",
+    label: "Folio Admin",
     programId: "7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn",
-    deployPath: path.join(localProgram, `dtfs.so`),
+    deployPath: path.join(localProgram, `folio_admin.so`),
   },
   {
     label: "Folio",

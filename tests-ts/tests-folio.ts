@@ -56,7 +56,6 @@ import {
   MIN_DAO_MINTING_FEE,
 } from "../utils/constants";
 import { TestHelper } from "../utils/test-helper";
-import { Dtfs } from "../target/types/dtfs";
 import { createGovernanceAccounts } from "../utils/data-helper";
 import {
   getOrCreateAtaAddress,
@@ -70,12 +69,13 @@ import {
   getMint,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { setDaoFeeConfig } from "../utils/dtf-helper";
+import { setDaoFeeConfig } from "../utils/folio-admin-helper";
+import { FolioAdmin } from "../target/types/folio_admin";
 
 describe("Folio Tests", () => {
   let connection: Connection;
   let programFolio: Program<Folio>;
-  let programDtf: Program<Dtfs>;
+  let programFolioAdmin: Program<FolioAdmin>;
   let keys: any;
 
   let payerKeypair: Keypair;
@@ -125,7 +125,8 @@ describe("Folio Tests", () => {
   const feeRecipientNumerator: BN = new BN("500000000000000000"); //50% in D18
 
   before(async () => {
-    ({ connection, programFolio, programDtf, keys } = await getConnectors());
+    ({ connection, programFolio, programFolioAdmin, keys } =
+      await getConnectors());
 
     payerKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.payer));
     adminKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.admin));
@@ -894,7 +895,7 @@ describe("Folio Tests", () => {
   });
 
   it("should allow user to distribute fees", async () => {
-    const daoFeeConfig = await programDtf.account.daoFeeConfig.fetch(
+    const daoFeeConfig = await programFolioAdmin.account.daoFeeConfig.fetch(
       getDAOFeeConfigPDA()
     );
 

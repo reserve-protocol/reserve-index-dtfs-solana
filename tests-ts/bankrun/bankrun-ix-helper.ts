@@ -1,5 +1,4 @@
 import { createAndProcessTransaction } from "./bankrun-program-helper";
-import { Dtfs } from "../../target/types/dtfs";
 import {
   getActorPDA,
   getDAOFeeConfigPDA,
@@ -41,13 +40,14 @@ import {
   roleToStruct,
 } from "./bankrun-account-helper";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
+import { FolioAdmin } from "../../target/types/folio_admin";
 
 /*
-DTF
+Folio Admin
 */
 export async function setDaoFeeConfig<T extends boolean = true>(
   client: BanksClient,
-  programDtf: Program<Dtfs>,
+  programFolioAdmin: Program<FolioAdmin>,
   adminKeypair: Keypair,
   feeRecipient: PublicKey,
   feeRecipientNumerator: BN,
@@ -57,7 +57,7 @@ export async function setDaoFeeConfig<T extends boolean = true>(
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  const ix = await programDtf.methods
+  const ix = await programFolioAdmin.methods
     .setDaoFeeConfig(feeRecipient, feeRecipientNumerator)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
@@ -76,7 +76,7 @@ export async function setDaoFeeConfig<T extends boolean = true>(
 
 export async function initProgramRegistrar<T extends boolean = true>(
   client: BanksClient,
-  programDtf: Program<Dtfs>,
+  programFolioAdmin: Program<FolioAdmin>,
   adminKeypair: Keypair,
   folioAcceptedProgramId: PublicKey,
   executeTxn: T = true as T
@@ -85,7 +85,7 @@ export async function initProgramRegistrar<T extends boolean = true>(
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  const registerProgram = await programDtf.methods
+  const registerProgram = await programFolioAdmin.methods
     .initProgramRegistrar(folioAcceptedProgramId)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
@@ -106,9 +106,9 @@ export async function initProgramRegistrar<T extends boolean = true>(
 
 export async function updateProgramRegistrar<T extends boolean = true>(
   client: BanksClient,
-  programDtf: Program<Dtfs>,
+  programFolioAdmin: Program<FolioAdmin>,
   adminKeypair: Keypair,
-  dtfProgramIds: PublicKey[],
+  folioProgramIds: PublicKey[],
   toRemove: boolean,
   executeTxn: T = true as T
 ): Promise<
@@ -116,8 +116,8 @@ export async function updateProgramRegistrar<T extends boolean = true>(
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  const updateProgramRegistrar = await programDtf.methods
-    .updateProgramRegistrar(dtfProgramIds, toRemove)
+  const updateProgramRegistrar = await programFolioAdmin.methods
+    .updateProgramRegistrar(folioProgramIds, toRemove)
     .accountsPartial({
       admin: !executeTxn ? OTHER_ADMIN_KEY.publicKey : adminKeypair.publicKey,
       programRegistrar: getProgramRegistrarPDA(),

@@ -25,7 +25,6 @@ import {
   mintToken,
 } from "../bankrun-token-helper";
 import { Folio } from "../../../target/types/folio";
-import { Dtfs } from "../../../target/types/dtfs";
 import {
   DEFAULT_DECIMALS,
   MAX_FOLIO_TOKEN_AMOUNTS,
@@ -58,13 +57,14 @@ import {
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
 import * as assert from "assert";
+import { FolioAdmin } from "../../../target/types/folio_admin";
 
 describe("Bankrun - Folio minting", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
   let banksClient: BanksClient;
 
-  let programDtf: Program<Dtfs>;
+  let programFolioAdmin: Program<FolioAdmin>;
   let programFolio: Program<Folio>;
 
   let keys: any;
@@ -79,9 +79,6 @@ describe("Bankrun - Folio minting", () => {
   let feeReceiver: Keypair;
 
   let userKeypair: Keypair;
-
-  const VALID_DEPLOYMENT_SLOT = new BN(1);
-  const PROGRAM_VERSION_VALID = Keypair.generate().publicKey;
 
   const MINTS = Array(MAX_FOLIO_TOKEN_AMOUNTS)
     .fill(null)
@@ -518,7 +515,7 @@ describe("Bankrun - Folio minting", () => {
   ) {
     await createAndSetDaoFeeConfig(
       context,
-      programDtf,
+      programFolioAdmin,
       feeReceiver.publicKey,
       customDAOMintingFee ?? MIN_DAO_MINTING_FEE
     );
@@ -578,7 +575,7 @@ describe("Bankrun - Folio minting", () => {
   }
 
   before(async () => {
-    ({ keys, programDtf, programFolio, provider, context } =
+    ({ keys, programFolioAdmin, programFolio, provider, context } =
       await getConnectors());
 
     banksClient = context.banksClient;

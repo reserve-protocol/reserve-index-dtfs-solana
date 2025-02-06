@@ -3,8 +3,8 @@ use anchor_lang::prelude::*;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 use anchor_spl::token;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
-use dtfs::state::DAOFeeConfig;
-use dtfs::ID as DTF_PROGRAM_ID;
+use folio_admin::state::DAOFeeConfig;
+use folio_admin::ID as FOLIO_ADMIN_PROGRAM_ID;
 use shared::check_condition;
 use shared::constants::{
     DAO_FEE_CONFIG_SEEDS, DAO_FEE_DENOMINATOR, FEE_DISTRIBUTION_SEEDS, FEE_RECIPIENTS_SEEDS,
@@ -28,7 +28,7 @@ pub struct DistributeFees<'info> {
     #[account(
             seeds = [DAO_FEE_CONFIG_SEEDS],
             bump,
-            seeds::program = DTF_PROGRAM_ID,
+            seeds::program = FOLIO_ADMIN_PROGRAM_ID,
         )]
     pub dao_fee_config: Account<'info, DAOFeeConfig>,
 

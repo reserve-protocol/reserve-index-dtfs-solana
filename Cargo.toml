@@ -1,9 +1,5 @@
 [workspace]
-members = [
-    "programs/folio",
-    "programs/dtfs",
-    "tests"
-]
+members = ["programs/folio", "programs/folio-admin", "tests"]
 resolver = "2"
 
 [profile.release]

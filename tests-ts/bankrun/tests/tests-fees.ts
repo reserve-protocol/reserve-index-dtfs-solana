@@ -18,7 +18,7 @@ import {
   FeeRecipient,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
-import { Dtfs } from "../../../target/types/dtfs";
+import { FolioAdmin } from "../../../target/types/folio_admin";
 import {
   DEFAULT_DECIMALS,
   MIN_DAO_MINTING_FEE,
@@ -60,7 +60,7 @@ describe("Bankrun - Fees", () => {
   let provider: BankrunProvider;
   let banksClient: BanksClient;
 
-  let programDtf: Program<Dtfs>;
+  let programFolioAdmin: Program<FolioAdmin>;
   let programFolio: Program<Folio>;
 
   let keys: any;
@@ -370,7 +370,7 @@ describe("Bankrun - Fees", () => {
   ) {
     await createAndSetDaoFeeConfig(
       context,
-      programDtf,
+      programFolioAdmin,
       feeReceiver.publicKey,
       MIN_DAO_MINTING_FEE
     );
@@ -430,7 +430,7 @@ describe("Bankrun - Fees", () => {
   }
 
   before(async () => {
-    ({ keys, programDtf, programFolio, provider, context } =
+    ({ keys, programFolioAdmin, programFolio, provider, context } =
       await getConnectors());
 
     banksClient = context.banksClient;

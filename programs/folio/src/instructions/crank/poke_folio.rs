@@ -1,13 +1,13 @@
 use crate::utils::structs::FolioStatus;
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::Mint;
-use dtfs::state::DAOFeeConfig;
+use folio_admin::state::DAOFeeConfig;
 use shared::check_condition;
 use shared::constants::{DAO_FEE_CONFIG_SEEDS, DAO_FEE_DENOMINATOR};
 use shared::errors::ErrorCode;
 
 use crate::state::Folio;
-use dtfs::ID as DTF_PROGRAM_ID;
+use folio_admin::ID as FOLIO_ADMIN_PROGRAM_ID;
 
 #[derive(Accounts)]
 pub struct PokeFolio<'info> {
@@ -19,7 +19,7 @@ pub struct PokeFolio<'info> {
     #[account(
         seeds = [DAO_FEE_CONFIG_SEEDS],
         bump,
-        seeds::program = DTF_PROGRAM_ID,
+        seeds::program = FOLIO_ADMIN_PROGRAM_ID,
     )]
     pub dao_fee_config: Account<'info, DAOFeeConfig>,
 

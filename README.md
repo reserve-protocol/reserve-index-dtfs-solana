@@ -28,7 +28,7 @@ In solana, the program id is the public key at which your program is deloyed.
 
 #### How to generate a new keypair
 ```bash
-solana-keygen new -o dtfs-keypair.json --no-bip39-passphrase # For DTF
+solana-keygen new -o folio_admin-keypair.json --no-bip39-passphrase # For Folio Admin
 solana-keygen new -o folio-keypair.json --no-bip39-passphrase # For Folio
 ```
 
@@ -37,7 +37,7 @@ solana-keygen new -o folio-keypair.json --no-bip39-passphrase # For Folio
 By default, Anchor will generate the keys for your program and store them under target/deploy/*-keypair.json. It will only generate them if they don't exist. To get the public key of the json file you can do 
 
 ```bash
-solana address -k target/deploy/dtfs-keypair.json
+solana address -k target/deploy/folio_admin-keypair.json
 
 solana address -k target/deploy/folio-keypair.json
 ```
@@ -49,8 +49,8 @@ solana address -k target/deploy/folio-keypair.json
 1. Copy program id and paste in the lib.rs files:
 
 ```rust
-// lib.rs for dtfs program
-declare_id!(DTF_PROGRAM_ID)
+// lib.rs for folio admin program
+declare_id!(FOLIO_ADMIN_PROGRAM_ID)
 
 // lib.rs for folio program
 declare_id!(FOLIO_PROGRAM_ID)
@@ -60,7 +60,7 @@ declare_id!(FOLIO_PROGRAM_ID)
 
 ```toml
 folio = FOLIO_PROGRAM_ID
-dtfs = DTF_PROGRAM_ID
+folio_admin = FOLIO_ADMIN_PROGRAM_ID
 
 cluster = Devnet / Localnet / Mainnet
 ```

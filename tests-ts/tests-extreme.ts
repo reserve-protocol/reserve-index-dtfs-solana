@@ -7,7 +7,7 @@ import {
   initFolio,
   mintFolioToken,
 } from "../utils/folio-helper";
-import { setDaoFeeConfig } from "../utils/dtf-helper";
+import { setDaoFeeConfig } from "../utils/folio-admin-helper";
 import { initToken, mintToken } from "../utils/token-helper";
 import {
   MAX_TRADE_DELAY,
@@ -17,7 +17,7 @@ import {
   DEFAULT_DECIMALS_MUL,
 } from "../utils/constants";
 
-describe("Extrme DTFs Tests", () => {
+describe("Extrme Folio Tests", () => {
   let connection: Connection;
   let keys: any;
 

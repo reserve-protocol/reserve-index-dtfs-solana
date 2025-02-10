@@ -50,7 +50,7 @@ impl Trade {
 
         check_condition!(start_price >= end_price, InvalidPrices);
 
-        check_condition!(ttl >= MAX_TTL, InvalidTtl);
+        check_condition!(ttl <= MAX_TTL, InvalidTtl);
 
         Ok(())
     }
@@ -98,7 +98,7 @@ impl Trade {
         let trade_status = self.try_get_status(current_time);
 
         check_condition!(
-            trade_status.is_some() && trade_status.unwrap() == TradeStatus::APPROVED,
+            trade_status == Some(TradeStatus::APPROVED),
             TradeCannotBeOpened
         );
 

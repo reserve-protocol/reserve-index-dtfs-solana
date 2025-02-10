@@ -112,7 +112,12 @@ pub fn handler<'info>(
     {
         let fee_distribution = &mut ctx.accounts.fee_distribution.load_mut()?;
         for index in indices {
-            let fee_recipient = next_account(&mut remaining_accounts_iter, false, true)?;
+            let fee_recipient = next_account(
+                &mut remaining_accounts_iter,
+                false,
+                true,
+                ctx.accounts.token_program.key,
+            )?;
 
             let related_fee_distribution =
                 &mut fee_distribution.fee_recipients_state[index as usize];

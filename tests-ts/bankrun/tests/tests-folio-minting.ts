@@ -498,6 +498,10 @@ describe("Bankrun - Folio minting", () => {
       amount: BN;
     }[]
   ) {
+    for (const token of tokens) {
+      initToken(context, adminKeypair.publicKey, token.mint, DEFAULT_DECIMALS);
+    }
+
     return buildRemainingAccounts(
       context,
       tokens,

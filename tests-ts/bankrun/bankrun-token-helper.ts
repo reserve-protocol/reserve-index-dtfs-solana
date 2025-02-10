@@ -15,7 +15,7 @@ import { BN } from "@coral-xyz/anchor";
 export function initToken(
   context: ProgramTestContext,
   mintAuthority: PublicKey,
-  mint: Keypair = Keypair.generate(),
+  mint: Keypair | PublicKey = Keypair.generate(),
   decimals: number = DEFAULT_DECIMALS,
   supply: BN = new BN(0)
 ) {
@@ -33,7 +33,7 @@ export function initToken(
     mintAccData
   );
 
-  context.setAccount(mint.publicKey, {
+  context.setAccount(mint instanceof Keypair ? mint.publicKey : mint, {
     lamports: 1_000_000_000,
     data: mintAccData,
     owner: TOKEN_PROGRAM_ID,

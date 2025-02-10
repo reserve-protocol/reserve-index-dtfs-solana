@@ -206,6 +206,9 @@ pub enum ErrorCode {
     #[msg("Invalid Folio Owner")]
     InvalidFolioOwner,
 
+    #[msg("Invalid Account Owner")]
+    InvalidAccountOwner,
+
     #[msg("No Rewards To Claim")]
     NoRewardsToClaim,
 

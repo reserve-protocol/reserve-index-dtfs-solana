@@ -39,8 +39,8 @@ import {
 } from "../../../utils/constants";
 import {
   assertExpectedBalancesChanges,
-  getAtaAddress,
   getMintAuthorities,
+  getOrCreateAtaAddress,
   getTokenBalancesFromMints,
   initToken,
   mintToken,
@@ -70,7 +70,7 @@ describe("Bankrun - Folio migration", () => {
 
   const DEFAULT_PARAMS: {
     tokens: PublicKey[];
-    remainingAccounts: () => AccountMeta[];
+    remainingAccounts: () => Promise<AccountMeta[]>;
 
     customFolioTokenMint: Keypair;
     newFolioProgram: PublicKey;
@@ -83,7 +83,7 @@ describe("Bankrun - Folio migration", () => {
     expectedTokenBalanceChanges: BN[];
   } = {
     tokens: [],
-    remainingAccounts: () => [],
+    remainingAccounts: async () => [],
 
     customFolioTokenMint: null,
     newFolioProgram: null,
@@ -143,7 +143,7 @@ describe("Bankrun - Folio migration", () => {
     {
       desc: "(invalid number of remaining accounts, errors out)",
       expectedError: "InvalidNumberOfRemainingAccounts",
-      remainingAccounts: () => [
+      remainingAccounts: async () => [
         {
           pubkey: Keypair.generate().publicKey,
           isWritable: true,
@@ -154,19 +154,27 @@ describe("Bankrun - Folio migration", () => {
     {
       desc: "(invalid sender token account, errors out)",
       expectedError: "InvalidSenderTokenAccount",
-      remainingAccounts: () => [
+      remainingAccounts: async () => [
         {
           pubkey: MINTS[0].publicKey,
           isWritable: false,
           isSigner: false,
         },
         {
-          pubkey: getAtaAddress(MINTS[0].publicKey, newFolioPDA),
+          pubkey: await getOrCreateAtaAddress(
+            context,
+            MINTS[0].publicKey,
+            newFolioPDA
+          ),
           isWritable: true,
           isSigner: false,
         },
         {
-          pubkey: getAtaAddress(MINTS[1].publicKey, newFolioPDA),
+          pubkey: await getOrCreateAtaAddress(
+            context,
+            MINTS[1].publicKey,
+            newFolioPDA
+          ),
           isWritable: true,
           isSigner: false,
         },
@@ -175,19 +183,27 @@ describe("Bankrun - Folio migration", () => {
     {
       desc: "(invalid receiver token account, errors out)",
       expectedError: "InvalidReceiverTokenAccount",
-      remainingAccounts: () => [
+      remainingAccounts: async () => [
         {
           pubkey: MINTS[0].publicKey,
           isWritable: false,
           isSigner: false,
         },
         {
-          pubkey: getAtaAddress(MINTS[0].publicKey, oldFolioPDA),
+          pubkey: await getOrCreateAtaAddress(
+            context,
+            MINTS[0].publicKey,
+            oldFolioPDA
+          ),
           isWritable: true,
           isSigner: false,
         },
         {
-          pubkey: getAtaAddress(MINTS[1].publicKey, oldFolioPDA),
+          pubkey: await getOrCreateAtaAddress(
+            context,
+            MINTS[1].publicKey,
+            oldFolioPDA
+          ),
           isWritable: true,
           isSigner: false,
         },

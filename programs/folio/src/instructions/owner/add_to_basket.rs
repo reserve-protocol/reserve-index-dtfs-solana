@@ -142,9 +142,16 @@ pub fn handler<'info>(
     );
 
     for amount in amounts {
-        let token_mint = next_account(&mut remaining_accounts_iter, false, false)?;
-        let sender_token_account = next_account(&mut remaining_accounts_iter, false, true)?;
-        let receiver_token_account = next_account(&mut remaining_accounts_iter, false, true)?;
+        let token_mint = next_account(
+            &mut remaining_accounts_iter,
+            false,
+            false,
+            &token_program_id,
+        )?;
+        let sender_token_account =
+            next_account(&mut remaining_accounts_iter, false, true, &token_program_id)?;
+        let receiver_token_account =
+            next_account(&mut remaining_accounts_iter, false, true, &token_program_id)?;
 
         // Validate the receiver token account is the ATA of the folio
         check_condition!(

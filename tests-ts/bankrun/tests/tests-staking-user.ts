@@ -18,9 +18,9 @@ import {
   UserRewardInfo,
   createAndSetRewardInfo,
   createAndSetUserRewardInfo,
-  buildRemainingAccountsForAccruesRewards,
   createGovernanceAccount,
   buildRemainingAccountsForClaimRewards,
+  buildRemainingAccountsForAccruesRewards,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
 import {
@@ -140,7 +140,7 @@ describe("Bankrun - Staking User", () => {
   const TEST_ACCRUE_REWARDS = [
     {
       desc: "(passes the wrong folio owner as account [not as signer, just not the right one], errors out)",
-      expectedError: "InvalidFolioOwner",
+      expectedError: "InvalidRole",
       customRole: Role.TradeLauncher,
     },
     {
@@ -361,7 +361,7 @@ describe("Bankrun - Staking User", () => {
   const TEST_CLAIM_REWARDS = [
     {
       desc: "(passes the wrong folio owner as account [not as signer, just not the right one], errors out)",
-      expectedError: "InvalidFolioOwner",
+      expectedError: "InvalidRole",
       customRole: Role.TradeLauncher,
     },
     {
@@ -700,20 +700,6 @@ describe("Bankrun - Staking User", () => {
         folioPDA,
         [REWARD_TOKEN_MINTS[0].publicKey],
         rewardedUser1.publicKey,
-
-        true,
-        []
-      );
-
-    const generalIxClaimRewards = () =>
-      claimRewards<true>(
-        context,
-        banksClient,
-        programFolio,
-        rewardedUser1,
-        folioOwnerKeypair.publicKey,
-        folioPDA,
-        [REWARD_TOKEN_MINTS[0].publicKey],
 
         true,
         []

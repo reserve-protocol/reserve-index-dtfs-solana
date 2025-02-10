@@ -52,13 +52,12 @@ pub struct ClaimRewards<'info> {
 
 impl ClaimRewards<'_> {
     pub fn validate(&self, folio: &Folio) -> Result<()> {
-        folio.validate_folio(&self.folio.key(), None, None, None)?;
-
-        // Validate that the folio owner is the correct one
-        check_condition!(
-            Role::has_role(self.actor.roles, Role::Owner),
-            InvalidFolioOwner
-        );
+        folio.validate_folio(
+            &self.folio.key(),
+            Some(&self.actor),
+            Some(Role::Owner),
+            None,
+        )?;
 
         // Validated via the other pdas
         // Validate that the folio owner is a realm
@@ -98,12 +97,29 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
     let mut remaining_accounts_iter = ctx.remaining_accounts.iter();
 
     for _ in 0..ctx.remaining_accounts.len() / REMAINING_ACCOUNTS_DIVIDER {
-        let reward_token = next_account(&mut remaining_accounts_iter, false, false)?;
-        let reward_info = next_account(&mut remaining_accounts_iter, false, true)?;
+        let reward_token = next_account(
+            &mut remaining_accounts_iter,
+            false,
+            false,
+            &token_program_id,
+        )?;
+        let reward_info = next_account(
+            &mut remaining_accounts_iter,
+            false,
+            true,
+            &FolioProgram::id(),
+        )?;
         // This is the folio reward tokens' token account, not the DAO's
-        let fee_recipient_token_account = next_account(&mut remaining_accounts_iter, false, true)?;
-        let user_reward_info = next_account(&mut remaining_accounts_iter, false, true)?;
-        let user_reward_token_account = next_account(&mut remaining_accounts_iter, false, true)?;
+        let fee_recipient_token_account =
+            next_account(&mut remaining_accounts_iter, false, true, &token_program_id)?;
+        let user_reward_info = next_account(
+            &mut remaining_accounts_iter,
+            false,
+            true,
+            &FolioProgram::id(),
+        )?;
+        let user_reward_token_account =
+            next_account(&mut remaining_accounts_iter, false, true, &token_program_id)?;
 
         // Check all the pdas
         check_condition!(

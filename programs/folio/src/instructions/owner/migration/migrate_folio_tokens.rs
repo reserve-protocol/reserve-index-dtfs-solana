@@ -110,6 +110,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
     let old_folio_key = ctx.accounts.old_folio.key();
     let new_folio_key = ctx.accounts.new_folio.key();
     let old_folio_basket = ctx.accounts.old_folio_basket.load()?;
+    let token_program_id = ctx.accounts.token_program.key();
 
     let old_folio_token_mint: Pubkey;
     let old_folio_bump: u8;
@@ -142,9 +143,16 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
     let mut remaining_accounts_iter = ctx.remaining_accounts.iter();
 
     for _ in 0..ctx.remaining_accounts.len() / REMAINING_ACCOUT_DIVIDER {
-        let token_mint = next_account(&mut remaining_accounts_iter, false, false)?;
-        let sender_token_account = next_account(&mut remaining_accounts_iter, false, true)?;
-        let receiver_token_account = next_account(&mut remaining_accounts_iter, false, true)?;
+        let token_mint = next_account(
+            &mut remaining_accounts_iter,
+            false,
+            false,
+            &token_program_id,
+        )?;
+        let sender_token_account =
+            next_account(&mut remaining_accounts_iter, false, true, &token_program_id)?;
+        let receiver_token_account =
+            next_account(&mut remaining_accounts_iter, false, true, &token_program_id)?;
 
         // Validate the sender token account is the ATA of the old folio
         check_condition!(
@@ -152,7 +160,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
                 == get_associated_token_address_with_program_id(
                     &old_folio_key,
                     token_mint.key,
-                    &ctx.accounts.token_program.key(),
+                    &token_program_id,
                 ),
             InvalidSenderTokenAccount
         );
@@ -163,7 +171,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
                 == get_associated_token_address_with_program_id(
                     &new_folio_key,
                     token_mint.key,
-                    &ctx.accounts.token_program.key(),
+                    &token_program_id,
                 ),
             InvalidReceiverTokenAccount
         );

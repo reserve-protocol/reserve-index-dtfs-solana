@@ -50,7 +50,7 @@ export async function assertNotValidRoleTestCase(
   folioPDA: PublicKey,
   executeTxn: () => Promise<BanksTransactionResultWithMeta>,
   // By default (the test case the most often is not owner, so we set something not owner)
-  role: Role = Role.TradeLauncher
+  role: Role = Role.AuctionLauncher
 ) {
   await createAndSetActor(context, programFolio, actorKeypair, folioPDA, role);
 

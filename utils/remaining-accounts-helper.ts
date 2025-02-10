@@ -13,7 +13,7 @@ export async function buildRemainingAccounts(
   payerKeypair: Keypair,
   tokens: { mint: PublicKey; amount: BN }[],
   senderAddress: PublicKey = null,
-  receiverAddress: PublicKey = null,
+  recipientAddress: PublicKey = null,
   includeMint: boolean = true
 ): Promise<AccountMeta[]> {
   const remainingAccounts: AccountMeta[] = [];
@@ -38,13 +38,13 @@ export async function buildRemainingAccounts(
         isWritable: true,
       });
     }
-    if (receiverAddress) {
+    if (recipientAddress) {
       remainingAccounts.push({
         pubkey: await getOrCreateAtaAddress(
           connection,
           token.mint,
           payerKeypair,
-          receiverAddress
+          recipientAddress
         ),
         isSigner: false,
         isWritable: true,

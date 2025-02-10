@@ -1,10 +1,11 @@
 use crate::utils::{
     math_util::U256Number,
-    structs::{FeeRecipient, Range, TokenAmount, TradeEnd},
+    structs::{AuctionEnd, BasketRange, FeeRecipient, TokenAmount},
+    Prices,
 };
 use anchor_lang::prelude::*;
 use shared::constants::{
-    MAX_CONCURRENT_TRADES, MAX_FEE_RECIPIENTS, MAX_FOLIO_TOKEN_AMOUNTS, MAX_REWARD_TOKENS,
+    MAX_CONCURRENT_AUCTIONS, MAX_FEE_RECIPIENTS, MAX_FOLIO_TOKEN_AMOUNTS, MAX_REWARD_TOKENS,
     MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
 };
 
@@ -45,22 +46,23 @@ pub struct Folio {
     /*
     Fee related properties
      */
-    pub folio_fee: u128,
-    pub minting_fee: u128,
+    pub tvl_fee: u128,
+    pub mint_fee: u128,
 
     pub last_poke: i64,
     pub dao_pending_fee_shares: u64,
     pub fee_recipients_pending_fee_shares: u64,
 
     /*
-    Trade related properties
+    Auction related properties
      */
-    pub trade_delay: u64,
+    pub auction_delay: u64,
     pub auction_length: u64,
 
-    pub current_trade_id: u64,
+    pub current_auction_id: u64,
 
-    pub trade_ends: [TradeEnd; MAX_CONCURRENT_TRADES],
+    pub sell_ends: [AuctionEnd; MAX_CONCURRENT_AUCTIONS],
+    pub buy_ends: [AuctionEnd; MAX_CONCURRENT_AUCTIONS],
 }
 
 impl Folio {
@@ -211,11 +213,11 @@ impl Default for UserPendingBasket {
     }
 }
 
-/// PDA Seeds ["trade", folio pubkey, trade id]
+/// PDA Seeds ["auction", folio pubkey, auction id]
 #[account(zero_copy)]
 #[derive(Default, InitSpace)]
 #[repr(C)]
-pub struct Trade {
+pub struct Auction {
     pub bump: u8,
     pub _padding: [u8; 7],
 
@@ -231,14 +233,13 @@ pub struct Trade {
     pub sell: Pubkey,
     pub buy: Pubkey,
 
-    pub sell_limit: Range,
-    pub buy_limit: Range,
-    pub start_price: u128,
-    pub end_price: u128,
+    pub sell_limit: BasketRange,
+    pub buy_limit: BasketRange,
+    pub prices: Prices,
 }
 
-impl Trade {
-    pub const SIZE: usize = 8 + Trade::INIT_SPACE;
+impl Auction {
+    pub const SIZE: usize = 8 + Auction::INIT_SPACE;
 }
 
 /// PDA Seeds ["folio_reward_tokens", folio]

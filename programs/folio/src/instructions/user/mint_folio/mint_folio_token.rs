@@ -9,7 +9,7 @@ use anchor_spl::{
 use folio_admin::state::DAOFeeConfig;
 use folio_admin::ID as FOLIO_ADMIN_PROGRAM_ID;
 use shared::constants::{
-    PendingBasketType, DAO_FEE_DENOMINATOR, FOLIO_BASKET_SEEDS, USER_PENDING_BASKET_SEEDS,
+    PendingBasketType, FEE_DENOMINATOR, FOLIO_BASKET_SEEDS, USER_PENDING_BASKET_SEEDS,
 };
 use shared::errors::ErrorCode;
 use shared::{
@@ -130,7 +130,7 @@ pub fn handler<'info>(
     let fee_shares = ctx.accounts.folio.load_mut()?.calculate_fees_for_minting(
         shares,
         ctx.accounts.dao_fee_config.fee_recipient_numerator,
-        DAO_FEE_DENOMINATOR,
+        FEE_DENOMINATOR,
     )?;
 
     let folio_token_amount_to_mint = shares

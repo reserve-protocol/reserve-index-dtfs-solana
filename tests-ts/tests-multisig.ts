@@ -150,11 +150,11 @@ describe("Multisig Tests", () => {
     );
     const adminBalanceMint1 = await getTokenBalance(
       connection,
-      transferMint1.receiverAta
+      transferMint1.recipientAta
     );
     const adminBalanceMint2 = await getTokenBalance(
       connection,
-      transferMint2.receiverAta
+      transferMint2.recipientAta
     );
 
     assert.equal(adminBalanceMint1, 10);

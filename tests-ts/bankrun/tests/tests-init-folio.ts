@@ -18,9 +18,11 @@ import { getActorPDA, getFolioPDA } from "../../../utils/pda-helper";
 import { initFolio } from "../bankrun-ix-helper";
 import * as assert from "assert";
 import {
-  MAX_FOLIO_FEE,
-  MAX_TRADE_DELAY,
-  MIN_DAO_MINTING_FEE,
+  MAX_TVL_FEE,
+  MAX_AUCTION_DELAY,
+  MIN_DAO_MINT_FEE,
+  MAX_MINT_FEE,
+  MIN_AUCTION_LENGTH,
 } from "../../../utils/constants";
 import { MAX_AUCTION_LENGTH } from "../../../utils/constants";
 
@@ -40,17 +42,17 @@ describe("Bankrun - Init folio", () => {
   let folioOwnerKeypair: Keypair;
 
   const DEFAULT_PARAMS: {
-    folioFee: BN;
-    mintingFee: BN;
-    tradeDelay: BN;
+    tvlFee: BN;
+    mintFee: BN;
+    auctionDelay: BN;
     auctionLength: BN;
     name: string;
     symbol: string;
     uri: string;
   } = {
-    folioFee: new BN("500000000000000000"),
-    mintingFee: new BN("500000000000000"),
-    tradeDelay: MAX_TRADE_DELAY,
+    tvlFee: MAX_TVL_FEE,
+    mintFee: MAX_MINT_FEE,
+    auctionDelay: MAX_AUCTION_DELAY,
     auctionLength: MAX_AUCTION_LENGTH,
     name: "Test Folio",
     symbol: "TFOL",
@@ -60,32 +62,32 @@ describe("Bankrun - Init folio", () => {
   const TEST_CASES = [
     {
       desc: "(folio fee too high)",
-      folioFee: new BN("500000000000000000").add(new BN(1)),
+      tvlFee: MAX_TVL_FEE.add(new BN(1)),
       expectedError: "InvalidFeePerSecond",
     },
     {
       desc: "(minting fee too low)",
-      mintingFee: new BN("499999999999999"),
-      expectedError: "InvalidMintingFee",
+      mintFee: MIN_DAO_MINT_FEE.sub(new BN(1)),
+      expectedError: "InvalidMintFee",
     },
     {
       desc: "(test minting fee too high)",
-      mintingFee: new BN("10000000000000000000"),
-      expectedError: "InvalidMintingFee",
+      mintFee: MAX_MINT_FEE.add(new BN(1)),
+      expectedError: "InvalidMintFee",
     },
     {
-      desc: "(trade delay too high)",
-      tradeDelay: new BN(604800 + 1),
-      expectedError: "InvalidTradeDelay",
+      desc: "(auction delay too high)",
+      auctionDelay: MAX_AUCTION_DELAY.add(new BN(1)),
+      expectedError: "InvalidAuctionDelay",
     },
     {
       desc: "(auction length too low)",
-      auctionLength: new BN(59),
+      auctionLength: MIN_AUCTION_LENGTH.sub(new BN(1)),
       expectedError: "InvalidAuctionLength",
     },
     {
       desc: "(auction length too high)",
-      auctionLength: new BN(604800 + 1),
+      auctionLength: MAX_AUCTION_LENGTH.add(new BN(1)),
       expectedError: "InvalidAuctionLength",
     },
     {
@@ -142,10 +144,10 @@ describe("Bankrun - Init folio", () => {
           const folio = await programFolio.account.folio.fetch(folioPDA);
 
           assert.notEqual(folio.bump, 0);
-          assert.equal(folio.folioFee.eq(MAX_FOLIO_FEE), true);
-          assert.equal(folio.mintingFee.eq(MIN_DAO_MINTING_FEE), true);
+          assert.equal(folio.tvlFee.eq(MAX_TVL_FEE), true);
+          assert.equal(folio.mintFee.eq(MAX_MINT_FEE), true);
           assert.deepEqual(folio.folioTokenMint, folioTokenMint.publicKey);
-          assert.equal(folio.tradeDelay.eq(MAX_TRADE_DELAY), true);
+          assert.equal(folio.auctionDelay.eq(MAX_AUCTION_DELAY), true);
           assert.equal(folio.auctionLength.eq(MAX_AUCTION_LENGTH), true);
 
           const ownerActorPDA = getActorPDA(

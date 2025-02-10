@@ -42,7 +42,7 @@ pub struct RedeemFromPendingBasket<'info> {
     Remaining accounts will have as many as possible of the following (always in the same order):
         - Token Mint (read)
         - Sender Token Account (needs to be owned by folio) (mut)
-        - Receiver Token Account (needs to be owned by user) (this is expected to be the ATA and already exist, to save on compute) (mut)
+        - Recipient Token Account (needs to be owned by user) (this is expected to be the ATA and already exist, to save on compute) (mut)
      */
 }
 
@@ -98,18 +98,18 @@ pub fn handler<'info>(
         )?;
         let sender_token_account =
             next_account(&mut remaining_accounts_iter, false, true, &token_program_id)?;
-        let receiver_token_account =
+        let recipient_token_account =
             next_account(&mut remaining_accounts_iter, false, true, &token_program_id)?;
 
-        // Validate the receiver token account is the ATA of the user
+        // Validate the recipient token account is the ATA of the user
         check_condition!(
-            receiver_token_account.key()
+            recipient_token_account.key()
                 == get_associated_token_address_with_program_id(
                     &user.key(),
                     token_mint.key,
                     &token_program_id,
                 ),
-            InvalidReceiverTokenAccount
+            InvalidRecipientTokenAccount
         );
 
         // Get decimals from token mint
@@ -118,7 +118,7 @@ pub fn handler<'info>(
 
         let cpi_accounts = TransferChecked {
             from: sender_token_account.to_account_info(),
-            to: receiver_token_account.to_account_info(),
+            to: recipient_token_account.to_account_info(),
             authority: folio.clone(),
             mint: token_mint.to_account_info(),
         };

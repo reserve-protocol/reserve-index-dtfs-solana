@@ -18,13 +18,13 @@ import {
   getDAOFeeConfigPDA,
   getFeeDistributionPDA,
   getFolioBasketPDA,
-  getFolioFeeRecipientsPDA,
+  getTVLFeeRecipientsPDA,
   getFolioPDA,
   getFolioRewardTokensPDA,
   getMetadataPDA,
   getProgramRegistrarPDA,
   getRewardInfoPDA,
-  getTradePDA,
+  getAuctionPDA,
   getUserPendingBasketPDA,
 } from "./pda-helper";
 import {
@@ -89,9 +89,9 @@ export async function initFolio(
   connection: Connection,
   folioOwner: Keypair,
   folioTokenMint: Keypair,
-  folioFee: BN,
-  mintingFee: BN,
-  tradeDelay: BN,
+  tvlFee: BN,
+  mintFee: BN,
+  auctionDelay: BN,
   auctionLength: BN,
   name: string,
   symbol: string,
@@ -105,15 +105,7 @@ export async function initFolio(
   const folioPDA = getFolioPDA(folioTokenMint.publicKey, useSecondFolioProgram);
 
   const initFolio = await folioProgram.methods
-    .initFolio(
-      folioFee,
-      mintingFee,
-      tradeDelay,
-      auctionLength,
-      name,
-      symbol,
-      uri
-    )
+    .initFolio(tvlFee, mintFee, auctionDelay, auctionLength, name, symbol, uri)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
@@ -163,20 +155,20 @@ export async function updateFolio(
   connection: Connection,
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
-  folioFee: BN | null,
-  mintingFee: BN | null,
-  tradeDelay: BN | null,
+  tvlFee: BN | null,
+  mintFee: BN | null,
+  auctionDelay: BN | null,
   auctionLength: BN | null,
-  feeRecipientsToAdd: { receiver: PublicKey; portion: BN }[],
+  feeRecipientsToAdd: { recipient: PublicKey; portion: BN }[],
   feeRecipientsToRemove: PublicKey[]
 ) {
   const folioProgram = getFolioProgram(connection, folioOwnerKeypair);
 
   const updateFolio = await folioProgram.methods
     .updateFolio(
-      folioFee,
-      mintingFee,
-      tradeDelay,
+      tvlFee,
+      mintFee,
+      auctionDelay,
       auctionLength,
       feeRecipientsToAdd,
       feeRecipientsToRemove
@@ -187,7 +179,7 @@ export async function updateFolio(
       folioOwner: folioOwnerKeypair.publicKey,
       actor: getActorPDA(folioOwnerKeypair.publicKey, folio),
       folio: folio,
-      feeRecipients: getFolioFeeRecipientsPDA(folio),
+      feeRecipients: getTVLFeeRecipientsPDA(folio),
     })
     .instruction();
 
@@ -604,7 +596,7 @@ export async function distributeFees(
 
       folio: folio,
       folioTokenMint,
-      feeRecipients: getFolioFeeRecipientsPDA(folio),
+      feeRecipients: getTVLFeeRecipientsPDA(folio),
       feeDistribution: getFeeDistributionPDA(folio, index),
       daoFeeRecipient,
     })
@@ -655,66 +647,66 @@ export async function crankFeeDistribution(
   });
 }
 
-export async function approveTrade(
+export async function approveAuction(
   connection: Connection,
-  tradeProposerKeypair: Keypair,
+  auctionApproverKeypair: Keypair,
   folio: PublicKey,
   buyMint: PublicKey,
   sellMint: PublicKey,
-  tradeId: BN,
+  auctionId: BN,
   sellLimit: { spot: BN; low: BN; high: BN },
   buyLimit: { spot: BN; low: BN; high: BN },
   startPrice: BN,
   endPrice: BN,
   ttl: BN
 ) {
-  const folioProgram = getFolioProgram(connection, tradeProposerKeypair);
+  const folioProgram = getFolioProgram(connection, auctionApproverKeypair);
 
-  const approveTrade = await folioProgram.methods
-    .approveTrade(tradeId, sellLimit, buyLimit, startPrice, endPrice, ttl)
+  const approveAuction = await folioProgram.methods
+    .approveAuction(auctionId, sellLimit, buyLimit, startPrice, endPrice, ttl)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
-      tradeProposer: tradeProposerKeypair.publicKey,
-      actor: getActorPDA(tradeProposerKeypair.publicKey, folio),
+      auctionApprover: auctionApproverKeypair.publicKey,
+      actor: getActorPDA(auctionApproverKeypair.publicKey, folio),
       folio,
-      trade: getTradePDA(folio, tradeId),
+      auction: getAuctionPDA(folio, auctionId),
       buyMint: buyMint,
       sellMint: sellMint,
     })
     .instruction();
 
-  await pSendAndConfirmTxn(folioProgram, [approveTrade], [], {
+  await pSendAndConfirmTxn(folioProgram, [approveAuction], [], {
     skipPreflight: SKIP_PREFLIGHT,
   });
 }
 
-export async function openTrade(
+export async function openAuction(
   connection: Connection,
-  tradeLauncherKeypair: Keypair,
+  auctionLauncherKeypair: Keypair,
   folio: PublicKey,
-  trade: PublicKey,
+  auction: PublicKey,
   sellLimit: BN,
   buyLimit: BN,
   startPrice: BN,
   endPrice: BN
 ) {
-  const folioProgram = getFolioProgram(connection, tradeLauncherKeypair);
+  const folioProgram = getFolioProgram(connection, auctionLauncherKeypair);
 
-  const openTrade = await folioProgram.methods
-    .openTrade(sellLimit, buyLimit, startPrice, endPrice)
+  const openAuction = await folioProgram.methods
+    .openAuction(sellLimit, buyLimit, startPrice, endPrice)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
-      tradeLauncher: tradeLauncherKeypair.publicKey,
-      actor: getActorPDA(tradeLauncherKeypair.publicKey, folio),
+      auctionLauncher: auctionLauncherKeypair.publicKey,
+      actor: getActorPDA(auctionLauncherKeypair.publicKey, folio),
       folio,
-      trade,
+      auction,
     })
     .instruction();
 
   await pSendAndConfirmTxn(
     folioProgram,
-    [...getComputeLimitInstruction(400_000), openTrade],
+    [...getComputeLimitInstruction(400_000), openAuction],
     [],
     {
       skipPreflight: SKIP_PREFLIGHT,
@@ -722,49 +714,49 @@ export async function openTrade(
   );
 }
 
-export async function openTradePermissionless(
+export async function openAuctionPermissionless(
   connection: Connection,
   userKeypair: Keypair,
   folio: PublicKey,
-  trade: PublicKey
+  auction: PublicKey
 ) {
   const folioProgram = getFolioProgram(connection, userKeypair);
 
-  const openTradePermissionless = await folioProgram.methods
-    .openTradePermissionless()
+  const openAuctionPermissionless = await folioProgram.methods
+    .openAuctionPermissionless()
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       user: userKeypair.publicKey,
       folio,
-      trade,
+      auction,
     })
     .instruction();
 
-  await pSendAndConfirmTxn(folioProgram, [openTradePermissionless], [], {
+  await pSendAndConfirmTxn(folioProgram, [openAuctionPermissionless], [], {
     skipPreflight: SKIP_PREFLIGHT,
   });
 }
 
-export async function killTrade(
+export async function killAuction(
   connection: Connection,
-  tradeActorKeypair: Keypair,
+  auctionActorKeypair: Keypair,
   folio: PublicKey,
-  trade: PublicKey
+  auction: PublicKey
 ) {
-  const folioProgram = getFolioProgram(connection, tradeActorKeypair);
+  const folioProgram = getFolioProgram(connection, auctionActorKeypair);
 
-  const killTrade = await folioProgram.methods
-    .killTrade()
+  const closeAuction = await folioProgram.methods
+    .closeAuction()
     .accountsPartial({
       systemProgram: SystemProgram.programId,
-      tradeActor: tradeActorKeypair.publicKey,
-      actor: getActorPDA(tradeActorKeypair.publicKey, folio),
+      auctionActor: auctionActorKeypair.publicKey,
+      actor: getActorPDA(auctionActorKeypair.publicKey, folio),
       folio,
-      trade,
+      auction,
     })
     .instruction();
 
-  await pSendAndConfirmTxn(folioProgram, [killTrade], [], {
+  await pSendAndConfirmTxn(folioProgram, [closeAuction], [], {
     skipPreflight: SKIP_PREFLIGHT,
   });
 }
@@ -774,7 +766,7 @@ export async function bid(
   bidderKeypair: Keypair,
   folio: PublicKey,
   folioTokenMint: PublicKey,
-  trade: PublicKey,
+  auction: PublicKey,
   sellAmount: BN,
   maxBuyAmount: BN,
   withCallback: boolean = false,
@@ -787,7 +779,7 @@ export async function bid(
 ) {
   const folioProgram = getFolioProgram(connection, bidderKeypair);
 
-  const tradeFetched = await folioProgram.account.trade.fetch(trade);
+  const auctionFetched = await folioProgram.account.auction.fetch(auction);
 
   const bid = await folioProgram.methods
     .bid(sellAmount, maxBuyAmount, withCallback, callbackData)
@@ -798,31 +790,31 @@ export async function bid(
       bidder: bidderKeypair.publicKey,
       folio,
       folioBasket: getFolioBasketPDA(folio),
-      trade,
+      auction,
       folioTokenMint,
-      tradeSellTokenMint: tradeFetched.sell,
-      tradeBuyTokenMint: tradeFetched.buy,
+      auctionSellTokenMint: auctionFetched.sell,
+      auctionBuyTokenMint: auctionFetched.buy,
       folioSellTokenAccount: await getOrCreateAtaAddress(
         connection,
-        tradeFetched.sell,
+        auctionFetched.sell,
         bidderKeypair,
         folio
       ),
       folioBuyTokenAccount: await getOrCreateAtaAddress(
         connection,
-        tradeFetched.buy,
+        auctionFetched.buy,
         bidderKeypair,
         folio
       ),
       bidderSellTokenAccount: await getOrCreateAtaAddress(
         connection,
-        tradeFetched.sell,
+        auctionFetched.sell,
         bidderKeypair,
         bidderKeypair.publicKey
       ),
       bidderBuyTokenAccount: await getOrCreateAtaAddress(
         connection,
-        tradeFetched.buy,
+        auctionFetched.buy,
         bidderKeypair,
         bidderKeypair.publicKey
       ),
@@ -931,6 +923,7 @@ export async function accrueRewards(
     .accrueRewards()
     .accountsPartial({
       systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
       caller: callerKeypair.publicKey,
       folioOwner,
       actor: getActorPDA(folioOwner, folio),

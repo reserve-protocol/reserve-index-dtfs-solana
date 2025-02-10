@@ -26,7 +26,7 @@ import { Folio } from "../../../target/types/folio";
 import {
   DEFAULT_DECIMALS,
   DEFAULT_DECIMALS_MUL,
-  MIN_DAO_MINTING_FEE,
+  MIN_DAO_MINT_FEE,
 } from "../../../utils/constants";
 import {
   assertExpectedBalancesChanges,
@@ -141,7 +141,7 @@ describe("Bankrun - Staking User", () => {
     {
       desc: "(passes the wrong folio owner as account [not as signer, just not the right one], errors out)",
       expectedError: "InvalidRole",
-      customRole: Role.TradeLauncher,
+      customRole: Role.AuctionLauncher,
     },
     {
       desc: "(passes wrong number of remaining accounts, errors out)",
@@ -362,7 +362,7 @@ describe("Bankrun - Staking User", () => {
     {
       desc: "(passes the wrong folio owner as account [not as signer, just not the right one], errors out)",
       expectedError: "InvalidRole",
-      customRole: Role.TradeLauncher,
+      customRole: Role.AuctionLauncher,
     },
     {
       desc: "(passes wrong number of remaining accounts, errors out)",
@@ -563,7 +563,7 @@ describe("Bankrun - Staking User", () => {
       context,
       programFolioAdmin,
       new Keypair().publicKey,
-      MIN_DAO_MINTING_FEE
+      MIN_DAO_MINT_FEE
     );
 
     const folioTokenMintToUse = customFolioTokenMint || folioTokenMint;

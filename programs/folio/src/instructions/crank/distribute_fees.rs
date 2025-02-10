@@ -7,7 +7,7 @@ use folio_admin::state::DAOFeeConfig;
 use folio_admin::ID as FOLIO_ADMIN_PROGRAM_ID;
 use shared::check_condition;
 use shared::constants::{
-    DAO_FEE_CONFIG_SEEDS, DAO_FEE_DENOMINATOR, FEE_DISTRIBUTION_SEEDS, FEE_RECIPIENTS_SEEDS,
+    DAO_FEE_CONFIG_SEEDS, FEE_DENOMINATOR, FEE_DISTRIBUTION_SEEDS, FEE_RECIPIENTS_SEEDS,
     FOLIO_SEEDS,
 };
 use shared::errors::ErrorCode;
@@ -118,7 +118,7 @@ pub fn handler<'info>(
             ctx.accounts.folio_token_mint.supply,
             current_time,
             dao_fee_config.fee_recipient_numerator,
-            DAO_FEE_DENOMINATOR,
+            FEE_DENOMINATOR, // TODO
         )?;
     }
 

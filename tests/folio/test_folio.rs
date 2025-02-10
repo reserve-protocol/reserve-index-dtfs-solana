@@ -2,13 +2,13 @@
 mod tests {
     use anchor_lang::prelude::*;
     use folio::state::Folio;
-    use folio::utils::structs::TradeEnd;
-    use shared::constants::{DAO_FEE_DENOMINATOR, MAX_FOLIO_FEE, MAX_MINTING_FEE};
+    use folio::utils::structs::AuctionEnd;
+    use shared::constants::{FEE_DENOMINATOR, MAX_MINT_FEE, MAX_TVL_FEE};
 
     fn setup_folio() -> Folio {
         let mut folio = Folio::default();
-        folio.minting_fee = MAX_MINTING_FEE;
-        folio.folio_fee = MAX_FOLIO_FEE;
+        folio.mint_fee = MAX_MINT_FEE;
+        folio.tvl_fee = MAX_TVL_FEE;
         folio.last_poke = 1000;
         folio
     }
@@ -18,20 +18,20 @@ mod tests {
         let mut folio = setup_folio();
         let user_shares = 1_000_000_000_000; // 1000 shares
         let dao_fee_numerator = 500_000_000_000_000_000;
-        let dao_fee_denominator = DAO_FEE_DENOMINATOR;
+        let dao_fee_denominator = FEE_DENOMINATOR;
 
         let total_fee_shares = folio
             .calculate_fees_for_minting(user_shares, dao_fee_numerator, dao_fee_denominator)
             .unwrap();
 
-        // Minting fee is 0.1 = 10%
-        // Total fee = 1000 * 0.1 = 100 shares
+        // Minting fee is 0.05 = 5%
+        // Total fee = 1000 * 0.05 = 50 shares
         // Dao num/denom = 500_000_000_000_000_000/1_000_000_000_000_000_000 = 0.0005
-        // DAO fee ~= 100 * 0.5 ~= 50 shares
-        // Fee recipients ~= 50 shares
-        assert_eq!(total_fee_shares, 100_000_000_000);
-        assert_eq!(folio.dao_pending_fee_shares, 50_000_000_001);
-        assert_eq!(folio.fee_recipients_pending_fee_shares, 49_999_999_999);
+        // DAO fee ~= 1000 * 0.0005 ~= 25 shares
+        // Fee recipients ~= 25 shares
+        assert_eq!(total_fee_shares, 50_000_000_000);
+        assert_eq!(folio.dao_pending_fee_shares, 25_000_000_001);
+        assert_eq!(folio.fee_recipients_pending_fee_shares, 24_999_999_999);
     }
 
     #[test]
@@ -40,19 +40,19 @@ mod tests {
 
         let user_shares = 1_000_000_000;
         let dao_fee_numerator = 200;
-        let dao_fee_denominator = DAO_FEE_DENOMINATOR;
+        let dao_fee_denominator = FEE_DENOMINATOR;
 
         let total_fee_shares = folio
             .calculate_fees_for_minting(user_shares, dao_fee_numerator, dao_fee_denominator)
             .unwrap();
 
-        // Minting fee is 0.1 = 10%
-        // Total fee = 1 * 0.1 = 0.1 shares
+        // Minting fee is 0.05 = 5%
+        // Total fee = 1 * 0.05 = 0.05 shares
         // Dao num/denom = 0.0000002
-        // DAO fee = 0.1 * 0.0000002 = 0.0000002 shares, but min is 0.0005 * 1 = 0.0005 shares
-        // Fee recipients = 0.08 shares
+        // DAO fee = 0.05 * 0.0000002 = 0.0000001 shares, but min is 0.0005 * 1 = 0.0005 shares
+        // Fee recipients = 0.04999995 shares
         assert_eq!(folio.dao_pending_fee_shares, 500_000);
-        assert_eq!(total_fee_shares, 100_000_000);
+        assert_eq!(total_fee_shares, 50_000_000);
     }
 
     #[test]
@@ -60,7 +60,7 @@ mod tests {
         let mut folio = setup_folio();
         let initial_supply = 100_000_000_000; // 100 token supply
         let dao_fee_numerator = 1_000_000_000_000_000;
-        let dao_fee_denominator = DAO_FEE_DENOMINATOR;
+        let dao_fee_denominator = FEE_DENOMINATOR;
 
         folio
             .poke(initial_supply, 2000, dao_fee_numerator, dao_fee_denominator)
@@ -78,7 +78,7 @@ mod tests {
         let mut folio = setup_folio();
         let initial_supply = 1_000_000_000;
         let dao_fee_numerator = 500_000_000;
-        let dao_fee_denominator = DAO_FEE_DENOMINATOR;
+        let dao_fee_denominator = FEE_DENOMINATOR;
 
         folio
             .poke(initial_supply, 1000, dao_fee_numerator, dao_fee_denominator)
@@ -107,12 +107,12 @@ mod tests {
     fn test_get_pending_fee_shares() {
         let mut folio = setup_folio();
         folio.last_poke = 1000;
-        folio.folio_fee = MAX_FOLIO_FEE; // 50% annually
+        folio.tvl_fee = MAX_TVL_FEE; // 10% annually
 
         let initial_supply = 1_000_000_000_000u64; // 1000 tokens
         let current_time = 2000; // 1000 seconds elapsed
         let dao_fee_numerator = 400_000_000_000_000_000;
-        let dao_fee_denominator = DAO_FEE_DENOMINATOR;
+        let dao_fee_denominator = FEE_DENOMINATOR;
 
         let (fee_recipients_shares, dao_shares) = folio
             .get_pending_fee_shares(
@@ -134,48 +134,48 @@ mod tests {
     }
 
     #[test]
-    fn test_get_trade_end_for_mint() {
+    fn test_get_auction_end_for_mint() {
         let mut folio = setup_folio();
         let mint_a = Pubkey::new_unique();
         let mint_b = Pubkey::new_unique();
         let mint_c = Pubkey::new_unique();
 
-        folio.trade_ends[0] = TradeEnd {
+        folio.sell_ends[0] = AuctionEnd {
             mint: mint_a,
             end_time: 100,
         };
-        folio.trade_ends[4] = TradeEnd {
+        folio.sell_ends[4] = AuctionEnd {
             mint: mint_b,
             end_time: 200,
         };
 
-        let (sell_trade, buy_trade) = folio.get_trade_end_for_mint(&mint_a, &mint_b).unwrap();
-        assert_eq!(sell_trade.unwrap().end_time, 100);
-        assert_eq!(buy_trade.unwrap().end_time, 200);
+        let (sell_auction, buy_auction) = folio.get_auction_end_for_mint(&mint_a, &mint_b).unwrap();
+        assert_eq!(sell_auction.unwrap().end_time, 100);
+        assert_eq!(buy_auction.unwrap().end_time, 200);
 
-        let (sell_trade, buy_trade) = folio.get_trade_end_for_mint(&mint_c, &mint_b).unwrap();
-        assert!(sell_trade.is_none());
-        assert_eq!(buy_trade.unwrap().end_time, 200);
+        let (sell_auction, buy_auction) = folio.get_auction_end_for_mint(&mint_c, &mint_b).unwrap();
+        assert!(sell_auction.is_none());
+        assert_eq!(buy_auction.unwrap().end_time, 200);
     }
 
     #[test]
-    fn test_set_trade_end_for_mints() {
+    fn test_set_auction_end_for_mints() {
         let mut folio = setup_folio();
         let mint_a = Pubkey::new_unique();
         let mint_b = Pubkey::new_unique();
 
-        folio.trade_ends[0] = TradeEnd {
+        folio.sell_ends[0] = AuctionEnd {
             mint: mint_a,
             end_time: 100,
         };
-        folio.trade_ends[4] = TradeEnd {
+        folio.sell_ends[4] = AuctionEnd {
             mint: mint_b,
             end_time: 200,
         };
 
-        folio.set_trade_end_for_mints(&mint_a, &mint_b, 300);
+        folio.set_auction_end_for_mints(&mint_a, &mint_b, 300);
 
-        assert_eq!(folio.trade_ends[0].end_time, 300);
-        assert_eq!(folio.trade_ends[4].end_time, 300);
+        assert_eq!(folio.sell_ends[0].end_time, 300);
+        assert_eq!(folio.sell_ends[4].end_time, 300);
     }
 }

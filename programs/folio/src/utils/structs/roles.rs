@@ -3,9 +3,9 @@ use anchor_lang::prelude::*;
 #[derive(AnchorSerialize, AnchorDeserialize, Debug)]
 pub enum Role {
     Owner = 0b0000_0001,
-    TradeProposer = 0b0000_0010,
-    TradeLauncher = 0b0000_0100,
-    VibeOfficer = 0b0000_1000,
+    AuctionApprover = 0b0000_0010,
+    AuctionLauncher = 0b0000_0100,
+    BrandManager = 0b0000_1000,
 }
 
 impl Role {

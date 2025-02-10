@@ -45,7 +45,7 @@ describe("Bankrun - Resize folio", () => {
 
   let folioPDA: PublicKey;
 
-  const BASE_FOLIO_SIZE = 808;
+  const BASE_FOLIO_SIZE = 1416;
 
   const DEFAULT_PARAMS: {
     size: number;

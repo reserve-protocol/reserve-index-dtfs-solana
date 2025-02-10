@@ -16,14 +16,14 @@ import {
 import {
   getFolioBasketPDA,
   getFolioPDA,
-  getTradePDA,
+  getAuctionPDA,
 } from "../../../utils/pda-helper";
 import {
-  approveTrade,
+  approveAuction,
   bid,
-  killTrade,
-  openTrade,
-  openTradePermissionless,
+  killAuction,
+  openAuction,
+  openAuctionPermissionless,
 } from "../bankrun-ix-helper";
 import {
   createAndSetFolio,
@@ -33,10 +33,10 @@ import {
   createAndSetProgramRegistrar,
   createAndSetFolioBasket,
   TokenAmount,
-  Trade,
-  createAndSetTrade,
+  Auction,
+  createAndSetAuction,
   closeAccount,
-  TradeEnd,
+  AuctionEnd,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
 import {
@@ -69,8 +69,8 @@ describe("Bankrun - Folio migration", () => {
   let adminKeypair: Keypair;
 
   let folioOwnerKeypair: Keypair;
-  let tradeProposerKeypair: Keypair;
-  let tradeLauncherKeypair: Keypair;
+  let auctionApproverKeypair: Keypair;
+  let auctionLauncherKeypair: Keypair;
   let bidderKeypair: Keypair;
 
   let folioTokenMint: Keypair;
@@ -83,10 +83,10 @@ describe("Bankrun - Folio migration", () => {
   const DEFAULT_BUY_MINT = BUY_MINTS[0];
   const DEFAULT_SELL_MINT = MINTS_IN_FOLIO[0];
 
-  const VALID_TRADE_ID = new BN(1);
+  const VALID_AUCTION_ID = new BN(1);
 
-  const VALID_TRADE = new Trade(
-    VALID_TRADE_ID,
+  const VALID_AUCTION = new Auction(
+    VALID_AUCTION_ID,
     new BN(1),
     new BN(1),
     new BN(1),
@@ -111,9 +111,9 @@ describe("Bankrun - Folio migration", () => {
     buyMints: PublicKey[];
     sellMints: PublicKey[];
 
-    tradeToUse: Trade;
+    auctionToUse: Auction;
 
-    tradeId: BN;
+    auctionId: BN;
     buyMint: Keypair;
     sellMint: Keypair;
     sellAmount: BN;
@@ -144,9 +144,9 @@ describe("Bankrun - Folio migration", () => {
     buyMints: BUY_MINTS.map((mint) => mint.publicKey),
     sellMints: MINTS_IN_FOLIO.map((mint) => mint.publicKey),
 
-    tradeToUse: VALID_TRADE,
+    auctionToUse: VALID_AUCTION,
 
-    tradeId: VALID_TRADE_ID,
+    auctionId: VALID_AUCTION_ID,
     buyMint: DEFAULT_BUY_MINT,
     sellMint: DEFAULT_SELL_MINT,
     sellAmount: new BN(1),
@@ -166,11 +166,11 @@ describe("Bankrun - Folio migration", () => {
   };
 
   // Lots of the tests will be done via unit testing for validating the prices, limits, etc.
-  const TEST_CASE_APPROVE_TRADE = [
+  const TEST_CASE_APPROVE_AUCTION = [
     {
-      desc: "(invalid trade id (not current +1), errors out)",
-      expectedError: "InvalidTradeId",
-      tradeId: new BN(0),
+      desc: "(invalid auction id (not current +1), errors out)",
+      expectedError: "InvalidAuctionId",
+      auctionId: new BN(0),
     },
     {
       desc: "(buy mint is the same as sell mint, errors out)",
@@ -184,7 +184,7 @@ describe("Bankrun - Folio migration", () => {
     },
   ];
 
-  const TEST_CASE_KILL_TRADE = [
+  const TEST_CASE_KILL_AUCTION = [
     {
       desc: "(is valid)",
       expectedError: null,
@@ -192,21 +192,21 @@ describe("Bankrun - Folio migration", () => {
   ];
 
   // Lots of the tests will be done via unit testing for validating the prices, limits, etc.
-  const TEST_CASE_OPEN_TRADE = [
+  const TEST_CASE_OPEN_AUCTION = [
     {
       desc: "(is valid)",
       expectedError: null,
     },
   ];
 
-  const TEST_CASE_OPEN_TRADE_PERMISSIONLESS = [
+  const TEST_CASE_OPEN_AUCTION_PERMISSIONLESS = [
     {
       desc: "(current time < available at, errors out)",
-      expectedError: "TradeCannotBeOpenedPermissionlesslyYet",
+      expectedError: "AuctionCannotBeOpenedPermissionlesslyYet",
       availableAt: new BN(10),
     },
     // Same as open appart from the available at check
-    ...TEST_CASE_OPEN_TRADE,
+    ...TEST_CASE_OPEN_AUCTION,
   ];
 
   const TEST_CASE_BID = [
@@ -216,13 +216,13 @@ describe("Bankrun - Folio migration", () => {
       customFolioTokenMint: Keypair.generate(),
     },
     {
-      desc: "(invalid trade sell token mint, errors out)",
-      expectedError: "InvalidTradeSellTokenMint",
+      desc: "(invalid auction sell token mint, errors out)",
+      expectedError: "InvalidAuctionSellTokenMint",
       sellMint: Keypair.generate(),
     },
     {
-      desc: "(invalid trade buy token mint, errors out)",
-      expectedError: "InvalidTradeBuyTokenMint",
+      desc: "(invalid auction buy token mint, errors out)",
+      expectedError: "InvalidAuctionBuyTokenMint",
       buyMint: Keypair.generate(),
     },
     {
@@ -278,7 +278,7 @@ describe("Bankrun - Folio migration", () => {
     },
     {
       // TODO fix max
-      desc: "(is valid, sold out sell mint, updates trade end)",
+      desc: "(is valid, sold out sell mint, updates auction end)",
       expectedError: null,
       sellAmount: new BN(8000),
       maxBuyAmount: new BN(1000000000000),
@@ -320,8 +320,8 @@ describe("Bankrun - Folio migration", () => {
   ) {
     const folioTokenMintToUse = customFolioTokenMint || folioTokenMint;
 
-    const tradeEnds = [...MINTS_IN_FOLIO, ...BUY_MINTS].map(
-      (mint) => new TradeEnd(mint.publicKey, new BN(0))
+    const auctionEnds = [...MINTS_IN_FOLIO, ...BUY_MINTS].map(
+      (mint) => new AuctionEnd(mint.publicKey, new BN(0))
     );
 
     await createAndSetFolio(
@@ -334,7 +334,7 @@ describe("Bankrun - Folio migration", () => {
       new BN(0),
       new BN(0),
       false,
-      tradeEnds
+      auctionEnds
     );
 
     await createAndSetFolioBasket(
@@ -375,17 +375,17 @@ describe("Bankrun - Folio migration", () => {
     await createAndSetActor(
       context,
       programFolio,
-      tradeProposerKeypair,
+      auctionApproverKeypair,
       folioPDA,
-      Role.TradeProposer
+      Role.AuctionApprover
     );
 
     await createAndSetActor(
       context,
       programFolio,
-      tradeLauncherKeypair,
+      auctionLauncherKeypair,
       folioPDA,
-      Role.TradeLauncher
+      Role.AuctionLauncher
     );
 
     await createAndSetProgramRegistrar(context, programFolioAdmin, [
@@ -409,9 +409,9 @@ describe("Bankrun - Folio migration", () => {
 
     await getOrCreateAtaAddress(context, DEFAULT_SELL_MINT.publicKey, folioPDA);
 
-    // Reset the trade account
-    await closeAccount(context, getTradePDA(folioPDA, new BN(0)));
-    await closeAccount(context, getTradePDA(folioPDA, new BN(1)));
+    // Reset the auction account
+    await closeAccount(context, getAuctionPDA(folioPDA, new BN(0)));
+    await closeAccount(context, getAuctionPDA(folioPDA, new BN(1)));
   }
 
   before(async () => {
@@ -427,15 +427,15 @@ describe("Bankrun - Folio migration", () => {
     folioOwnerKeypair = Keypair.generate();
     folioTokenMint = Keypair.generate();
 
-    tradeProposerKeypair = Keypair.generate();
-    tradeLauncherKeypair = Keypair.generate();
+    auctionApproverKeypair = Keypair.generate();
+    auctionLauncherKeypair = Keypair.generate();
     bidderKeypair = Keypair.generate();
 
     await airdrop(context, payerKeypair.publicKey, 1000);
     await airdrop(context, adminKeypair.publicKey, 1000);
     await airdrop(context, folioOwnerKeypair.publicKey, 1000);
-    await airdrop(context, tradeProposerKeypair.publicKey, 1000);
-    await airdrop(context, tradeLauncherKeypair.publicKey, 1000);
+    await airdrop(context, auctionApproverKeypair.publicKey, 1000);
+    await airdrop(context, auctionLauncherKeypair.publicKey, 1000);
     await airdrop(context, bidderKeypair.publicKey, 1000);
 
     folioPDA = getFolioPDA(folioTokenMint.publicKey);
@@ -444,13 +444,13 @@ describe("Bankrun - Folio migration", () => {
   });
 
   describe("General Tests", () => {
-    const generalIxApproveTrade = () =>
-      approveTrade<true>(
+    const generalIxApproveAuction = () =>
+      approveAuction<true>(
         banksClient,
         programFolio,
-        tradeProposerKeypair,
+        auctionApproverKeypair,
         folioPDA,
-        Trade.default(
+        Auction.default(
           folioPDA,
           DEFAULT_BUY_MINT.publicKey,
           DEFAULT_SELL_MINT.publicKey
@@ -459,24 +459,24 @@ describe("Bankrun - Folio migration", () => {
         true
       );
 
-    const generalIxKillTrade = () =>
-      killTrade<true>(
+    const generalIxKillAuction = () =>
+      killAuction<true>(
         banksClient,
         programFolio,
-        tradeProposerKeypair,
+        auctionApproverKeypair,
         folioPDA,
-        getTradePDA(folioPDA, new BN(0)),
+        getAuctionPDA(folioPDA, new BN(0)),
         true
       );
 
-    const generalIxOpenTrade = () =>
-      openTrade<true>(
+    const generalIxOpenAuction = () =>
+      openAuction<true>(
         banksClient,
         programFolio,
-        tradeLauncherKeypair,
+        auctionLauncherKeypair,
         folioPDA,
-        getTradePDA(folioPDA, new BN(0)),
-        Trade.default(
+        getAuctionPDA(folioPDA, new BN(0)),
+        Auction.default(
           folioPDA,
           DEFAULT_BUY_MINT.publicKey,
           DEFAULT_SELL_MINT.publicKey
@@ -484,13 +484,13 @@ describe("Bankrun - Folio migration", () => {
         true
       );
 
-    const generalIxOpenTradePermissionless = () =>
-      openTradePermissionless<true>(
+    const generalIxOpenAuctionPermissionless = () =>
+      openAuctionPermissionless<true>(
         banksClient,
         programFolio,
         bidderKeypair,
         folioPDA,
-        getTradePDA(folioPDA, new BN(0)),
+        getAuctionPDA(folioPDA, new BN(0)),
         true
       );
 
@@ -502,7 +502,7 @@ describe("Bankrun - Folio migration", () => {
         bidderKeypair,
         folioPDA,
         folioTokenMint.publicKey,
-        getTradePDA(folioPDA, new BN(0)),
+        getAuctionPDA(folioPDA, new BN(0)),
         new BN(0),
         new BN(0),
         false,
@@ -516,15 +516,15 @@ describe("Bankrun - Folio migration", () => {
       await initBaseCase();
     });
 
-    describe("should run general tests for approve trade", () => {
+    describe("should run general tests for approve auction", () => {
       it(`should run ${GeneralTestCases.NotRole}`, async () => {
         await assertNotValidRoleTestCase(
           context,
           programFolio,
-          tradeProposerKeypair,
+          auctionApproverKeypair,
           folioPDA,
-          generalIxApproveTrade,
-          Role.TradeLauncher
+          generalIxApproveAuction,
+          Role.AuctionLauncher
         );
       });
 
@@ -533,7 +533,7 @@ describe("Bankrun - Folio migration", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-          generalIxApproveTrade,
+          generalIxApproveAuction,
           FolioStatus.Migrating
         );
 
@@ -541,7 +541,7 @@ describe("Bankrun - Folio migration", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-          generalIxApproveTrade,
+          generalIxApproveAuction,
           FolioStatus.Killed
         );
 
@@ -549,18 +549,18 @@ describe("Bankrun - Folio migration", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-          generalIxApproveTrade,
+          generalIxApproveAuction,
           FolioStatus.Initializing
         );
       });
     });
 
-    describe("should run general tests for kill trade", () => {
+    describe("should run general tests for kill auction", () => {
       beforeEach(async () => {
-        await createAndSetTrade(
+        await createAndSetAuction(
           context,
           programFolio,
-          Trade.default(
+          Auction.default(
             folioPDA,
             DEFAULT_BUY_MINT.publicKey,
             DEFAULT_SELL_MINT.publicKey
@@ -573,10 +573,10 @@ describe("Bankrun - Folio migration", () => {
         await assertNotValidRoleTestCase(
           context,
           programFolio,
-          tradeProposerKeypair,
+          auctionApproverKeypair,
           folioPDA,
-          generalIxKillTrade,
-          Role.TradeLauncher
+          generalIxKillAuction,
+          Role.AuctionLauncher
         );
       });
 
@@ -585,7 +585,7 @@ describe("Bankrun - Folio migration", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-          generalIxKillTrade,
+          generalIxKillAuction,
           FolioStatus.Migrating
         );
 
@@ -593,18 +593,18 @@ describe("Bankrun - Folio migration", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-          generalIxKillTrade,
+          generalIxKillAuction,
           FolioStatus.Killed
         );
       });
     });
 
-    describe("should run general tests for open trade", () => {
+    describe("should run general tests for open auction", () => {
       beforeEach(async () => {
-        await createAndSetTrade(
+        await createAndSetAuction(
           context,
           programFolio,
-          Trade.default(
+          Auction.default(
             folioPDA,
             DEFAULT_BUY_MINT.publicKey,
             DEFAULT_SELL_MINT.publicKey
@@ -617,10 +617,10 @@ describe("Bankrun - Folio migration", () => {
         await assertNotValidRoleTestCase(
           context,
           programFolio,
-          tradeLauncherKeypair,
+          auctionLauncherKeypair,
           folioPDA,
-          generalIxOpenTrade,
-          Role.TradeProposer
+          generalIxOpenAuction,
+          Role.AuctionApprover
         );
       });
 
@@ -629,7 +629,7 @@ describe("Bankrun - Folio migration", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-          generalIxOpenTrade,
+          generalIxOpenAuction,
           FolioStatus.Migrating
         );
 
@@ -637,7 +637,7 @@ describe("Bankrun - Folio migration", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-          generalIxOpenTrade,
+          generalIxOpenAuction,
           FolioStatus.Killed
         );
 
@@ -645,18 +645,18 @@ describe("Bankrun - Folio migration", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-          generalIxOpenTrade,
+          generalIxOpenAuction,
           FolioStatus.Initializing
         );
       });
     });
 
-    describe("should run general tests for open trade permissionless", () => {
+    describe("should run general tests for open auction permissionless", () => {
       beforeEach(async () => {
-        await createAndSetTrade(
+        await createAndSetAuction(
           context,
           programFolio,
-          Trade.default(
+          Auction.default(
             folioPDA,
             DEFAULT_BUY_MINT.publicKey,
             DEFAULT_SELL_MINT.publicKey
@@ -670,7 +670,7 @@ describe("Bankrun - Folio migration", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-          generalIxOpenTradePermissionless,
+          generalIxOpenAuctionPermissionless,
           FolioStatus.Migrating
         );
 
@@ -678,7 +678,7 @@ describe("Bankrun - Folio migration", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-          generalIxOpenTradePermissionless,
+          generalIxOpenAuctionPermissionless,
           FolioStatus.Killed
         );
 
@@ -686,7 +686,7 @@ describe("Bankrun - Folio migration", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-          generalIxOpenTradePermissionless,
+          generalIxOpenAuctionPermissionless,
           FolioStatus.Initializing
         );
       });
@@ -694,10 +694,10 @@ describe("Bankrun - Folio migration", () => {
 
     describe("should run general tests for bid", () => {
       beforeEach(async () => {
-        await createAndSetTrade(
+        await createAndSetAuction(
           context,
           programFolio,
-          Trade.default(
+          Auction.default(
             folioPDA,
             DEFAULT_BUY_MINT.publicKey,
             DEFAULT_SELL_MINT.publicKey
@@ -735,16 +735,16 @@ describe("Bankrun - Folio migration", () => {
   });
 
   describe("Specific Cases", () => {
-    TEST_CASE_APPROVE_TRADE.forEach(
+    TEST_CASE_APPROVE_AUCTION.forEach(
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {
           let txnResult: BanksTransactionResultWithMeta;
 
           const {
             customFolioTokenMint,
-            tradeToUse,
+            auctionToUse,
             initialFolioBasket,
-            tradeId,
+            auctionId,
             buyMint,
             sellMint,
           } = {
@@ -763,16 +763,16 @@ describe("Bankrun - Folio migration", () => {
               (await context.banksClient.getClock()).unixTimestamp.toString()
             );
 
-            tradeToUse.id = tradeId;
-            tradeToUse.buy = buyMint.publicKey;
-            tradeToUse.sell = sellMint.publicKey;
+            auctionToUse.id = auctionId;
+            auctionToUse.buy = buyMint.publicKey;
+            auctionToUse.sell = sellMint.publicKey;
 
-            txnResult = await approveTrade<true>(
+            txnResult = await approveAuction<true>(
               banksClient,
               programFolio,
-              tradeProposerKeypair,
+              auctionApproverKeypair,
               folioPDA,
-              tradeToUse,
+              auctionToUse,
               MAX_TTL,
               true
             );
@@ -786,219 +786,253 @@ describe("Bankrun - Folio migration", () => {
             it("should succeed", async () => {
               await travelFutureSlot(context);
 
-              const tradeAfter = await programFolio.account.trade.fetch(
-                getTradePDA(folioPDA, tradeId)
+              const auctionAfter = await programFolio.account.auction.fetch(
+                getAuctionPDA(folioPDA, auctionId)
               );
               const folio = await programFolio.account.folio.fetch(folioPDA);
 
-              assert.equal(tradeAfter.id.eq(tradeToUse.id), true);
+              assert.equal(auctionAfter.id.eq(auctionToUse.id), true);
               assert.equal(
-                tradeAfter.availableAt.eq(currentTime.add(folio.tradeDelay)),
+                auctionAfter.availableAt.eq(
+                  currentTime.add(folio.auctionDelay)
+                ),
                 true
               );
               assert.equal(
-                tradeAfter.launchTimeout.eq(currentTime.add(MAX_TTL)),
+                auctionAfter.launchTimeout.eq(currentTime.add(MAX_TTL)),
                 true
               );
-              assert.equal(tradeAfter.start.eq(new BN(0)), true);
-              assert.equal(tradeAfter.end.eq(new BN(0)), true);
+              assert.equal(auctionAfter.start.eq(new BN(0)), true);
+              assert.equal(auctionAfter.end.eq(new BN(0)), true);
               assert.equal(
-                deserializeU256(tradeAfter.k.value),
-                BigInt(tradeToUse.k.toString())
+                deserializeU256(auctionAfter.k.value),
+                BigInt(auctionToUse.k.toString())
               );
-              assert.deepEqual(tradeAfter.folio, folioPDA);
-              assert.deepEqual(tradeAfter.sell, sellMint.publicKey);
-              assert.deepEqual(tradeAfter.buy, buyMint.publicKey);
+              assert.deepEqual(auctionAfter.folio, folioPDA);
+              assert.deepEqual(auctionAfter.sell, sellMint.publicKey);
+              assert.deepEqual(auctionAfter.buy, buyMint.publicKey);
               assert.equal(
-                tradeAfter.sellLimit.high.eq(tradeToUse.sellLimit.high),
-                true
-              );
-              assert.equal(
-                tradeAfter.sellLimit.low.eq(tradeToUse.sellLimit.low),
+                auctionAfter.sellLimit.high.eq(auctionToUse.sellLimit.high),
                 true
               );
               assert.equal(
-                tradeAfter.sellLimit.spot.eq(tradeToUse.sellLimit.spot),
+                auctionAfter.sellLimit.low.eq(auctionToUse.sellLimit.low),
                 true
               );
               assert.equal(
-                tradeAfter.buyLimit.high.eq(tradeToUse.buyLimit.high),
+                auctionAfter.sellLimit.spot.eq(auctionToUse.sellLimit.spot),
                 true
               );
               assert.equal(
-                tradeAfter.buyLimit.low.eq(tradeToUse.buyLimit.low),
+                auctionAfter.buyLimit.high.eq(auctionToUse.buyLimit.high),
                 true
               );
               assert.equal(
-                tradeAfter.buyLimit.spot.eq(tradeToUse.buyLimit.spot),
+                auctionAfter.buyLimit.low.eq(auctionToUse.buyLimit.low),
                 true
               );
               assert.equal(
-                tradeAfter.startPrice.eq(tradeToUse.startPrice),
+                auctionAfter.buyLimit.spot.eq(auctionToUse.buyLimit.spot),
                 true
               );
-              assert.equal(tradeAfter.endPrice.eq(tradeToUse.endPrice), true);
+              assert.equal(
+                auctionAfter.prices.start.eq(auctionToUse.prices.start),
+                true
+              );
+              assert.equal(
+                auctionAfter.prices.end.eq(auctionToUse.prices.end),
+                true
+              );
             });
           }
         });
       }
     );
 
-    TEST_CASE_KILL_TRADE.forEach(({ desc, expectedError, ...restOfParams }) => {
-      describe(`When ${desc}`, () => {
-        let txnResult: BanksTransactionResultWithMeta;
+    TEST_CASE_KILL_AUCTION.forEach(
+      ({ desc, expectedError, ...restOfParams }) => {
+        describe(`When ${desc}`, () => {
+          let txnResult: BanksTransactionResultWithMeta;
 
-        const { customFolioTokenMint, tradeToUse, initialFolioBasket } = {
-          ...DEFAULT_PARAMS,
-          ...restOfParams,
-        };
+          const { customFolioTokenMint, auctionToUse, initialFolioBasket } = {
+            ...DEFAULT_PARAMS,
+            ...restOfParams,
+          };
 
-        let currentTime: BN;
+          let currentTime: BN;
 
-        before(async () => {
-          await initBaseCase(customFolioTokenMint, initialFolioBasket);
+          before(async () => {
+            await initBaseCase(customFolioTokenMint, initialFolioBasket);
 
-          await createAndSetTrade(context, programFolio, tradeToUse, folioPDA);
+            await createAndSetAuction(
+              context,
+              programFolio,
+              auctionToUse,
+              folioPDA
+            );
 
-          await travelFutureSlot(context);
-
-          currentTime = new BN(
-            (await context.banksClient.getClock()).unixTimestamp.toString()
-          );
-
-          txnResult = await killTrade<true>(
-            banksClient,
-            programFolio,
-            tradeProposerKeypair,
-            folioPDA,
-            getTradePDA(folioPDA, tradeToUse.id),
-            true
-          );
-        });
-
-        if (expectedError) {
-          it("should fail with expected error", () => {
-            assertError(txnResult, expectedError);
-          });
-        } else {
-          it("should succeed", async () => {
             await travelFutureSlot(context);
 
-            const tradeAfter = await programFolio.account.trade.fetch(
-              getTradePDA(folioPDA, tradeToUse.id)
-            );
-            const folioAfter = await programFolio.account.folio.fetch(folioPDA);
-
-            assert.equal(tradeAfter.end.eq(new BN(1)), true);
-
-            const folioBuyMintTradeEnd = folioAfter.tradeEnds.find((tradeEnd) =>
-              tradeEnd.mint.equals(tradeToUse.buy)
-            );
-            const folioSellMintTradeEnd = folioAfter.tradeEnds.find(
-              (tradeEnd) => tradeEnd.mint.equals(tradeToUse.sell)
+            currentTime = new BN(
+              (await context.banksClient.getClock()).unixTimestamp.toString()
             );
 
-            assert.equal(folioBuyMintTradeEnd.endTime.eq(currentTime), true);
-            assert.equal(folioSellMintTradeEnd.endTime.eq(currentTime), true);
+            txnResult = await killAuction<true>(
+              banksClient,
+              programFolio,
+              auctionApproverKeypair,
+              folioPDA,
+              getAuctionPDA(folioPDA, auctionToUse.id),
+              true
+            );
           });
-        }
-      });
-    });
 
-    TEST_CASE_OPEN_TRADE.forEach(({ desc, expectedError, ...restOfParams }) => {
-      describe(`When ${desc}`, () => {
-        let txnResult: BanksTransactionResultWithMeta;
+          if (expectedError) {
+            it("should fail with expected error", () => {
+              assertError(txnResult, expectedError);
+            });
+          } else {
+            it("should succeed", async () => {
+              await travelFutureSlot(context);
 
-        const {
-          customFolioTokenMint,
-          tradeToUse,
-          initialFolioBasket,
-          tradeId,
-        } = {
-          ...DEFAULT_PARAMS,
-          ...restOfParams,
-        };
+              const auctionAfter = await programFolio.account.auction.fetch(
+                getAuctionPDA(folioPDA, auctionToUse.id)
+              );
+              const folioAfter = await programFolio.account.folio.fetch(
+                folioPDA
+              );
 
-        let currentTime: BN;
+              assert.equal(auctionAfter.end.eq(new BN(1)), true);
 
-        before(async () => {
-          await initBaseCase(customFolioTokenMint, initialFolioBasket);
+              // TODO
+              // const folioBuyMintAuctionEnd = folioAfter.buyEnds.find(
+              //   (auctionEnd) => auctionEnd.mint.equals(auctionToUse.buy)
+              // );
+              // const folioSellMintAuctionEnd = folioAfter.sellEnds.find(
+              //   (auctionEnd) => auctionEnd.mint.equals(auctionToUse.sell)
+              // );
 
-          currentTime = new BN(
-            (await context.banksClient.getClock()).unixTimestamp.toString()
-          );
-
-          // Set as approved and ready to be opened
-          tradeToUse.start = new BN(0);
-          tradeToUse.end = new BN(0);
-          tradeToUse.launchTimeout = currentTime.add(new BN(1000000000));
-
-          await createAndSetTrade(context, programFolio, tradeToUse, folioPDA);
-
-          await travelFutureSlot(context);
-
-          currentTime = new BN(
-            (await context.banksClient.getClock()).unixTimestamp.toString()
-          );
-
-          txnResult = await openTrade<true>(
-            banksClient,
-            programFolio,
-            tradeLauncherKeypair,
-            folioPDA,
-            getTradePDA(folioPDA, tradeId),
-            tradeToUse,
-            true
-          );
+              // assert.equal(
+              //   folioBuyMintAuctionEnd.endTime.eq(currentTime),
+              //   true
+              // );
+              // assert.equal(
+              //   folioSellMintAuctionEnd.endTime.eq(currentTime),
+              //   true
+              // );
+            });
+          }
         });
+      }
+    );
 
-        if (expectedError) {
-          it("should fail with expected error", () => {
-            assertError(txnResult, expectedError);
-          });
-        } else {
-          it("should succeed", async () => {
-            await travelFutureSlot(context);
-
-            const tradeAfter = await programFolio.account.trade.fetch(
-              getTradePDA(folioPDA, tradeId)
-            );
-            const folio = await programFolio.account.folio.fetch(folioPDA);
-
-            assert.equal(
-              tradeAfter.sellLimit.spot.eq(tradeToUse.sellLimit.spot),
-              true
-            );
-            assert.equal(
-              tradeAfter.buyLimit.spot.eq(tradeToUse.buyLimit.spot),
-              true
-            );
-            assert.equal(tradeAfter.startPrice.eq(tradeToUse.startPrice), true);
-            assert.equal(tradeAfter.endPrice.eq(tradeToUse.endPrice), true);
-            assert.equal(tradeAfter.start.eq(currentTime), true);
-            assert.equal(
-              tradeAfter.end.eq(currentTime.add(folio.auctionLength)),
-              true
-            );
-            assert.equal(
-              deserializeU256(tradeAfter.k.value),
-              BigInt(tradeToUse.k.toString())
-            );
-          });
-        }
-      });
-    });
-
-    TEST_CASE_OPEN_TRADE_PERMISSIONLESS.forEach(
+    TEST_CASE_OPEN_AUCTION.forEach(
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {
           let txnResult: BanksTransactionResultWithMeta;
 
           const {
             customFolioTokenMint,
-            tradeToUse,
+            auctionToUse,
             initialFolioBasket,
-            tradeId,
+            auctionId,
+          } = {
+            ...DEFAULT_PARAMS,
+            ...restOfParams,
+          };
+
+          let currentTime: BN;
+
+          before(async () => {
+            await initBaseCase(customFolioTokenMint, initialFolioBasket);
+
+            currentTime = new BN(
+              (await context.banksClient.getClock()).unixTimestamp.toString()
+            );
+
+            // Set as approved and ready to be opened
+            auctionToUse.start = new BN(0);
+            auctionToUse.end = new BN(0);
+            auctionToUse.launchTimeout = currentTime.add(new BN(1000000000));
+
+            await createAndSetAuction(
+              context,
+              programFolio,
+              auctionToUse,
+              folioPDA
+            );
+
+            await travelFutureSlot(context);
+
+            currentTime = new BN(
+              (await context.banksClient.getClock()).unixTimestamp.toString()
+            );
+
+            txnResult = await openAuction<true>(
+              banksClient,
+              programFolio,
+              auctionLauncherKeypair,
+              folioPDA,
+              getAuctionPDA(folioPDA, auctionId),
+              auctionToUse,
+              true
+            );
+          });
+
+          if (expectedError) {
+            it("should fail with expected error", () => {
+              assertError(txnResult, expectedError);
+            });
+          } else {
+            it("should succeed", async () => {
+              await travelFutureSlot(context);
+
+              const auctionAfter = await programFolio.account.auction.fetch(
+                getAuctionPDA(folioPDA, auctionId)
+              );
+              const folio = await programFolio.account.folio.fetch(folioPDA);
+
+              assert.equal(
+                auctionAfter.sellLimit.spot.eq(auctionToUse.sellLimit.spot),
+                true
+              );
+              assert.equal(
+                auctionAfter.buyLimit.spot.eq(auctionToUse.buyLimit.spot),
+                true
+              );
+              assert.equal(
+                auctionAfter.prices.start.eq(auctionToUse.prices.start),
+                true
+              );
+              assert.equal(
+                auctionAfter.prices.end.eq(auctionToUse.prices.end),
+                true
+              );
+              assert.equal(auctionAfter.start.eq(currentTime), true);
+              assert.equal(
+                auctionAfter.end.eq(currentTime.add(folio.auctionLength)),
+                true
+              );
+              assert.equal(
+                deserializeU256(auctionAfter.k.value),
+                BigInt(auctionToUse.k.toString())
+              );
+            });
+          }
+        });
+      }
+    );
+
+    TEST_CASE_OPEN_AUCTION_PERMISSIONLESS.forEach(
+      ({ desc, expectedError, ...restOfParams }) => {
+        describe(`When ${desc}`, () => {
+          let txnResult: BanksTransactionResultWithMeta;
+
+          const {
+            customFolioTokenMint,
+            auctionToUse,
+            initialFolioBasket,
+            auctionId,
             availableAt,
           } = {
             ...DEFAULT_PARAMS,
@@ -1015,14 +1049,14 @@ describe("Bankrun - Folio migration", () => {
             );
 
             // Set as approved and ready to be opened (if available at is not provided)
-            tradeToUse.start = new BN(0);
-            tradeToUse.end = new BN(0);
-            tradeToUse.availableAt = currentTime.add(availableAt);
+            auctionToUse.start = new BN(0);
+            auctionToUse.end = new BN(0);
+            auctionToUse.availableAt = currentTime.add(availableAt);
 
-            await createAndSetTrade(
+            await createAndSetAuction(
               context,
               programFolio,
-              tradeToUse,
+              auctionToUse,
               folioPDA
             );
 
@@ -1032,12 +1066,12 @@ describe("Bankrun - Folio migration", () => {
               (await context.banksClient.getClock()).unixTimestamp.toString()
             );
 
-            txnResult = await openTradePermissionless<true>(
+            txnResult = await openAuctionPermissionless<true>(
               banksClient,
               programFolio,
               bidderKeypair, // Not permissioned
               folioPDA,
-              getTradePDA(folioPDA, tradeId),
+              getAuctionPDA(folioPDA, auctionId),
               true
             );
           });
@@ -1050,32 +1084,35 @@ describe("Bankrun - Folio migration", () => {
             it("should succeed", async () => {
               await travelFutureSlot(context);
 
-              const tradeAfter = await programFolio.account.trade.fetch(
-                getTradePDA(folioPDA, tradeId)
+              const auctionAfter = await programFolio.account.auction.fetch(
+                getAuctionPDA(folioPDA, auctionId)
               );
               const folio = await programFolio.account.folio.fetch(folioPDA);
 
               assert.equal(
-                tradeAfter.sellLimit.spot.eq(tradeToUse.sellLimit.spot),
+                auctionAfter.sellLimit.spot.eq(auctionToUse.sellLimit.spot),
                 true
               );
               assert.equal(
-                tradeAfter.buyLimit.spot.eq(tradeToUse.buyLimit.spot),
+                auctionAfter.buyLimit.spot.eq(auctionToUse.buyLimit.spot),
                 true
               );
               assert.equal(
-                tradeAfter.startPrice.eq(tradeToUse.startPrice),
-                true
-              );
-              assert.equal(tradeAfter.endPrice.eq(tradeToUse.endPrice), true);
-              assert.equal(tradeAfter.start.eq(currentTime), true);
-              assert.equal(
-                tradeAfter.end.eq(currentTime.add(folio.auctionLength)),
+                auctionAfter.prices.start.eq(auctionToUse.prices.start),
                 true
               );
               assert.equal(
-                deserializeU256(tradeAfter.k.value),
-                BigInt(tradeToUse.k.toString())
+                auctionAfter.prices.end.eq(auctionToUse.prices.end),
+                true
+              );
+              assert.equal(auctionAfter.start.eq(currentTime), true);
+              assert.equal(
+                auctionAfter.end.eq(currentTime.add(folio.auctionLength)),
+                true
+              );
+              assert.equal(
+                deserializeU256(auctionAfter.k.value),
+                BigInt(auctionToUse.k.toString())
               );
             });
           }
@@ -1089,7 +1126,7 @@ describe("Bankrun - Folio migration", () => {
 
         const {
           customFolioTokenMint,
-          tradeToUse,
+          auctionToUse,
           initialFolioBasket,
           sellAmount,
           maxBuyAmount,
@@ -1129,10 +1166,15 @@ describe("Bankrun - Folio migration", () => {
             (await context.banksClient.getClock()).unixTimestamp.toString()
           );
 
-          tradeToUse.start = currentTime;
-          tradeToUse.end = currentTime.add(new BN(1000000000));
+          auctionToUse.start = currentTime;
+          auctionToUse.end = currentTime.add(new BN(1000000000));
 
-          await createAndSetTrade(context, programFolio, tradeToUse, folioPDA);
+          await createAndSetAuction(
+            context,
+            programFolio,
+            auctionToUse,
+            folioPDA
+          );
 
           await travelFutureSlot(context);
 
@@ -1157,7 +1199,7 @@ describe("Bankrun - Folio migration", () => {
             bidderKeypair, // Not permissioned
             folioPDA,
             mintToUse.publicKey,
-            getTradePDA(folioPDA, tradeToUse.id),
+            getAuctionPDA(folioPDA, auctionToUse.id),
             sellAmount,
             maxBuyAmount,
             callbackFields.data.length > 0,
@@ -1191,27 +1233,27 @@ describe("Bankrun - Folio migration", () => {
               );
 
             if (sellOut) {
-              // Basket removed token & trade ends are set & trade end is set
+              // Basket removed token & auction ends are set & auction end is set
               // const folioAfter = await programFolio.account.folio.fetch(
               //   folioPDA
               // );
-              // const tradeAfter = await programFolio.account.trade.fetch(
-              //   getTradePDA(folioPDA, tradeToUse.id)
+              // const auctionAfter = await programFolio.account.auction.fetch(
+              //   getAuctionPDA(folioPDA, auctionToUse.id)
               // );
               // const folioBasketSellMint = folioBasketAfter.tokenAmounts.find(
               //   (token) => token.mint.equals(sellMint.publicKey)
               // );
-              // const sellTradeEnd = folioAfter.tradeEnds.find((tradeEnd) =>
-              //   tradeEnd.mint.equals(sellMint.publicKey)
+              // const sellAuctionEnd = folioAfter.auctionEnds.find((auctionEnd) =>
+              //   auctionEnd.mint.equals(sellMint.publicKey)
               // );
-              // const buyTradeEnd = folioAfter.tradeEnds.find((tradeEnd) =>
-              //   tradeEnd.mint.equals(buyMint.publicKey)
+              // const buyAuctionEnd = folioAfter.auctionEnds.find((auctionEnd) =>
+              //   auctionEnd.mint.equals(buyMint.publicKey)
               // );
               // TODO
               // assert.equal(folioBasketSellMint, null);
-              // assert.equal(sellTradeEnd.endTime.eq(currentTime), true);
-              // assert.equal(buyTradeEnd.endTime.eq(currentTime), true);
-              // assert.equal(tradeAfter.end.eq(currentTime), true);
+              // assert.equal(sellAuctionEnd.endTime.eq(currentTime), true);
+              // assert.equal(buyAuctionEnd.endTime.eq(currentTime), true);
+              // assert.equal(auctionAfter.end.eq(currentTime), true);
             }
 
             // Buy mint should be added to the folio basket

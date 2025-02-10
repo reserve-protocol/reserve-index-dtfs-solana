@@ -32,24 +32,27 @@ export const DEFAULT_DECIMALS_MUL = 10 ** DEFAULT_DECIMALS;
 
 export const DEFAULT_PRECISION = new BN(10 ** 9);
 
-// Folio Admin Constants
-export const MAX_FOLIO_FEE = new BN("500000000000000000");
 export const D18 = new BN("1000000000000000000");
-export const MIN_DAO_MINTING_FEE = new BN("500000000000000");
-export const MAX_MINTING_FEE = new BN("100000000000000000");
+
+export const MAX_TVL_FEE = new BN("100000000000000000");
+export const MAX_FEE_FLOOR = new BN("1500000000000000");
+
+export const MAX_MINT_FEE = new BN("50000000000000000");
+export const MIN_DAO_MINT_FEE = new BN("500000000000000"); // TODO remove?
+
 export const MIN_AUCTION_LENGTH = new BN(60);
 export const MAX_AUCTION_LENGTH = new BN(604800);
-export const MAX_TRADE_DELAY = new BN(604800);
-export const MAX_FEE_RECIPIENTS = 64;
-export const MAX_FOLIO_TOKEN_AMOUNTS = 16;
-export const MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS = 20;
-export const TOTAL_PORTION_FEE_RECIPIENT = new BN(1_000_000_000);
-export const MAX_REWARD_HALF_LIFE = new BN(1_209_600);
-export const MIN_REWARD_HALF_LIFE = new BN(86400);
-export const MAX_REWARD_TOKENS = 30;
-
+export const MAX_AUCTION_DELAY = new BN(604800);
 export const MAX_TTL = new BN(604800 * 4);
 // 1e27 = 1000000000000000000000000000
 export const MAX_RATE = new BN("1000000000000000000000000000");
 
-export const MAX_CONCURRENT_TRADES = 16;
+export const MAX_FEE_RECIPIENTS = 64;
+export const MAX_FOLIO_TOKEN_AMOUNTS = 16;
+export const MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS = 20;
+export const TOTAL_PORTION_FEE_RECIPIENT = new BN(1_000_000_000);
+export const MAX_REWARD_TOKENS = 30;
+export const MAX_CONCURRENT_AUCTIONS = 16;
+
+export const MAX_REWARD_HALF_LIFE = new BN(1_209_600);
+export const MIN_REWARD_HALF_LIFE = new BN(86400);

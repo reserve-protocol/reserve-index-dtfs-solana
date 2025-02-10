@@ -74,14 +74,14 @@ export function getDaoFeeConfigPDAWithBump() {
   );
 }
 
-export function getFolioFeeRecipientsPDA(folio: PublicKey) {
+export function getTVLFeeRecipientsPDA(folio: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("fee_recipients"), folio.toBuffer()],
     FOLIO_PROGRAM_ID
   )[0];
 }
 
-export function getFolioFeeRecipientsPDAWithBump(folio: PublicKey) {
+export function getTVLFeeRecipientsPDAWithBump(folio: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("fee_recipients"), folio.toBuffer()],
     FOLIO_PROGRAM_ID
@@ -152,16 +152,16 @@ export function getFeeDistributionPDAWithBump(folio: PublicKey, index: BN) {
   );
 }
 
-export function getTradePDA(folio: PublicKey, tradeId: BN) {
+export function getAuctionPDA(folio: PublicKey, auctionId: BN) {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("trade"), folio.toBuffer(), tradeId.toBuffer("le", 8)],
+    [Buffer.from("auction"), folio.toBuffer(), auctionId.toBuffer("le", 8)],
     FOLIO_PROGRAM_ID
   )[0];
 }
 
-export function getTradePDAWithBump(folio: PublicKey, tradeId: BN) {
+export function getAuctionPDAWithBump(folio: PublicKey, auctionId: BN) {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("trade"), folio.toBuffer(), tradeId.toBuffer("le", 8)],
+    [Buffer.from("auction"), folio.toBuffer(), auctionId.toBuffer("le", 8)],
     FOLIO_PROGRAM_ID
   );
 }

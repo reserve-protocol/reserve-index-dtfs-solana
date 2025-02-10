@@ -6,8 +6,8 @@ mod tests {
     #[test]
     fn test_role_bits() {
         assert_eq!(Role::Owner as u8, 0b0000_0001);
-        assert_eq!(Role::TradeProposer as u8, 0b0000_0010);
-        assert_eq!(Role::TradeLauncher as u8, 0b0000_0100);
+        assert_eq!(Role::AuctionApprover as u8, 0b0000_0010);
+        assert_eq!(Role::AuctionLauncher as u8, 0b0000_0100);
     }
 
     #[test]
@@ -16,13 +16,13 @@ mod tests {
 
         Role::add_role(&mut roles, Role::Owner);
         assert!(Role::has_role(roles, Role::Owner));
-        assert!(!Role::has_role(roles, Role::TradeProposer));
-        assert!(!Role::has_role(roles, Role::TradeLauncher));
+        assert!(!Role::has_role(roles, Role::AuctionApprover));
+        assert!(!Role::has_role(roles, Role::AuctionLauncher));
 
-        Role::add_role(&mut roles, Role::TradeProposer);
+        Role::add_role(&mut roles, Role::AuctionApprover);
         assert!(Role::has_role(roles, Role::Owner));
-        assert!(Role::has_role(roles, Role::TradeProposer));
-        assert!(!Role::has_role(roles, Role::TradeLauncher));
+        assert!(Role::has_role(roles, Role::AuctionApprover));
+        assert!(!Role::has_role(roles, Role::AuctionLauncher));
     }
 
     #[test]
@@ -32,13 +32,13 @@ mod tests {
         Role::add_role(&mut roles, Role::Owner);
         assert_eq!(roles, 0b0000_0001);
 
-        Role::add_role(&mut roles, Role::TradeProposer);
+        Role::add_role(&mut roles, Role::AuctionApprover);
         assert_eq!(roles, 0b0000_0011);
 
         Role::add_role(&mut roles, Role::Owner);
         assert_eq!(roles, 0b0000_0011);
 
-        Role::add_role(&mut roles, Role::TradeLauncher);
+        Role::add_role(&mut roles, Role::AuctionLauncher);
         assert_eq!(roles, 0b0000_0111);
     }
 
@@ -49,16 +49,16 @@ mod tests {
         Role::remove_role(&mut roles, Role::Owner);
         assert_eq!(roles, 0b0000_0110);
         assert!(!Role::has_role(roles, Role::Owner));
-        assert!(Role::has_role(roles, Role::TradeProposer));
+        assert!(Role::has_role(roles, Role::AuctionApprover));
 
-        Role::remove_role(&mut roles, Role::TradeProposer);
+        Role::remove_role(&mut roles, Role::AuctionApprover);
         assert_eq!(roles, 0b0000_0100);
-        assert!(!Role::has_role(roles, Role::TradeProposer));
+        assert!(!Role::has_role(roles, Role::AuctionApprover));
 
         Role::remove_role(&mut roles, Role::Owner);
         assert_eq!(roles, 0b0000_0100);
 
-        Role::remove_role(&mut roles, Role::TradeLauncher);
+        Role::remove_role(&mut roles, Role::AuctionLauncher);
         assert_eq!(roles, 0);
     }
 
@@ -67,10 +67,10 @@ mod tests {
         let mut roles = 0u8;
 
         Role::add_role(&mut roles, Role::Owner);
-        Role::add_role(&mut roles, Role::TradeProposer);
+        Role::add_role(&mut roles, Role::AuctionApprover);
         assert_eq!(roles, 0b0000_0011);
         assert!(Role::has_role(roles, Role::Owner));
-        assert!(Role::has_role(roles, Role::TradeProposer));
+        assert!(Role::has_role(roles, Role::AuctionApprover));
 
         Role::remove_role(&mut roles, Role::Owner);
         assert_eq!(roles, 0b0000_0010);

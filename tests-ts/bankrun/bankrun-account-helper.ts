@@ -6,14 +6,14 @@ import {
   getDaoFeeConfigPDAWithBump,
   getFeeDistributionPDAWithBump,
   getFolioBasketPDAWithBump,
-  getFolioFeeRecipientsPDAWithBump,
+  getTVLFeeRecipientsPDAWithBump,
   getFolioPDAWithBump,
   getFolioRewardTokensPDA,
   getFolioRewardTokensPDAWithBump,
   getProgramRegistrarPDAWithBump,
   getRewardInfoPDA,
   getRewardInfoPDAWithBump,
-  getTradePDAWithBump,
+  getAuctionPDAWithBump,
   getUserPendingBasketPDAWithBump,
   getUserRewardInfoPDA,
   getUserRewardInfoPDAWithBump,
@@ -26,11 +26,11 @@ import { BN, Program } from "@coral-xyz/anchor";
 import { FolioAdmin } from "../../target/types/folio_admin";
 import { Folio as FolioSecond } from "../../target/types/second_folio";
 import {
-  MAX_CONCURRENT_TRADES,
+  MAX_CONCURRENT_AUCTIONS,
   MAX_AUCTION_LENGTH,
-  MAX_TRADE_DELAY,
-  MIN_DAO_MINTING_FEE,
-  MAX_FOLIO_FEE,
+  MAX_AUCTION_DELAY,
+  MIN_DAO_MINT_FEE,
+  MAX_TVL_FEE,
   SPL_GOVERNANCE_PROGRAM_ID,
   MAX_FOLIO_TOKEN_AMOUNTS,
   MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
@@ -42,18 +42,18 @@ import { serializeU256 } from "../../utils/math-helper";
 
 export enum Role {
   Owner = 0b00000001, // 1
-  TradeProposer = 0b00000010, // 2
-  TradeLauncher = 0b00000100, // 4
-  VibeOfficer = 0b00001000, // 8
+  AuctionApprover = 0b00000010, // 2
+  AuctionLauncher = 0b00000100, // 4
+  BrandManager = 0b00001000, // 8
 }
 
 // For anchor serialization
 export function roleToStruct(role: Role) {
   return {
     [Role.Owner]: { owner: {} },
-    [Role.TradeProposer]: { tradeProposer: {} },
-    [Role.TradeLauncher]: { tradeLauncher: {} },
-    [Role.VibeOfficer]: { vibeOfficer: {} },
+    [Role.AuctionApprover]: { auctionApprover: {} },
+    [Role.AuctionLauncher]: { auctionLauncher: {} },
+    [Role.BrandManager]: { brandManager: {} },
   }[role];
 }
 
@@ -65,11 +65,11 @@ export enum FolioStatus {
 }
 
 export class FeeRecipient {
-  receiver: PublicKey;
+  recipient: PublicKey;
   portion: BN;
 
-  constructor(receiver: PublicKey, portion: BN) {
-    this.receiver = receiver;
+  constructor(recipient: PublicKey, portion: BN) {
+    this.recipient = recipient;
     this.portion = portion;
   }
 }
@@ -154,7 +154,7 @@ export class UserRewardInfo {
   }
 }
 
-export class Range {
+export class BasketRange {
   spot: BN;
   low: BN;
   high: BN;
@@ -166,7 +166,7 @@ export class Range {
   }
 }
 
-export class TradeEnd {
+export class AuctionEnd {
   mint: PublicKey;
   endTime: BN;
 
@@ -176,7 +176,17 @@ export class TradeEnd {
   }
 }
 
-export class Trade {
+export class AuctionPrices {
+  start: BN;
+  end: BN;
+
+  constructor(start: BN, end: BN) {
+    this.start = start;
+    this.end = end;
+  }
+}
+
+export class Auction {
   id: BN;
   availableAt: BN;
   launchTimeout: BN;
@@ -186,10 +196,9 @@ export class Trade {
   folio: PublicKey;
   sell: PublicKey;
   buy: PublicKey;
-  sellLimit: Range;
-  buyLimit: Range;
-  startPrice: BN;
-  endPrice: BN;
+  sellLimit: BasketRange;
+  buyLimit: BasketRange;
+  prices: AuctionPrices;
 
   constructor(
     id: BN,
@@ -201,8 +210,8 @@ export class Trade {
     folio: PublicKey,
     sell: PublicKey,
     buy: PublicKey,
-    sellLimit: Range,
-    buyLimit: Range,
+    sellLimit: BasketRange,
+    buyLimit: BasketRange,
     startPrice: BN,
     endPrice: BN
   ) {
@@ -217,8 +226,7 @@ export class Trade {
     this.buy = buy;
     this.sellLimit = sellLimit;
     this.buyLimit = buyLimit;
-    this.startPrice = startPrice;
-    this.endPrice = endPrice;
+    this.prices = new AuctionPrices(startPrice, endPrice);
   }
 
   public static default(
@@ -226,7 +234,7 @@ export class Trade {
     buyMint: PublicKey,
     sellMint: PublicKey
   ) {
-    return new Trade(
+    return new Auction(
       new BN(0),
       new BN(0),
       new BN(0),
@@ -237,8 +245,8 @@ export class Trade {
       sellMint,
       buyMint,
 
-      new Range(new BN(0), new BN(0), new BN(0)),
-      new Range(new BN(0), new BN(0), new BN(0)),
+      new BasketRange(new BN(0), new BN(0), new BN(0)),
+      new BasketRange(new BN(0), new BN(0), new BN(0)),
       new BN(0),
       new BN(0)
     );
@@ -320,41 +328,104 @@ export async function createAndSetFolio(
   program: Program<Folio> | Program<FolioSecond>,
   folioTokenMint: PublicKey,
   status: FolioStatus = FolioStatus.Initialized,
-  customFolioMintingFee: BN | null = null,
+  customFolioMintFee: BN | null = null,
   lastPoke: BN = new BN(0),
   daoPendingFeeShares: BN = new BN(0),
   feeRecipientsPendingFeeShares: BN = new BN(0),
   useSecondFolioProgram: boolean = false,
-  tradeEnds: TradeEnd[] = []
+  buyEnds: AuctionEnd[] = [],
+  sellEnds: AuctionEnd[] = []
 ) {
   const folioPDAWithBump = getFolioPDAWithBump(
     folioTokenMint,
     useSecondFolioProgram
   );
 
-  const folio = {
-    bump: folioPDAWithBump[1],
-    status: status,
-    _padding: Array(14).fill(0),
-    folioTokenMint: folioTokenMint,
-    folioFee: MAX_FOLIO_FEE,
-    mintingFee: customFolioMintingFee ?? MIN_DAO_MINTING_FEE,
-    lastPoke: lastPoke,
-    daoPendingFeeShares: daoPendingFeeShares,
-    feeRecipientsPendingFeeShares: feeRecipientsPendingFeeShares,
-    tradeDelay: MAX_TRADE_DELAY,
-    auctionLength: MAX_AUCTION_LENGTH,
-    currentTradeId: new BN(0),
-    tradeEnds: [
-      ...tradeEnds,
-      ...Array(MAX_CONCURRENT_TRADES - tradeEnds.length).fill({
-        mint: PublicKey.default,
-        end_time: new BN(0),
-      }),
-    ],
-  };
+  const buffer = Buffer.alloc(1416);
+  let offset = 0;
 
-  await setFolioAccountInfo(ctx, program, folioPDAWithBump[0], "folio", folio);
+  // Encode discriminator
+  const discriminator = getAccountDiscriminator("Folio");
+  discriminator.copy(buffer, offset);
+  offset += 8;
+
+  // Write bump
+  buffer.writeUInt8(folioPDAWithBump[1], offset);
+  offset += 1;
+
+  // Write status
+  buffer.writeUInt8(status, offset);
+  offset += 1;
+
+  // Write padding
+  buffer.fill(0, offset, offset + 14);
+  offset += 14;
+
+  folioTokenMint.toBuffer().copy(buffer, offset);
+  offset += 32;
+
+  MAX_TVL_FEE.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  offset += 16;
+
+  (customFolioMintFee ?? MIN_DAO_MINT_FEE)
+    .toArrayLike(Buffer, "le", 16)
+    .copy(buffer, offset);
+  offset += 16;
+
+  lastPoke.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+  offset += 8;
+
+  daoPendingFeeShares.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+  offset += 8;
+
+  feeRecipientsPendingFeeShares
+    .toArrayLike(Buffer, "le", 8)
+    .copy(buffer, offset);
+  offset += 8;
+
+  MAX_AUCTION_DELAY.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+  offset += 8;
+
+  MAX_AUCTION_LENGTH.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+  offset += 8;
+
+  new BN(0).toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+  offset += 8;
+
+  // Write sell ends
+  for (let i = 0; i < MAX_CONCURRENT_AUCTIONS; i++) {
+    if (i < sellEnds.length) {
+      sellEnds[i].mint.toBuffer().copy(buffer, offset);
+      sellEnds[i].endTime
+        .toArrayLike(Buffer, "le", 8)
+        .copy(buffer, offset + 32);
+    } else {
+      PublicKey.default.toBuffer().copy(buffer, offset);
+      new BN(0).toArrayLike(Buffer, "le", 8).copy(buffer, offset + 32);
+    }
+    offset += 40;
+  }
+
+  // Write buy ends
+  for (let i = 0; i < MAX_CONCURRENT_AUCTIONS; i++) {
+    if (i < buyEnds.length) {
+      buyEnds[i].mint.toBuffer().copy(buffer, offset);
+      buyEnds[i].endTime.toArrayLike(Buffer, "le", 8).copy(buffer, offset + 32);
+    } else {
+      PublicKey.default.toBuffer().copy(buffer, offset);
+      new BN(0).toArrayLike(Buffer, "le", 8).copy(buffer, offset + 32);
+    }
+    offset += 40;
+  }
+
+  await setFolioAccountInfo(
+    ctx,
+    program,
+    folioPDAWithBump[0],
+    "folio",
+    null,
+    buffer
+  );
 }
 
 export async function createAndSetActor(
@@ -383,7 +454,7 @@ export async function createAndSetFeeRecipients(
   feeRecipientsInitial: FeeRecipient[],
   distributionIndex: BN = new BN(0)
 ) {
-  const feeRecipientsPDAWithBump = getFolioFeeRecipientsPDAWithBump(folio);
+  const feeRecipientsPDAWithBump = getTVLFeeRecipientsPDAWithBump(folio);
 
   const feeRecipients = {
     bump: feeRecipientsPDAWithBump[1],
@@ -391,7 +462,7 @@ export async function createAndSetFeeRecipients(
     distributionIndex: distributionIndex,
     folio: folio,
     feeRecipients: feeRecipientsInitial.map((fr) => ({
-      receiver: fr.receiver,
+      recipient: fr.recipient,
       portion: fr.portion,
     })),
   };
@@ -428,7 +499,7 @@ export async function createAndSetFeeRecipients(
 
   // Encode fee recipients
   feeRecipients.feeRecipients.forEach((fr: any) => {
-    fr.receiver.toBuffer().copy(buffer, offset);
+    fr.recipient.toBuffer().copy(buffer, offset);
     offset += 32;
     fr.portion.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
     offset += 8;
@@ -466,7 +537,7 @@ export async function createAndSetFeeDistribution(
     cranker: cranker,
     amountToDistribute: amountToDistribute,
     fee_recipients: feeRecipients.map((fr) => ({
-      receiver: fr.receiver,
+      recipient: fr.recipient,
       portion: fr.portion,
     })),
   };
@@ -514,7 +585,7 @@ export async function createAndSetFeeDistribution(
 
   // Encode fee recipients
   feeDistribution.fee_recipients.forEach((fr: any) => {
-    fr.receiver.toBuffer().copy(buffer, offset);
+    fr.recipient.toBuffer().copy(buffer, offset);
     offset += 32;
     fr.portion.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
     offset += 8;
@@ -898,25 +969,25 @@ export async function createAndSetUserRewardInfo(
   );
 }
 
-export async function createAndSetTrade(
+export async function createAndSetAuction(
   ctx: ProgramTestContext,
   program: Program<Folio>,
-  trade: Trade,
+  auction: Auction,
   folio: PublicKey
 ) {
-  const tradePDAWithBump = getTradePDAWithBump(folio, trade.id);
+  const auctionPDAWithBump = getAuctionPDAWithBump(folio, auction.id);
 
   // Manual encoding for fee recipients
   const buffer = Buffer.alloc(312);
   let offset = 0;
 
   // Encode discriminator
-  const discriminator = getAccountDiscriminator("Trade");
+  const discriminator = getAccountDiscriminator("Auction");
   discriminator.copy(buffer, offset);
   offset += 8;
 
   // Encode bump
-  buffer.writeUInt8(tradePDAWithBump[1], offset);
+  buffer.writeUInt8(auctionPDAWithBump[1], offset);
   offset += 1;
 
   // Encode padding
@@ -926,27 +997,27 @@ export async function createAndSetTrade(
   });
 
   // Encode id
-  trade.id.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+  auction.id.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
   offset += 8;
 
   // Encode available at
-  trade.availableAt.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+  auction.availableAt.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
   offset += 8;
 
   // Encode launch timeout
-  trade.launchTimeout.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+  auction.launchTimeout.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
   offset += 8;
 
   // Encode start
-  trade.start.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+  auction.start.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
   offset += 8;
 
   // Encode end
-  trade.end.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+  auction.end.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
   offset += 8;
 
   // Encode k (4x u64 for u256)
-  const kValue = serializeU256(BigInt(trade.k.toString()));
+  const kValue = serializeU256(BigInt(auction.k.toString()));
   for (let i = 0; i < 4; i++) {
     buffer.writeBigUInt64LE(BigInt(kValue[i]), offset);
     offset += 8;
@@ -957,47 +1028,47 @@ export async function createAndSetTrade(
   offset += 32;
 
   // Encode sell
-  trade.sell.toBuffer().copy(buffer, offset);
+  auction.sell.toBuffer().copy(buffer, offset);
   offset += 32;
 
   // Encode buy
-  trade.buy.toBuffer().copy(buffer, offset);
+  auction.buy.toBuffer().copy(buffer, offset);
   offset += 32;
 
   // Encode sell limit
-  trade.sellLimit.spot.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  auction.sellLimit.spot.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
   offset += 16;
 
-  trade.sellLimit.low.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  auction.sellLimit.low.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
   offset += 16;
 
-  trade.sellLimit.high.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  auction.sellLimit.high.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
   offset += 16;
 
   // Encode buy limit
-  trade.buyLimit.spot.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  auction.buyLimit.spot.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
   offset += 16;
 
-  trade.buyLimit.low.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  auction.buyLimit.low.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
   offset += 16;
 
-  trade.buyLimit.high.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  auction.buyLimit.high.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
   offset += 16;
 
   // Encode start price
-  trade.startPrice.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  auction.prices.start.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
   offset += 16;
 
   // Encode end price
-  trade.endPrice.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  auction.prices.end.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
   offset += 16;
 
   await setFolioAccountInfo(
     ctx,
     program,
-    tradePDAWithBump[0],
-    "trade",
-    trade,
+    auctionPDAWithBump[0],
+    "auction",
+    auction,
     buffer
   );
 }
@@ -1111,7 +1182,7 @@ export async function buildRemainingAccounts(
   context: ProgramTestContext,
   tokens: { mint: PublicKey; amount: BN }[],
   senderAddress: PublicKey = null,
-  receiverAddress: PublicKey = null,
+  recipientAddress: PublicKey = null,
   includeMint: boolean = true
 ): Promise<AccountMeta[]> {
   const remainingAccounts: AccountMeta[] = [];
@@ -1131,12 +1202,12 @@ export async function buildRemainingAccounts(
         isWritable: true,
       });
     }
-    if (receiverAddress) {
+    if (recipientAddress) {
       remainingAccounts.push({
         pubkey: await getOrCreateAtaAddress(
           context,
           token.mint,
-          receiverAddress
+          recipientAddress
         ),
         isSigner: false,
         isWritable: true,

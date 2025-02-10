@@ -55,21 +55,21 @@ describe("Bankrun - Actor", () => {
     },
     {
       desc: "(already have role to give, doesn't change anything, sucess)",
-      currentRole: Role.TradeProposer,
-      newRole: Role.TradeProposer,
+      currentRole: Role.AuctionApprover,
+      newRole: Role.AuctionApprover,
       expectedError: null,
     },
     {
       desc: "(doesn't have role, give, success)",
-      currentRole: Role.TradeLauncher,
-      newRole: Role.TradeProposer,
+      currentRole: Role.AuctionLauncher,
+      newRole: Role.AuctionApprover,
       expectedError: null,
     },
 
     {
       desc: "(already have one role, gives 1 new roles, success)",
       currentRole: Role.Owner,
-      newRole: Role.TradeProposer,
+      newRole: Role.AuctionApprover,
       expectedError: null,
     },
   ];
@@ -78,7 +78,7 @@ describe("Bankrun - Actor", () => {
     {
       desc: "(already have role, remove random role, success)",
       currentRole: Role.Owner,
-      roleToRemove: Role.TradeProposer,
+      roleToRemove: Role.AuctionApprover,
       accountIsClosed: false,
       expectedError: null,
     },
@@ -176,7 +176,7 @@ describe("Bankrun - Actor", () => {
           programFolio,
           newActorKeypair,
           folioPDA,
-          Role.TradeProposer
+          Role.AuctionApprover
         );
       });
 

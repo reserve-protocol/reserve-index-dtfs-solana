@@ -27,9 +27,9 @@ pub mod folio {
     #[allow(clippy::too_many_arguments)]
     pub fn init_folio(
         ctx: Context<InitFolio>,
-        folio_fee: u128,
-        minting_fee: u128,
-        trade_delay: u64,
+        tvl_fee: u128,
+        mint_fee: u128,
+        auction_delay: u64,
         auction_length: u64,
         name: String,
         symbol: String,
@@ -37,9 +37,9 @@ pub mod folio {
     ) -> Result<()> {
         init_folio::handler(
             ctx,
-            folio_fee,
-            minting_fee,
-            trade_delay,
+            tvl_fee,
+            mint_fee,
+            auction_delay,
             auction_length,
             name,
             symbol,
@@ -54,18 +54,18 @@ pub mod folio {
     #[allow(clippy::too_many_arguments)]
     pub fn update_folio(
         ctx: Context<UpdateFolio>,
-        folio_fee: Option<u128>,
-        minting_fee: Option<u128>,
-        trade_delay: Option<u64>,
+        tvl_fee: Option<u128>,
+        mint_fee: Option<u128>,
+        auction_delay: Option<u64>,
         auction_length: Option<u64>,
         fee_recipients_to_add: Vec<FeeRecipient>,
         fee_recipients_to_remove: Vec<Pubkey>,
     ) -> Result<()> {
         update_folio::handler(
             ctx,
-            folio_fee,
-            minting_fee,
-            trade_delay,
+            tvl_fee,
+            mint_fee,
+            auction_delay,
             auction_length,
             fee_recipients_to_add,
             fee_recipients_to_remove,
@@ -187,20 +187,20 @@ pub mod folio {
     }
 
     /*
-    Trade functions
+    Auction functions
      */
-    pub fn approve_trade<'info>(
-        ctx: Context<'_, '_, 'info, 'info, ApproveTrade<'info>>,
-        trade_id: u64,
-        sell_limit: Range,
-        buy_limit: Range,
+    pub fn approve_auction<'info>(
+        ctx: Context<'_, '_, 'info, 'info, ApproveAuction<'info>>,
+        auction_id: u64,
+        sell_limit: BasketRange,
+        buy_limit: BasketRange,
         start_price: u128,
         end_price: u128,
         ttl: u64,
     ) -> Result<()> {
-        approve_trade::handler(
+        approve_auction::handler(
             ctx,
-            trade_id,
+            auction_id,
             sell_limit,
             buy_limit,
             start_price,
@@ -209,24 +209,26 @@ pub mod folio {
         )
     }
 
-    pub fn open_trade<'info>(
-        ctx: Context<'_, '_, 'info, 'info, OpenTrade<'info>>,
+    pub fn open_auction<'info>(
+        ctx: Context<'_, '_, 'info, 'info, OpenAuction<'info>>,
         sell_limit: u128,
         buy_limit: u128,
         start_price: u128,
         end_price: u128,
     ) -> Result<()> {
-        open_trade::handler(ctx, sell_limit, buy_limit, start_price, end_price)
+        open_auction::handler(ctx, sell_limit, buy_limit, start_price, end_price)
     }
 
-    pub fn kill_trade<'info>(ctx: Context<'_, '_, 'info, 'info, KillTrade<'info>>) -> Result<()> {
-        kill_trade::handler(ctx)
-    }
-
-    pub fn open_trade_permissionless<'info>(
-        ctx: Context<'_, '_, 'info, 'info, OpenTradePermissionless<'info>>,
+    pub fn close_auction<'info>(
+        ctx: Context<'_, '_, 'info, 'info, CloseAuction<'info>>,
     ) -> Result<()> {
-        open_trade_permissionless::handler(ctx)
+        close_auction::handler(ctx)
+    }
+
+    pub fn open_auction_permissionless<'info>(
+        ctx: Context<'_, '_, 'info, 'info, OpenAuctionPermissionless<'info>>,
+    ) -> Result<()> {
+        open_auction_permissionless::handler(ctx)
     }
 
     pub fn bid<'info>(

@@ -10,10 +10,10 @@ import {
 import { setDaoFeeConfig } from "../utils/folio-admin-helper";
 import { initToken, mintToken } from "../utils/token-helper";
 import {
-  MAX_TRADE_DELAY,
-  MAX_FOLIO_FEE,
+  MAX_AUCTION_DELAY,
+  MAX_TVL_FEE,
   MIN_AUCTION_LENGTH,
-  MIN_DAO_MINTING_FEE,
+  MIN_DAO_MINT_FEE,
   DEFAULT_DECIMALS_MUL,
 } from "../utils/constants";
 
@@ -63,9 +63,9 @@ describe("Extreme Folio Tests", () => {
       connection,
       folioOwnerKeypair,
       folioTokenMint,
-      MAX_FOLIO_FEE,
-      MIN_DAO_MINTING_FEE,
-      MAX_TRADE_DELAY,
+      MAX_TVL_FEE,
+      MIN_DAO_MINT_FEE,
+      MAX_AUCTION_DELAY,
       MIN_AUCTION_LENGTH,
       "Test Folio",
       "TFOL",

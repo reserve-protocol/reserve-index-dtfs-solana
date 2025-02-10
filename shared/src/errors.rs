@@ -50,8 +50,8 @@ pub enum ErrorCode {
     #[msg("Invalid Folio Status")]
     InvalidFolioStatus,
 
-    #[msg("Invalid Receiver Token Account")]
-    InvalidReceiverTokenAccount,
+    #[msg("Invalid Recipient Token Account")]
+    InvalidRecipientTokenAccount,
 
     #[msg("Invalid Sender Token Account")]
     InvalidSenderTokenAccount,
@@ -99,13 +99,13 @@ pub enum ErrorCode {
     TokenMintNotInOldFolioBasket,
 
     #[msg("Invalid Minting Fee")]
-    InvalidMintingFee,
+    InvalidMintFee,
 
     #[msg("Invalid Fee Distribution")]
     InvalidFeeDistribution,
 
-    #[msg("Invalid Trade Delay")]
-    InvalidTradeDelay,
+    #[msg("Invalid Auction Delay")]
+    InvalidAuctionDelay,
 
     #[msg("Invalid Auction Length")]
     InvalidAuctionLength,
@@ -116,8 +116,8 @@ pub enum ErrorCode {
     #[msg("Invalid Cranker")]
     InvalidCranker,
 
-    #[msg("Invalid Trade Id")]
-    InvalidTradeId,
+    #[msg("Invalid Auction Id")]
+    InvalidAuctionId,
 
     #[msg("Mint Can't Be Equal")]
     MintCantBeEqual,
@@ -134,29 +134,29 @@ pub enum ErrorCode {
     #[msg("Invalid TTL")]
     InvalidTtl,
 
-    #[msg("Trade Cannot Be Opened")]
-    TradeCannotBeOpened,
+    #[msg("Auction Cannot Be Opened")]
+    AuctionCannotBeOpened,
 
-    #[msg("Trade Timeout")]
-    TradeTimeout,
+    #[msg("Auction Timeout")]
+    AuctionTimeout,
 
-    #[msg("Trade Collision")]
-    TradeCollision,
+    #[msg("Auction Collision")]
+    AuctionCollision,
 
-    #[msg("Trade Cannot Be Opened Permissionlessly Yet")]
-    TradeCannotBeOpenedPermissionlesslyYet,
+    #[msg("Auction Cannot Be Opened Permissionlessly Yet")]
+    AuctionCannotBeOpenedPermissionlesslyYet,
 
-    #[msg("Trade Not Ongoing")]
-    TradeNotOngoing,
+    #[msg("Auction Not Ongoing")]
+    AuctionNotOngoing,
 
     #[msg("Slippage Exceeded")]
     SlippageExceeded,
 
-    #[msg("Invalid Trade Sell Token Mint")]
-    InvalidTradeSellTokenMint,
+    #[msg("Invalid Auction Sell Token Mint")]
+    InvalidAuctionSellTokenMint,
 
-    #[msg("Invalid Trade Buy Token Mint")]
-    InvalidTradeBuyTokenMint,
+    #[msg("Invalid Auction Buy Token Mint")]
+    InvalidAuctionBuyTokenMint,
 
     #[msg("Insufficient Balance")]
     InsufficientBalance,

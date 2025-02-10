@@ -3,7 +3,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::Mint;
 use folio_admin::state::DAOFeeConfig;
 use shared::check_condition;
-use shared::constants::{DAO_FEE_CONFIG_SEEDS, DAO_FEE_DENOMINATOR};
+use shared::constants::{DAO_FEE_CONFIG_SEEDS, FEE_DENOMINATOR};
 use shared::errors::ErrorCode;
 
 use crate::state::Folio;
@@ -61,7 +61,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, PokeFolio<'info>>) -> R
         ctx.accounts.folio_token_mint.supply,
         current_time,
         dao_fee_config.fee_recipient_numerator,
-        DAO_FEE_DENOMINATOR,
+        FEE_DENOMINATOR,
     )?;
 
     Ok(())

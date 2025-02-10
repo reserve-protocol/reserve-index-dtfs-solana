@@ -248,7 +248,7 @@ describe("DAO / Realm Tests", () => {
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
         { pubkey: transferMintIx.senderAta, isSigner: false, isWritable: true },
         {
-          pubkey: transferMintIx.receiverAta,
+          pubkey: transferMintIx.recipientAta,
           isSigner: false,
           isWritable: true,
         },
@@ -269,7 +269,7 @@ describe("DAO / Realm Tests", () => {
 
     const adminBalanceMint = await getTokenBalance(
       connection,
-      transferMintIx.receiverAta
+      transferMintIx.recipientAta
     );
 
     assert.equal(adminBalanceMint, 20);

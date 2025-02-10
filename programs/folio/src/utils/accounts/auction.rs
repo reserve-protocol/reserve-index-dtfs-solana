@@ -1,22 +1,22 @@
 use crate::program::Folio as FolioProgram;
-use crate::state::{Folio, Trade};
-use crate::utils::Range;
+use crate::state::{Auction, Folio};
+use crate::utils::BasketRange;
 use anchor_lang::prelude::*;
 use shared::constants::{D18, MAX_PRICE_RANGE, MAX_RATE, MAX_TTL};
 use shared::errors::ErrorCode;
 
 use crate::utils::math_util::{CustomPreciseNumber, U256Number};
-use crate::utils::structs::TradeStatus;
-use shared::{check_condition, constants::TRADE_SEEDS};
+use crate::utils::structs::AuctionStatus;
+use shared::{check_condition, constants::AUCTION_SEEDS};
 
-impl Trade {
-    pub fn validate_trade(&self, trade_pubkey: &Pubkey, folio_pubkey: &Pubkey) -> Result<()> {
-        let trade_id = self.id.to_le_bytes();
+impl Auction {
+    pub fn validate_auction(&self, auction_pubkey: &Pubkey, folio_pubkey: &Pubkey) -> Result<()> {
+        let auction_id = self.id.to_le_bytes();
 
         check_condition!(
-            (*trade_pubkey, self.bump)
+            (*auction_pubkey, self.bump)
                 == Pubkey::find_program_address(
-                    &[TRADE_SEEDS, folio_pubkey.as_ref(), trade_id.as_ref()],
+                    &[AUCTION_SEEDS, folio_pubkey.as_ref(), auction_id.as_ref()],
                     &FolioProgram::id()
                 ),
             InvalidPda
@@ -24,9 +24,9 @@ impl Trade {
         Ok(())
     }
 
-    pub fn validate_trade_approve(
-        sell_limit: &Range,
-        buy_limit: &Range,
+    pub fn validate_auction_approve(
+        sell_limit: &BasketRange,
+        buy_limit: &BasketRange,
         start_price: u128,
         end_price: u128,
         ttl: u64,
@@ -55,7 +55,7 @@ impl Trade {
         Ok(())
     }
 
-    pub fn validate_trade_opening_from_trade_launcher(
+    pub fn validate_auction_opening_from_auction_launcher(
         &self,
         start_price: u128,
         end_price: u128,
@@ -63,9 +63,9 @@ impl Trade {
         buy_limit: u128,
     ) -> Result<()> {
         check_condition!(
-            start_price >= self.start_price
-                && end_price >= self.end_price
-                && (self.start_price == 0 || start_price <= 100 * self.start_price),
+            start_price >= self.prices.start
+                && end_price >= self.prices.end
+                && (self.prices.start == 0 || start_price <= 100 * self.prices.start),
             InvalidPrices
         );
 
@@ -82,49 +82,49 @@ impl Trade {
         Ok(())
     }
 
-    pub fn try_get_status(&self, current_time: u64) -> Option<TradeStatus> {
+    pub fn try_get_status(&self, current_time: u64) -> Option<AuctionStatus> {
         if self.start == 0 && self.end == 0 {
-            Some(TradeStatus::APPROVED)
+            Some(AuctionStatus::APPROVED)
         } else if self.start <= current_time && self.end >= current_time {
-            Some(TradeStatus::Open)
+            Some(AuctionStatus::Open)
         } else if self.end < current_time {
-            Some(TradeStatus::Closed)
+            Some(AuctionStatus::Closed)
         } else {
             None
         }
     }
 
-    pub fn open_trade(&mut self, folio: &Folio, current_time: u64) -> Result<()> {
-        let trade_status = self.try_get_status(current_time);
+    pub fn open_auction(&mut self, folio: &Folio, current_time: u64) -> Result<()> {
+        let auction_status = self.try_get_status(current_time);
 
         check_condition!(
-            trade_status == Some(TradeStatus::APPROVED),
-            TradeCannotBeOpened
+            auction_status == Some(AuctionStatus::APPROVED),
+            AuctionCannotBeOpened
         );
 
-        // do not open trades that have timed out from ttl
-        check_condition!(current_time <= self.launch_timeout, TradeTimeout);
+        // do not open auctions that have timed out from ttl
+        check_condition!(current_time <= self.launch_timeout, AuctionTimeout);
 
-        let (sell_trade_end, buy_trade_end) =
-            folio.get_trade_end_for_mint(&self.sell, &self.buy)?;
+        let (sell_auction_end, buy_auction_end) =
+            folio.get_auction_end_for_mint(&self.sell, &self.buy)?;
 
-        // ensure no conflicting trades by token
+        // ensure no conflicting auctions by token
         // necessary to prevent dutch auctions from taking losses
-        if let Some(sell_trade_end) = sell_trade_end {
-            check_condition!(current_time > sell_trade_end.end_time, TradeCollision);
+        if let Some(sell_auction_end) = sell_auction_end {
+            check_condition!(current_time > sell_auction_end.end_time, AuctionCollision);
         }
 
-        if let Some(buy_trade_end) = buy_trade_end {
-            check_condition!(current_time > buy_trade_end.end_time, TradeCollision);
+        if let Some(buy_auction_end) = buy_auction_end {
+            check_condition!(current_time > buy_auction_end.end_time, AuctionCollision);
         }
 
         // ensure valid price range (startPrice == endPrice is valid)
         check_condition!(
-            self.start_price >= self.end_price
-                && self.start_price != 0
-                && self.end_price != 0
-                && self.start_price <= MAX_RATE
-                && self.start_price / self.end_price <= MAX_PRICE_RANGE,
+            self.prices.start >= self.prices.end
+                && self.prices.start != 0
+                && self.prices.end != 0
+                && self.prices.start <= MAX_RATE
+                && self.prices.start / self.prices.end <= MAX_PRICE_RANGE,
             InvalidPrices
         );
 
@@ -137,14 +137,14 @@ impl Trade {
     }
 
     pub fn calculate_k(&mut self, auction_length: u64) -> Result<()> {
-        if self.start_price == self.end_price {
+        if self.prices.start == self.prices.end {
             self.k = U256Number::ZERO;
             return Ok(());
         }
 
-        let price_ratio = CustomPreciseNumber::from_u128(self.start_price)?
+        let price_ratio = CustomPreciseNumber::from_u128(self.prices.start)?
             .mul_generic(D18)?
-            .div_generic(self.end_price)?;
+            .div_generic(self.prices.end)?;
 
         self.k = price_ratio
             .ln()?
@@ -158,12 +158,12 @@ impl Trade {
     pub fn get_price(&self, current_time: u64) -> Result<u128> {
         check_condition!(
             self.start <= current_time && self.end >= current_time,
-            TradeNotOngoing
+            AuctionNotOngoing
         );
 
         match current_time {
-            i if i == self.start => Ok(self.start_price),
-            i if i == self.end => Ok(self.end_price),
+            i if i == self.start => Ok(self.prices.start),
+            i if i == self.end => Ok(self.prices.end),
             _ => {
                 let time_value = self.k.to_custom_precise_number().mul_generic(
                     current_time
@@ -174,13 +174,13 @@ impl Trade {
                 //(-time_value).exp()
                 let time_value_exponent = time_value.exp(true)?.unwrap();
 
-                let p = CustomPreciseNumber::from_u128(self.start_price)?
+                let p = CustomPreciseNumber::from_u128(self.prices.start)?
                     .mul_generic(time_value_exponent)?
                     .div_generic(D18)?
                     .to_u128_floor()?;
 
-                if p < self.end_price {
-                    Ok(self.end_price)
+                if p < self.prices.end {
+                    Ok(self.prices.end)
                 } else {
                     Ok(p)
                 }

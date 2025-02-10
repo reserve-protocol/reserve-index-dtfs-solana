@@ -20,12 +20,12 @@ pub struct BasketTokenRemoved {
 }
 
 #[event]
-pub struct FolioFeeSet {
+pub struct TVLFeeSet {
     pub new_fee: u128,
 }
 
 #[event]
-pub struct MintingFeeSet {
+pub struct MintFeeSet {
     pub new_fee: u128,
 }
 
@@ -36,7 +36,7 @@ pub struct FeeRecipientSet {
 }
 
 #[event]
-pub struct FolioFeePaid {
+pub struct TVLFeePaid {
     pub recipient: Pubkey,
     pub amount: u64,
 }
@@ -48,8 +48,8 @@ pub struct ProtocolFeePaid {
 }
 
 #[event]
-pub struct TradeOpened {
-    pub trade_id: u64,
+pub struct AuctionOpened {
+    pub auction_id: u64,
     pub start_price: u128,
     pub end_price: u128,
     pub start: u64,
@@ -57,8 +57,8 @@ pub struct TradeOpened {
 }
 
 #[event]
-pub struct TradeApproved {
-    pub trade_id: u64,
+pub struct AuctionApproved {
+    pub auction_id: u64,
     pub from: Pubkey,
     pub to: Pubkey,
     pub amount: u64,
@@ -66,20 +66,20 @@ pub struct TradeApproved {
 }
 
 #[event]
-pub struct TradeKilled {
-    pub trade_id: u64,
+pub struct AuctionClosed {
+    pub auction_id: u64,
 }
 
 #[event]
-pub struct TradeBid {
-    pub trade_id: u64,
+pub struct AuctionBid {
+    pub auction_id: u64,
     pub sell_amount: u64,
     pub bought_amount: u64,
 }
 
 #[event]
-pub struct TradeDelaySet {
-    pub new_trade_delay: u64,
+pub struct AuctionDelaySet {
+    pub new_auction_delay: u64,
 }
 
 #[event]

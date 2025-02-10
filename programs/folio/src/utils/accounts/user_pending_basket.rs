@@ -207,7 +207,7 @@ impl UserPendingBasket {
                         &related_mint.mint,
                         token_program_id,
                     ),
-                InvalidReceiverTokenAccount
+                InvalidRecipientTokenAccount
             );
 
             // Get user amount (validate mint)

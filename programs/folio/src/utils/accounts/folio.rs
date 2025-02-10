@@ -1,14 +1,14 @@
 use crate::utils::math_util::CustomPreciseNumber;
-use crate::utils::structs::{FolioStatus, Role, TradeEnd};
+use crate::utils::structs::{AuctionEnd, FolioStatus, Role};
 use crate::{
-    events::FolioFeeSet,
+    events::TVLFeeSet,
     program::Folio as FolioProgram,
     state::{Actor, Folio},
 };
 use anchor_lang::prelude::*;
 use shared::{
     check_condition,
-    constants::{D18, FOLIO_SEEDS, MAX_FOLIO_FEE, MIN_DAO_MINTING_FEE},
+    constants::{D18, FOLIO_SEEDS, MAX_TVL_FEE, MIN_DAO_MINT_FEE},
     errors::ErrorCode,
 };
 use spl_math::uint::U256;
@@ -58,10 +58,10 @@ impl Folio {
         Ok(())
     }
 
-    pub fn set_folio_fee(&mut self, fee: u128) -> Result<()> {
-        check_condition!(fee <= MAX_FOLIO_FEE, InvalidFeePerSecond);
+    pub fn set_tvl_fee(&mut self, fee: u128) -> Result<()> {
+        check_condition!(fee <= MAX_TVL_FEE, InvalidFeePerSecond);
 
-        self.folio_fee = fee;
+        self.tvl_fee = fee;
 
         // TODO Math
         // convert annual percentage to per-second
@@ -76,10 +76,10 @@ impl Folio {
         //     InvalidFeePerSecond
         // );
         //
-        // self.folio_fee = fee_per_second.try_into().unwrap();
+        // self.tvl_fee = fee_per_second.try_into().unwrap();
 
-        emit!(FolioFeeSet {
-            new_fee: self.folio_fee,
+        emit!(TVLFeeSet {
+            new_fee: self.tvl_fee,
         });
 
         Ok(())
@@ -94,7 +94,7 @@ impl Folio {
     ) -> Result<u64> {
         let total_fee_shares = CustomPreciseNumber::from_u64(user_shares)?
             // Minting fee is already scaled by D18
-            .mul_generic(U256::from(self.minting_fee))?
+            .mul_generic(U256::from(self.mint_fee))?
             .add_generic(D18)?
             .sub_generic(CustomPreciseNumber::one())?
             .div_generic(D18)?;
@@ -107,7 +107,7 @@ impl Folio {
             .to_u64_floor()?;
 
         let min_dao_shares = CustomPreciseNumber::from_u64(user_shares)?
-            .mul_generic(U256::from(MIN_DAO_MINTING_FEE))?
+            .mul_generic(U256::from(MIN_DAO_MINT_FEE))?
             .add_generic(D18)?
             .sub_generic(CustomPreciseNumber::one())?
             .div_generic(D18)?
@@ -194,7 +194,7 @@ impl Folio {
         // Calculate annual rate in smaller chunks
         let seconds_per_year = 365 * 24 * 3600;
         let fee_rate = D18
-            .checked_sub(U256::from(self.folio_fee))
+            .checked_sub(U256::from(self.tvl_fee))
             .ok_or(error!(ErrorCode::MathOverflow))?;
 
         // Calculate the compound factor for the elapsed time
@@ -227,48 +227,48 @@ impl Folio {
         Ok((fee_recipient_shares.as_u64(), dao_shares.as_u64()))
     }
 
-    pub fn get_trade_end_for_mint(
+    pub fn get_auction_end_for_mint(
         &self,
         sell_mint: &Pubkey,
         buy_mint: &Pubkey,
-    ) -> Result<(Option<&TradeEnd>, Option<&TradeEnd>)> {
-        let mut sell_trade = None;
-        let mut buy_trade = None;
+    ) -> Result<(Option<&AuctionEnd>, Option<&AuctionEnd>)> {
+        let mut sell_auction = None;
+        let mut buy_auction = None;
 
-        for trade_end in self.trade_ends.iter() {
-            if trade_end.mint == *sell_mint {
-                sell_trade = Some(trade_end);
-            } else if trade_end.mint == *buy_mint {
-                buy_trade = Some(trade_end);
+        for auction_end in self.sell_ends.iter() {
+            if auction_end.mint == *sell_mint {
+                sell_auction = Some(auction_end);
+            } else if auction_end.mint == *buy_mint {
+                buy_auction = Some(auction_end);
             }
 
-            if sell_trade.is_some() && buy_trade.is_some() {
+            if sell_auction.is_some() && buy_auction.is_some() {
                 break;
             }
         }
 
-        Ok((sell_trade, buy_trade))
+        Ok((sell_auction, buy_auction))
     }
 
-    pub fn set_trade_end_for_mints(
+    pub fn set_auction_end_for_mints(
         &mut self,
         sell_mint: &Pubkey,
         buy_mint: &Pubkey,
         end_time: u64,
     ) {
-        let mut found_sell_trade = false;
-        let mut found_buy_trade = false;
+        let mut found_sell_auction = false;
+        let mut found_buy_auction = false;
 
-        for trade_end in self.trade_ends.iter_mut() {
-            if trade_end.mint == *sell_mint {
-                found_sell_trade = true;
-                trade_end.end_time = end_time;
-            } else if trade_end.mint == *buy_mint {
-                found_buy_trade = true;
-                trade_end.end_time = end_time;
+        for auction_end in self.sell_ends.iter_mut() {
+            if auction_end.mint == *sell_mint {
+                found_sell_auction = true;
+                auction_end.end_time = end_time;
+            } else if auction_end.mint == *buy_mint {
+                found_buy_auction = true;
+                auction_end.end_time = end_time;
             }
 
-            if found_sell_trade && found_buy_trade {
+            if found_sell_auction && found_buy_auction {
                 break;
             }
         }

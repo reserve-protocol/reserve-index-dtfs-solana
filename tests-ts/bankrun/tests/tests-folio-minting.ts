@@ -28,9 +28,9 @@ import { Folio } from "../../../target/types/folio";
 import {
   DEFAULT_DECIMALS,
   MAX_FOLIO_TOKEN_AMOUNTS,
-  MAX_MINTING_FEE,
+  MAX_MINT_FEE,
   MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
-  MIN_DAO_MINTING_FEE,
+  MIN_DAO_MINT_FEE,
 } from "../../../utils/constants";
 import { initToken } from "../bankrun-token-helper";
 import { createAndSetFolioBasket, Role } from "../bankrun-account-helper";
@@ -76,7 +76,7 @@ describe("Bankrun - Folio minting", () => {
   let folioTokenMint: Keypair;
   let folioPDA: PublicKey;
 
-  let feeReceiver: Keypair;
+  let feeRecipient: Keypair;
 
   let userKeypair: Keypair;
 
@@ -94,8 +94,8 @@ describe("Bankrun - Folio minting", () => {
     folioBasketTokens: TokenAmount[];
     remainingAccounts: () => AccountMeta[];
     customFolioTokenMint: Keypair | null;
-    customFolioMintingFee: BN | null;
-    customDAOMintingFee: BN | null;
+    customFolioMintFee: BN | null;
+    customDAOMintFee: BN | null;
     shares: BN;
 
     // Is Validated before sending the transaction
@@ -104,7 +104,7 @@ describe("Bankrun - Folio minting", () => {
     // Expected changes
     expectedFolioTokenBalanceChange: BN;
     expectedDaoFeeShares: BN;
-    expectedFeeReceiverShares: BN;
+    expectedFeeRecipientShares: BN;
     expectedTokenBalanceChanges: BN[];
   } = {
     alreadyIncludedTokens: [],
@@ -112,8 +112,8 @@ describe("Bankrun - Folio minting", () => {
     folioBasketTokens: [],
     remainingAccounts: () => [],
     customFolioTokenMint: null,
-    customFolioMintingFee: null,
-    customDAOMintingFee: null,
+    customFolioMintFee: null,
+    customDAOMintFee: null,
     shares: new BN(0),
     // Is Validated before sending the transaction
     isPreTransactionValidated: false,
@@ -121,7 +121,7 @@ describe("Bankrun - Folio minting", () => {
     // Expected changes
     expectedFolioTokenBalanceChange: new BN(0),
     expectedDaoFeeShares: new BN(0),
-    expectedFeeReceiverShares: new BN(0),
+    expectedFeeRecipientShares: new BN(0),
     expectedTokenBalanceChanges: Array(MINTS.length).fill(new BN(0)),
   };
 
@@ -141,8 +141,8 @@ describe("Bankrun - Folio minting", () => {
       ],
     },
     {
-      desc: "(receiver token account is not ATA of the folio)",
-      expectedError: "InvalidReceiverTokenAccount",
+      desc: "(recipient token account is not ATA of the folio)",
+      expectedError: "InvalidRecipientTokenAccount",
       remainingAccounts: () =>
         buildInvalidRemainingAccounts([
           { mint: Keypair.generate().publicKey, amount: new BN(1000000000) },
@@ -251,8 +251,8 @@ describe("Bankrun - Folio minting", () => {
       ],
     },
     {
-      desc: "(receiver token account is not ATA of the user)",
-      expectedError: "InvalidReceiverTokenAccount",
+      desc: "(recipient token account is not ATA of the user)",
+      expectedError: "InvalidRecipientTokenAccount",
       remainingAccounts: () =>
         buildInvalidRemainingAccounts([
           { mint: Keypair.generate().publicKey, amount: new BN(1000000000) },
@@ -363,7 +363,7 @@ describe("Bankrun - Folio minting", () => {
     },
     {
       desc: "(trying to mint, user is passing the wrong remaining accounts, errors out)",
-      expectedError: "InvalidReceiverTokenAccount",
+      expectedError: "InvalidRecipientTokenAccount",
       remainingAccounts: () => [
         {
           pubkey: getAtaAddress(MINTS[2].publicKey, folioPDA),
@@ -443,7 +443,7 @@ describe("Bankrun - Folio minting", () => {
       shares: new BN(1_000_000),
       expectedFolioTokenBalanceChange: new BN(1_000_000),
       expectedDaoFeeShares: new BN(500), // 5 bps
-      expectedFeeReceiverShares: new BN(0),
+      expectedFeeRecipientShares: new BN(0),
       expectedTokenBalanceChanges: [new BN(999_999), new BN(999_999)],
     },
     {
@@ -464,14 +464,14 @@ describe("Bankrun - Folio minting", () => {
       shares: new BN(1_000_001),
       expectedFolioTokenBalanceChange: new BN(1_000_001),
       expectedDaoFeeShares: new BN(501), // 5 bps
-      expectedFeeReceiverShares: new BN(0),
+      expectedFeeRecipientShares: new BN(0),
       expectedTokenBalanceChanges: [new BN(1_000_000), new BN(1_000_000)],
     },
     {
-      desc: "(user claims, fee receiver should get fees as well, succeeds)",
+      desc: "(user claims, fee recipient should get fees as well, succeeds)",
       expectedError: null,
-      customDAOMintingFee: MAX_MINTING_FEE,
-      customFolioMintingFee: MAX_MINTING_FEE,
+      customDAOMintFee: MAX_MINT_FEE,
+      customFolioMintFee: MAX_MINT_FEE,
       folioBasketTokens: [
         new TokenAmount(MINTS[0].publicKey, new BN(1_000_000), new BN(0)),
         new TokenAmount(MINTS[1].publicKey, new BN(1_000_000), new BN(0)),
@@ -486,8 +486,8 @@ describe("Bankrun - Folio minting", () => {
       ],
       shares: new BN(1_000_001),
       expectedFolioTokenBalanceChange: new BN(1_000_001),
-      expectedDaoFeeShares: new BN(10_001), // 1%
-      expectedFeeReceiverShares: new BN(90_000), //9%
+      expectedDaoFeeShares: new BN(2501), // .5%
+      expectedFeeRecipientShares: new BN(47500), //4.5%
       expectedTokenBalanceChanges: [new BN(1_000_000), new BN(1_000_000)],
     },
   ];
@@ -506,7 +506,7 @@ describe("Bankrun - Folio minting", () => {
       context,
       tokens,
       folioOwnerKeypair.publicKey,
-      adminKeypair.publicKey // Invalid receiver token account
+      adminKeypair.publicKey // Invalid recipient token account
     );
   }
 
@@ -514,14 +514,14 @@ describe("Bankrun - Folio minting", () => {
     folioBasketTokens: TokenAmount[] = [],
     customFolioTokenMint: Keypair | null = null,
     customFolioTokenSupply: BN = new BN(0),
-    customDAOMintingFee: BN | null = null,
-    customFolioMintingFee: BN | null = null
+    customDAOMintFee: BN | null = null,
+    customFolioMintFee: BN | null = null
   ) {
     await createAndSetDaoFeeConfig(
       context,
       programFolioAdmin,
-      feeReceiver.publicKey,
-      customDAOMintingFee ?? MIN_DAO_MINTING_FEE
+      feeRecipient.publicKey,
+      customDAOMintFee ?? MIN_DAO_MINT_FEE
     );
 
     await createAndSetFolio(
@@ -529,7 +529,7 @@ describe("Bankrun - Folio minting", () => {
       programFolio,
       folioTokenMint.publicKey,
       FolioStatus.Initialized,
-      customFolioMintingFee
+      customFolioMintFee
     );
 
     initToken(
@@ -590,13 +590,13 @@ describe("Bankrun - Folio minting", () => {
 
     folioOwnerKeypair = Keypair.generate();
     folioTokenMint = Keypair.generate();
-    feeReceiver = Keypair.generate();
+    feeRecipient = Keypair.generate();
     userKeypair = Keypair.generate();
 
     await airdrop(context, payerKeypair.publicKey, 1000);
     await airdrop(context, adminKeypair.publicKey, 1000);
     await airdrop(context, folioOwnerKeypair.publicKey, 1000);
-    await airdrop(context, feeReceiver.publicKey, 1000);
+    await airdrop(context, feeRecipient.publicKey, 1000);
     await airdrop(context, userKeypair.publicKey, 1000);
 
     folioPDA = getFolioPDA(folioTokenMint.publicKey);
@@ -1079,12 +1079,12 @@ describe("Bankrun - Folio minting", () => {
             isPreTransactionValidated,
             expectedFolioTokenBalanceChange,
             expectedDaoFeeShares,
-            expectedFeeReceiverShares,
+            expectedFeeRecipientShares,
             expectedTokenBalanceChanges,
             customFolioTokenMint,
             shares,
-            customDAOMintingFee,
-            customFolioMintingFee,
+            customDAOMintFee,
+            customFolioMintFee,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
@@ -1104,8 +1104,8 @@ describe("Bankrun - Folio minting", () => {
               folioBasketTokens,
               customFolioTokenMint,
               new BN(1000_000_000_000),
-              customDAOMintingFee,
-              customFolioMintingFee
+              customDAOMintFee,
+              customFolioMintFee
             );
 
             await createAndSetUserPendingBasket(
@@ -1176,12 +1176,8 @@ describe("Bankrun - Folio minting", () => {
               // Folio should have updated fees
               const folio = await programFolio.account.folio.fetch(folioPDA);
               assert.equal(
-                folio.daoPendingFeeShares.eq(expectedDaoFeeShares),
-                true
-              );
-              assert.equal(
                 folio.feeRecipientsPendingFeeShares.eq(
-                  expectedFeeReceiverShares
+                  expectedFeeRecipientShares
                 ),
                 true
               );
@@ -1288,7 +1284,7 @@ describe("Bankrun - Folio minting", () => {
                   // Amounts for user
                   expectedFolioTokenBalanceChange
                     .sub(expectedDaoFeeShares)
-                    .sub(expectedFeeReceiverShares),
+                    .sub(expectedFeeRecipientShares),
                 ]
               );
             });

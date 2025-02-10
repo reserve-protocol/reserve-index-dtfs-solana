@@ -181,8 +181,8 @@ describe("Bankrun - Folio migration", () => {
       ],
     },
     {
-      desc: "(invalid receiver token account, errors out)",
-      expectedError: "InvalidReceiverTokenAccount",
+      desc: "(invalid recipient token account, errors out)",
+      expectedError: "InvalidRecipientTokenAccount",
       remainingAccounts: async () => [
         {
           pubkey: MINTS[0].publicKey,

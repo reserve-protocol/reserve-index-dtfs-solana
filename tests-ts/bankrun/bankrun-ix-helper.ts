@@ -10,6 +10,7 @@ import {
   getMetadataPDA,
   getProgramRegistrarPDA,
   getRewardInfoPDA,
+  getTradePDA,
   getUserPendingBasketPDA,
 } from "../../utils/pda-helper";
 import {
@@ -39,6 +40,7 @@ import {
   buildRemainingAccountsForClaimRewards,
   buildRemainingAccountsForMigrateFolioTokens,
   roleToStruct,
+  Trade,
 } from "./bankrun-account-helper";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
 import { FolioAdmin } from "../../target/types/folio_admin";
@@ -1027,6 +1029,220 @@ export async function claimRewards<T extends boolean = true>(
   }
 
   return { ix: claimRewards, extraSigners: [] } as any;
+}
+
+export async function approveTrade<T extends boolean = true>(
+  client: BanksClient,
+  programFolio: Program<Folio>,
+  tradeProposerKeypair: Keypair,
+  folio: PublicKey,
+  trade: Trade,
+  ttl: BN,
+  executeTxn: T = true as T
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const approveTrade = await programFolio.methods
+    .approveTrade(
+      trade.id,
+      trade.sellLimit,
+      trade.buyLimit,
+      trade.startPrice,
+      trade.endPrice,
+      ttl
+    )
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      rent: SYSVAR_RENT_PUBKEY,
+      tradeProposer: tradeProposerKeypair.publicKey,
+      actor: getActorPDA(tradeProposerKeypair.publicKey, folio),
+      folio,
+      trade: getTradePDA(folio, trade.id),
+      buyMint: trade.buy,
+      sellMint: trade.sell,
+    })
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, tradeProposerKeypair, [
+      approveTrade,
+    ]) as any;
+  }
+
+  return { ix: approveTrade, extraSigners: [] } as any;
+}
+
+export async function openTrade<T extends boolean = true>(
+  client: BanksClient,
+  programFolio: Program<Folio>,
+  tradeLauncherKeypair: Keypair,
+  folio: PublicKey,
+  trade: PublicKey,
+  tradeData: Trade,
+  executeTxn: T = true as T
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const openTrade = await programFolio.methods
+    .openTrade(
+      tradeData.sellLimit.spot,
+      tradeData.buyLimit.spot,
+      tradeData.startPrice,
+      tradeData.endPrice
+    )
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tradeLauncher: tradeLauncherKeypair.publicKey,
+      actor: getActorPDA(tradeLauncherKeypair.publicKey, folio),
+      folio,
+      trade,
+    })
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, tradeLauncherKeypair, [
+      openTrade,
+    ]) as any;
+  }
+
+  return { ix: openTrade, extraSigners: [] } as any;
+}
+
+export async function openTradePermissionless<T extends boolean = true>(
+  client: BanksClient,
+  programFolio: Program<Folio>,
+  userKeypair: Keypair,
+  folio: PublicKey,
+  trade: PublicKey,
+  executeTxn: T = true as T
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const openTradePermissionless = await programFolio.methods
+    .openTradePermissionless()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      user: userKeypair.publicKey,
+      folio,
+      trade,
+    })
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, userKeypair, [
+      openTradePermissionless,
+    ]) as any;
+  }
+
+  return { ix: openTradePermissionless, extraSigners: [] } as any;
+}
+
+export async function killTrade<T extends boolean = true>(
+  client: BanksClient,
+  programFolio: Program<Folio>,
+  tradeActorKeypair: Keypair,
+  folio: PublicKey,
+  trade: PublicKey,
+  executeTxn: T = true as T
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const killTrade = await programFolio.methods
+    .killTrade()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tradeActor: tradeActorKeypair.publicKey,
+      actor: getActorPDA(tradeActorKeypair.publicKey, folio),
+      folio,
+      trade,
+    })
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, tradeActorKeypair, [
+      killTrade,
+    ]) as any;
+  }
+
+  return { ix: killTrade, extraSigners: [] } as any;
+}
+
+export async function bid<T extends boolean = true>(
+  context: ProgramTestContext,
+  client: BanksClient,
+  programFolio: Program<Folio>,
+  bidderKeypair: Keypair,
+  folio: PublicKey,
+  folioTokenMint: PublicKey,
+  trade: PublicKey,
+  sellAmount: BN,
+  maxBuyAmount: BN,
+  withCallback: boolean = false,
+  sellMint: PublicKey = null,
+  buyMint: PublicKey = null,
+  callbackData: Buffer = Buffer.from([]),
+  executeTxn: T = true as T,
+  remainingAccountsForCallback: AccountMeta[] = []
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const tradeFetched = await programFolio.account.trade.fetch(trade);
+
+  const sellMintToUse = sellMint ?? tradeFetched.sell;
+  const buyMintToUse = buyMint ?? tradeFetched.buy;
+
+  const bid = await programFolio.methods
+    .bid(sellAmount, maxBuyAmount, withCallback, callbackData)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      bidder: bidderKeypair.publicKey,
+      folio,
+      folioBasket: getFolioBasketPDA(folio),
+      trade,
+      folioTokenMint,
+      tradeSellTokenMint: sellMintToUse,
+      tradeBuyTokenMint: buyMintToUse,
+      folioSellTokenAccount: await getOrCreateAtaAddress(
+        context,
+        sellMintToUse,
+        folio
+      ),
+      folioBuyTokenAccount: await getOrCreateAtaAddress(
+        context,
+        buyMintToUse,
+        folio
+      ),
+      bidderSellTokenAccount: await getOrCreateAtaAddress(
+        context,
+        sellMintToUse,
+        bidderKeypair.publicKey
+      ),
+      bidderBuyTokenAccount: await getOrCreateAtaAddress(
+        context,
+        buyMintToUse,
+        bidderKeypair.publicKey
+      ),
+    })
+    .remainingAccounts(remainingAccountsForCallback)
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, bidderKeypair, [bid]) as any;
+  }
+
+  return { ix: bid, extraSigners: [] } as any;
 }
 
 export async function startFolioMigration<T extends boolean = true>(

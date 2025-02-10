@@ -30,7 +30,7 @@ import {
 import { Folio } from "../../../target/types/folio";
 import {
   assertInvalidFolioStatusTestCase,
-  assertNotOwnerTestCase,
+  assertNotValidRoleTestCase,
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
 
@@ -313,8 +313,8 @@ describe("Bankrun - Folio basket", () => {
     });
 
     describe("should run general tests for add to basket", () => {
-      it(`should run ${GeneralTestCases.NotOwner}`, async () => {
-        await assertNotOwnerTestCase(
+      it(`should run ${GeneralTestCases.NotRole}`, async () => {
+        await assertNotValidRoleTestCase(
           context,
           programFolio,
           folioOwnerKeypair,
@@ -347,8 +347,8 @@ describe("Bankrun - Folio basket", () => {
         await createAndSetFolioBasket(context, programFolio, folioPDA, []);
       });
 
-      it(`should run ${GeneralTestCases.NotOwner}`, async () => {
-        await assertNotOwnerTestCase(
+      it(`should run ${GeneralTestCases.NotRole}`, async () => {
+        await assertNotValidRoleTestCase(
           context,
           programFolio,
           folioOwnerKeypair,

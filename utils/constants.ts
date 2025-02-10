@@ -48,4 +48,8 @@ export const MAX_REWARD_HALF_LIFE = new BN(1_209_600);
 export const MIN_REWARD_HALF_LIFE = new BN(86400);
 export const MAX_REWARD_TOKENS = 30;
 
+export const MAX_TTL = new BN(604800 * 4);
+// 1e27 = 1000000000000000000000000000
+export const MAX_RATE = new BN("1000000000000000000000000000");
+
 export const MAX_CONCURRENT_TRADES = 16;

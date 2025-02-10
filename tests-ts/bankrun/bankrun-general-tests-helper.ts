@@ -18,7 +18,7 @@ import { OTHER_ADMIN_KEY } from "../../utils/constants";
 
 export enum GeneralTestCases {
   NotAdmin = "not admin",
-  NotOwner = "not owner",
+  NotRole = "not role",
   InvalidFolioStatus = "invalid folio status",
 }
 
@@ -43,20 +43,16 @@ export async function assertNonAdminTestCase(
   assertError(txnResult, "Unauthorized");
 }
 
-export async function assertNotOwnerTestCase(
+export async function assertNotValidRoleTestCase(
   context: ProgramTestContext,
   programFolio: Program<Folio>,
-  folioOwnerKeypair: Keypair,
+  actorKeypair: Keypair,
   folioPDA: PublicKey,
-  executeTxn: () => Promise<BanksTransactionResultWithMeta>
+  executeTxn: () => Promise<BanksTransactionResultWithMeta>,
+  // By default (the test case the most often is not owner, so we set something not owner)
+  role: Role = Role.TradeLauncher
 ) {
-  await createAndSetActor(
-    context,
-    programFolio,
-    folioOwnerKeypair,
-    folioPDA,
-    Role.TradeLauncher
-  );
+  await createAndSetActor(context, programFolio, actorKeypair, folioPDA, role);
 
   await travelFutureSlot(context);
 

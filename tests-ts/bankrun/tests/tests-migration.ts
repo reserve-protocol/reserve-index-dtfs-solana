@@ -27,7 +27,7 @@ import {
 import { Folio } from "../../../target/types/folio";
 import {
   assertInvalidFolioStatusTestCase,
-  assertNotOwnerTestCase,
+  assertNotValidRoleTestCase,
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
 import * as assert from "assert";
@@ -359,8 +359,8 @@ describe("Bankrun - Folio migration", () => {
     });
 
     describe("should run general tests for start folio migration", () => {
-      it(`should run ${GeneralTestCases.NotOwner}`, async () => {
-        await assertNotOwnerTestCase(
+      it(`should run ${GeneralTestCases.NotRole}`, async () => {
+        await assertNotValidRoleTestCase(
           context,
           programFolio,
           folioOwnerKeypair,

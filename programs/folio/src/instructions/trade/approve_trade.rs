@@ -8,7 +8,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::Mint;
 use shared::{
     check_condition,
-    constants::{ACTOR_SEEDS, MAX_RATE, MAX_TTL, TRADE_SEEDS},
+    constants::{ACTOR_SEEDS, TRADE_SEEDS},
     errors::ErrorCode,
 };
 
@@ -63,31 +63,11 @@ impl ApproveTrade<'_> {
             Some(Role::TradeProposer),
             Some(vec![FolioStatus::Initialized]),
         )?;
-
         check_condition!(folio.current_trade_id + 1 == trade_id, InvalidTradeId);
 
         check_condition!(self.buy_mint.key() != self.sell_mint.key(), MintCantBeEqual);
 
-        check_condition!(
-            sell_limit.spot <= MAX_RATE
-                && sell_limit.high <= MAX_RATE
-                && sell_limit.low <= sell_limit.spot
-                && sell_limit.high >= sell_limit.spot,
-            InvalidSellLimit
-        );
-
-        check_condition!(
-            buy_limit.spot != 0
-                && buy_limit.spot <= MAX_RATE
-                && buy_limit.high <= MAX_RATE
-                && buy_limit.low <= buy_limit.spot
-                && buy_limit.high >= buy_limit.spot,
-            InvalidBuyLimit
-        );
-
-        check_condition!(start_price >= end_price, InvalidPrices);
-
-        check_condition!(ttl >= MAX_TTL, InvalidTtl);
+        Trade::validate_trade_approve(sell_limit, buy_limit, start_price, end_price, ttl)?;
 
         Ok(())
     }

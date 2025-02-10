@@ -46,7 +46,7 @@ import {
 } from "../bankrun-ix-helper";
 import {
   assertInvalidFolioStatusTestCase,
-  assertNotOwnerTestCase,
+  assertNotValidRoleTestCase,
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
 
@@ -353,8 +353,8 @@ describe("Bankrun - Staking Admin", () => {
     });
 
     describe("should run general tests for add reward token", () => {
-      it(`should run ${GeneralTestCases.NotOwner}`, async () => {
-        await assertNotOwnerTestCase(
+      it(`should run ${GeneralTestCases.NotRole}`, async () => {
+        await assertNotValidRoleTestCase(
           context,
           programFolio,
           folioOwnerKeypair,
@@ -396,8 +396,8 @@ describe("Bankrun - Staking Admin", () => {
         );
       });
 
-      it(`should run ${GeneralTestCases.NotOwner}`, async () => {
-        await assertNotOwnerTestCase(
+      it(`should run ${GeneralTestCases.NotRole}`, async () => {
+        await assertNotValidRoleTestCase(
           context,
           programFolio,
           folioOwnerKeypair,
@@ -428,8 +428,8 @@ describe("Bankrun - Staking Admin", () => {
     });
 
     describe("should run general tests for init or set reward ratio", () => {
-      it(`should run ${GeneralTestCases.NotOwner}`, async () => {
-        await assertNotOwnerTestCase(
+      it(`should run ${GeneralTestCases.NotRole}`, async () => {
+        await assertNotValidRoleTestCase(
           context,
           programFolio,
           folioOwnerKeypair,

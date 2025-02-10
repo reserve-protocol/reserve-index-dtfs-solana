@@ -13,6 +13,7 @@ import {
   getProgramRegistrarPDAWithBump,
   getRewardInfoPDA,
   getRewardInfoPDAWithBump,
+  getTradePDAWithBump,
   getUserPendingBasketPDAWithBump,
   getUserRewardInfoPDA,
   getUserRewardInfoPDAWithBump,
@@ -153,6 +154,97 @@ export class UserRewardInfo {
   }
 }
 
+export class Range {
+  spot: BN;
+  low: BN;
+  high: BN;
+
+  constructor(spot: BN, low: BN, high: BN) {
+    this.spot = spot;
+    this.low = low;
+    this.high = high;
+  }
+}
+
+export class TradeEnd {
+  mint: PublicKey;
+  endTime: BN;
+
+  constructor(mint: PublicKey, endTime: BN) {
+    this.mint = mint;
+    this.endTime = endTime;
+  }
+}
+
+export class Trade {
+  id: BN;
+  availableAt: BN;
+  launchTimeout: BN;
+  start: BN;
+  end: BN;
+  k: BN;
+  folio: PublicKey;
+  sell: PublicKey;
+  buy: PublicKey;
+  sellLimit: Range;
+  buyLimit: Range;
+  startPrice: BN;
+  endPrice: BN;
+
+  constructor(
+    id: BN,
+    availableAt: BN,
+    launchTimeout: BN,
+    start: BN,
+    end: BN,
+    k: BN,
+    folio: PublicKey,
+    sell: PublicKey,
+    buy: PublicKey,
+    sellLimit: Range,
+    buyLimit: Range,
+    startPrice: BN,
+    endPrice: BN
+  ) {
+    this.id = id;
+    this.availableAt = availableAt;
+    this.launchTimeout = launchTimeout;
+    this.start = start;
+    this.end = end;
+    this.k = k;
+    this.folio = folio;
+    this.sell = sell;
+    this.buy = buy;
+    this.sellLimit = sellLimit;
+    this.buyLimit = buyLimit;
+    this.startPrice = startPrice;
+    this.endPrice = endPrice;
+  }
+
+  public static default(
+    folio: PublicKey,
+    buyMint: PublicKey,
+    sellMint: PublicKey
+  ) {
+    return new Trade(
+      new BN(0),
+      new BN(0),
+      new BN(0),
+      new BN(0),
+      new BN(0),
+      new BN(0),
+      folio,
+      sellMint,
+      buyMint,
+
+      new Range(new BN(0), new BN(0), new BN(0)),
+      new Range(new BN(0), new BN(0), new BN(0)),
+      new BN(0),
+      new BN(0)
+    );
+  }
+}
+
 function getAccountDiscriminator(accountName: string): Buffer {
   const preimage = `account:${accountName}`;
 
@@ -232,7 +324,8 @@ export async function createAndSetFolio(
   lastPoke: BN = new BN(0),
   daoPendingFeeShares: BN = new BN(0),
   feeRecipientsPendingFeeShares: BN = new BN(0),
-  useSecondFolioProgram: boolean = false
+  useSecondFolioProgram: boolean = false,
+  tradeEnds: TradeEnd[] = []
 ) {
   const folioPDAWithBump = getFolioPDAWithBump(
     folioTokenMint,
@@ -252,10 +345,13 @@ export async function createAndSetFolio(
     tradeDelay: MAX_TRADE_DELAY,
     auctionLength: MAX_AUCTION_LENGTH,
     currentTradeId: new BN(0),
-    tradeEnds: Array(MAX_CONCURRENT_TRADES).fill({
-      mint: PublicKey.default,
-      end_time: new BN(0),
-    }),
+    tradeEnds: [
+      ...tradeEnds,
+      ...Array(MAX_CONCURRENT_TRADES - tradeEnds.length).fill({
+        mint: PublicKey.default,
+        end_time: new BN(0),
+      }),
+    ],
   };
 
   await setFolioAccountInfo(ctx, program, folioPDAWithBump[0], "folio", folio);
@@ -798,6 +894,110 @@ export async function createAndSetUserRewardInfo(
     userRewardInfoPDAWithBump[0],
     "userRewardInfo",
     userRewardInfo,
+    buffer
+  );
+}
+
+export async function createAndSetTrade(
+  ctx: ProgramTestContext,
+  program: Program<Folio>,
+  trade: Trade,
+  folio: PublicKey
+) {
+  const tradePDAWithBump = getTradePDAWithBump(folio, trade.id);
+
+  // Manual encoding for fee recipients
+  const buffer = Buffer.alloc(312);
+  let offset = 0;
+
+  // Encode discriminator
+  const discriminator = getAccountDiscriminator("Trade");
+  discriminator.copy(buffer, offset);
+  offset += 8;
+
+  // Encode bump
+  buffer.writeUInt8(tradePDAWithBump[1], offset);
+  offset += 1;
+
+  // Encode padding
+  [0, 0, 0, 0, 0, 0, 0].forEach((pad: number) => {
+    buffer.writeUInt8(pad, offset);
+    offset += 1;
+  });
+
+  // Encode id
+  trade.id.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+  offset += 8;
+
+  // Encode available at
+  trade.availableAt.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+  offset += 8;
+
+  // Encode launch timeout
+  trade.launchTimeout.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+  offset += 8;
+
+  // Encode start
+  trade.start.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+  offset += 8;
+
+  // Encode end
+  trade.end.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+  offset += 8;
+
+  // Encode k (4x u64 for u256)
+  const kValue = serializeU256(BigInt(trade.k.toString()));
+  for (let i = 0; i < 4; i++) {
+    buffer.writeBigUInt64LE(BigInt(kValue[i]), offset);
+    offset += 8;
+  }
+
+  // Encode folio pubkey
+  folio.toBuffer().copy(buffer, offset);
+  offset += 32;
+
+  // Encode sell
+  trade.sell.toBuffer().copy(buffer, offset);
+  offset += 32;
+
+  // Encode buy
+  trade.buy.toBuffer().copy(buffer, offset);
+  offset += 32;
+
+  // Encode sell limit
+  trade.sellLimit.spot.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  offset += 16;
+
+  trade.sellLimit.low.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  offset += 16;
+
+  trade.sellLimit.high.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  offset += 16;
+
+  // Encode buy limit
+  trade.buyLimit.spot.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  offset += 16;
+
+  trade.buyLimit.low.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  offset += 16;
+
+  trade.buyLimit.high.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  offset += 16;
+
+  // Encode start price
+  trade.startPrice.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  offset += 16;
+
+  // Encode end price
+  trade.endPrice.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  offset += 16;
+
+  await setFolioAccountInfo(
+    ctx,
+    program,
+    tradePDAWithBump[0],
+    "trade",
+    trade,
     buffer
   );
 }

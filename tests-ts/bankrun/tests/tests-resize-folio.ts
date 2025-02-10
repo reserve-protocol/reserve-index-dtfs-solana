@@ -23,7 +23,7 @@ import {
 import { assert } from "chai";
 import { Folio } from "../../../target/types/folio";
 import {
-  assertNotOwnerTestCase,
+  assertNotValidRoleTestCase,
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
 
@@ -108,8 +108,8 @@ describe("Bankrun - Resize folio", () => {
       await initBaseCase();
     });
 
-    it(`should run ${GeneralTestCases.NotOwner}`, async () => {
-      await assertNotOwnerTestCase(
+    it(`should run ${GeneralTestCases.NotRole}`, async () => {
+      await assertNotValidRoleTestCase(
         context,
         programFolio,
         folioOwnerKeypair,

@@ -1,7 +1,8 @@
 use crate::program::Folio as FolioProgram;
 use crate::state::{Folio, Trade};
+use crate::utils::Range;
 use anchor_lang::prelude::*;
-use shared::constants::{D18, MAX_PRICE_RANGE, MAX_RATE};
+use shared::constants::{D18, MAX_PRICE_RANGE, MAX_RATE, MAX_TTL};
 use shared::errors::ErrorCode;
 
 use crate::utils::math_util::{CustomPreciseNumber, U256Number};
@@ -20,6 +21,37 @@ impl Trade {
                 ),
             InvalidPda
         );
+        Ok(())
+    }
+
+    pub fn validate_trade_approve(
+        sell_limit: &Range,
+        buy_limit: &Range,
+        start_price: u128,
+        end_price: u128,
+        ttl: u64,
+    ) -> Result<()> {
+        check_condition!(
+            sell_limit.spot <= MAX_RATE
+                && sell_limit.high <= MAX_RATE
+                && sell_limit.low <= sell_limit.spot
+                && sell_limit.high >= sell_limit.spot,
+            InvalidSellLimit
+        );
+
+        check_condition!(
+            buy_limit.spot != 0
+                && buy_limit.spot <= MAX_RATE
+                && buy_limit.high <= MAX_RATE
+                && buy_limit.low <= buy_limit.spot
+                && buy_limit.high >= buy_limit.spot,
+            InvalidBuyLimit
+        );
+
+        check_condition!(start_price >= end_price, InvalidPrices);
+
+        check_condition!(ttl >= MAX_TTL, InvalidTtl);
+
         Ok(())
     }
 

@@ -159,6 +159,13 @@ export function getTradePDA(folio: PublicKey, tradeId: BN) {
   )[0];
 }
 
+export function getTradePDAWithBump(folio: PublicKey, tradeId: BN) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("trade"), folio.toBuffer(), tradeId.toBuffer("le", 8)],
+    FOLIO_PROGRAM_ID
+  );
+}
+
 export function getFolioRewardTokensPDA(folio: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("folio_reward_tokens"), folio.toBuffer()],

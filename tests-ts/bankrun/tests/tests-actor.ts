@@ -22,7 +22,7 @@ import {
   Role,
 } from "../bankrun-account-helper";
 import {
-  assertNotOwnerTestCase,
+  assertNotValidRoleTestCase,
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
 import { addOrUpdateActor, removeActor } from "../bankrun-ix-helper";
@@ -158,8 +158,8 @@ describe("Bankrun - Actor", () => {
       );
 
     describe("should run general tests for init or update actor", () => {
-      it(`should run ${GeneralTestCases.NotOwner}`, async () => {
-        await assertNotOwnerTestCase(
+      it(`should run ${GeneralTestCases.NotRole}`, async () => {
+        await assertNotValidRoleTestCase(
           context,
           programFolio,
           folioOwnerKeypair,
@@ -180,8 +180,8 @@ describe("Bankrun - Actor", () => {
         );
       });
 
-      it(`should run ${GeneralTestCases.NotOwner}`, async () => {
-        await assertNotOwnerTestCase(
+      it(`should run ${GeneralTestCases.NotRole}`, async () => {
+        await assertNotValidRoleTestCase(
           context,
           programFolio,
           folioOwnerKeypair,

@@ -28,7 +28,7 @@ import {
   DEFAULT_DECIMALS,
   MAX_FOLIO_TOKEN_AMOUNTS,
   MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
-  MIN_DAO_MINTING_FEE,
+  MIN_DAO_MINT_FEE,
 } from "../../../utils/constants";
 import { initToken } from "../bankrun-token-helper";
 import { createAndSetFolioBasket, Role } from "../bankrun-account-helper";
@@ -140,7 +140,7 @@ describe("Bankrun - Folio redeeming", () => {
     },
     {
       desc: "(trying to burn folio token, user is passing the wrong remaining accounts, errors out)",
-      expectedError: "InvalidReceiverTokenAccount",
+      expectedError: "InvalidRecipientTokenAccount",
       remainingAccounts: () => [
         {
           pubkey: getAtaAddress(MINTS[2].publicKey, folioPDA),
@@ -249,8 +249,8 @@ describe("Bankrun - Folio redeeming", () => {
       ],
     },
     {
-      desc: "(receiver token account is not ATA of the user)",
-      expectedError: "InvalidReceiverTokenAccount",
+      desc: "(recipient token account is not ATA of the user)",
+      expectedError: "InvalidRecipientTokenAccount",
       remainingAccounts: () =>
         buildInvalidRemainingAccounts([
           { mint: Keypair.generate().publicKey, amount: new BN(1000000000) },
@@ -349,11 +349,15 @@ describe("Bankrun - Folio redeeming", () => {
       amount: BN;
     }[]
   ) {
+    for (const token of tokens) {
+      initToken(context, adminKeypair.publicKey, token.mint, DEFAULT_DECIMALS);
+    }
+
     return buildRemainingAccounts(
       context,
       tokens,
       folioOwnerKeypair.publicKey,
-      adminKeypair.publicKey // Invalid receiver token account
+      adminKeypair.publicKey // Invalid recipient token account
     );
   }
 
@@ -367,7 +371,7 @@ describe("Bankrun - Folio redeeming", () => {
       context,
       programFolioAdmin,
       adminKeypair.publicKey,
-      MIN_DAO_MINTING_FEE
+      MIN_DAO_MINT_FEE
     );
 
     await createAndSetFolio(context, programFolio, folioTokenMint.publicKey);

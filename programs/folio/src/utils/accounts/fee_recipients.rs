@@ -45,8 +45,8 @@ impl FeeRecipients {
         let mut add_index = 0;
 
         for fee_recipient in self.fee_recipients.iter() {
-            if !fee_recipients_to_remove.contains(&fee_recipient.receiver)
-                && fee_recipient.receiver != Pubkey::default()
+            if !fee_recipients_to_remove.contains(&fee_recipient.recipient)
+                && fee_recipient.recipient != Pubkey::default()
             {
                 new_recipients[add_index] = *fee_recipient;
                 add_index += 1;
@@ -56,7 +56,7 @@ impl FeeRecipients {
         // Filter out fee recipients to add that are in fee recipients to remove
         let mut filtered_fee_recipients_to_add: Vec<FeeRecipient> = vec![];
         for fee_recipient_to_add in fee_recipients_to_add {
-            if !fee_recipients_to_remove.contains(&fee_recipient_to_add.receiver) {
+            if !fee_recipients_to_remove.contains(&fee_recipient_to_add.recipient) {
                 filtered_fee_recipients_to_add.push(fee_recipient_to_add);
             }
         }
@@ -67,7 +67,7 @@ impl FeeRecipients {
             add_index += 1;
 
             emit!(FeeRecipientSet {
-                recipient: new_recipient.receiver,
+                recipient: new_recipient.recipient,
                 portion: new_recipient.portion,
             });
         }

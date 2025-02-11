@@ -8,7 +8,7 @@ use shared::check_condition;
 use shared::constants::{FEE_DISTRIBUTION_SEEDS, FOLIO_SEEDS, MAX_FEE_RECIPIENTS_PORTION};
 use shared::errors::ErrorCode;
 
-use crate::events::FolioFeePaid;
+use crate::events::TVLFeePaid;
 use crate::program::Folio as FolioProgram;
 use crate::state::{FeeDistribution, Folio};
 
@@ -112,13 +112,18 @@ pub fn handler<'info>(
     {
         let fee_distribution = &mut ctx.accounts.fee_distribution.load_mut()?;
         for index in indices {
-            let fee_recipient = next_account(&mut remaining_accounts_iter, false, true)?;
+            let fee_recipient = next_account(
+                &mut remaining_accounts_iter,
+                false,
+                true,
+                ctx.accounts.token_program.key,
+            )?;
 
             let related_fee_distribution =
                 &mut fee_distribution.fee_recipients_state[index as usize];
 
             // Already distributed (set as default pubkey when distributed)
-            if related_fee_distribution.receiver.key() == Pubkey::default() {
+            if related_fee_distribution.recipient.key() == Pubkey::default() {
                 continue;
             }
 
@@ -126,14 +131,14 @@ pub fn handler<'info>(
             check_condition!(
                 fee_recipient.key()
                     == get_associated_token_address_with_program_id(
-                        &related_fee_distribution.receiver.key(),
+                        &related_fee_distribution.recipient.key(),
                         &ctx.accounts.folio_token_mint.key(),
                         &ctx.accounts.token_program.key(),
                     ),
                 InvalidFeeRecipient
             );
 
-            related_fee_distribution.receiver = Pubkey::default();
+            related_fee_distribution.recipient = Pubkey::default();
 
             let amount_to_distribute = total_amount_to_distribute
                 .checked_mul(related_fee_distribution.portion)
@@ -157,8 +162,8 @@ pub fn handler<'info>(
                     amount_to_distribute,
                 )?;
 
-                emit!(FolioFeePaid {
-                    recipient: related_fee_distribution.receiver.key(),
+                emit!(TVLFeePaid {
+                    recipient: related_fee_distribution.recipient.key(),
                     amount: amount_to_distribute,
                 });
             }

@@ -48,6 +48,8 @@ impl FolioBasket {
 
     pub fn add_tokens_to_basket(&mut self, mints: &Vec<Pubkey>) -> Result<()> {
         for mint in mints {
+            check_condition!(*mint != Pubkey::default(), InvalidAddedTokenMints);
+
             if self.token_amounts.iter_mut().any(|ta| ta.mint == *mint) {
                 // Continue if already exists or error out?
                 continue;

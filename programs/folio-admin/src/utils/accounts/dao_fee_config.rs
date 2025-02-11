@@ -1,10 +1,13 @@
 use anchor_lang::prelude::*;
 use shared::check_condition;
+use shared::constants::MAX_DAO_FEE;
 use shared::errors::ErrorCode;
 
 use crate::state::DAOFeeConfig;
 
 impl DAOFeeConfig {
+    // default fee numero set globally
+    //default fee floor set globally (so add fee floor)
     pub fn init_or_update_dao_fee_config(
         dao_fee_config: &mut Account<DAOFeeConfig>,
         context_bump: u8,
@@ -25,8 +28,7 @@ impl DAOFeeConfig {
             // Not initialized yet
             dao_fee_config.bump = context_bump;
             dao_fee_config.fee_recipient = fee_recipient.ok_or(ErrorCode::InvalidFeeRecipient)?;
-            dao_fee_config.fee_recipient_numerator =
-                fee_recipient_numerator.ok_or(ErrorCode::InvalidFeeRecipientNumerator)?;
+            dao_fee_config.fee_recipient_numerator = fee_recipient_numerator.unwrap_or(MAX_DAO_FEE);
         } else {
             check_condition!(dao_fee_config.bump == context_bump, InvalidBump);
 

@@ -13,9 +13,9 @@ import * as assert from "assert";
 
 import {
   MAX_AUCTION_LENGTH,
-  MAX_FOLIO_FEE,
-  MAX_TRADE_DELAY,
-  MIN_DAO_MINTING_FEE,
+  MAX_TVL_FEE,
+  MAX_AUCTION_DELAY,
+  MIN_DAO_MINT_FEE,
 } from "../utils/constants";
 import { getMint } from "@solana/spl-token";
 import {
@@ -105,9 +105,9 @@ describe("Folio Tests", () => {
       connection,
       folioOwnerKeypair,
       folioTokenMint,
-      MAX_FOLIO_FEE,
-      MIN_DAO_MINTING_FEE,
-      MAX_TRADE_DELAY,
+      MAX_TVL_FEE,
+      MIN_DAO_MINT_FEE,
+      MAX_AUCTION_DELAY,
       MAX_AUCTION_LENGTH,
       "Test Folio",
       "TFOL",
@@ -137,9 +137,9 @@ describe("Folio Tests", () => {
       connection,
       folioOwnerKeypair,
       otherFolioTokenMint,
-      MAX_FOLIO_FEE,
-      MIN_DAO_MINTING_FEE,
-      MAX_TRADE_DELAY,
+      MAX_TVL_FEE,
+      MIN_DAO_MINT_FEE,
+      MAX_AUCTION_DELAY,
       MAX_AUCTION_LENGTH,
       "Test Folio",
       "TFOL",

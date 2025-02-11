@@ -109,8 +109,8 @@ describe("Bankrun - Folio basket", () => {
       ],
     },
     {
-      desc: "(receiver token account is not ATA of the folio)",
-      expectedError: "InvalidReceiverTokenAccount",
+      desc: "(recipient token account is not ATA of the folio)",
+      expectedError: "InvalidRecipientTokenAccount",
       remainingAccounts: () =>
         buildInvalidRemainingAccounts([
           { mint: Keypair.generate().publicKey, amount: new BN(1000000000) },
@@ -224,11 +224,15 @@ describe("Bankrun - Folio basket", () => {
       amount: BN;
     }[]
   ) {
+    for (const token of tokens) {
+      initToken(context, adminKeypair.publicKey, token.mint, DEFAULT_DECIMALS);
+    }
+
     return buildRemainingAccounts(
       context,
       tokens,
       folioOwnerKeypair.publicKey,
-      adminKeypair.publicKey // Invalid receiver token account
+      adminKeypair.publicKey // Invalid recipient token account
     );
   }
 

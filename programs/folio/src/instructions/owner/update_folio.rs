@@ -1,10 +1,10 @@
-use crate::events::{AuctionLengthSet, MintingFeeSet, TradeDelaySet};
+use crate::events::{AuctionDelaySet, AuctionLengthSet, MintFeeSet};
 use crate::state::{Actor, FeeRecipients, Folio};
 use crate::utils::structs::{FeeRecipient, Role};
 use anchor_lang::prelude::*;
 use shared::constants::{
-    FEE_RECIPIENTS_SEEDS, MAX_AUCTION_LENGTH, MAX_FOLIO_FEE, MAX_MINTING_FEE, MAX_TRADE_DELAY,
-    MIN_AUCTION_LENGTH, MIN_DAO_MINTING_FEE,
+    FEE_RECIPIENTS_SEEDS, MAX_AUCTION_DELAY, MAX_AUCTION_LENGTH, MAX_MINT_FEE, MAX_TVL_FEE,
+    MIN_AUCTION_LENGTH, MIN_DAO_MINT_FEE,
 };
 use shared::errors::ErrorCode;
 use shared::{check_condition, constants::ACTOR_SEEDS};
@@ -53,9 +53,9 @@ impl UpdateFolio<'_> {
 #[allow(clippy::too_many_arguments)]
 pub fn handler(
     ctx: Context<UpdateFolio>,
-    folio_fee: Option<u128>,
-    minting_fee: Option<u128>,
-    trade_delay: Option<u64>,
+    tvl_fee: Option<u128>,
+    mint_fee: Option<u128>,
+    auction_delay: Option<u64>,
     auction_length: Option<u64>,
     fee_recipients_to_add: Vec<FeeRecipient>,
     fee_recipients_to_remove: Vec<Pubkey>,
@@ -70,22 +70,20 @@ pub fn handler(
 
     let mut folio = ctx.accounts.folio.load_mut()?;
 
-    if let Some(folio_fee) = folio_fee {
-        check_condition!(folio_fee <= MAX_FOLIO_FEE, InvalidFeePerSecond);
+    if let Some(tvl_fee) = tvl_fee {
+        check_condition!(tvl_fee <= MAX_TVL_FEE, InvalidFeePerSecond);
 
-        folio.set_folio_fee(folio_fee)?;
+        folio.set_tvl_fee(tvl_fee)?;
     }
 
-    if let Some(minting_fee) = minting_fee {
+    if let Some(mint_fee) = mint_fee {
         check_condition!(
-            (MIN_DAO_MINTING_FEE..=MAX_MINTING_FEE).contains(&minting_fee),
-            InvalidMintingFee
+            (MIN_DAO_MINT_FEE..=MAX_MINT_FEE).contains(&mint_fee),
+            InvalidMintFee
         );
-        folio.minting_fee = minting_fee;
+        folio.mint_fee = mint_fee;
 
-        emit!(MintingFeeSet {
-            new_fee: minting_fee
-        });
+        emit!(MintFeeSet { new_fee: mint_fee });
     }
 
     if !fee_recipients_to_add.is_empty() || !fee_recipients_to_remove.is_empty() {
@@ -94,13 +92,13 @@ pub fn handler(
         fee_recipients.update_fee_recipients(fee_recipients_to_add, fee_recipients_to_remove)?;
     }
 
-    if let Some(trade_delay) = trade_delay {
-        check_condition!(trade_delay <= MAX_TRADE_DELAY, InvalidTradeDelay);
+    if let Some(auction_delay) = auction_delay {
+        check_condition!(auction_delay <= MAX_AUCTION_DELAY, InvalidAuctionDelay);
 
-        folio.trade_delay = trade_delay;
+        folio.auction_delay = auction_delay;
 
-        emit!(TradeDelaySet {
-            new_trade_delay: trade_delay
+        emit!(AuctionDelaySet {
+            new_auction_delay: auction_delay
         });
     }
 

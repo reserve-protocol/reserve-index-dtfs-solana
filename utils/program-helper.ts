@@ -152,7 +152,7 @@ export async function pSendAndConfirmTxn(
 
 export async function airdrop(
   connection: Connection,
-  receiver: PublicKey,
+  recipient: PublicKey,
   amount: number
 ) {
   const { blockhash, lastValidBlockHeight } =
@@ -163,7 +163,7 @@ export async function airdrop(
       blockhash: blockhash,
       lastValidBlockHeight: lastValidBlockHeight,
       signature: await connection.requestAirdrop(
-        receiver,
+        recipient,
         amount * LAMPORTS_PER_SOL
       ),
     },

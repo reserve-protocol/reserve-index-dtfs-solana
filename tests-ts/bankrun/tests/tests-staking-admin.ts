@@ -19,7 +19,7 @@ import {
   DEFAULT_DECIMALS,
   MAX_REWARD_HALF_LIFE,
   MAX_REWARD_TOKENS,
-  MIN_DAO_MINTING_FEE,
+  MIN_DAO_MINT_FEE,
   MIN_REWARD_HALF_LIFE,
 } from "../../../utils/constants";
 import {
@@ -73,7 +73,7 @@ describe("Bankrun - Staking Admin", () => {
   const rewardedUser1: Keypair = Keypair.generate();
   const rewardedUser2: Keypair = Keypair.generate();
 
-  const feeReceiver: Keypair = Keypair.generate();
+  const feeRecipient: Keypair = Keypair.generate();
 
   let userKeypair: Keypair;
 
@@ -131,7 +131,7 @@ describe("Bankrun - Staking Admin", () => {
         getOrCreateAtaAddress(
           context,
           REWARD_TOKEN_MINTS[0].publicKey,
-          feeReceiver.publicKey
+          feeRecipient.publicKey
         ),
     },
     {
@@ -239,8 +239,8 @@ describe("Bankrun - Staking Admin", () => {
     await createAndSetDaoFeeConfig(
       context,
       programFolioAdmin,
-      feeReceiver.publicKey,
-      MIN_DAO_MINTING_FEE
+      feeRecipient.publicKey,
+      MIN_DAO_MINT_FEE
     );
 
     const folioTokenMintToUse = customFolioTokenMint || folioTokenMint;
@@ -304,7 +304,7 @@ describe("Bankrun - Staking Admin", () => {
     await airdrop(context, payerKeypair.publicKey, 1000);
     await airdrop(context, adminKeypair.publicKey, 1000);
     await airdrop(context, folioOwnerKeypair.publicKey, 1000);
-    await airdrop(context, feeReceiver.publicKey, 1000);
+    await airdrop(context, feeRecipient.publicKey, 1000);
     await airdrop(context, userKeypair.publicKey, 1000);
 
     folioPDA = getFolioPDA(folioTokenMint.publicKey);

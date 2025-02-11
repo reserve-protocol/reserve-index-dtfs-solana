@@ -84,6 +84,12 @@ mod tests {
         let mut registrar = setup_registrar();
         let program = Pubkey::new_unique();
 
-        assert!(registrar.remove_from_registrar(vec![program]).is_ok());
+        let result = registrar.remove_from_registrar(vec![program]);
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            error!(ErrorCode::ProgramNotInRegistrar)
+        );
     }
 }

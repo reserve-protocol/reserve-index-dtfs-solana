@@ -6,7 +6,7 @@ use bytemuck::{Pod, Zeroable};
 )]
 #[repr(C)]
 #[derive(Default)]
-pub struct TradeEnd {
+pub struct AuctionEnd {
     pub mint: Pubkey,
     pub end_time: u64,
 }

@@ -12,7 +12,7 @@ mod tests {
     fn test_update_fee_recipients_add_new() {
         let mut folio = FeeRecipients::default();
         let recipient1 = FeeRecipient {
-            receiver: Pubkey::new_unique(),
+            recipient: Pubkey::new_unique(),
             portion: SCALAR,
         };
 
@@ -27,12 +27,12 @@ mod tests {
     fn test_update_fee_recipients_remove_existing_is_last() {
         let mut folio = FeeRecipients::default();
         let recipient1 = FeeRecipient {
-            receiver: Pubkey::new_unique(),
+            recipient: Pubkey::new_unique(),
             portion: SCALAR,
         };
         folio.fee_recipients[0] = recipient1;
 
-        let result = folio.update_fee_recipients(vec![], vec![recipient1.receiver]);
+        let result = folio.update_fee_recipients(vec![], vec![recipient1.recipient]);
 
         assert!(result.is_err());
         assert_eq!(
@@ -45,16 +45,17 @@ mod tests {
     fn test_update_fee_recipients_add_and_remove() {
         let mut folio = FeeRecipients::default();
         let old_recipient = FeeRecipient {
-            receiver: Pubkey::new_unique(),
+            recipient: Pubkey::new_unique(),
             portion: SCALAR,
         };
         let new_recipient = FeeRecipient {
-            receiver: Pubkey::new_unique(),
+            recipient: Pubkey::new_unique(),
             portion: SCALAR,
         };
         folio.fee_recipients[0] = old_recipient;
 
-        let result = folio.update_fee_recipients(vec![new_recipient], vec![old_recipient.receiver]);
+        let result =
+            folio.update_fee_recipients(vec![new_recipient], vec![old_recipient.recipient]);
 
         assert!(result.is_ok());
         assert_eq!(folio.fee_recipients[0], new_recipient);
@@ -66,7 +67,7 @@ mod tests {
         let mut folio = FeeRecipients::default();
         let recipients: Vec<FeeRecipient> = (0..65)
             .map(|_| FeeRecipient {
-                receiver: Pubkey::new_unique(),
+                recipient: Pubkey::new_unique(),
                 portion: SCALAR.checked_div(65u64).unwrap(),
             })
             .collect();
@@ -84,22 +85,22 @@ mod tests {
     fn test_update_fee_recipients_preserve_order() {
         let mut folio = FeeRecipients::default();
         let recipient1 = FeeRecipient {
-            receiver: Pubkey::new_unique(),
+            recipient: Pubkey::new_unique(),
             portion: HALF,
         };
         let recipient2 = FeeRecipient {
-            receiver: Pubkey::new_unique(),
+            recipient: Pubkey::new_unique(),
             portion: HALF,
         };
         folio.fee_recipients[0] = recipient1;
         folio.fee_recipients[1] = recipient2;
 
         let new_recipient = FeeRecipient {
-            receiver: Pubkey::new_unique(),
+            recipient: Pubkey::new_unique(),
             portion: HALF,
         };
 
-        let result = folio.update_fee_recipients(vec![new_recipient], vec![recipient1.receiver]);
+        let result = folio.update_fee_recipients(vec![new_recipient], vec![recipient1.recipient]);
 
         assert!(result.is_ok());
         assert_eq!(folio.fee_recipients[0], recipient2);
@@ -110,7 +111,7 @@ mod tests {
     fn test_update_fee_recipients_ignore_non_existent_remove() {
         let mut folio = FeeRecipients::default();
         let recipient = FeeRecipient {
-            receiver: Pubkey::new_unique(),
+            recipient: Pubkey::new_unique(),
             portion: SCALAR,
         };
         folio.fee_recipients[0] = recipient;
@@ -128,13 +129,13 @@ mod tests {
     fn test_update_fee_recipients_ignore_default_pubkey() {
         let mut folio = FeeRecipients::default();
         let recipient = FeeRecipient {
-            receiver: Pubkey::default(),
+            recipient: Pubkey::default(),
             portion: SCALAR,
         };
         folio.fee_recipients[0] = recipient;
 
         let new_recipient = FeeRecipient {
-            receiver: Pubkey::new_unique(),
+            recipient: Pubkey::new_unique(),
             portion: SCALAR,
         };
 
@@ -148,11 +149,11 @@ mod tests {
     fn test_validate_fee_recipient_total_portions_success() {
         let mut folio = FeeRecipients::default();
         folio.fee_recipients[0] = FeeRecipient {
-            receiver: Pubkey::new_unique(),
+            recipient: Pubkey::new_unique(),
             portion: HALF,
         };
         folio.fee_recipients[1] = FeeRecipient {
-            receiver: Pubkey::new_unique(),
+            recipient: Pubkey::new_unique(),
             portion: HALF,
         };
 
@@ -164,11 +165,11 @@ mod tests {
     fn test_validate_fee_recipient_total_portions_failure() {
         let mut folio = FeeRecipients::default();
         folio.fee_recipients[0] = FeeRecipient {
-            receiver: Pubkey::new_unique(),
+            recipient: Pubkey::new_unique(),
             portion: SCALAR.checked_div(4u64).unwrap(),
         };
         folio.fee_recipients[1] = FeeRecipient {
-            receiver: Pubkey::new_unique(),
+            recipient: Pubkey::new_unique(),
             portion: SCALAR.checked_div(4u64).unwrap(),
         };
 

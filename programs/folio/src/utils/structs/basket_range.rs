@@ -15,7 +15,7 @@ use bytemuck::{Pod, Zeroable};
     Pod,
 )]
 #[repr(C)]
-pub struct Range {
+pub struct BasketRange {
     pub spot: u128,
     pub low: u128,
     pub high: u128,

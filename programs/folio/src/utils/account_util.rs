@@ -8,12 +8,18 @@ pub fn next_account<'b>(
     iter: &mut std::slice::Iter<'b, AccountInfo<'b>>,
     must_be_signer: bool,
     must_be_writable: bool,
+    expected_owner: &Pubkey,
 ) -> Result<&'b AccountInfo<'b>> {
     let account = iter.next().ok_or(ErrorCode::MissingRemainingAccount)?;
 
     check_condition!(account.is_signer == must_be_signer, AccountNotSigner);
 
     check_condition!(account.is_writable == must_be_writable, AccountNotWritable);
+
+    // Only check owner if account is initialized
+    if !account.data_is_empty() {
+        check_condition!(account.owner == expected_owner, InvalidAccountOwner);
+    }
 
     Ok(account)
 }

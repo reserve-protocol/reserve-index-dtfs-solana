@@ -62,7 +62,7 @@ pub struct MigrateFolioTokens<'info> {
     Remaining accounts will have as many as possible of the following (always in the same order):
         - Token Mint (read)
         - Sender Token Account (needs to be owned by old folio) (mut)
-        - Receiver Token Account (needs to be owned by new folio) (this is expected to be the ATA and already exist, to save on compute) (mut)
+        - Recipient Token Account (needs to be owned by new folio) (this is expected to be the ATA and already exist, to save on compute) (mut)
      */
 }
 
@@ -110,6 +110,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
     let old_folio_key = ctx.accounts.old_folio.key();
     let new_folio_key = ctx.accounts.new_folio.key();
     let old_folio_basket = ctx.accounts.old_folio_basket.load()?;
+    let token_program_id = ctx.accounts.token_program.key();
 
     let old_folio_token_mint: Pubkey;
     let old_folio_bump: u8;
@@ -142,9 +143,16 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
     let mut remaining_accounts_iter = ctx.remaining_accounts.iter();
 
     for _ in 0..ctx.remaining_accounts.len() / REMAINING_ACCOUT_DIVIDER {
-        let token_mint = next_account(&mut remaining_accounts_iter, false, false)?;
-        let sender_token_account = next_account(&mut remaining_accounts_iter, false, true)?;
-        let receiver_token_account = next_account(&mut remaining_accounts_iter, false, true)?;
+        let token_mint = next_account(
+            &mut remaining_accounts_iter,
+            false,
+            false,
+            &token_program_id,
+        )?;
+        let sender_token_account =
+            next_account(&mut remaining_accounts_iter, false, true, &token_program_id)?;
+        let recipient_token_account =
+            next_account(&mut remaining_accounts_iter, false, true, &token_program_id)?;
 
         // Validate the sender token account is the ATA of the old folio
         check_condition!(
@@ -152,20 +160,20 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
                 == get_associated_token_address_with_program_id(
                     &old_folio_key,
                     token_mint.key,
-                    &ctx.accounts.token_program.key(),
+                    &token_program_id,
                 ),
             InvalidSenderTokenAccount
         );
 
-        // Validate the receiver token account is the ATA of the new folio
+        // Validate the recipient token account is the ATA of the new folio
         check_condition!(
-            receiver_token_account.key()
+            recipient_token_account.key()
                 == get_associated_token_address_with_program_id(
                     &new_folio_key,
                     token_mint.key,
-                    &ctx.accounts.token_program.key(),
+                    &token_program_id,
                 ),
-            InvalidReceiverTokenAccount
+            InvalidRecipientTokenAccount
         );
 
         // Validate the token mint is in the old folio basket
@@ -184,7 +192,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
 
         let cpi_accounts = TransferChecked {
             from: sender_token_account.to_account_info(),
-            to: receiver_token_account.to_account_info(),
+            to: recipient_token_account.to_account_info(),
             authority: ctx.accounts.old_folio.to_account_info(),
             mint: token_mint.to_account_info(),
         };

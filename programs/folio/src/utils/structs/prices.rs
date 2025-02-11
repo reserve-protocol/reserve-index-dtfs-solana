@@ -4,17 +4,18 @@ use bytemuck::{Pod, Zeroable};
 #[derive(
     AnchorSerialize,
     AnchorDeserialize,
+    Default,
     Clone,
     Copy,
-    Default,
+    PartialEq,
+    Eq,
+    Debug,
     InitSpace,
     Zeroable,
     Pod,
-    PartialEq,
-    Debug,
 )]
 #[repr(C)]
-pub struct FeeRecipient {
-    pub recipient: Pubkey,
-    pub portion: u64,
+pub struct Prices {
+    pub start: u128,
+    pub end: u128,
 }

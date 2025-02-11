@@ -15,7 +15,7 @@ import { BN } from "@coral-xyz/anchor";
 export function initToken(
   context: ProgramTestContext,
   mintAuthority: PublicKey,
-  mint: Keypair = Keypair.generate(),
+  mint: Keypair | PublicKey = Keypair.generate(),
   decimals: number = DEFAULT_DECIMALS,
   supply: BN = new BN(0)
 ) {
@@ -33,7 +33,7 @@ export function initToken(
     mintAccData
   );
 
-  context.setAccount(mint.publicKey, {
+  context.setAccount(mint instanceof Keypair ? mint.publicKey : mint, {
     lamports: 1_000_000_000,
     data: mintAccData,
     owner: TOKEN_PROGRAM_ID,
@@ -45,14 +45,14 @@ export function mintToken(
   context: ProgramTestContext,
   mint: PublicKey,
   amount: number,
-  receiver: PublicKey,
+  recipient: PublicKey,
   decimals: number = DEFAULT_DECIMALS
 ) {
   const tokenAccData = Buffer.alloc(ACCOUNT_SIZE);
   AccountLayout.encode(
     {
       mint: mint,
-      owner: receiver,
+      owner: recipient,
       amount: BigInt(amount * 10 ** decimals),
       delegateOption: 0,
       delegate: PublicKey.default,
@@ -66,7 +66,7 @@ export function mintToken(
     tokenAccData
   );
 
-  const ata = getAssociatedTokenAddressSync(mint, receiver, true);
+  const ata = getAssociatedTokenAddressSync(mint, recipient, true);
   const ataAccountInfo = {
     lamports: 1_000_000_000,
     data: tokenAccData,

@@ -35,7 +35,7 @@ export async function mintToken(
   mintAuthority: Keypair,
   mint: PublicKey,
   amount: number,
-  receiver: PublicKey,
+  recipient: PublicKey,
   decimals: number = DEFAULT_DECIMALS
 ) {
   const ata = (
@@ -43,7 +43,7 @@ export async function mintToken(
       connection,
       mintAuthority,
       mint,
-      receiver,
+      recipient,
       true
     )
   ).address;
@@ -64,18 +64,18 @@ export async function transferToken(
   sender: PublicKey,
   mint: PublicKey,
   amount: number,
-  receiver: PublicKey,
+  recipient: PublicKey,
   decimals: number = DEFAULT_DECIMALS
 ): Promise<{
   instruction: TransactionInstruction;
   senderAta: PublicKey;
-  receiverAta: PublicKey;
+  recipientAta: PublicKey;
 }> {
-  const receiverAta = await getOrCreateAtaAddress(
+  const recipientAta = await getOrCreateAtaAddress(
     connection,
     mint,
     payer,
-    receiver
+    recipient
   );
 
   const senderAta = await getOrCreateAtaAddress(
@@ -89,13 +89,13 @@ export async function transferToken(
     instruction: createTransferCheckedInstruction(
       senderAta,
       mint,
-      receiverAta,
+      recipientAta,
       sender,
       amount * 10 ** decimals,
       decimals
     ),
     senderAta,
-    receiverAta,
+    recipientAta,
   };
 }
 

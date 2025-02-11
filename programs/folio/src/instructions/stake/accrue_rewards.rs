@@ -7,7 +7,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::associated_token::{self};
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use shared::check_condition;
-use shared::constants::ACTOR_SEEDS;
+use shared::constants::{ACTOR_SEEDS, SPL_GOVERNANCE_PROGRAM_ID};
 use shared::constants::{FOLIO_REWARD_TOKENS_SEEDS, REWARD_INFO_SEEDS, USER_REWARD_INFO_SEEDS};
 use shared::errors::ErrorCode;
 
@@ -61,16 +61,10 @@ impl AccrueRewards<'_> {
     pub fn validate(&self, folio: &Folio) -> Result<()> {
         folio.validate_folio(
             &self.folio.key(),
-            None,
-            None,
+            Some(&self.actor),
+            Some(Role::Owner),
             Some(vec![FolioStatus::Initializing, FolioStatus::Initialized]),
         )?;
-
-        // Validate that the folio owner is the correct one
-        check_condition!(
-            Role::has_role(self.actor.roles, Role::Owner),
-            InvalidFolioOwner
-        );
 
         // Leaving here to show it's not something I forgot, but it's already validateed when we get the deposit balances
         // for the users claiming.
@@ -117,11 +111,36 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
     let mut remaining_accounts_iter = ctx.remaining_accounts.iter();
 
     for _ in 0..ctx.remaining_accounts.len() / remaining_account_divider {
-        let reward_token = next_account(&mut remaining_accounts_iter, false, false)?;
-        let reward_info = next_account(&mut remaining_accounts_iter, false, true)?;
-        let fee_recipient_token_account = next_account(&mut remaining_accounts_iter, false, false)?; // Folio token rewards' token account
-        let caller_reward_info = next_account(&mut remaining_accounts_iter, false, true)?;
-        let caller_governance_account = next_account(&mut remaining_accounts_iter, false, false)?;
+        let reward_token = next_account(
+            &mut remaining_accounts_iter,
+            false,
+            false,
+            &token_program_id,
+        )?;
+        let reward_info = next_account(
+            &mut remaining_accounts_iter,
+            false,
+            true,
+            &FolioProgram::id(),
+        )?;
+        let fee_recipient_token_account = next_account(
+            &mut remaining_accounts_iter,
+            false,
+            false,
+            &token_program_id,
+        )?; // Folio token rewards' token account
+        let caller_reward_info = next_account(
+            &mut remaining_accounts_iter,
+            false,
+            true,
+            &FolioProgram::id(),
+        )?;
+        let caller_governance_account = next_account(
+            &mut remaining_accounts_iter,
+            false,
+            false,
+            &SPL_GOVERNANCE_PROGRAM_ID,
+        )?;
 
         // Check all the pdas
         check_condition!(
@@ -203,8 +222,18 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
 
         // All the logic for the extra user if user != caller
         if remaining_account_divider == REMAINING_ACCOUNT_DIVIDER_FOR_USER {
-            let user_reward_info = next_account(&mut remaining_accounts_iter, false, true)?;
-            let user_governance_account = next_account(&mut remaining_accounts_iter, false, false)?;
+            let user_reward_info = next_account(
+                &mut remaining_accounts_iter,
+                false,
+                true,
+                &FolioProgram::id(),
+            )?;
+            let user_governance_account = next_account(
+                &mut remaining_accounts_iter,
+                false,
+                false,
+                &SPL_GOVERNANCE_PROGRAM_ID,
+            )?;
 
             let expected_pda_for_user = Pubkey::find_program_address(
                 &[

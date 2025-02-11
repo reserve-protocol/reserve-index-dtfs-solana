@@ -11,12 +11,12 @@ use anchor_spl::{
 use shared::{
     check_condition,
     constants::{
-        ACTOR_SEEDS, FOLIO_SEEDS, MAX_AUCTION_LENGTH, MAX_CONCURRENT_TRADES, MAX_FOLIO_FEE,
-        MAX_MINTING_FEE, MAX_TRADE_DELAY, METADATA_SEEDS, MIN_AUCTION_LENGTH, MIN_DAO_MINTING_FEE,
+        ACTOR_SEEDS, FOLIO_SEEDS, MAX_AUCTION_DELAY, MAX_AUCTION_LENGTH, MAX_CONCURRENT_AUCTIONS,
+        MAX_MINT_FEE, MAX_TVL_FEE, METADATA_SEEDS, MIN_AUCTION_LENGTH, MIN_DAO_MINT_FEE,
     },
 };
 
-use crate::utils::structs::{FolioStatus, Role, TradeEnd};
+use crate::utils::structs::{AuctionEnd, FolioStatus, Role};
 use shared::errors::ErrorCode;
 
 #[derive(Accounts)]
@@ -85,19 +85,19 @@ pub struct InitFolio<'info> {
 impl InitFolio<'_> {
     pub fn validate(
         &self,
-        folio_fee: u128,
-        minting_fee: u128,
-        trade_delay: u64,
+        tvl_fee: u128,
+        mint_fee: u128,
+        auction_delay: u64,
         auction_length: u64,
     ) -> Result<()> {
-        check_condition!(folio_fee <= MAX_FOLIO_FEE, InvalidFeePerSecond);
+        check_condition!(tvl_fee <= MAX_TVL_FEE, InvalidFeePerSecond);
 
         check_condition!(
-            (MIN_DAO_MINTING_FEE..=MAX_MINTING_FEE).contains(&minting_fee),
-            InvalidMintingFee
+            (MIN_DAO_MINT_FEE..=MAX_MINT_FEE).contains(&mint_fee),
+            InvalidMintFee
         );
 
-        check_condition!(trade_delay <= MAX_TRADE_DELAY, InvalidTradeDelay);
+        check_condition!(auction_delay <= MAX_AUCTION_DELAY, InvalidAuctionDelay);
         check_condition!(
             (MIN_AUCTION_LENGTH..=MAX_AUCTION_LENGTH).contains(&auction_length),
             InvalidAuctionLength
@@ -126,16 +126,16 @@ impl<'info> CreateMetadataAccount<'info> {
 
 pub fn handler(
     ctx: Context<InitFolio>,
-    folio_fee: u128,
-    minting_fee: u128,
-    trade_delay: u64,
+    tvl_fee: u128,
+    mint_fee: u128,
+    auction_delay: u64,
     auction_length: u64,
     name: String,
     symbol: String,
     uri: String,
 ) -> Result<()> {
     ctx.accounts
-        .validate(folio_fee, minting_fee, trade_delay, auction_length)?;
+        .validate(tvl_fee, mint_fee, auction_delay, auction_length)?;
 
     let folio_token_mint_key = ctx.accounts.folio_token_mint.key();
     {
@@ -143,16 +143,17 @@ pub fn handler(
 
         folio.bump = ctx.bumps.folio;
         folio.folio_token_mint = folio_token_mint_key;
-        folio.set_folio_fee(folio_fee)?;
-        folio.minting_fee = minting_fee;
+        folio.set_tvl_fee(tvl_fee)?;
+        folio.mint_fee = mint_fee;
         folio.status = FolioStatus::Initializing as u8;
         folio.last_poke = Clock::get()?.unix_timestamp;
         folio.dao_pending_fee_shares = 0;
         folio.fee_recipients_pending_fee_shares = 0;
-        folio.trade_delay = trade_delay;
+        folio.auction_delay = auction_delay;
         folio.auction_length = auction_length;
-        folio.current_trade_id = 0;
-        folio.trade_ends = [TradeEnd::default(); MAX_CONCURRENT_TRADES];
+        folio.current_auction_id = 0;
+        folio.sell_ends = [AuctionEnd::default(); MAX_CONCURRENT_AUCTIONS];
+        folio.buy_ends = [AuctionEnd::default(); MAX_CONCURRENT_AUCTIONS];
     }
 
     let actor = &mut ctx.accounts.actor;

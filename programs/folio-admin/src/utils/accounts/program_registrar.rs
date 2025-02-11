@@ -29,15 +29,19 @@ impl ProgramRegistrar {
 
     pub fn remove_from_registrar(&mut self, program_ids: Vec<Pubkey>) -> Result<()> {
         let mut new_programs = self.accepted_programs.to_vec();
+        let mut found_count = 0;
 
-        new_programs.iter_mut().for_each(|program| {
+        for program in new_programs.iter_mut() {
             if program_ids.contains(program) {
+                found_count += 1;
                 *program = Pubkey::default();
             }
-        });
+        }
+
+        // Verify we found all programs that were supposed to be removed
+        check_condition!(found_count == program_ids.len(), ProgramNotInRegistrar);
 
         self.accepted_programs = new_programs.try_into().unwrap();
-
         Ok(())
     }
 

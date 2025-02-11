@@ -2,8 +2,8 @@ use crate::utils::math_util::CustomPreciseNumber;
 use crate::utils::structs::FolioStatus;
 use crate::{
     cpi_call,
-    events::TradeBid,
-    state::{Folio, FolioBasket, Trade},
+    events::AuctionBid,
+    state::{Auction, Folio, FolioBasket},
 };
 use anchor_lang::prelude::*;
 use anchor_spl::{
@@ -38,34 +38,34 @@ pub struct Bid<'info> {
     pub folio_token_mint: Box<InterfaceAccount<'info, Mint>>,
 
     #[account(mut)]
-    pub trade: AccountLoader<'info, Trade>,
+    pub auction: AccountLoader<'info, Auction>,
 
     #[account()]
-    pub trade_sell_token_mint: Box<InterfaceAccount<'info, Mint>>,
+    pub auction_sell_token_mint: Box<InterfaceAccount<'info, Mint>>,
 
     #[account()]
-    pub trade_buy_token_mint: Box<InterfaceAccount<'info, Mint>>,
+    pub auction_buy_token_mint: Box<InterfaceAccount<'info, Mint>>,
 
     #[account(mut,
-    associated_token::mint = trade_sell_token_mint,
+    associated_token::mint = auction_sell_token_mint,
     associated_token::authority = folio,
     )]
     pub folio_sell_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(mut,
-    associated_token::mint = trade_buy_token_mint,
+    associated_token::mint = auction_buy_token_mint,
     associated_token::authority = folio,
     )]
     pub folio_buy_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(mut,
-    associated_token::mint = trade_sell_token_mint,
+    associated_token::mint = auction_sell_token_mint,
     associated_token::authority = bidder,
     )]
     pub bidder_sell_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(mut,
-    associated_token::mint = trade_buy_token_mint,
+    associated_token::mint = auction_buy_token_mint,
     associated_token::authority = bidder,
     )]
     pub bidder_buy_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
@@ -75,7 +75,7 @@ pub struct Bid<'info> {
 }
 
 impl Bid<'_> {
-    pub fn validate(&self, folio: &Folio, trade: &Trade) -> Result<()> {
+    pub fn validate(&self, folio: &Folio, auction: &Auction) -> Result<()> {
         folio.validate_folio(
             &self.folio.key(),
             None,
@@ -89,13 +89,13 @@ impl Bid<'_> {
         );
 
         check_condition!(
-            self.trade_sell_token_mint.key() == trade.sell,
-            InvalidTradeSellTokenMint
+            self.auction_sell_token_mint.key() == auction.sell,
+            InvalidAuctionSellTokenMint
         );
 
         check_condition!(
-            self.trade_buy_token_mint.key() == trade.buy,
-            InvalidTradeBuyTokenMint
+            self.auction_buy_token_mint.key() == auction.buy,
+            InvalidAuctionBuyTokenMint
         );
 
         Ok(())
@@ -112,13 +112,13 @@ pub fn handler(
     let folio = &ctx.accounts.folio.load()?;
     let folio_token_mint_key = &ctx.accounts.folio_token_mint.key();
     let folio_token_mint = &ctx.accounts.folio_token_mint;
-    let trade = &mut ctx.accounts.trade.load_mut()?;
+    let auction = &mut ctx.accounts.auction.load_mut()?;
 
-    ctx.accounts.validate(folio, trade)?;
+    ctx.accounts.validate(folio, auction)?;
 
     let current_time = Clock::get()?.unix_timestamp as u64;
 
-    let price = trade.get_price(current_time)?;
+    let price = auction.get_price(current_time)?;
 
     let bought_amount = CustomPreciseNumber::from_u64(sell_amount)?
         .mul_generic(price)?
@@ -131,7 +131,7 @@ pub fn handler(
     // Sell related logic
     let sell_balance = ctx.accounts.folio_sell_token_account.amount;
 
-    let min_sell_balance = match CustomPreciseNumber::from_u128(trade.sell_limit.spot)?
+    let min_sell_balance = match CustomPreciseNumber::from_u128(auction.sell_limit.spot)?
         .mul_generic(folio_token_total_supply as u128)?
         .div_generic(D27)?
         .to_u64_ceil()?
@@ -143,7 +143,7 @@ pub fn handler(
     check_condition!(sell_amount <= min_sell_balance, InsufficientBalance);
 
     let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
-    folio_basket.add_tokens_to_basket(&vec![trade.buy])?;
+    folio_basket.add_tokens_to_basket(&vec![auction.buy])?;
 
     // Transfer to the bidder
     let folio_bump = folio.bump;
@@ -156,16 +156,16 @@ pub fn handler(
                 from: ctx.accounts.folio_sell_token_account.to_account_info(),
                 to: ctx.accounts.bidder_sell_token_account.to_account_info(),
                 authority: ctx.accounts.folio.to_account_info(),
-                mint: ctx.accounts.trade_sell_token_mint.to_account_info(),
+                mint: ctx.accounts.auction_sell_token_mint.to_account_info(),
             },
             &[signer_seeds],
         ),
         sell_amount,
-        ctx.accounts.trade_sell_token_mint.decimals,
+        ctx.accounts.auction_sell_token_mint.decimals,
     )?;
 
-    emit!(TradeBid {
-        trade_id: trade.id,
+    emit!(AuctionBid {
+        auction_id: auction.id,
         sell_amount,
         bought_amount,
     });
@@ -173,14 +173,14 @@ pub fn handler(
     // Check if we sold out all the tokens of the sell mint
     ctx.accounts.folio_sell_token_account.reload()?;
     if ctx.accounts.folio_sell_token_account.amount == 0 {
-        trade.end = current_time;
+        auction.end = current_time;
 
         {
             let folio = &mut ctx.accounts.folio.load_mut()?;
-            folio.set_trade_end_for_mints(&trade.sell, &trade.buy, current_time);
+            folio.set_auction_end_for_mints(&auction.sell, &auction.buy, current_time);
         }
 
-        folio_basket.remove_tokens_from_basket(&vec![trade.sell])?;
+        folio_basket.remove_tokens_from_basket(&vec![auction.sell])?;
     }
 
     // Check with the callback / collect payment
@@ -211,16 +211,16 @@ pub fn handler(
                     from: ctx.accounts.bidder_buy_token_account.to_account_info(),
                     to: ctx.accounts.folio_buy_token_account.to_account_info(),
                     authority: ctx.accounts.bidder.to_account_info(),
-                    mint: ctx.accounts.trade_buy_token_mint.to_account_info(),
+                    mint: ctx.accounts.auction_buy_token_mint.to_account_info(),
                 },
             ),
             bought_amount,
-            ctx.accounts.trade_buy_token_mint.decimals,
+            ctx.accounts.auction_buy_token_mint.decimals,
         )?;
     }
 
     // Validate max buy balance
-    let max_buy_balance = CustomPreciseNumber::from_u128(trade.buy_limit.spot)?
+    let max_buy_balance = CustomPreciseNumber::from_u128(auction.buy_limit.spot)?
         .mul_generic(folio_token_total_supply as u128)?
         .to_u64_floor()?;
 

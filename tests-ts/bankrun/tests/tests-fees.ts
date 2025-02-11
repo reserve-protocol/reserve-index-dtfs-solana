@@ -21,7 +21,7 @@ import { Folio } from "../../../target/types/folio";
 import { FolioAdmin } from "../../../target/types/folio_admin";
 import {
   DEFAULT_DECIMALS,
-  MIN_DAO_MINTING_FEE,
+  MIN_DAO_MINT_FEE,
   TOTAL_PORTION_FEE_RECIPIENT,
 } from "../../../utils/constants";
 import {
@@ -41,7 +41,7 @@ import {
 } from "../bankrun-program-helper";
 import {
   getFeeDistributionPDA,
-  getFolioFeeRecipientsPDA,
+  getTVLFeeRecipientsPDA,
   getFolioPDA,
 } from "../../../utils/pda-helper";
 import {
@@ -77,7 +77,7 @@ describe("Bankrun - Fees", () => {
   const feeRecipient3: Keypair = Keypair.generate();
   const feeRecipient4: Keypair = Keypair.generate();
 
-  const feeReceiver: Keypair = Keypair.generate();
+  const feeRecipient: Keypair = Keypair.generate();
   const cranker: Keypair = Keypair.generate();
 
   let userKeypair: Keypair;
@@ -88,7 +88,7 @@ describe("Bankrun - Fees", () => {
     index: BN;
 
     initialDaoPendingFeeShares: BN;
-    initialFeeReceiverPendingFeeShares: BN;
+    initialFeeRecipientPendingFeeShares: BN;
     initialFeeDistributionIndex: BN;
 
     alreadyDistributedFeeRecipients: string[];
@@ -120,7 +120,7 @@ describe("Bankrun - Fees", () => {
     // Expected changes
     expectedFolioTokenBalanceChange: BN;
     expectedDaoFeeShares: BN;
-    expectedFeeReceiverShares: BN;
+    expectedFeeRecipientShares: BN;
 
     expectedFeeDistributed: BN[];
   } = {
@@ -129,7 +129,7 @@ describe("Bankrun - Fees", () => {
     index: new BN(0),
 
     initialDaoPendingFeeShares: new BN(0),
-    initialFeeReceiverPendingFeeShares: new BN(0),
+    initialFeeRecipientPendingFeeShares: new BN(0),
     initialFeeDistributionIndex: new BN(0),
 
     alreadyDistributedFeeRecipients: [],
@@ -157,7 +157,7 @@ describe("Bankrun - Fees", () => {
     // Expected changes
     expectedFolioTokenBalanceChange: new BN(0),
     expectedDaoFeeShares: new BN(0),
-    expectedFeeReceiverShares: new BN(0),
+    expectedFeeRecipientShares: new BN(0),
 
     expectedFeeDistributed: [],
   };
@@ -172,29 +172,29 @@ describe("Bankrun - Fees", () => {
       desc: "(current time is same as last poke, no changes)",
       expectedError: null,
       expectedDaoFeeShares: new BN(0),
-      expectedFeeReceiverShares: new BN(0),
+      expectedFeeRecipientShares: new BN(0),
     },
     {
       desc: "(current time is after last poke 10 seconds, succeeds)",
       expectedError: null,
-      expectedDaoFeeShares: new BN(79),
-      expectedFeeReceiverShares: new BN(158469),
+      expectedDaoFeeShares: new BN(142),
+      expectedFeeRecipientShares: new BN(285246),
       addedClockTime: 10,
     },
     {
       desc: "(current time is after last poke 60 seconds, succeeds)",
       expectedError: null,
-      expectedDaoFeeShares: new BN(475),
-      expectedFeeReceiverShares: new BN(950818),
+      expectedDaoFeeShares: new BN(856),
+      expectedFeeRecipientShares: new BN(1_711_472),
       addedClockTime: 60,
       initialDaoPendingFeeShares: new BN(1000),
-      initialFeeReceiverPendingFeeShares: new BN(2000),
+      initialFeeRecipientPendingFeeShares: new BN(2000),
     },
     {
       desc: "(current time is after last poke 3600 seconds, succeeds)",
       expectedError: null,
-      expectedDaoFeeShares: new BN(28538),
-      expectedFeeReceiverShares: new BN(57049087),
+      expectedDaoFeeShares: new BN(51369),
+      expectedFeeRecipientShares: new BN(102688357),
       addedClockTime: 3600,
     },
   ];
@@ -238,11 +238,11 @@ describe("Bankrun - Fees", () => {
       desc: "(user tries to distribute fees to too many users, transaction size issue, errors out)",
       expectedError: "TransactionTooLarge",
       feeRecipients: Array.from({ length: 30 }, () => ({
-        receiver: Keypair.generate().publicKey,
+        recipient: Keypair.generate().publicKey,
         portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(30)),
       })),
       feeRecipientsToDistributeTo: Array.from({ length: 30 }, () => ({
-        receiver: Keypair.generate().publicKey,
+        recipient: Keypair.generate().publicKey,
         portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(30)),
       })),
       isPreTransactionValidated: true,
@@ -254,27 +254,27 @@ describe("Bankrun - Fees", () => {
       alreadyDistributedFeeRecipients: [feeRecipient1.publicKey.toBase58()],
       feeRecipients: [
         {
-          receiver: feeRecipient1.publicKey,
+          recipient: feeRecipient1.publicKey,
           portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
         },
         {
-          receiver: feeRecipient2.publicKey,
+          recipient: feeRecipient2.publicKey,
           portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
         },
       ],
       feeRecipientNotClaiming: [
         {
-          receiver: feeRecipient3.publicKey,
+          recipient: feeRecipient3.publicKey,
           portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
         },
       ],
       feeRecipientsToDistributeTo: [
         {
-          receiver: feeRecipient1.publicKey,
+          recipient: feeRecipient1.publicKey,
           portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
         },
         {
-          receiver: feeRecipient2.publicKey,
+          recipient: feeRecipient2.publicKey,
           portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
         },
       ],
@@ -287,21 +287,21 @@ describe("Bankrun - Fees", () => {
       amountToDistribute: new BN(8_000_000_000),
       feeRecipients: [
         {
-          receiver: feeRecipient1.publicKey,
+          recipient: feeRecipient1.publicKey,
           portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
         },
         {
-          receiver: feeRecipient2.publicKey,
+          recipient: feeRecipient2.publicKey,
           portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
         },
       ],
       feeRecipientsToDistributeTo: [
         {
-          receiver: feeRecipient1.publicKey,
+          recipient: feeRecipient1.publicKey,
           portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
         },
         {
-          receiver: feeRecipient3.publicKey,
+          recipient: feeRecipient3.publicKey,
           portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
         },
       ],
@@ -312,23 +312,23 @@ describe("Bankrun - Fees", () => {
       amountToDistribute: new BN(8_000_000_000),
       feeRecipients: [
         {
-          receiver: feeRecipient1.publicKey,
+          recipient: feeRecipient1.publicKey,
           portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
         },
         {
-          receiver: feeRecipient2.publicKey,
+          recipient: feeRecipient2.publicKey,
           portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
         },
       ],
       feeRecipientNotClaiming: [
         {
-          receiver: feeRecipient2.publicKey,
+          recipient: feeRecipient2.publicKey,
           portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
         },
       ],
       feeRecipientsToDistributeTo: [
         {
-          receiver: feeRecipient1.publicKey,
+          recipient: feeRecipient1.publicKey,
           portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
         },
       ],
@@ -340,22 +340,22 @@ describe("Bankrun - Fees", () => {
       amountToDistribute: new BN(8_000_000_000),
       feeRecipients: [
         {
-          receiver: feeRecipient1.publicKey,
+          recipient: feeRecipient1.publicKey,
           portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
         },
         {
-          receiver: feeRecipient2.publicKey,
+          recipient: feeRecipient2.publicKey,
           portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
         },
       ],
       feeRecipientNotClaiming: [],
       feeRecipientsToDistributeTo: [
         {
-          receiver: feeRecipient1.publicKey,
+          recipient: feeRecipient1.publicKey,
           portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
         },
         {
-          receiver: feeRecipient2.publicKey,
+          recipient: feeRecipient2.publicKey,
           portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
         },
       ],
@@ -371,8 +371,8 @@ describe("Bankrun - Fees", () => {
     await createAndSetDaoFeeConfig(
       context,
       programFolioAdmin,
-      feeReceiver.publicKey,
-      MIN_DAO_MINTING_FEE
+      feeRecipient.publicKey,
+      MIN_DAO_MINT_FEE
     );
 
     await createAndSetFolio(context, programFolio, folioTokenMint.publicKey);
@@ -392,14 +392,14 @@ describe("Bankrun - Fees", () => {
         context,
         customFolioTokenMint.publicKey,
 
-        feeReceiver.publicKey
+        feeRecipient.publicKey
       );
     }
 
     await getOrCreateAtaAddress(
       context,
       folioTokenMint.publicKey,
-      feeReceiver.publicKey
+      feeRecipient.publicKey
     );
 
     await createAndSetActor(
@@ -446,7 +446,7 @@ describe("Bankrun - Fees", () => {
     await airdrop(context, payerKeypair.publicKey, 1000);
     await airdrop(context, adminKeypair.publicKey, 1000);
     await airdrop(context, folioOwnerKeypair.publicKey, 1000);
-    await airdrop(context, feeReceiver.publicKey, 1000);
+    await airdrop(context, feeRecipient.publicKey, 1000);
     await airdrop(context, userKeypair.publicKey, 1000);
 
     folioPDA = getFolioPDA(folioTokenMint.publicKey);
@@ -472,7 +472,7 @@ describe("Bankrun - Fees", () => {
         userKeypair,
         folioPDA,
         folioTokenMint.publicKey,
-        getAtaAddress(folioTokenMint.publicKey, feeReceiver.publicKey),
+        getAtaAddress(folioTokenMint.publicKey, feeRecipient.publicKey),
         new BN(0),
         true
       );
@@ -585,11 +585,11 @@ describe("Bankrun - Fees", () => {
           let txnResult: BanksTransactionResultWithMeta;
           const {
             expectedDaoFeeShares,
-            expectedFeeReceiverShares,
+            expectedFeeRecipientShares,
             customFolioTokenMint,
             addedClockTime,
             initialDaoPendingFeeShares,
-            initialFeeReceiverPendingFeeShares,
+            initialFeeRecipientPendingFeeShares,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
@@ -611,7 +611,7 @@ describe("Bankrun - Fees", () => {
               undefined,
               new BN(currentClock.unixTimestamp.toString()),
               initialDaoPendingFeeShares,
-              initialFeeReceiverPendingFeeShares
+              initialFeeRecipientPendingFeeShares
             );
 
             await travelFutureSlot(context);
@@ -650,16 +650,18 @@ describe("Bankrun - Fees", () => {
 
               // Folio should have updated fees
               const folio = await programFolio.account.folio.fetch(folioPDA);
+
               assert.equal(
                 folio.daoPendingFeeShares.eq(
                   folioBefore.daoPendingFeeShares.add(expectedDaoFeeShares)
                 ),
                 true
               );
+
               assert.equal(
                 folio.feeRecipientsPendingFeeShares.eq(
                   folioBefore.feeRecipientsPendingFeeShares.add(
-                    expectedFeeReceiverShares
+                    expectedFeeRecipientShares
                   )
                 ),
                 true
@@ -684,7 +686,7 @@ describe("Bankrun - Fees", () => {
             expectedDaoFeeShares,
             customFolioTokenMint,
             initialDaoPendingFeeShares,
-            initialFeeReceiverPendingFeeShares,
+            initialFeeRecipientPendingFeeShares,
             daoFeeRecipient,
             feeDistributionIndex,
             initialFeeDistributionIndex,
@@ -693,7 +695,7 @@ describe("Bankrun - Fees", () => {
             ...restOfParams,
           };
 
-          const daoFeeRecipientToUse = daoFeeRecipient || feeReceiver;
+          const daoFeeRecipientToUse = daoFeeRecipient || feeRecipient;
 
           let feeRecipientBefore: any;
           let daoFeeRecipientBalanceBefore: bigint;
@@ -713,7 +715,7 @@ describe("Bankrun - Fees", () => {
               undefined,
               new BN(currentClock.unixTimestamp.toString()),
               initialDaoPendingFeeShares,
-              initialFeeReceiverPendingFeeShares
+              initialFeeRecipientPendingFeeShares
             );
 
             await createAndSetFeeRecipients(
@@ -727,7 +729,7 @@ describe("Bankrun - Fees", () => {
             await travelFutureSlot(context);
 
             feeRecipientBefore = await programFolio.account.feeRecipients.fetch(
-              getFolioFeeRecipientsPDA(folioPDA)
+              getTVLFeeRecipientsPDA(folioPDA)
             );
 
             const tokenMintToUse = customFolioTokenMint || folioTokenMint;
@@ -777,7 +779,7 @@ describe("Bankrun - Fees", () => {
               // Fee Recipient index should have been updated
               const feeRecipientAfter =
                 await programFolio.account.feeRecipients.fetch(
-                  getFolioFeeRecipientsPDA(folioPDA)
+                  getTVLFeeRecipientsPDA(folioPDA)
                 );
               assert.equal(
                 feeRecipientAfter.distributionIndex.eq(
@@ -786,7 +788,7 @@ describe("Bankrun - Fees", () => {
                 true
               );
 
-              // Balance for the dao fee receiver should be updated
+              // Balance for the dao fee recipient should be updated
               const daoFeeRecipientBalanceAfter = await getTokenBalance(
                 banksClient,
                 getAtaAddress(
@@ -814,7 +816,7 @@ describe("Bankrun - Fees", () => {
           let txnResult: BanksTransactionResultWithMeta;
           const {
             customFolioTokenMint,
-            initialFeeReceiverPendingFeeShares,
+            initialFeeRecipientPendingFeeShares,
             alreadyDistributedFeeRecipients,
             feeDistributionIndex,
             feeRecipients,
@@ -848,7 +850,7 @@ describe("Bankrun - Fees", () => {
               const feeRecipientATA = await getOrCreateAtaAddress(
                 context,
                 folioTokenMint.publicKey,
-                feeRecipient.receiver
+                feeRecipient.recipient
               );
               feeRecipientsATA.push(feeRecipientATA);
               feeRecipientsBalancesBefore.push(
@@ -865,7 +867,7 @@ describe("Bankrun - Fees", () => {
               undefined,
               new BN(currentClock.unixTimestamp.toString()),
               new BN(0),
-              initialFeeReceiverPendingFeeShares
+              initialFeeRecipientPendingFeeShares
             );
 
             // Remove the fee recipients that were already claimed (by putting them as public key default)
@@ -874,11 +876,11 @@ describe("Bankrun - Fees", () => {
               ...feeRecipientNotClaiming,
             ].map((f) => {
               if (
-                alreadyDistributedFeeRecipients.includes(f.receiver.toBase58())
+                alreadyDistributedFeeRecipients.includes(f.recipient.toBase58())
               ) {
                 return {
                   ...f,
-                  receiver: PublicKey.default,
+                  recipient: PublicKey.default,
                 };
               }
               return f;
@@ -891,7 +893,7 @@ describe("Bankrun - Fees", () => {
               cranker.publicKey,
               feeDistributionIndex,
               amountToDistribute,
-              // Here we send the owner of the token acc (the owner = the receiver)
+              // Here we send the owner of the token acc (the owner = the recipient)
               feeRecipientsInDistribution
             );
 
@@ -954,17 +956,17 @@ describe("Bankrun - Fees", () => {
                 for (const feeRecipientState of feeDistributionAfter.feeRecipientsState) {
                   // Set to default when it's been distributed
                   const notDistributed = feeRecipientNotClaiming.find((f) =>
-                    f.receiver.equals(feeRecipientState.receiver)
+                    f.recipient.equals(feeRecipientState.recipient)
                   );
                   if (notDistributed) {
                     // If we haven't distributed then shouldn't be set as public key default
                     assert.deepEqual(
-                      feeRecipientState.receiver,
-                      notDistributed.receiver
+                      feeRecipientState.recipient,
+                      notDistributed.recipient
                     );
                   } else {
                     assert.deepEqual(
-                      feeRecipientState.receiver,
+                      feeRecipientState.recipient,
                       PublicKey.default
                     );
                   }

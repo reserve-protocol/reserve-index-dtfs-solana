@@ -14,10 +14,10 @@ mod tests {
 
         assert!(fee_distribution.is_fully_distributed());
 
-        fee_distribution.fee_recipients_state[0].receiver = Pubkey::new_unique();
+        fee_distribution.fee_recipients_state[0].recipient = Pubkey::new_unique();
         assert!(!fee_distribution.is_fully_distributed());
 
-        fee_distribution.fee_recipients_state[1].receiver = Pubkey::new_unique();
+        fee_distribution.fee_recipients_state[1].recipient = Pubkey::new_unique();
         assert!(!fee_distribution.is_fully_distributed());
     }
 }

@@ -14,10 +14,7 @@ import {
   travelFutureSlot,
 } from "../bankrun-program-helper";
 
-import {
-  getFolioFeeRecipientsPDA,
-  getFolioPDA,
-} from "../../../utils/pda-helper";
+import { getTVLFeeRecipientsPDA, getFolioPDA } from "../../../utils/pda-helper";
 import { updateFolio } from "../bankrun-ix-helper";
 import {
   createAndSetFolio,
@@ -35,13 +32,13 @@ import {
 import * as assert from "assert";
 import {
   MAX_FEE_RECIPIENTS,
-  MAX_MINTING_FEE,
+  MAX_MINT_FEE,
   MIN_AUCTION_LENGTH,
-  MIN_DAO_MINTING_FEE,
+  MIN_DAO_MINT_FEE,
 } from "../../../utils/constants";
 import { MAX_AUCTION_LENGTH } from "../../../utils/constants";
-import { MAX_TRADE_DELAY } from "../../../utils/constants";
-import { MAX_FOLIO_FEE } from "../../../utils/constants";
+import { MAX_AUCTION_DELAY } from "../../../utils/constants";
+import { MAX_TVL_FEE } from "../../../utils/constants";
 
 describe("Bankrun - Update folio", () => {
   let context: ProgramTestContext;
@@ -67,17 +64,17 @@ describe("Bankrun - Update folio", () => {
   const FEE_RECIPIENT_KEYPAIR = Keypair.generate();
 
   const DEFAULT_PARAMS: {
-    folioFee: BN;
-    mintingFee: BN;
-    tradeDelay: BN;
+    tvlFee: BN;
+    mintFee: BN;
+    auctionDelay: BN;
     auctionLength: BN;
     preAddedRecipients: FeeRecipient[];
     feeRecipientsToAdd: FeeRecipient[];
     feeRecipientsToRemove: PublicKey[];
   } = {
-    folioFee: MAX_FOLIO_FEE,
-    mintingFee: MIN_DAO_MINTING_FEE,
-    tradeDelay: MAX_TRADE_DELAY,
+    tvlFee: MAX_TVL_FEE,
+    mintFee: MIN_DAO_MINT_FEE,
+    auctionDelay: MAX_AUCTION_DELAY,
     auctionLength: MAX_AUCTION_LENGTH,
     preAddedRecipients: [],
     feeRecipientsToAdd: [],
@@ -87,37 +84,37 @@ describe("Bankrun - Update folio", () => {
   const TEST_CASES = [
     {
       desc: "(should update folio fee, fee too high)",
-      folioFee: MAX_FOLIO_FEE.add(new BN(1)),
+      tvlFee: MAX_TVL_FEE.add(new BN(1)),
       expectedError: "InvalidFeePerSecond",
     },
     {
       desc: "(should update folio fee, success)",
-      folioFee: MAX_FOLIO_FEE.sub(new BN(1)),
+      tvlFee: MAX_TVL_FEE.sub(new BN(1)),
       expectedError: null,
     },
     {
       desc: "(should update minting fee, fee too low)",
-      mintingFee: MIN_DAO_MINTING_FEE.sub(new BN(1)),
-      expectedError: "InvalidMintingFee",
+      mintFee: MIN_DAO_MINT_FEE.sub(new BN(1)),
+      expectedError: "InvalidMintFee",
     },
     {
       desc: "(should update minting fee, fee too high)",
-      mintingFee: MAX_MINTING_FEE.add(new BN(1)),
-      expectedError: "InvalidMintingFee",
+      mintFee: MAX_MINT_FEE.add(new BN(1)),
+      expectedError: "InvalidMintFee",
     },
     {
       desc: "(should update minting fee, success)",
-      mintingFee: MAX_MINTING_FEE.sub(new BN(1)),
+      mintFee: MAX_MINT_FEE.sub(new BN(1)),
       expectedError: null,
     },
     {
-      desc: "(should update trade delay, delay too high)",
-      tradeDelay: MAX_TRADE_DELAY.add(new BN(1)),
-      expectedError: "InvalidTradeDelay",
+      desc: "(should update auction delay, delay too high)",
+      auctionDelay: MAX_AUCTION_DELAY.add(new BN(1)),
+      expectedError: "InvalidAuctionDelay",
     },
     {
-      desc: "(should update trade delay, success)",
-      tradeDelay: MAX_TRADE_DELAY.sub(new BN(1)),
+      desc: "(should update auction delay, success)",
+      auctionDelay: MAX_AUCTION_DELAY.sub(new BN(1)),
       expectedError: null,
     },
     {
@@ -267,9 +264,9 @@ describe("Bankrun - Update folio", () => {
       describe(`When ${desc}`, () => {
         let txnResult: BanksTransactionResultWithMeta;
         const {
-          folioFee,
-          mintingFee,
-          tradeDelay,
+          tvlFee,
+          mintFee,
+          auctionDelay,
           auctionLength,
           feeRecipientsToAdd,
           feeRecipientsToRemove,
@@ -293,9 +290,9 @@ describe("Bankrun - Update folio", () => {
             programFolio,
             folioOwnerKeypair,
             folioPDA,
-            folioFee,
-            mintingFee,
-            tradeDelay,
+            tvlFee,
+            mintFee,
+            auctionDelay,
             auctionLength,
             feeRecipientsToAdd,
             feeRecipientsToRemove
@@ -312,14 +309,14 @@ describe("Bankrun - Update folio", () => {
 
             const folio = await programFolio.account.folio.fetch(folioPDA);
 
-            assert.equal(folio.folioFee.eq(folioFee), true);
-            assert.equal(folio.mintingFee.eq(mintingFee), true);
-            assert.equal(folio.tradeDelay.eq(tradeDelay), true);
+            assert.equal(folio.tvlFee.eq(tvlFee), true);
+            assert.equal(folio.mintFee.eq(mintFee), true);
+            assert.equal(folio.auctionDelay.eq(auctionDelay), true);
             assert.equal(folio.auctionLength.eq(auctionLength), true);
 
             const feeRecipients =
               await programFolio.account.feeRecipients.fetch(
-                getFolioFeeRecipientsPDA(folioPDA)
+                getTVLFeeRecipientsPDA(folioPDA)
               );
 
             const expectedFeeRecipients = buildExpectedArray(
@@ -328,19 +325,19 @@ describe("Bankrun - Update folio", () => {
               feeRecipientsToRemove,
               MAX_FEE_RECIPIENTS,
               {
-                receiver: PublicKey.default,
+                recipient: PublicKey.default,
                 portion: new BN(0),
               },
               (feeRecipient) =>
                 !feeRecipientsToRemove.some((pk) =>
-                  pk.equals(feeRecipient.receiver)
+                  pk.equals(feeRecipient.recipient)
                 )
             );
 
             for (let i = 0; i < MAX_FEE_RECIPIENTS; i++) {
               assert.equal(
-                feeRecipients.feeRecipients[i].receiver.toString(),
-                expectedFeeRecipients[i].receiver.toString()
+                feeRecipients.feeRecipients[i].recipient.toString(),
+                expectedFeeRecipients[i].recipient.toString()
               );
               assert.equal(
                 feeRecipients.feeRecipients[i].portion.eq(

@@ -194,7 +194,12 @@ impl Decimal {
         }
 
         let mut low = Decimal::ZERO;
-        let mut high = Decimal::ONE_E18;
+        // If value > 1, use value as high bound, otherwise use ONE_E18
+        let mut high = if self.0 > Decimal::ONE_E18.0 {
+            self.clone()
+        } else {
+            Decimal::ONE_E18
+        };
         let target = self.clone();
 
         let two = &Decimal::from_scaled(2u128);

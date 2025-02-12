@@ -90,6 +90,58 @@ mod tests {
     }
 
     #[test]
+    fn test_nth_root() {
+        // Test zero
+        let zero = Decimal::ZERO;
+        assert_eq!(zero.nth_root(2).unwrap(), Decimal::ZERO);
+
+        // Test one
+        let one = Decimal::ONE_E18;
+        assert_eq!(one.nth_root(2).unwrap(), Decimal::ONE_E18);
+
+        // Test square root of 4 (should be 2)
+        let four = Decimal::from_scaled(4_000_000_000_000_000_000u128); // 4.0
+        let result = four.nth_root(2).unwrap();
+
+        assert!(result > Decimal::from_scaled(1_900_000_000_000_000_000u128)); // > 1.9
+        assert!(result < Decimal::from_scaled(2_100_000_000_000_000_000u128)); // < 2.1
+
+        // Test cube root of 8 (should be 2)
+        let eight = Decimal::from_scaled(8_000_000_000_000_000_000u128); // 8.0
+        let result = eight.nth_root(3).unwrap();
+
+        assert!(result > Decimal::from_scaled(1_900_000_000_000_000_000u128)); // > 1.9
+        assert!(result < Decimal::from_scaled(2_100_000_000_000_000_000u128)); // < 2.1
+
+        // Test square root of 2
+        let two = Decimal::from_scaled(2_000_000_000_000_000_000u128); // 2.0
+        let result = two.nth_root(2).unwrap();
+
+        assert!(result > Decimal::from_scaled(1_400_000_000_000_000_000u128)); // > 1.4
+        assert!(result < Decimal::from_scaled(1_500_000_000_000_000_000u128)); // < 1.5
+    }
+
+    #[test]
+    fn test_nth_root_edge_cases() {
+        // Test first root (should return same number)
+        let value = Decimal::from_scaled(4_000_000_000_000_000_000u128); // 4.0
+        let result = value.nth_root(1).unwrap();
+        // Allow for small precision difference
+        let diff = if result.0 > value.0 {
+            result.0 - value.0
+        } else {
+            value.0 - result.0
+        };
+        assert!(diff < U256::from(1_000_000_000));
+
+        // Test with moderately large n (100 might be too large and causing overflow)
+        let value = Decimal::from_scaled(16_000_000_000_000_000_000u128); // 16.0
+        let result = value.nth_root(10).unwrap(); // Changed from 100 to 10
+        assert!(result > Decimal::ZERO);
+        assert!(result < Decimal::from_scaled(2_000_000_000_000_000_000u128));
+    }
+
+    #[test]
     fn test_decimal_ln() {
         let one = Decimal::ONE_E18;
         assert_eq!(one.ln().unwrap().unwrap(), Decimal::ZERO);

@@ -1,17 +1,18 @@
-use crate::utils::math_util::CustomPreciseNumber;
+use crate::utils::math_util::Decimal;
 use crate::utils::structs::{AuctionEnd, FolioStatus, Role};
+use crate::utils::{Rounding, TokenResult};
 use crate::{
     events::TVLFeeSet,
     program::Folio as FolioProgram,
     state::{Actor, Folio},
 };
 use anchor_lang::prelude::*;
+use shared::constants::YEAR_IN_SECONDS;
 use shared::{
     check_condition,
-    constants::{D18, FOLIO_SEEDS, MAX_TVL_FEE, MIN_DAO_MINT_FEE},
+    constants::{FOLIO_SEEDS, MAX_TVL_FEE},
     errors::ErrorCode,
 };
-use spl_math::uint::U256;
 
 impl Folio {
     #[allow(clippy::too_many_arguments)]
@@ -58,25 +59,29 @@ impl Folio {
         Ok(())
     }
 
-    pub fn set_tvl_fee(&mut self, fee: u128) -> Result<()> {
-        check_condition!(fee <= MAX_TVL_FEE, InvalidFeePerSecond);
+    pub fn set_tvl_fee(&mut self, new_fee_annually: u128) -> Result<()> {
+        // Annual fee is in D18
+        check_condition!(new_fee_annually <= MAX_TVL_FEE, TVLFeeTooHigh);
 
-        self.tvl_fee = fee;
+        if new_fee_annually == 0 {
+            self.tvl_fee = 0;
+            emit!(TVLFeeSet { new_fee: 0 });
+            return Ok(());
+        }
 
-        // TODO Math
         // convert annual percentage to per-second
-        // let base = D18.checked_sub(U256::from(fee)).ok_or(MathOverflow)?;
+        // = 1 - (1 - _newFeeAnnually) ^ (1 / 31536000)
+        // D18{1/s} = D18{1} - D18{1} ^ {s}
+        let one_minus_fee = Decimal::ONE_E18.sub(&Decimal::from_scaled(new_fee_annually))?;
+        let result = one_minus_fee.nth_root(YEAR_IN_SECONDS)?;
+        let tvl_fee = Decimal::ONE_E18.sub(&result)?;
 
-        // let power_result = base.checked_pow(ANNUALIZATION_EXP).ok_or(MathOverflow)?;
+        check_condition!(
+            new_fee_annually == 0 || tvl_fee != Decimal::ZERO,
+            TVLFeeTooLow
+        );
 
-        // let fee_per_second = D18.checked_sub(power_result).ok_or(MathOverflow)?;
-
-        // check_condition!(
-        //     fee == 0 || fee_per_second != U256::from(0),
-        //     InvalidFeePerSecond
-        // );
-        //
-        // self.tvl_fee = fee_per_second.try_into().unwrap();
+        self.tvl_fee = tvl_fee.to_scaled(Rounding::Floor)?;
 
         emit!(TVLFeeSet {
             new_fee: self.tvl_fee,
@@ -88,66 +93,72 @@ impl Folio {
     /// Returns the total number of shares to remove from the mint, and updates the ones on the folio
     pub fn calculate_fees_for_minting(
         &mut self,
-        user_shares: u64,
-        dao_fee_numerator: u128,
-        dao_fee_denominator: u128,
-    ) -> Result<u64> {
-        let total_fee_shares = CustomPreciseNumber::from_u64(user_shares)?
+        user_shares: u64,          // D9
+        dao_fee_numerator: u128,   // D18
+        dao_fee_denominator: u128, // D18
+        dao_fee_floor: u128,       // D18
+    ) -> Result<TokenResult> // D9
+    {
+        let decimal_user_shares = Decimal::from_token_amount(user_shares)?;
+        let decimal_mint_fee = Decimal::from_scaled(self.mint_fee);
+
+        let decimal_dao_fee_numerator = Decimal::from_scaled(dao_fee_numerator);
+        let decimal_dao_fee_denominator = Decimal::from_scaled(dao_fee_denominator);
+        let decimal_dao_fee_floor = Decimal::from_scaled(dao_fee_floor);
+
+        let mut total_fee_shares = decimal_user_shares
             // Minting fee is already scaled by D18
-            .mul_generic(U256::from(self.mint_fee))?
-            .add_generic(D18)?
-            .sub_generic(CustomPreciseNumber::one())?
-            .div_generic(D18)?;
+            .mul(&decimal_mint_fee)?
+            .add(&Decimal::ONE_E18)?
+            .sub(&Decimal::ONE)?
+            .div(&Decimal::ONE_E18)?;
 
         let mut dao_fee_shares = total_fee_shares
-            .mul_generic(U256::from(dao_fee_numerator))?
-            .add_generic(U256::from(dao_fee_denominator))?
-            .sub_generic(CustomPreciseNumber::one())?
-            .div_generic(U256::from(dao_fee_denominator))?
-            .to_u64_floor()?;
+            .mul(&decimal_dao_fee_numerator)?
+            .add(&decimal_dao_fee_denominator)?
+            .sub(&Decimal::ONE)?
+            .div(&decimal_dao_fee_denominator)?;
 
-        let min_dao_shares = CustomPreciseNumber::from_u64(user_shares)?
-            .mul_generic(U256::from(MIN_DAO_MINT_FEE))?
-            .add_generic(D18)?
-            .sub_generic(CustomPreciseNumber::one())?
-            .div_generic(D18)?
-            .to_u64_floor()?;
+        let min_dao_shares = decimal_user_shares
+            .mul(&decimal_dao_fee_floor)?
+            .add(&Decimal::ONE_E18)?
+            .sub(&Decimal::ONE)?
+            .div(&Decimal::ONE_E18)?;
 
         if dao_fee_shares < min_dao_shares {
             dao_fee_shares = min_dao_shares;
         }
 
-        let mut total_fee_shares_scaled = total_fee_shares.to_u64_floor()?;
-
-        if total_fee_shares_scaled < dao_fee_shares {
-            total_fee_shares_scaled = dao_fee_shares;
+        if total_fee_shares < dao_fee_shares {
+            total_fee_shares = dao_fee_shares.clone();
         }
 
         self.dao_pending_fee_shares = self
             .dao_pending_fee_shares
-            .checked_add(dao_fee_shares)
+            .checked_add(dao_fee_shares.to_scaled(Rounding::Floor)?)
             .ok_or(ErrorCode::MathOverflow)?;
 
         self.fee_recipients_pending_fee_shares = self
             .fee_recipients_pending_fee_shares
             .checked_add(
-                total_fee_shares_scaled
-                    .checked_sub(dao_fee_shares)
-                    .ok_or(ErrorCode::MathOverflow)?,
+                total_fee_shares
+                    .sub(&dao_fee_shares)?
+                    .to_scaled(Rounding::Floor)?,
             )
             .ok_or(ErrorCode::MathOverflow)?;
 
-        Ok(total_fee_shares_scaled)
+        total_fee_shares.to_token_amount(Rounding::Ceiling)
     }
 
     pub fn poke(
         &mut self,
-        folio_token_supply: u64,
+        folio_token_supply: u64, // D9
         current_time: i64,
-        dao_fee_numerator: u128,
-        dao_fee_denominator: u128,
+        dao_fee_numerator: u128,   // D18
+        dao_fee_denominator: u128, // D18
+        dao_fee_floor: u128,       // D18
     ) -> Result<()> {
-        if current_time - self.last_poke == 0 {
+        if current_time.saturating_sub(self.last_poke) == 0 {
             return Ok(());
         }
 
@@ -156,15 +167,17 @@ impl Folio {
             current_time,
             dao_fee_numerator,
             dao_fee_denominator,
+            dao_fee_floor,
         )?;
 
         self.dao_pending_fee_shares = self
             .dao_pending_fee_shares
-            .checked_add(dao_pending_fee_shares)
+            .checked_add(dao_pending_fee_shares.to_scaled(Rounding::Floor)?)
             .ok_or(ErrorCode::MathOverflow)?;
+
         self.fee_recipients_pending_fee_shares = self
             .fee_recipients_pending_fee_shares
-            .checked_add(fee_recipients_pending_fee)
+            .checked_add(fee_recipients_pending_fee.to_scaled(Rounding::Floor)?)
             .ok_or(ErrorCode::MathOverflow)?;
 
         self.last_poke = current_time;
@@ -172,62 +185,88 @@ impl Folio {
         Ok(())
     }
 
-    pub fn get_total_supply(&self, folio_token_supply: u64) -> Result<u64> {
-        Ok(folio_token_supply
-            .checked_add(self.dao_pending_fee_shares)
-            .ok_or(ErrorCode::MathOverflow)?
-            .checked_add(self.fee_recipients_pending_fee_shares)
-            .ok_or(ErrorCode::MathOverflow)?)
+    pub fn get_total_supply(
+        &self,
+        folio_token_supply: u64, // D9
+    ) -> Result<Decimal> {
+        // Total supply is in D9, since it's the default decimal mint for our folio token
+        let total_supply = Decimal::from_token_amount(folio_token_supply)?;
+
+        total_supply
+            .add(&Decimal::from_scaled(self.dao_pending_fee_shares))?
+            .add(&Decimal::from_scaled(
+                self.fee_recipients_pending_fee_shares,
+            ))
     }
 
     pub fn get_pending_fee_shares(
         &self,
-        folio_token_supply: u64,
+        folio_token_supply: u64, // D9
         current_time: i64,
-        dao_fee_numerator: u128,
-        dao_fee_denominator: u128,
-    ) -> Result<(u64, u64)> {
-        let total_supply = self.get_total_supply(folio_token_supply)?;
+        dao_fee_numerator: u128,   // D18
+        dao_fee_denominator: u128, // D18
+        dao_fee_floor: u128,       // D18
+    ) -> Result<(Decimal, Decimal)> {
+        let total_supply_with_pending_fees = self.get_total_supply(folio_token_supply)?;
+
         let elapsed = (current_time - self.last_poke) as u64;
 
-        // TODO changed on the Solidity side
-        // Calculate annual rate in smaller chunks
-        let seconds_per_year = 365 * 24 * 3600;
-        let fee_rate = D18
-            .checked_sub(U256::from(self.tvl_fee))
-            .ok_or(error!(ErrorCode::MathOverflow))?;
+        // Calculate fee floor
+        let one_minus_fee_floor = Decimal::ONE_E18.sub(&Decimal::from_scaled(dao_fee_floor))?;
+        let fee_floor = Decimal::ONE_E18.sub(&one_minus_fee_floor.nth_root(YEAR_IN_SECONDS)?)?;
 
-        // Calculate the compound factor for the elapsed time
-        let compound_multiplier = U256::from(elapsed)
-            .checked_mul(D18)
-            .ok_or(error!(ErrorCode::MathOverflow))?
-            .checked_div(U256::from(seconds_per_year))
-            .ok_or(error!(ErrorCode::MathOverflow))?;
+        // Use higher of fee floor or TVL fee
+        let decimal_tvl_fee = Decimal::from_scaled(self.tvl_fee);
+        let tvl_fee_to_use = if fee_floor > decimal_tvl_fee {
+            fee_floor.clone()
+        } else {
+            decimal_tvl_fee
+        };
 
-        let fee_amount = U256::from(total_supply)
-            .checked_mul(compound_multiplier)
-            .ok_or(error!(ErrorCode::MathOverflow))?
-            .checked_mul(fee_rate)
-            .ok_or(error!(ErrorCode::MathOverflow))?
-            .checked_div(D18)
-            .ok_or(error!(ErrorCode::MathOverflow))?
-            .checked_div(D18)
-            .ok_or(error!(ErrorCode::MathOverflow))?;
+        // Calculate fee shares
+        let one_minus_tvl_fee = Decimal::ONE_E18.sub(&tvl_fee_to_use)?;
+        let denominator = one_minus_tvl_fee.pow(elapsed)?;
+        let fee_shares = total_supply_with_pending_fees
+            .mul(&Decimal::ONE_E18)?
+            .div(&denominator)?
+            .sub(&total_supply_with_pending_fees)?;
 
-        let dao_shares = fee_amount
-            .checked_mul(U256::from(dao_fee_numerator))
-            .ok_or(error!(ErrorCode::MathOverflow))?
-            .checked_div(U256::from(dao_fee_denominator))
-            .ok_or(error!(ErrorCode::MathOverflow))?;
+        // Calculate correction
+        let correction = fee_floor
+            .mul(&Decimal::ONE_E18)?
+            .add(&tvl_fee_to_use)?
+            .sub(&Decimal::ONE)?
+            .div(&tvl_fee_to_use)?;
 
-        let fee_recipient_shares = fee_amount
-            .checked_sub(dao_shares)
-            .ok_or(error!(ErrorCode::MathOverflow))?;
+        // Calculate DAO ratio
+        let dao_ratio = Decimal::from_scaled(dao_fee_numerator)
+            .mul(&Decimal::ONE_E18)?
+            .add(&Decimal::from_scaled(dao_fee_denominator))?
+            .sub(&Decimal::ONE)?
+            .div(&Decimal::from_scaled(dao_fee_denominator))?;
 
-        Ok((fee_recipient_shares.as_u64(), dao_shares.as_u64()))
+        // Calculate DAO shares
+        let dao_shares = if correction > dao_ratio {
+            fee_shares
+                .mul(&correction)?
+                .add(&Decimal::ONE_E18)?
+                .sub(&Decimal::ONE)?
+                .div(&Decimal::ONE_E18)?
+        } else {
+            fee_shares
+                .mul(&Decimal::from_scaled(dao_fee_numerator))?
+                .add(&Decimal::from_scaled(dao_fee_denominator))?
+                .sub(&Decimal::ONE)?
+                .div(&Decimal::from_scaled(dao_fee_denominator))?
+        };
+
+        // Calculate fee recipient shares
+        let fee_recipient_shares = fee_shares.sub(&dao_shares)?;
+
+        Ok((fee_recipient_shares, dao_shares))
     }
 
-    pub fn get_auction_end_for_mint(
+    pub fn get_auction_end_for_mints(
         &self,
         sell_mint: &Pubkey,
         buy_mint: &Pubkey,
@@ -238,11 +277,13 @@ impl Folio {
         for auction_end in self.sell_ends.iter() {
             if auction_end.mint == *sell_mint {
                 sell_auction = Some(auction_end);
-            } else if auction_end.mint == *buy_mint {
-                buy_auction = Some(auction_end);
+                break;
             }
+        }
 
-            if sell_auction.is_some() && buy_auction.is_some() {
+        for auction_end in self.buy_ends.iter() {
+            if auction_end.mint == *buy_mint {
+                buy_auction = Some(auction_end);
                 break;
             }
         }
@@ -254,22 +295,18 @@ impl Folio {
         &mut self,
         sell_mint: &Pubkey,
         buy_mint: &Pubkey,
-        end_time: u64,
+        end_time_sell: u64,
+        end_time_buy: u64,
     ) {
-        let mut found_sell_auction = false;
-        let mut found_buy_auction = false;
-
         for auction_end in self.sell_ends.iter_mut() {
             if auction_end.mint == *sell_mint {
-                found_sell_auction = true;
-                auction_end.end_time = end_time;
-            } else if auction_end.mint == *buy_mint {
-                found_buy_auction = true;
-                auction_end.end_time = end_time;
+                auction_end.end_time = end_time_sell;
             }
+        }
 
-            if found_sell_auction && found_buy_auction {
-                break;
+        for auction_end in self.buy_ends.iter_mut() {
+            if auction_end.mint == *buy_mint {
+                auction_end.end_time = end_time_buy;
             }
         }
     }

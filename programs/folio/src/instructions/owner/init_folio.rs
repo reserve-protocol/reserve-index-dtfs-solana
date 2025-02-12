@@ -12,7 +12,7 @@ use shared::{
     check_condition,
     constants::{
         ACTOR_SEEDS, FOLIO_SEEDS, MAX_AUCTION_DELAY, MAX_AUCTION_LENGTH, MAX_CONCURRENT_AUCTIONS,
-        MAX_MINT_FEE, MAX_TVL_FEE, METADATA_SEEDS, MIN_AUCTION_LENGTH, MIN_DAO_MINT_FEE,
+        MAX_MINT_FEE, MAX_TVL_FEE, METADATA_SEEDS, MIN_AUCTION_LENGTH,
     },
 };
 
@@ -90,12 +90,9 @@ impl InitFolio<'_> {
         auction_delay: u64,
         auction_length: u64,
     ) -> Result<()> {
-        check_condition!(tvl_fee <= MAX_TVL_FEE, InvalidFeePerSecond);
+        check_condition!(tvl_fee <= MAX_TVL_FEE, TVLFeeTooHigh);
 
-        check_condition!(
-            (MIN_DAO_MINT_FEE..=MAX_MINT_FEE).contains(&mint_fee),
-            InvalidMintFee
-        );
+        check_condition!(mint_fee <= MAX_MINT_FEE, InvalidMintFee);
 
         check_condition!(auction_delay <= MAX_AUCTION_DELAY, InvalidAuctionDelay);
         check_condition!(

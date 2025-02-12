@@ -1,10 +1,9 @@
 use crate::state::RewardInfo;
-use crate::utils::math_util::{CustomPreciseNumber, U256Number};
+use crate::utils::math_util::Decimal;
+use crate::utils::Rounding;
 use anchor_lang::prelude::*;
 use shared::check_condition;
-use shared::constants::D18;
 use shared::errors::ErrorCode;
-use spl_math::uint::U256;
 
 impl RewardInfo {
     pub fn process_init_if_needed(
@@ -22,9 +21,9 @@ impl RewardInfo {
             account_reward_info.folio = *folio;
             account_reward_info.folio_reward_token = *reward_token;
             account_reward_info.payout_last_paid = Clock::get()?.unix_timestamp as u64;
-            account_reward_info.reward_index = U256Number::ZERO;
+            account_reward_info.reward_index = 0u128;
             account_reward_info.balance_accounted = 0;
-            account_reward_info.balance_last_known = last_known_balance;
+            account_reward_info.balance_last_known = last_known_balance as u128;
             account_reward_info.total_claimed = 0;
         }
 
@@ -33,59 +32,52 @@ impl RewardInfo {
 
     pub fn accrue_rewards(
         &mut self,
-        folio_reward_ratio: U256,
-        current_reward_token_balance: u64,
-        current_reward_token_supply: u64,
-        current_token_decimals: u64,
+        folio_reward_ratio: u128,          // D18
+        current_reward_token_balance: u64, // D9
+        current_reward_token_supply: u64,  // D9
+        current_token_decimals: u8,
         current_time: u64,
     ) -> Result<()> {
-        if current_time <= self.payout_last_paid {
+        let (elapsed, overflow) = current_time.overflowing_sub(self.payout_last_paid);
+
+        if elapsed == 0 || overflow {
             return Ok(());
         }
 
         let balance_last_known = self.balance_last_known;
 
-        self.balance_last_known = current_reward_token_balance
-            .checked_add(self.total_claimed)
-            .ok_or(ErrorCode::MathOverflow)?;
+        self.balance_last_known = Decimal::from_token_amount(current_reward_token_balance)?
+            .add(&Decimal::from_scaled(self.total_claimed))?
+            .to_scaled(Rounding::Ceiling)?;
 
-        let elapsed = current_time
-            .checked_sub(self.payout_last_paid)
-            .ok_or(ErrorCode::MathOverflow)?;
-
-        if elapsed == 0 {
-            return Ok(());
-        }
-
+        // All in D9, so we keep it that way
         let unaccounted_balance = balance_last_known
             .checked_sub(self.balance_accounted)
             .ok_or(ErrorCode::MathOverflow)?;
 
-        let base = CustomPreciseNumber::from(D18).sub_generic(folio_reward_ratio)?;
+        // Reward ratio already in D18
+        let reward_ratio_decimal = Decimal::from_scaled(folio_reward_ratio);
 
-        // TODO put back when review maths
-        // let pow_result = base.pow(elapsed)?;
-        // Temporary just so there's no math overflow
-        let pow_result = base.mul(&CustomPreciseNumber::from(U256::from(elapsed)))?;
+        let base = Decimal::ONE_E18.sub(&reward_ratio_decimal)?;
+        let pow_result = base.pow(elapsed)?;
 
-        let handout_percentage = CustomPreciseNumber::from(D18)
-            .sub(&pow_result)?
-            .sub_generic(CustomPreciseNumber::one())?;
+        let handout_percentage = Decimal::ONE_E18.sub(&pow_result)?.sub(&Decimal::ONE)?;
 
-        let tokens_to_handout = CustomPreciseNumber::from_u64(unaccounted_balance)?
+        // {reward} = {reward} * D18{1} / D18
+        let tokens_to_handout = Decimal::from_scaled(unaccounted_balance)
             .mul(&handout_percentage)?
-            .div_generic(D18)?;
+            .div(&Decimal::ONE_E18)?;
 
         if current_reward_token_supply > 0 {
             self.calculate_delta_index(
-                tokens_to_handout.to_u128_floor()?,
+                &tokens_to_handout,
                 current_reward_token_supply,
                 current_token_decimals,
             )?;
 
             self.balance_accounted = self
                 .balance_accounted
-                .checked_add(tokens_to_handout.to_u64_floor()?)
+                .checked_add(tokens_to_handout.to_scaled(Rounding::Ceiling)?)
                 .ok_or(ErrorCode::MathOverflow)?;
         }
 
@@ -96,31 +88,30 @@ impl RewardInfo {
 
     pub fn calculate_delta_index(
         &mut self,
-        tokens_to_handout: u128,
-        current_reward_token_supply: u64,
-        current_token_decimals: u64,
+        tokens_to_handout: &Decimal,      // D18
+        current_reward_token_supply: u64, // D9
+        current_token_decimals: u8,
     ) -> Result<()> {
-        let tokens_to_handout = U256::from(tokens_to_handout);
-        let current_reward_token_supply = U256::from(current_reward_token_supply);
-        let current_token_decimals_exponent = U256::from(10)
-            .checked_pow(U256::from(current_token_decimals))
-            .ok_or(ErrorCode::MathOverflow)?;
+        let current_reward_token_supply = Decimal::from_scaled(current_reward_token_supply as u128);
 
-        let delta_index = D18
-            .checked_mul(tokens_to_handout)
-            .ok_or(ErrorCode::MathOverflow)?
-            .checked_mul(current_token_decimals_exponent)
-            .ok_or(ErrorCode::MathOverflow)?
-            .checked_div(current_reward_token_supply)
-            .ok_or(ErrorCode::MathOverflow)?;
+        // D18+decimals{reward/share} = D18 * {reward} * decimals / {share}
+        let current_token_decimals_exponent = Decimal::from_scaled(
+            10u128
+                .checked_pow(current_token_decimals as u32)
+                .ok_or(ErrorCode::MathOverflow)?,
+        );
 
-        let reward_index = self
+        let delta_index = Decimal::ONE_E18 // D18
+            .mul(tokens_to_handout)? // D18 * D18 = D36
+            .mul(&current_token_decimals_exponent)? // D36 / D(decimals) i.e. D9 = D45
+            // D45 / D(decimals) i.e. D9 = D27 (D decimals since mint token supply has the decimals included)
+            .div(&current_reward_token_supply)?
+            .div(&Decimal::ONE_E18)?; // Scale back down to D18
+
+        self.reward_index = self
             .reward_index
-            .to_u256()
-            .checked_add(delta_index)
+            .checked_add(delta_index.to_scaled(Rounding::Ceiling)?)
             .ok_or(ErrorCode::MathOverflow)?;
-
-        self.reward_index = U256Number::from_u256(reward_index);
 
         Ok(())
     }

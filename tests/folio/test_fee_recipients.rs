@@ -5,8 +5,8 @@ mod tests {
     use folio::utils::structs::FeeRecipient;
     use shared::errors::ErrorCode;
 
-    const HALF: u64 = 500_000_000;
-    const SCALAR: u64 = 1_000_000_000;
+    const HALF: u128 = 500_000_000_000_000_000;
+    const SCALAR: u128 = 1_000_000_000_000_000_000;
 
     #[test]
     fn test_update_fee_recipients_add_new() {
@@ -68,7 +68,7 @@ mod tests {
         let recipients: Vec<FeeRecipient> = (0..65)
             .map(|_| FeeRecipient {
                 recipient: Pubkey::new_unique(),
-                portion: SCALAR.checked_div(65u64).unwrap(),
+                portion: SCALAR.checked_div(65u128).unwrap(),
             })
             .collect();
 
@@ -166,11 +166,11 @@ mod tests {
         let mut folio = FeeRecipients::default();
         folio.fee_recipients[0] = FeeRecipient {
             recipient: Pubkey::new_unique(),
-            portion: SCALAR.checked_div(4u64).unwrap(),
+            portion: SCALAR.checked_div(4u128).unwrap(),
         };
         folio.fee_recipients[1] = FeeRecipient {
             recipient: Pubkey::new_unique(),
-            portion: SCALAR.checked_div(4u64).unwrap(),
+            portion: SCALAR.checked_div(4u128).unwrap(),
         };
 
         let result = folio.validate_fee_recipient_total_portions();

@@ -2,6 +2,7 @@ use crate::events::FeeRecipientSet;
 use crate::state::FeeRecipients;
 use crate::utils::structs::FeeRecipient;
 use anchor_lang::prelude::*;
+use shared::constants::MAX_FEE_RECIPIENTS_PORTION;
 use shared::errors::ErrorCode;
 use shared::{check_condition, constants::MAX_FEE_RECIPIENTS};
 
@@ -79,11 +80,8 @@ impl FeeRecipients {
 
     pub fn validate_fee_recipient_total_portions(&self) -> Result<()> {
         check_condition!(
-            self.fee_recipients
-                .iter()
-                .map(|r| r.portion as u128)
-                .sum::<u128>()
-                == 1_000_000_000,
+            self.fee_recipients.iter().map(|r| r.portion).sum::<u128>()
+                == MAX_FEE_RECIPIENTS_PORTION,
             InvalidFeeRecipientPortion
         );
 

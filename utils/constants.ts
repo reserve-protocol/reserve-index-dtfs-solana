@@ -38,7 +38,6 @@ export const MAX_TVL_FEE = new BN("100000000000000000");
 export const MAX_FEE_FLOOR = new BN("1500000000000000");
 
 export const MAX_MINT_FEE = new BN("50000000000000000");
-export const MIN_DAO_MINT_FEE = new BN("500000000000000"); // TODO remove?
 
 export const MIN_AUCTION_LENGTH = new BN(60);
 export const MAX_AUCTION_LENGTH = new BN(604800);

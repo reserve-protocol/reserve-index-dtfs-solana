@@ -204,8 +204,6 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
             migrate_balance,
             mint_decimals,
         )?;
-
-        // TODO remove token from basket?
     }
 
     Ok(())

@@ -2,180 +2,625 @@
 mod tests {
     use anchor_lang::prelude::*;
     use folio::state::Folio;
-    use folio::utils::structs::AuctionEnd;
-    use shared::constants::{FEE_DENOMINATOR, MAX_MINT_FEE, MAX_TVL_FEE};
+    use folio::utils::{AuctionEnd, Decimal, Rounding};
+    use shared::constants::MAX_TVL_FEE;
+    use shared::errors::ErrorCode;
 
-    fn setup_folio() -> Folio {
+    #[test]
+    fn test_set_tvl_fee_zero() {
         let mut folio = Folio::default();
-        folio.mint_fee = MAX_MINT_FEE;
-        folio.tvl_fee = MAX_TVL_FEE;
+        let result = folio.set_tvl_fee(0);
+
+        assert!(result.is_ok());
+        assert_eq!(folio.tvl_fee, 0);
+    }
+
+    #[test]
+    fn test_set_tvl_fee_max() {
+        let mut folio = Folio::default();
+        let result = folio.set_tvl_fee(MAX_TVL_FEE); // 10% annually
+        assert!(result.is_ok());
+        // (1 - (1 - 0.1)^(1/31536000)) * 1e18 ~= 3_340_960_000
+        let expected_approx = 3_340_960_000u128;
+        let tolerance = 1000;
+
+        assert!((folio.tvl_fee as i128 - expected_approx as i128).abs() < tolerance as i128);
+    }
+
+    #[test]
+    fn test_set_tvl_fee_too_high() {
+        let mut folio = Folio::default();
+        let result = folio.set_tvl_fee(MAX_TVL_FEE + 1);
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), ErrorCode::TVLFeeTooHigh.into());
+    }
+
+    #[test]
+    fn test_set_tvl_fee_normal() {
+        let mut folio = Folio::default();
+        // Test with 5% annual fee (0.05 * D18)
+        let annual_fee = 50_000_000_000_000_000u128;
+        let result = folio.set_tvl_fee(annual_fee);
+
+        assert!(result.is_ok());
+        // (1 - (1 - 0.05)^(1/31536000)) * 1e18 ~= 1_626_499_693
+        let expected_approx = 1_626_499_693;
+        let tolerance = 1000;
+
+        assert!((folio.tvl_fee as i128 - expected_approx as i128).abs() < tolerance as i128);
+    }
+
+    #[test]
+    fn test_set_tvl_fee_very_small() {
+        let mut folio = Folio::default();
+        // Test with 0.1% annual fee (0.001 * D18)
+        let annual_fee = 1_000_000_000_000_000u128;
+        let result = folio.set_tvl_fee(annual_fee);
+
+        assert!(result.is_ok());
+        // (1 - (1 - 0.001)^(1/31536000)) * 1e18 ~= 31_725_700
+
+        let expected_approx: i32 = 31_725_700;
+        let tolerance = 1000;
+
+        assert!((folio.tvl_fee as i128 - expected_approx as i128).abs() < tolerance as i128);
+    }
+
+    #[test]
+    fn test_set_tvl_fee_multiple_updates() {
+        let mut folio = Folio::default();
+
+        // First update with 5%
+        let result1 = folio.set_tvl_fee(50_000_000_000_000_000u128);
+        assert!(result1.is_ok());
+        let first_fee = folio.tvl_fee;
+
+        // Second update with 2%
+        let result2 = folio.set_tvl_fee(20_000_000_000_000_000u128);
+        assert!(result2.is_ok());
+        let second_fee = folio.tvl_fee;
+
+        assert!(first_fee > second_fee);
+    }
+
+    #[test]
+    fn test_calculate_fees_for_minting_basic() {
+        let mut folio = Folio::default();
+        folio.mint_fee = 50_000_000_000_000_000; // 5% mint fee (0.05 * D18)
+
+        let result = folio
+            .calculate_fees_for_minting(
+                1_000_000_000,             // 1 token in D9
+                200_000_000_000_000_000,   // 20% dao fee (0.2 * D18)
+                1_000_000_000_000_000_000, // denominator 1.0 * D18
+                1_000_000_000_000_000,     // 0.1% floor (0.001 * D18)
+            )
+            .unwrap();
+
+        // Expected total fee: 1 * 0.05 = 0.05 tokens
+        // Expected dao fee: 0.05 * 0.2 = 0.01 tokens
+        assert_eq!(result.0, 50_000_000); // 0.05 tokens in D9
+        assert_eq!(folio.dao_pending_fee_shares, 10_000_000_000_000_000); // 0.01 * D18
+        assert_eq!(
+            folio.fee_recipients_pending_fee_shares,
+            40_000_000_000_000_000
+        ); // 0.04 * D18
+    }
+
+    #[test]
+    fn test_calculate_fees_for_minting_floor_kicks_in() {
+        let mut folio = Folio::default();
+        folio.mint_fee = 1_000_000_000_000_000; // 0.1% mint fee (0.001 * D18)
+
+        let result = folio
+            .calculate_fees_for_minting(
+                1_000_000_000,             // 1 token in D9
+                200_000_000_000_000_000,   // 20% dao fee
+                1_000_000_000_000_000_000, // denominator
+                10_000_000_000_000_000,    // 1% floor (higher than calculated dao fee)
+            )
+            .unwrap();
+
+        // Floor kicks in: 1% of 1 token = 0.01 tokens
+        assert_eq!(result.0, 10_000_000); // 0.01 tokens in D9
+        assert_eq!(folio.dao_pending_fee_shares, 10_000_000_000_000_000); // 0.01 * D18
+        assert_eq!(folio.fee_recipients_pending_fee_shares, 0); // All fees go to DAO due to floor
+    }
+
+    #[test]
+    fn test_calculate_fees_for_minting_large_amount() {
+        let mut folio = Folio::default();
+        folio.mint_fee = 100_000_000_000_000_000; // 10% mint fee
+
+        let result = folio
+            .calculate_fees_for_minting(
+                1_000_000_000_000,         // 1000 tokens in D9
+                200_000_000_000_000_000,   // 20% dao fee
+                1_000_000_000_000_000_000, // denominator
+                1_000_000_000_000_000,     // 0.1% floor
+            )
+            .unwrap();
+
+        // Expected total fee: 1000 * 0.1 = 100 tokens
+        // Expected dao fee: 100 * 0.2 = 20 tokens
+        assert_eq!(result.0, 100_000_000_000); // 100 tokens in D9
+        assert_eq!(folio.dao_pending_fee_shares, 20_000_000_000_000_000_000); // 20 * D18
+        assert_eq!(
+            folio.fee_recipients_pending_fee_shares,
+            80_000_000_000_000_000_000
+        ); // 80 * D18
+    }
+
+    #[test]
+    fn test_calculate_fees_for_minting_zero_mint_fee() {
+        let mut folio = Folio::default();
+        folio.mint_fee = 0;
+
+        let result = folio
+            .calculate_fees_for_minting(
+                1_000_000_000,             // 1 token
+                200_000_000_000_000_000,   // 20% dao fee
+                1_000_000_000_000_000_000, // denominator
+                1_000_000_000_000_000,     // 0.1% floor
+            )
+            .unwrap();
+
+        // With zero mint fee, only floor applies
+        assert_eq!(result.0, 1_000_000); // 0.001 tokens in D9 (floor)
+        assert_eq!(folio.dao_pending_fee_shares, 1_000_000_000_000_000); // 0.001 * D18
+        assert_eq!(folio.fee_recipients_pending_fee_shares, 0);
+    }
+
+    #[test]
+    fn test_calculate_fees_for_minting_small_amount() {
+        let mut folio = Folio::default();
+        folio.mint_fee = 50_000_000_000_000_000; // 5% mint fee
+
+        let result = folio
+            .calculate_fees_for_minting(
+                1_000,                     // 0.000001 tokens in D9
+                200_000_000_000_000_000,   // 20% dao fee
+                1_000_000_000_000_000_000, // denominator
+                1_000_000_000_000_000,     // 0.1% floor
+            )
+            .unwrap();
+
+        // For 1_000 (0.000001 tokens):
+        // Mint fee: 0.000001 * 0.05 = 0.00000005 tokens
+        // This equals 50 in D9 format
+        assert_eq!(result.0, 50);
+
+        // DAO gets 20% of the fee
+        // 0.00000005 * 0.2 = 0.00000001 tokens
+        assert_eq!(folio.dao_pending_fee_shares, 10_000_000_000); // 0.00000001 * D18
+
+        // Fee recipients get the rest (80%)
+        // 0.00000005 * 0.8 = 0.00000004 tokens
+        assert_eq!(folio.fee_recipients_pending_fee_shares, 40_000_000_000); // 0.00000004 * D18
+    }
+
+    #[test]
+    fn test_calculate_fees_for_minting_accumulation() {
+        let mut folio = Folio::default();
+        folio.mint_fee = 50_000_000_000_000_000; // 5% mint fee
+
+        // First mint
+        folio
+            .calculate_fees_for_minting(
+                1_000_000_000,             // 1 token
+                200_000_000_000_000_000,   // 20% dao fee
+                1_000_000_000_000_000_000, // denominator
+                1_000_000_000_000_000,     // 0.1% floor
+            )
+            .unwrap();
+
+        let first_dao_pending = folio.dao_pending_fee_shares;
+        let first_recipients_pending = folio.fee_recipients_pending_fee_shares;
+
+        // Second mint
+        folio
+            .calculate_fees_for_minting(
+                1_000_000_000,             // Another 1 token
+                200_000_000_000_000_000,   // 20% dao fee
+                1_000_000_000_000_000_000, // denominator
+                1_000_000_000_000_000,     // 0.1% floor
+            )
+            .unwrap();
+
+        // Fees should accumulate
+        assert_eq!(folio.dao_pending_fee_shares, first_dao_pending * 2);
+        assert_eq!(
+            folio.fee_recipients_pending_fee_shares,
+            first_recipients_pending * 2
+        );
+    }
+
+    #[test]
+    fn test_get_total_supply() {
+        let mut folio = Folio::default();
+
+        // Set some pending fees
+        folio.dao_pending_fee_shares = 1_000_000_000_000_000_000; // 1.0 * D18
+        folio.fee_recipients_pending_fee_shares = 2_000_000_000_000_000_000; // 2.0 * D18
+
+        // Test with 10 tokens in circulation
+        let result = folio.get_total_supply(10_000_000_000).unwrap(); // 10.0 * D9
+
+        // Expected: 10 + 1 + 2 = 13 tokens
+        assert_eq!(
+            result.to_scaled(Rounding::Floor).unwrap(),
+            13_000_000_000_000_000_000
+        );
+    }
+
+    #[test]
+    fn test_get_total_supply_zero_fees() {
+        let folio = Folio::default();
+
+        // Test with 5 tokens in circulation and no pending fees
+        let result = folio.get_total_supply(5_000_000_000).unwrap(); // 5.0 * D9
+
+        // Expected: just the token supply
+        assert_eq!(
+            result.to_scaled(Rounding::Floor).unwrap(),
+            5_000_000_000_000_000_000
+        );
+    }
+
+    #[test]
+    fn test_poke_zero_elapsed() {
+        let mut folio = Folio::default();
         folio.last_poke = 1000;
-        folio
-    }
+        folio.tvl_fee = 3_340_959_957; // 10% annual
 
-    #[test]
-    fn test_calculate_fees_for_minting() {
-        let mut folio = setup_folio();
-        let user_shares = 1_000_000_000_000; // 1000 shares
-        let dao_fee_numerator = 500_000_000_000_000_000;
-        let dao_fee_denominator = FEE_DENOMINATOR;
+        let result = folio.poke(
+            1_000_000_000,             // 1.0 token supply
+            1000,                      // same as last_poke
+            200_000_000_000_000_000,   // 20% dao fee
+            1_000_000_000_000_000_000, // denominator
+            1_000_000_000_000_000,     // 0.1% floor
+        );
 
-        let total_fee_shares = folio
-            .calculate_fees_for_minting(user_shares, dao_fee_numerator, dao_fee_denominator)
-            .unwrap();
-
-        // Minting fee is 0.05 = 5%
-        // Total fee = 1000 * 0.05 = 50 shares
-        // Dao num/denom = 500_000_000_000_000_000/1_000_000_000_000_000_000 = 0.0005
-        // DAO fee ~= 1000 * 0.0005 ~= 25 shares
-        // Fee recipients ~= 25 shares
-        assert_eq!(total_fee_shares, 50_000_000_000);
-        assert_eq!(folio.dao_pending_fee_shares, 25_000_000_001);
-        assert_eq!(folio.fee_recipients_pending_fee_shares, 24_999_999_999);
-    }
-
-    #[test]
-    fn test_calculate_fees_with_min_dao_fee() {
-        let mut folio = setup_folio();
-
-        let user_shares = 1_000_000_000;
-        let dao_fee_numerator = 200;
-        let dao_fee_denominator = FEE_DENOMINATOR;
-
-        let total_fee_shares = folio
-            .calculate_fees_for_minting(user_shares, dao_fee_numerator, dao_fee_denominator)
-            .unwrap();
-
-        // Minting fee is 0.05 = 5%
-        // Total fee = 1 * 0.05 = 0.05 shares
-        // Dao num/denom = 0.0000002
-        // DAO fee = 0.05 * 0.0000002 = 0.0000001 shares, but min is 0.0005 * 1 = 0.0005 shares
-        // Fee recipients = 0.04999995 shares
-        assert_eq!(folio.dao_pending_fee_shares, 500_000);
-        assert_eq!(total_fee_shares, 50_000_000);
-    }
-
-    #[test]
-    fn test_poke() {
-        let mut folio = setup_folio();
-        let initial_supply = 100_000_000_000; // 100 token supply
-        let dao_fee_numerator = 1_000_000_000_000_000;
-        let dao_fee_denominator = FEE_DENOMINATOR;
-
-        folio
-            .poke(initial_supply, 2000, dao_fee_numerator, dao_fee_denominator)
-            .unwrap();
-
-        assert_eq!(folio.last_poke, 2000);
-
-        // With 1% fee over 1000 seconds, should have accumulated some fees
-        assert!(folio.dao_pending_fee_shares > 0);
-        assert!(folio.fee_recipients_pending_fee_shares > 0);
-    }
-
-    #[test]
-    fn test_poke_same_timestamp() {
-        let mut folio = setup_folio();
-        let initial_supply = 1_000_000_000;
-        let dao_fee_numerator = 500_000_000;
-        let dao_fee_denominator = FEE_DENOMINATOR;
-
-        folio
-            .poke(initial_supply, 1000, dao_fee_numerator, dao_fee_denominator)
-            .unwrap();
-
-        // Verify no changes occurred
-        assert_eq!(folio.last_poke, 1000);
+        assert!(result.is_ok());
         assert_eq!(folio.dao_pending_fee_shares, 0);
         assert_eq!(folio.fee_recipients_pending_fee_shares, 0);
     }
 
     #[test]
-    fn test_get_total_supply() {
-        let mut folio = setup_folio();
-        let initial_supply = 1_000_000_000;
+    fn test_poke_with_existing_pending_fees() {
+        let mut folio = Folio::default();
+        folio.last_poke = 0;
+        folio.tvl_fee = 3_340_959_957; // 10% annual
+        folio.dao_pending_fee_shares = 1_000_000_000_000_000_000; // 1.0 existing DAO fees
+        folio.fee_recipients_pending_fee_shares = 2_000_000_000_000_000_000; // 2.0 existing recipient fees
 
-        folio.dao_pending_fee_shares = 10_000_000;
-        folio.fee_recipients_pending_fee_shares = 20_000_000;
+        let result = folio.poke(
+            1_000_000_000,             // 1.0 token supply
+            1,                         // 1 second elapsed
+            200_000_000_000_000_000,   // 20% dao fee
+            1_000_000_000_000_000_000, // denominator
+            1_000_000_000_000_000,     // 0.1% floor
+        );
 
-        let total_supply = folio.get_total_supply(initial_supply).unwrap();
-
-        assert_eq!(total_supply, 1_030_000_000);
+        assert!(result.is_ok());
+        assert!(folio.dao_pending_fee_shares > 1_000_000_000_000_000_000);
+        assert!(folio.fee_recipients_pending_fee_shares > 2_000_000_000_000_000_000);
     }
 
     #[test]
-    fn test_get_pending_fee_shares() {
-        let mut folio = setup_folio();
-        folio.last_poke = 1000;
-        folio.tvl_fee = MAX_TVL_FEE; // 10% annually
+    fn test_poke_multiple_times() {
+        let mut folio = Folio::default();
+        folio.tvl_fee = 3_340_959_957; // 10% annual
 
-        let initial_supply = 1_000_000_000_000u64; // 1000 tokens
-        let current_time = 2000; // 1000 seconds elapsed
-        let dao_fee_numerator = 400_000_000_000_000_000;
-        let dao_fee_denominator = FEE_DENOMINATOR;
-
-        let (fee_recipients_shares, dao_shares) = folio
-            .get_pending_fee_shares(
-                initial_supply,
-                current_time,
-                dao_fee_numerator,
-                dao_fee_denominator,
+        // First poke
+        folio
+            .poke(
+                1_000_000_000,             // 1.0 token supply
+                1,                         // 1 second elapsed
+                200_000_000_000_000_000,   // 20% dao fee
+                1_000_000_000_000_000_000, // denominator
+                1_000_000_000_000_000,     // 0.1% floor
             )
             .unwrap();
 
-        assert!(fee_recipients_shares > 0);
-        assert!(dao_shares > 0);
+        let first_dao = folio.dao_pending_fee_shares;
+        let first_recipients = folio.fee_recipients_pending_fee_shares;
 
-        let total_fees = fee_recipients_shares + dao_shares;
-        let dao_portion = (dao_shares as u128 * 1_000_000_000) / total_fees as u128;
+        // Second poke
+        folio
+            .poke(
+                1_000_000_000,             // 1.0 token supply
+                2,                         // 2 seconds elapsed
+                200_000_000_000_000_000,   // 20% dao fee
+                1_000_000_000_000_000_000, // denominator
+                1_000_000_000_000_000,     // 0.1% floor
+            )
+            .unwrap();
 
-        assert!(dao_portion >= 390_000_000); // Allow 39%
-        assert!(dao_portion <= 410_000_000); // Allow 41%
+        assert!(folio.dao_pending_fee_shares > first_dao);
+        assert!(folio.fee_recipients_pending_fee_shares > first_recipients);
     }
 
     #[test]
-    fn test_get_auction_end_for_mint() {
-        let mut folio = setup_folio();
-        let mint_a = Pubkey::new_unique();
-        let mint_b = Pubkey::new_unique();
-        let mint_c = Pubkey::new_unique();
+    fn test_poke_long_time_elapsed() {
+        let mut folio = Folio::default();
+        folio.last_poke = 0;
+        folio.tvl_fee = 3_340_959_957; // 10% annual
 
-        folio.sell_ends[0] = AuctionEnd {
-            mint: mint_a,
+        let one_day = 86400;
+        let result = folio.poke(
+            1_000_000_000,             // 1.0 token supply
+            one_day,                   // one day elapsed
+            200_000_000_000_000_000,   // 20% dao fee
+            1_000_000_000_000_000_000, // denominator
+            1_000_000_000_000_000,     // 0.1% floor
+        );
+
+        assert!(result.is_ok());
+        assert!(folio.dao_pending_fee_shares > 0);
+        assert!(folio.fee_recipients_pending_fee_shares > 0);
+        assert_eq!(folio.last_poke, one_day);
+    }
+
+    #[test]
+    fn test_get_pending_fee_shares_basic() {
+        let mut folio = Folio::default();
+        folio.tvl_fee = 3_340_959_957; // 10% annual
+
+        let (fee_recipients, dao_shares) = folio
+            .get_pending_fee_shares(
+                1_000_000_000,             // 1.0 token supply
+                1,                         // 1 second elapsed
+                200_000_000_000_000_000,   // 20% dao fee
+                1_000_000_000_000_000_000, // denominator
+                1_000_000_000_000_000,     // 0.1% floor
+            )
+            .unwrap();
+
+        assert!(dao_shares > Decimal::ZERO);
+        assert!(fee_recipients > Decimal::ZERO);
+        assert!(fee_recipients > dao_shares); // Fee recipients should get 80%
+    }
+
+    #[test]
+    fn test_get_pending_fee_shares_fee_floor_kicks_in() {
+        let mut folio = Folio::default();
+        folio.tvl_fee = 33_409_599; // Very low TVL fee
+
+        let (fee_recipients, dao_shares) = folio
+            .get_pending_fee_shares(
+                1_000_000_000,             // 1.0 tokens supply
+                1,                         // 1 second elapsed
+                200_000_000_000_000_000,   // 20% dao fee
+                1_000_000_000_000_000_000, // denominator
+                100_000_000_000_000_000,   // 10% floor (much higher than TVL fee)
+            )
+            .unwrap();
+
+        // When floor fee kicks in and correction is high enough,
+        // all fees can go to DAO
+        assert!(dao_shares > Decimal::ZERO);
+        assert_eq!(
+            dao_shares.to_scaled(Rounding::Floor).unwrap(),
+            3_340_959_968
+        );
+        assert_eq!(fee_recipients.to_scaled(Rounding::Floor).unwrap(), 0);
+    }
+
+    #[test]
+    fn test_get_pending_fee_shares_zero_supply() {
+        let mut folio = Folio::default();
+        folio.tvl_fee = 3_340_959_957u128; // 10% annual
+
+        let (fee_recipients, dao_shares) = folio
+            .get_pending_fee_shares(
+                0,                         // zero supply
+                1,                         // 1 second elapsed
+                200_000_000_000_000_000,   // 20% dao fee
+                1_000_000_000_000_000_000, // denominator
+                1_000_000_000_000_000,     // 0.1% floor
+            )
+            .unwrap();
+
+        assert_eq!(fee_recipients.to_scaled(Rounding::Floor).unwrap(), 0);
+        assert_eq!(dao_shares.to_scaled(Rounding::Floor).unwrap(), 0);
+    }
+
+    #[test]
+    fn test_get_pending_fee_shares_with_existing_fees() {
+        let mut folio = Folio::default();
+        folio.tvl_fee = 3_340_959_957; // 10% annual
+
+        // Set initial pending fees
+        let initial_dao_fees = 1_000_000_000_000_000_000u128; // 1.0
+        let initial_recipient_fees = 2_000_000_000_000_000_000u128; // 2.0
+
+        folio.dao_pending_fee_shares = initial_dao_fees;
+        folio.fee_recipients_pending_fee_shares = initial_recipient_fees;
+
+        let (fee_recipients, dao_shares) = folio
+            .get_pending_fee_shares(
+                10_000_000_000,            // 10.0 tokens supply
+                3600,                      // 1 hour elapsed
+                200_000_000_000_000_000,   // 20% dao fee
+                1_000_000_000_000_000_000, // denominator
+                1_000_000_000_000_000,     // 0.1% floor
+            )
+            .unwrap();
+
+        // The new shares should be non-zero
+        assert!(dao_shares > Decimal::ZERO);
+        assert!(fee_recipients > Decimal::ZERO);
+
+        // For 10 tokens over 1 hour at 10% annual rate
+        // we expect roughly 0.001% in fees
+        let min_expected_increase = Decimal::from_scaled(10_000_000_000_000u128); // 0.00001
+        assert!(dao_shares > min_expected_increase);
+        assert!(fee_recipients > min_expected_increase);
+    }
+
+    #[test]
+    fn test_get_auction_end_for_mints() {
+        let mut folio = Folio::default();
+        let sell_mint = Pubkey::new_unique();
+        let buy_mint = Pubkey::new_unique();
+
+        let sell_auction = AuctionEnd {
+            mint: sell_mint,
             end_time: 100,
         };
-        folio.sell_ends[4] = AuctionEnd {
-            mint: mint_b,
+        let buy_auction = AuctionEnd {
+            mint: buy_mint,
             end_time: 200,
         };
 
-        let (sell_auction, buy_auction) = folio.get_auction_end_for_mint(&mint_a, &mint_b).unwrap();
-        assert_eq!(sell_auction.unwrap().end_time, 100);
-        assert_eq!(buy_auction.unwrap().end_time, 200);
+        folio.sell_ends = [AuctionEnd::default(); 16];
+        folio.buy_ends = [AuctionEnd::default(); 16];
 
-        let (sell_auction, buy_auction) = folio.get_auction_end_for_mint(&mint_c, &mint_b).unwrap();
-        assert!(sell_auction.is_none());
-        assert_eq!(buy_auction.unwrap().end_time, 200);
+        folio.sell_ends[0] = sell_auction;
+        folio.buy_ends[0] = buy_auction;
+
+        let (found_sell, found_buy) = folio
+            .get_auction_end_for_mints(&sell_mint, &buy_mint)
+            .unwrap();
+
+        assert!(found_sell.is_some());
+        assert!(found_buy.is_some());
+        assert_eq!(found_sell.unwrap().end_time, 100);
+        assert_eq!(found_buy.unwrap().end_time, 200);
+    }
+
+    #[test]
+    fn test_get_auction_end_for_mints_not_found() {
+        let mut folio = Folio::default();
+        let sell_mint = Pubkey::new_unique();
+        let buy_mint = Pubkey::new_unique();
+        let different_mint = Pubkey::new_unique();
+
+        let sell_auction = AuctionEnd {
+            mint: sell_mint,
+            end_time: 100,
+        };
+        let buy_auction = AuctionEnd {
+            mint: buy_mint,
+            end_time: 200,
+        };
+
+        folio.sell_ends = [AuctionEnd::default(); 16];
+        folio.buy_ends = [AuctionEnd::default(); 16];
+
+        folio.sell_ends[0] = sell_auction;
+        folio.buy_ends[0] = buy_auction;
+
+        let (found_sell, found_buy) = folio
+            .get_auction_end_for_mints(&different_mint, &different_mint)
+            .unwrap();
+
+        assert!(found_sell.is_none());
+        assert!(found_buy.is_none());
+    }
+
+    #[test]
+    fn test_get_auction_end_for_mints_multiple_auctions() {
+        let mut folio = Folio::default();
+        let sell_mint1 = Pubkey::new_unique();
+        let sell_mint2 = Pubkey::new_unique();
+        let buy_mint1 = Pubkey::new_unique();
+        let buy_mint2 = Pubkey::new_unique();
+
+        folio.sell_ends = [AuctionEnd::default(); 16];
+        folio.buy_ends = [AuctionEnd::default(); 16];
+
+        folio.sell_ends[0] = AuctionEnd {
+            mint: sell_mint1,
+            end_time: 100,
+        };
+        folio.sell_ends[1] = AuctionEnd {
+            mint: sell_mint2,
+            end_time: 150,
+        };
+
+        folio.buy_ends[0] = AuctionEnd {
+            mint: buy_mint1,
+            end_time: 200,
+        };
+        folio.buy_ends[1] = AuctionEnd {
+            mint: buy_mint2,
+            end_time: 250,
+        };
+
+        let (found_sell, found_buy) = folio
+            .get_auction_end_for_mints(&sell_mint2, &buy_mint2)
+            .unwrap();
+
+        assert!(found_sell.is_some());
+        assert!(found_buy.is_some());
+        assert_eq!(found_sell.unwrap().end_time, 150);
+        assert_eq!(found_buy.unwrap().end_time, 250);
+    }
+
+    #[test]
+    fn test_get_auction_end_for_mints_empty_lists() {
+        let folio = Folio::default();
+        let sell_mint = Pubkey::new_unique();
+        let buy_mint = Pubkey::new_unique();
+
+        let (found_sell, found_buy) = folio
+            .get_auction_end_for_mints(&sell_mint, &buy_mint)
+            .unwrap();
+
+        assert!(found_sell.is_none());
+        assert!(found_buy.is_none());
     }
 
     #[test]
     fn test_set_auction_end_for_mints() {
-        let mut folio = setup_folio();
-        let mint_a = Pubkey::new_unique();
-        let mint_b = Pubkey::new_unique();
+        let mut folio = Folio::default();
+        let sell_mint = Pubkey::new_unique();
+        let buy_mint = Pubkey::new_unique();
+
+        // Setup initial auction ends
+        folio.sell_ends = [AuctionEnd::default(); 16];
+        folio.buy_ends = [AuctionEnd::default(); 16];
 
         folio.sell_ends[0] = AuctionEnd {
-            mint: mint_a,
+            mint: sell_mint,
             end_time: 100,
         };
-        folio.sell_ends[4] = AuctionEnd {
-            mint: mint_b,
+
+        folio.buy_ends[0] = AuctionEnd {
+            mint: buy_mint,
             end_time: 200,
         };
+        // Update the end times
+        folio.set_auction_end_for_mints(&sell_mint, &buy_mint, 150, 250);
 
-        folio.set_auction_end_for_mints(&mint_a, &mint_b, 300);
+        // Verify updates
+        assert_eq!(folio.sell_ends[0].end_time, 150);
+        assert_eq!(folio.buy_ends[0].end_time, 250);
+    }
 
-        assert_eq!(folio.sell_ends[0].end_time, 300);
-        assert_eq!(folio.sell_ends[4].end_time, 300);
+    #[test]
+    fn test_set_auction_end_for_mints_no_matching_mint() {
+        let mut folio = Folio::default();
+        let sell_mint = Pubkey::new_unique();
+        let buy_mint = Pubkey::new_unique();
+        let different_mint = Pubkey::new_unique();
+
+        // Setup initial auction ends
+        folio.sell_ends = [AuctionEnd::default(); 16];
+        folio.buy_ends = [AuctionEnd::default(); 16];
+
+        folio.sell_ends[0].end_time = 100;
+        folio.sell_ends[0].mint = sell_mint;
+        folio.buy_ends[0].end_time = 200;
+        folio.buy_ends[0].mint = buy_mint;
+        // Try to update with non-matching mint
+        folio.set_auction_end_for_mints(&different_mint, &different_mint, 150, 250);
+
+        // Verify no changes
+        assert_eq!(folio.sell_ends[0].end_time, 100);
+        assert_eq!(folio.buy_ends[0].end_time, 200);
     }
 }

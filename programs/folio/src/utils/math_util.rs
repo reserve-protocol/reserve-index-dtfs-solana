@@ -1,122 +1,183 @@
+use std::cmp::Ordering;
+
 use anchor_lang::prelude::*;
-use bytemuck::{Pod, Zeroable};
-use shared::constants::D18;
+use shared::constants::{D18_U256, D9_U256, ONE_U256};
 use shared::errors::ErrorCode::MathOverflow;
 use spl_math::uint::U256;
 
+pub enum Rounding {
+    Floor,
+    Ceiling,
+}
+
 #[derive(Debug, Clone)]
-pub struct CustomPreciseNumber(pub U256);
+pub struct Decimal(pub U256);
 
-impl CustomPreciseNumber {
-    pub fn ten() -> Self {
-        CustomPreciseNumber(U256::from(10).checked_mul(D18).unwrap())
-    }
+#[derive(Debug, Clone)]
+pub struct TokenResult(pub u64);
 
-    pub fn one() -> Self {
-        CustomPreciseNumber(U256::from(1))
-    }
+pub trait IntoU256 {
+    fn into_u256(self) -> U256;
+}
 
-    pub fn one_e18() -> Self {
-        CustomPreciseNumber(D18)
-    }
-
-    pub fn from_u64(value: u64) -> Result<Self> {
-        let result = U256::from(value).checked_mul(D18).ok_or(MathOverflow)?;
-
-        Ok(CustomPreciseNumber(result))
-    }
-
-    pub fn from_u128(value: u128) -> Result<Self> {
-        let result = U256::from(value).checked_mul(D18).ok_or(MathOverflow)?;
-
-        Ok(CustomPreciseNumber(result))
-    }
-
-    pub fn as_u256(&self) -> U256 {
-        self.0
-    }
-
-    pub fn as_u256_number(&self) -> U256Number {
-        U256Number::from_u256(self.0)
+impl IntoU256 for u64 {
+    fn into_u256(self) -> U256 {
+        U256::from(self)
     }
 }
 
-impl From<u64> for CustomPreciseNumber {
-    fn from(value: u64) -> Self {
-        CustomPreciseNumber::from_u64(value).unwrap()
+impl IntoU256 for u128 {
+    fn into_u256(self) -> U256 {
+        U256::from(self)
     }
 }
 
-impl From<u128> for CustomPreciseNumber {
-    fn from(value: u128) -> Self {
-        CustomPreciseNumber::from_u128(value).unwrap()
+impl IntoU256 for U256 {
+    fn into_u256(self) -> U256 {
+        self
     }
 }
 
-impl From<U256> for CustomPreciseNumber {
-    fn from(value: U256) -> Self {
-        CustomPreciseNumber(value)
+impl PartialEq for Decimal {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
     }
 }
 
-impl CustomPreciseNumber {
+impl Eq for Decimal {}
+
+impl PartialOrd for Decimal {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.0.cmp(&other.0))
+    }
+}
+
+impl Ord for Decimal {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.0.cmp(&other.0)
+    }
+}
+
+impl Decimal {
+    pub const ZERO: Self = Self(U256([0, 0, 0, 0]));
+    pub const ONE: Self = Self(ONE_U256);
+    pub const ONE_E18: Self = Self(D18_U256);
+}
+
+impl Decimal {
+    pub fn from_plain(value: u64) -> Result<Self> {
+        Ok(Decimal(
+            U256::from(value)
+                .checked_mul(D18_U256)
+                .ok_or(MathOverflow)?,
+        ))
+    }
+
+    pub fn from_token_amount<T: IntoU256>(value: T) -> Result<Self> {
+        let result = value.into_u256().checked_mul(D9_U256).ok_or(MathOverflow)?;
+
+        Ok(Decimal(result))
+    }
+
+    pub fn from_scaled<T: IntoU256>(value: T) -> Self {
+        let result = value.into_u256();
+
+        Decimal(result)
+    }
+}
+
+impl Decimal {
+    pub fn to_token_amount(&self, rounding: Rounding) -> Result<TokenResult> {
+        // When we have a token amount, we get it from D9 to D18, so if we need to go back, we need to div by D9
+        let value = match rounding {
+            Rounding::Floor => self.0.checked_div(D9_U256).ok_or(MathOverflow)?,
+            Rounding::Ceiling => {
+                // Only round up if there's a remainder after division
+                if self.0 % D9_U256 == U256::from(0) {
+                    self.0.checked_div(D9_U256).ok_or(MathOverflow)?
+                } else {
+                    self.0
+                        .checked_add(D9_U256.checked_sub(U256::from(1)).unwrap())
+                        .ok_or(MathOverflow)?
+                        .checked_div(D9_U256)
+                        .ok_or(MathOverflow)?
+                }
+            }
+        };
+
+        Ok(if value > U256::from(u64::MAX) {
+            TokenResult(u64::MAX)
+        } else {
+            TokenResult(value.as_u64())
+        })
+    }
+
+    pub fn to_scaled(&self, rounding: Rounding) -> Result<u128> {
+        let value = match rounding {
+            Rounding::Floor => self.0,
+            Rounding::Ceiling => {
+                // Only add 1 if there's a fractional part
+                if self.0 % Decimal::ONE_E18.0 == U256::from(0) {
+                    self.0
+                } else {
+                    self.0.checked_add(U256::from(1)).ok_or(MathOverflow)?
+                }
+            }
+        };
+
+        Ok(if value > U256::from(u128::MAX) {
+            u128::MAX
+        } else {
+            value.as_u128()
+        })
+    }
+}
+
+impl Decimal {
     pub fn add(&self, other: &Self) -> Result<Self> {
         let result = self.0.checked_add(other.0).ok_or(MathOverflow)?;
 
-        Ok(CustomPreciseNumber(result))
+        Ok(Decimal(result))
     }
 
     pub fn sub(&self, other: &Self) -> Result<Self> {
         let result = self.0.checked_sub(other.0).ok_or(MathOverflow)?;
 
-        Ok(CustomPreciseNumber(result))
+        Ok(Decimal(result))
     }
 
     pub fn mul(&self, other: &Self) -> Result<Self> {
-        let result = self
-            .0
-            .checked_mul(other.0)
-            .ok_or(MathOverflow)?
-            .checked_div(D18)
-            .ok_or(MathOverflow)?;
+        // Don't need to div or mul by D18, even if multiply usually requires it
+        let result = self.0.checked_mul(other.0).ok_or(MathOverflow)?;
 
-        Ok(CustomPreciseNumber(result))
-    }
-
-    pub fn pow_mul(&self, other: &Self) -> Result<Self> {
-        let raw_result = self.0.checked_mul(other.0).ok_or(MathOverflow)?;
-        Ok(CustomPreciseNumber(raw_result))
+        Ok(Decimal(result))
     }
 
     pub fn div(&self, other: &Self) -> Result<Self> {
-        let result = self
-            .0
-            .checked_mul(D18)
-            .ok_or(MathOverflow)?
-            .checked_div(other.0)
-            .ok_or(MathOverflow)?;
+        // Don't need to div or mul by D18, as it's done outside
+        let result = self.0.checked_div(other.0).ok_or(MathOverflow)?;
 
-        Ok(CustomPreciseNumber(result))
+        Ok(Decimal(result))
     }
 
     pub fn pow(&self, exponent: u64) -> Result<Self> {
         if exponent == 0 {
-            return Ok(CustomPreciseNumber::one_e18());
+            return Ok(Decimal::ONE_E18);
         }
         if exponent == 1 {
             return Ok(self.clone());
         }
 
         let mut base = self.clone();
-        let mut result = CustomPreciseNumber::one_e18();
+        let mut result = Decimal::ONE_E18;
         let mut exp = exponent;
 
         while exp > 0 {
             if exp & 1 == 1 {
-                result = result.pow_mul(&base)?;
+                result = result.mul(&base)?.div(&Decimal::ONE_E18)?;
             }
             if exp > 1 {
-                base = base.pow_mul(&base)?;
+                base = base.mul(&base)?.div(&Decimal::ONE_E18)?;
             }
             exp >>= 1;
         }
@@ -124,152 +185,124 @@ impl CustomPreciseNumber {
         Ok(result)
     }
 
-    pub fn to_u64_floor(&self) -> Result<u64> {
-        let result = self.0.checked_div(D18).ok_or(MathOverflow)?.as_u64();
+    pub fn nth_root(&self, n: u64) -> Result<Self> {
+        if self.0 == Decimal::ZERO.0 {
+            return Ok(Decimal::ZERO);
+        }
+        if self.0 == Decimal::ONE_E18.0 {
+            return Ok(Decimal::ONE_E18);
+        }
 
-        Ok(result)
-    }
+        let mut low = Decimal::ZERO;
+        let mut high = Decimal::ONE_E18;
+        let target = self.clone();
 
-    pub fn to_u64_ceil(&self) -> Result<u64> {
-        let result = self
-            .0
-            .checked_add(D18.checked_sub(U256::from(1)).ok_or(MathOverflow)?)
-            .ok_or(MathOverflow)?
-            .checked_div(D18)
-            .ok_or(MathOverflow)?
-            .as_u64();
+        let two = &Decimal::from_scaled(2u128);
 
-        Ok(result)
-    }
+        // Binary search for 50 iterations
+        for _ in 0..50 {
+            let mid = low.add(&high)?.div(two)?;
+            let mid_pow = mid.pow(n)?;
 
-    pub fn to_u128_floor(&self) -> Result<u128> {
-        let result = self.0.checked_div(D18).ok_or(MathOverflow)?.as_u128();
+            match mid_pow.cmp(&target) {
+                Ordering::Greater => high = mid,
+                Ordering::Less => low = mid,
+                Ordering::Equal => return Ok(mid),
+            }
+        }
 
-        Ok(result)
-    }
-
-    pub fn to_u128_ceil(&self) -> Result<u128> {
-        let result = self
-            .0
-            .checked_add(D18.checked_sub(U256::from(1)).ok_or(MathOverflow)?)
-            .ok_or(MathOverflow)?
-            .checked_div(D18)
-            .ok_or(MathOverflow)?
-            .as_u128();
-
-        Ok(result)
+        // Return average of low and high for best approximation
+        low.add(&high)?.div(&Decimal::from_scaled(2u128))
     }
 }
 
-impl CustomPreciseNumber {
-    pub fn add_generic<T: Into<CustomPreciseNumber>>(&self, other: T) -> Result<Self> {
-        let other = other.into();
-        self.add(&other)
-    }
-
-    pub fn sub_generic<T: Into<CustomPreciseNumber>>(&self, other: T) -> Result<Self> {
-        let other = other.into();
-        self.sub(&other)
-    }
-
-    pub fn mul_generic<T: Into<CustomPreciseNumber>>(&self, other: T) -> Result<Self> {
-        let other = other.into();
-        self.mul(&other)
-    }
-
-    pub fn div_generic<T: Into<CustomPreciseNumber>>(&self, other: T) -> Result<Self> {
-        let other = other.into();
-        self.div(&other)
-    }
-}
-
-impl CustomPreciseNumber {
+impl Decimal {
     const MAX_ITERATIONS: usize = 100;
     const EPSILON: U256 = U256([1, 0, 0, 0]);
+    pub const E: U256 = U256([2_718_281_828_459_045_235, 0, 0, 0]);
 
+    /// Computes the natural logarithm of a number in D18 format.
     pub fn ln(&self) -> Result<Option<Self>> {
-        let one = CustomPreciseNumber::one_e18();
-        let zero = CustomPreciseNumber(U256::from(0));
+        let one = Decimal::ONE_E18;
+        let zero = Decimal(U256::from(0));
 
         if self.0 == one.0 {
             return Ok(Some(zero));
         }
 
-        if self.0 < D18 {
+        if self.0.is_zero() {
             return Ok(None);
         }
 
-        // Find the power of e that gets us in range [1, e)
-        let mut power = 0i32;
-        let e = CustomPreciseNumber(
-            U256::from(2718281828459045235u64)
-                .checked_mul(D18)
-                .ok_or(MathOverflow)?,
-        );
         let mut normalized = self.clone();
+        let e = Decimal::from_scaled(Self::E);
+        let mut power = 0i32;
 
-        while normalized.0 > e.0 {
-            normalized = normalized.div(&e)?;
-            power += 1;
-        }
-
+        // Handle numbers < 1 by multiplying by e until >= 1
         while normalized.0 < one.0 {
-            normalized = normalized.mul(&e)?;
+            // D18 x D18 = D36, so we need to div by D18
+            normalized = normalized.mul(&e)?.div(&one)?;
             power -= 1;
         }
 
-        // Compute z = (x - 1) / (x + 1)
+        // Handle numbers > e by dividing by e until < e
+        while normalized.0 >= e.0 {
+            // D18 / D18 = D0, so we need to mul by D18
+            normalized = normalized.mul(&one)?.div(&e)?;
+            power += 1;
+        }
+
         let numerator = normalized.sub(&one)?;
         let denominator = normalized.add(&one)?;
-        let z = numerator.div(&denominator)?;
+        // D18 x D18 = D36, so we need to div by D18
+        let z = numerator.mul(&one)?.div(&denominator)?;
+        // D18 x D18 = D36, so we need to div by D18
+        let z_squared = z.mul(&z)?.div(&one)?;
 
-        // z^2
-        let z_squared = z.mul(&z)?;
-
-        // Taylor series loop
         let mut term = z.clone();
-        let mut result = CustomPreciseNumber(U256::from(0));
+        let mut result = Decimal(U256::from(0));
         let mut n = 1u64;
 
         while n <= Self::MAX_ITERATIONS as u64 {
-            let fraction =
-                CustomPreciseNumber::one_e18().div(&CustomPreciseNumber::from_u64(2 * n - 1)?)?;
-
-            result = result.add(&term.mul(&fraction)?)?;
-            term = term.mul(&z_squared)?;
+            result = result.add(&term.div(&Decimal::from_scaled(2 * n - 1))?)?;
+            // D18 x D18 = D36, so we need to div by D18
+            term = term.mul(&z_squared)?.div(&one)?;
 
             if term.0 < Self::EPSILON {
                 break;
             }
-
             n += 1;
         }
 
-        // Multiply by 2 and add the power of e component
-        let mut final_result = result.mul(&CustomPreciseNumber::from_u64(2)?)?;
+        let mut final_result = result.mul(&Decimal::from_scaled(2u128))?;
+
         if power != 0 {
-            let e_component = CustomPreciseNumber::from_u64(power.unsigned_abs() as u64)?;
+            // one (D18) * plain number = D18
+            let power_term = one.mul(&Decimal::from_scaled(power.unsigned_abs() as u64))?;
             if power > 0 {
-                final_result = final_result.add(&e_component)?;
+                final_result = final_result.add(&power_term)?;
             } else {
-                final_result = final_result.sub(&e_component)?;
+                final_result = final_result.sub(&power_term)?;
             }
         }
+
+        // Scale result by D18
+        final_result = Decimal(final_result.0);
 
         Ok(Some(final_result))
     }
 
     pub fn exp(&self, negate_result: bool) -> Result<Option<Self>> {
         if self.0 == U256::from(0) {
-            return Ok(Some(CustomPreciseNumber::one_e18()));
+            return Ok(Some(Decimal::ONE_E18));
         }
 
-        let mut term = CustomPreciseNumber::one_e18();
+        let mut term = Decimal::ONE_E18;
         let mut result = term.clone();
         let mut n = 1u64;
 
         while n <= Self::MAX_ITERATIONS as u64 {
-            term = term.mul(self)?.div_generic(n)?;
+            term = term.mul(self)?.div(&Decimal::from_plain(n)?)?;
             result = result.add(&term)?;
 
             if term.0 < Self::EPSILON {
@@ -280,34 +313,15 @@ impl CustomPreciseNumber {
         }
 
         if negate_result {
-            Ok(Some(CustomPreciseNumber::one_e18().div(&result)?))
+            Ok(Some(Decimal(
+                D18_U256
+                    .checked_mul(D18_U256)
+                    .unwrap()
+                    .checked_div(result.0)
+                    .unwrap(),
+            )))
         } else {
             Ok(Some(result))
         }
-    }
-}
-
-#[derive(
-    AnchorSerialize, AnchorDeserialize, Clone, Debug, Default, InitSpace, Zeroable, Pod, Copy,
-)]
-#[repr(C)]
-pub struct U256Number {
-    pub value: [u64; 4],
-}
-
-impl U256Number {
-    pub const ZERO: Self = U256Number { value: [0; 4] };
-
-    pub fn from_u256(num: U256) -> Self {
-        let words = num.0;
-        U256Number { value: words }
-    }
-
-    pub fn to_u256(&self) -> U256 {
-        U256(self.value)
-    }
-
-    pub fn to_custom_precise_number(&self) -> CustomPreciseNumber {
-        CustomPreciseNumber::from(self.to_u256())
     }
 }

@@ -19,7 +19,7 @@ pub struct OpenAuction<'info> {
     )]
     pub actor: Account<'info, Actor>,
 
-    #[account()]
+    #[account(mut)]
     pub folio: AccountLoader<'info, Folio>,
 
     #[account(mut)]
@@ -65,7 +65,7 @@ pub fn handler(
     start_price: u128,
     end_price: u128,
 ) -> Result<()> {
-    let folio = &ctx.accounts.folio.load()?;
+    let folio = &mut ctx.accounts.folio.load_mut()?;
     let auction = &mut ctx.accounts.auction.load_mut()?;
 
     ctx.accounts.validate(
@@ -83,6 +83,7 @@ pub fn handler(
     auction.prices.end = end_price;
 
     let current_time = Clock::get()?.unix_timestamp as u64;
+
     auction.open_auction(folio, current_time)?;
 
     emit!(AuctionOpened {

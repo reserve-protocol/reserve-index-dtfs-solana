@@ -61,6 +61,10 @@ impl RedeemFromPendingBasket<'_> {
     }
 }
 
+/// This function is so that the user can remove from his pending basket related to redeeming of the folio token.
+/// This is used after the user has "burned" his folio token shares and now wants to withdraw the underlying tokens.
+///
+/// amounts: Vec<u64>: is in token amount, which we consider D9
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, RedeemFromPendingBasket<'info>>,
     amounts: Vec<u64>,

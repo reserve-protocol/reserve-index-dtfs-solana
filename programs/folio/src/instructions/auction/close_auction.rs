@@ -47,11 +47,7 @@ pub fn handler(ctx: Context<CloseAuction>) -> Result<()> {
 
     ctx.accounts.validate(folio, auction)?;
 
-    let current_time = Clock::get()?.unix_timestamp as u64;
-
     auction.end = 1;
-
-    folio.set_auction_end_for_mints(&auction.sell, &auction.buy, current_time);
 
     emit!(AuctionClosed {
         auction_id: auction.id

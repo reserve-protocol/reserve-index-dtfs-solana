@@ -1,5 +1,4 @@
 use crate::utils::{
-    math_util::U256Number,
     structs::{AuctionEnd, BasketRange, FeeRecipient, TokenAmount},
     Prices,
 };
@@ -49,9 +48,8 @@ pub struct Folio {
     pub tvl_fee: u128,
     pub mint_fee: u128,
 
-    pub last_poke: i64,
-    pub dao_pending_fee_shares: u64,
-    pub fee_recipients_pending_fee_shares: u64,
+    pub dao_pending_fee_shares: u128,
+    pub fee_recipients_pending_fee_shares: u128,
 
     /*
     Auction related properties
@@ -60,6 +58,8 @@ pub struct Folio {
     pub auction_length: u64,
 
     pub current_auction_id: u64,
+
+    pub last_poke: i64,
 
     pub sell_ends: [AuctionEnd; MAX_CONCURRENT_AUCTIONS],
     pub buy_ends: [AuctionEnd; MAX_CONCURRENT_AUCTIONS],
@@ -114,7 +114,7 @@ pub struct FeeDistribution {
     // Person who cranked the distribute, tracking to reimburse rent
     pub cranker: Pubkey,
 
-    pub amount_to_distribute: u64,
+    pub amount_to_distribute: u128,
 
     pub fee_recipients_state: [FeeRecipient; MAX_FEE_RECIPIENTS],
 }
@@ -227,7 +227,7 @@ pub struct Auction {
     pub launch_timeout: u64,
     pub start: u64,
     pub end: u64,
-    pub k: U256Number,
+    pub k: u128,
 
     pub folio: Pubkey,
     pub sell: Pubkey,
@@ -245,15 +245,16 @@ impl Auction {
 /// PDA Seeds ["folio_reward_tokens", folio]
 #[account(zero_copy)]
 #[derive(InitSpace)]
+#[repr(C)]
 pub struct FolioRewardTokens {
     pub bump: u8,
 
-    pub _padding: [u8; 7],
+    pub _padding: [u8; 15],
 
     /// Folio's pubkey
     pub folio: Pubkey,
 
-    pub reward_ratio: U256Number,
+    pub reward_ratio: u128,
 
     // List of current reward tokens
     pub reward_tokens: [Pubkey; MAX_REWARD_TOKENS],
@@ -279,12 +280,12 @@ pub struct RewardInfo {
 
     pub payout_last_paid: u64,
 
-    pub reward_index: U256Number,
+    pub reward_index: u128,
 
-    pub balance_accounted: u64,
-    pub balance_last_known: u64,
+    pub balance_accounted: u128,
+    pub balance_last_known: u128,
 
-    pub total_claimed: u64,
+    pub total_claimed: u128,
 }
 
 impl RewardInfo {
@@ -303,9 +304,9 @@ pub struct UserRewardInfo {
 
     pub folio_reward_token: Pubkey,
 
-    pub last_reward_index: U256Number,
+    pub last_reward_index: u128,
 
-    pub accrued_rewards: u64,
+    pub accrued_rewards: u128,
 }
 
 impl UserRewardInfo {

@@ -1,5 +1,6 @@
-use crate::utils::math_util::CustomPreciseNumber;
+use crate::utils::math_util::Decimal;
 use crate::utils::structs::FolioStatus;
+use crate::utils::Rounding;
 use crate::{
     cpi_call,
     events::AuctionBid,
@@ -12,7 +13,7 @@ use anchor_spl::{
 };
 use shared::{
     check_condition,
-    constants::{D27, FOLIO_BASKET_SEEDS, FOLIO_SEEDS},
+    constants::{FOLIO_BASKET_SEEDS, FOLIO_SEEDS},
     errors::ErrorCode,
 };
 
@@ -118,11 +119,12 @@ pub fn handler(
 
     let current_time = Clock::get()?.unix_timestamp as u64;
 
-    let price = auction.get_price(current_time)?;
+    let price = Decimal::from_scaled(auction.get_price(current_time)?);
 
-    let bought_amount = CustomPreciseNumber::from_u64(sell_amount)?
-        .mul_generic(price)?
-        .to_u64_ceil()?;
+    let bought_amount = Decimal::from_token_amount(sell_amount)?
+        .mul(&price)?
+        .to_token_amount(Rounding::Floor)?
+        .0;
 
     check_condition!(bought_amount <= max_buy_amount, SlippageExceeded);
 
@@ -131,10 +133,11 @@ pub fn handler(
     // Sell related logic
     let sell_balance = ctx.accounts.folio_sell_token_account.amount;
 
-    let min_sell_balance = match CustomPreciseNumber::from_u128(auction.sell_limit.spot)?
-        .mul_generic(folio_token_total_supply as u128)?
-        .div_generic(D27)?
-        .to_u64_ceil()?
+    let min_sell_balance = match Decimal::from_scaled(auction.sell_limit.spot)
+        .mul(&folio_token_total_supply)?
+        .div(&Decimal::ONE_E18)?
+        .to_token_amount(Rounding::Ceiling)?
+        .0
     {
         min_sell_balance if sell_balance > min_sell_balance => sell_balance - min_sell_balance,
         _ => 0,
@@ -172,15 +175,14 @@ pub fn handler(
 
     // Check if we sold out all the tokens of the sell mint
     ctx.accounts.folio_sell_token_account.reload()?;
-    if ctx.accounts.folio_sell_token_account.amount == 0 {
+    let sell_balance = ctx.accounts.folio_sell_token_account.amount;
+    if sell_balance <= min_sell_balance {
         auction.end = current_time;
+        // cannot update sellEnds/buyEnds due to possibility of parallel auctions
 
-        {
-            let folio = &mut ctx.accounts.folio.load_mut()?;
-            folio.set_auction_end_for_mints(&auction.sell, &auction.buy, current_time);
+        if sell_balance == 0 {
+            folio_basket.remove_tokens_from_basket(&vec![auction.sell])?;
         }
-
-        folio_basket.remove_tokens_from_basket(&vec![auction.sell])?;
     }
 
     // Check with the callback / collect payment
@@ -220,9 +222,10 @@ pub fn handler(
     }
 
     // Validate max buy balance
-    let max_buy_balance = CustomPreciseNumber::from_u128(auction.buy_limit.spot)?
-        .mul_generic(folio_token_total_supply as u128)?
-        .to_u64_floor()?;
+    let max_buy_balance = Decimal::from_scaled(auction.buy_limit.spot)
+        .mul(&folio_token_total_supply)?
+        .to_token_amount(Rounding::Floor)?
+        .0;
 
     ctx.accounts.folio_buy_token_account.reload()?;
     check_condition!(

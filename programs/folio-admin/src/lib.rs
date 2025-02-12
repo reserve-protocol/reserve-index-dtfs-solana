@@ -36,7 +36,8 @@ pub mod folio_admin {
         ctx: Context<SetDAOFeeConfig>,
         fee_recipient: Option<Pubkey>,
         fee_recipient_numerator: Option<u128>,
+        fee_floor: Option<u128>,
     ) -> Result<()> {
-        set_dao_fee_config::handler(ctx, fee_recipient, fee_recipient_numerator)
+        set_dao_fee_config::handler(ctx, fee_recipient, fee_recipient_numerator, fee_floor)
     }
 }

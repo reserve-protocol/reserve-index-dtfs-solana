@@ -1,4 +1,3 @@
-use crate::utils::math_util::U256Number;
 use anchor_lang::prelude::*;
 
 #[event]
@@ -32,7 +31,7 @@ pub struct MintFeeSet {
 #[event]
 pub struct FeeRecipientSet {
     pub recipient: Pubkey,
-    pub portion: u64,
+    pub portion: u128,
 }
 
 #[event]
@@ -94,7 +93,7 @@ pub struct RewardTokenAdded {
 
 #[event]
 pub struct RewardRatioSet {
-    pub reward_ratio: U256Number,
+    pub reward_ratio: u128,
     pub reward_half_life: u64,
 }
 

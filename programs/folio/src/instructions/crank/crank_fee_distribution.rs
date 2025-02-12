@@ -1,5 +1,6 @@
 use crate::utils::account_util::next_account;
 use crate::utils::structs::FolioStatus;
+use crate::utils::{Decimal, Rounding};
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 use anchor_spl::token;
@@ -91,7 +92,7 @@ pub fn handler<'info>(
     indices: Vec<u64>,
 ) -> Result<()> {
     let folio_bump: u8;
-    let total_amount_to_distribute: u64;
+    let total_amount_to_distribute: u128;
 
     let token_mint_key = ctx.accounts.folio_token_mint.key();
 
@@ -140,11 +141,11 @@ pub fn handler<'info>(
 
             related_fee_distribution.recipient = Pubkey::default();
 
-            let amount_to_distribute = total_amount_to_distribute
-                .checked_mul(related_fee_distribution.portion)
-                .ok_or(ErrorCode::MathOverflow)?
-                .checked_div(MAX_FEE_RECIPIENTS_PORTION)
-                .ok_or(ErrorCode::MathOverflow)?;
+            let amount_to_distribute = Decimal::from_scaled(total_amount_to_distribute)
+                .mul(&Decimal::from_scaled(related_fee_distribution.portion))?
+                .div(&Decimal::from_scaled(MAX_FEE_RECIPIENTS_PORTION))?
+                .to_token_amount(Rounding::Floor)?
+                .0;
 
             {
                 let cpi_accounts = token::MintTo {

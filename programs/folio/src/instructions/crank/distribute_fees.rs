@@ -1,4 +1,5 @@
 use crate::utils::structs::FolioStatus;
+use crate::utils::{Decimal, Rounding};
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 use anchor_spl::token;
@@ -71,7 +72,6 @@ impl DistributeFees<'_> {
             &self.folio.key(),
             None,
             None,
-            // TODO want to let it be distributed even if the folio is migrating or killed
             Some(vec![FolioStatus::Initialized]),
         )?;
 
@@ -112,22 +112,34 @@ pub fn handler<'info>(
             InvalidDaoFeeRecipient
         );
 
+        // DAO Fee Config
+        let dao_fee_numerator = dao_fee_config.fee_recipient_numerator;
+        let dao_fee_denominator = FEE_DENOMINATOR;
+        let dao_fee_floor = dao_fee_config.fee_floor;
+
         // Update fees by poking
         let current_time = Clock::get()?.unix_timestamp;
         folio.poke(
             ctx.accounts.folio_token_mint.supply,
             current_time,
-            dao_fee_config.fee_recipient_numerator,
-            FEE_DENOMINATOR, // TODO
+            dao_fee_numerator,
+            dao_fee_denominator,
+            dao_fee_floor,
         )?;
     }
 
     // Mint fees to dao recipient
+
+    let scaled_dao_pending_fee_shares: u64;
     {
         let folio_key = ctx.accounts.folio.key();
         let folio = ctx.accounts.folio.load()?;
         let fee_recipients = ctx.accounts.fee_recipients.load()?;
         let token_mint_key = ctx.accounts.folio_token_mint.key();
+
+        scaled_dao_pending_fee_shares = Decimal::from_scaled(folio.dao_pending_fee_shares)
+            .to_token_amount(Rounding::Floor)?
+            .0;
 
         let bump = folio.bump;
         let signer_seeds = &[FOLIO_SEEDS, token_mint_key.as_ref(), &[bump]];
@@ -144,7 +156,7 @@ pub fn handler<'info>(
                 cpi_accounts,
                 &[signer_seeds],
             ),
-            folio.dao_pending_fee_shares,
+            scaled_dao_pending_fee_shares,
         )?;
 
         // Create new fee distribution for other recipients
@@ -159,14 +171,17 @@ pub fn handler<'info>(
 
         emit!(ProtocolFeePaid {
             recipient: ctx.accounts.dao_fee_recipient.key(),
-            amount: folio.dao_pending_fee_shares,
+            amount: scaled_dao_pending_fee_shares,
         });
     }
 
     // Update pending fee
     {
         let folio = &mut ctx.accounts.folio.load_mut()?;
-        folio.dao_pending_fee_shares = 0;
+        folio.dao_pending_fee_shares = folio
+            .dao_pending_fee_shares
+            .checked_sub(scaled_dao_pending_fee_shares as u128)
+            .ok_or(ErrorCode::MathOverflow)?;
         folio.fee_recipients_pending_fee_shares = 0;
 
         let fee_recipients = &mut ctx.accounts.fee_recipients.load_mut()?;

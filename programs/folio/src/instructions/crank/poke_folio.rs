@@ -57,11 +57,16 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, PokeFolio<'info>>) -> R
 
     let dao_fee_config = &ctx.accounts.dao_fee_config;
 
+    let dao_fee_numerator = dao_fee_config.fee_recipient_numerator;
+    let dao_fee_denominator = FEE_DENOMINATOR;
+    let dao_fee_floor = dao_fee_config.fee_floor;
+
     folio.poke(
         ctx.accounts.folio_token_mint.supply,
         current_time,
-        dao_fee_config.fee_recipient_numerator,
-        FEE_DENOMINATOR,
+        dao_fee_numerator,
+        dao_fee_denominator,
+        dao_fee_floor,
     )?;
 
     Ok(())

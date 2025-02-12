@@ -1,18 +1,17 @@
 use anchor_lang::prelude::*;
 use shared::check_condition;
-use shared::constants::MAX_DAO_FEE;
+use shared::constants::{MAX_DAO_FEE, MAX_FEE_FLOOR};
 use shared::errors::ErrorCode;
 
 use crate::state::DAOFeeConfig;
 
 impl DAOFeeConfig {
-    // default fee numero set globally
-    //default fee floor set globally (so add fee floor)
     pub fn init_or_update_dao_fee_config(
         dao_fee_config: &mut Account<DAOFeeConfig>,
         context_bump: u8,
         fee_recipient: Option<Pubkey>,
         fee_recipient_numerator: Option<u128>,
+        fee_floor: Option<u128>,
     ) -> Result<()> {
         let account_info_dao_fee_config = dao_fee_config.to_account_info();
 
@@ -29,6 +28,7 @@ impl DAOFeeConfig {
             dao_fee_config.bump = context_bump;
             dao_fee_config.fee_recipient = fee_recipient.ok_or(ErrorCode::InvalidFeeRecipient)?;
             dao_fee_config.fee_recipient_numerator = fee_recipient_numerator.unwrap_or(MAX_DAO_FEE);
+            dao_fee_config.fee_floor = fee_floor.unwrap_or(MAX_FEE_FLOOR);
         } else {
             check_condition!(dao_fee_config.bump == context_bump, InvalidBump);
 
@@ -38,6 +38,10 @@ impl DAOFeeConfig {
 
             if let Some(fee_recipient_numerator) = fee_recipient_numerator {
                 dao_fee_config.fee_recipient_numerator = fee_recipient_numerator;
+            }
+
+            if let Some(fee_floor) = fee_floor {
+                dao_fee_config.fee_floor = fee_floor;
             }
         }
 

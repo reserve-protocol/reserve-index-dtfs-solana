@@ -26,11 +26,12 @@ import {
 } from "../bankrun-token-helper";
 import { Folio } from "../../../target/types/folio";
 import {
+  D9,
   DEFAULT_DECIMALS,
+  MAX_DAO_FEE,
   MAX_FOLIO_TOKEN_AMOUNTS,
   MAX_MINT_FEE,
   MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
-  MIN_DAO_MINT_FEE,
 } from "../../../utils/constants";
 import { initToken } from "../bankrun-token-helper";
 import { createAndSetFolioBasket, Role } from "../bankrun-account-helper";
@@ -428,6 +429,7 @@ describe("Bankrun - Folio minting", () => {
     {
       desc: "(calculated dao fee shares are lower than min dao shares, so take minimum, succeeds)",
       expectedError: null,
+      customDAOMintFee: new BN(100000000000000), //10 bps
       folioBasketTokens: [
         new TokenAmount(MINTS[0].publicKey, new BN(1_000_000), new BN(0)),
         new TokenAmount(MINTS[1].publicKey, new BN(1_000_000), new BN(0)),
@@ -442,8 +444,9 @@ describe("Bankrun - Folio minting", () => {
       ],
       shares: new BN(1_000_000),
       expectedFolioTokenBalanceChange: new BN(1_000_000),
-      expectedDaoFeeShares: new BN(500), // 5 bps
-      expectedFeeRecipientShares: new BN(0),
+      // Total fee shares is 5% (max mint fee)
+      expectedDaoFeeShares: new BN(1_500_000_000_000), // the 15 bps min fee floor, scaled in D18
+      expectedFeeRecipientShares: new BN(48_500_000_000_000), // 4.85%
       expectedTokenBalanceChanges: [new BN(999_999), new BN(999_999)],
     },
     {
@@ -462,9 +465,10 @@ describe("Bankrun - Folio minting", () => {
         { mint: MINTS[1].publicKey, amount: new BN(0) },
       ],
       shares: new BN(1_000_001),
-      expectedFolioTokenBalanceChange: new BN(1_000_001),
-      expectedDaoFeeShares: new BN(501), // 5 bps
-      expectedFeeRecipientShares: new BN(0),
+      expectedFolioTokenBalanceChange: new BN(1_000_000),
+      // Total fee share is 5%
+      expectedDaoFeeShares: new BN(25_000_025_000_000), // 2.5% (which is max dao fee of 50%) (Scaled in d18)
+      expectedFeeRecipientShares: new BN(25_000_025_000_000), // 2.5% (scaled in d18)
       expectedTokenBalanceChanges: [new BN(1_000_000), new BN(1_000_000)],
     },
     {
@@ -485,9 +489,9 @@ describe("Bankrun - Folio minting", () => {
         { mint: MINTS[1].publicKey, amount: new BN(0) },
       ],
       shares: new BN(1_000_001),
-      expectedFolioTokenBalanceChange: new BN(1_000_001),
-      expectedDaoFeeShares: new BN(2501), // .5%
-      expectedFeeRecipientShares: new BN(47500), //4.5%
+      expectedFolioTokenBalanceChange: new BN(1_000_000),
+      expectedDaoFeeShares: new BN(2_500_002_500_000), // 0.25% (scaled in d18)
+      expectedFeeRecipientShares: new BN(47_500_047_500_000), // 4.75% (scaled in d18)
       expectedTokenBalanceChanges: [new BN(1_000_000), new BN(1_000_000)],
     },
   ];
@@ -521,7 +525,7 @@ describe("Bankrun - Folio minting", () => {
       context,
       programFolioAdmin,
       feeRecipient.publicKey,
-      customDAOMintFee ?? MIN_DAO_MINT_FEE
+      customDAOMintFee ?? MAX_DAO_FEE
     );
 
     await createAndSetFolio(
@@ -1175,6 +1179,12 @@ describe("Bankrun - Folio minting", () => {
 
               // Folio should have updated fees
               const folio = await programFolio.account.folio.fetch(folioPDA);
+
+              assert.equal(
+                folio.daoPendingFeeShares.eq(expectedDaoFeeShares),
+                true
+              );
+
               assert.equal(
                 folio.feeRecipientsPendingFeeShares.eq(
                   expectedFeeRecipientShares
@@ -1283,8 +1293,8 @@ describe("Bankrun - Folio minting", () => {
                 [
                   // Amounts for user
                   expectedFolioTokenBalanceChange
-                    .sub(expectedDaoFeeShares)
-                    .sub(expectedFeeRecipientShares),
+                    .sub(expectedDaoFeeShares.div(D9)) // div by D9 to get in token amounts
+                    .sub(expectedFeeRecipientShares.div(D9)), // div by D9 to get in token amounts
                 ]
               );
             });

@@ -17,9 +17,9 @@ import {
 import { Folio } from "../../../target/types/folio";
 import {
   DEFAULT_DECIMALS,
+  MAX_MINT_FEE,
   MAX_REWARD_HALF_LIFE,
   MAX_REWARD_TOKENS,
-  MIN_DAO_MINT_FEE,
   MIN_REWARD_HALF_LIFE,
 } from "../../../utils/constants";
 import {
@@ -51,7 +51,6 @@ import {
 } from "../bankrun-general-tests-helper";
 
 import * as assert from "assert";
-import { deserializeU256 } from "../../../utils/math-helper";
 import { FolioAdmin } from "../../../target/types/folio_admin";
 describe("Bankrun - Staking Admin", () => {
   let context: ProgramTestContext;
@@ -240,7 +239,7 @@ describe("Bankrun - Staking Admin", () => {
       context,
       programFolioAdmin,
       feeRecipient.publicKey,
-      MIN_DAO_MINT_FEE
+      MAX_MINT_FEE
     );
 
     const folioTokenMintToUse = customFolioTokenMint || folioTokenMint;
@@ -530,8 +529,8 @@ describe("Bankrun - Staking Admin", () => {
                 );
 
               assert.equal(
-                deserializeU256(folioRewardTokens.rewardRatio.value),
-                BigInt(expectedRewardRatio.toString())
+                folioRewardTokens.rewardRatio.eq(expectedRewardRatio),
+                true
               );
 
               const expectedRewardTokensArray = buildExpectedArray(
@@ -709,8 +708,8 @@ describe("Bankrun - Staking Admin", () => {
                 );
 
               assert.equal(
-                deserializeU256(folioRewardTokens.rewardRatio.value),
-                BigInt(expectedRewardRatio.toString())
+                folioRewardTokens.rewardRatio.eq(expectedRewardRatio),
+                true
               );
             });
           }

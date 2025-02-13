@@ -213,6 +213,7 @@ impl Folio {
 
         // Calculate fee floor
         let one_minus_fee_floor = Decimal::ONE_E18.sub(&Decimal::from_scaled(dao_fee_floor))?;
+
         let fee_floor = Decimal::ONE_E18.sub(&one_minus_fee_floor.nth_root(YEAR_IN_SECONDS)?)?;
 
         // Use higher of fee floor or TVL fee

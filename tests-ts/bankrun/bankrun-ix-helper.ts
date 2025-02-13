@@ -54,6 +54,7 @@ export async function setDaoFeeConfig<T extends boolean = true>(
   adminKeypair: Keypair,
   feeRecipient: PublicKey,
   feeRecipientNumerator: BN,
+  feeFloor: BN,
   executeTxn: T = true as T
 ): Promise<
   T extends true
@@ -61,7 +62,7 @@ export async function setDaoFeeConfig<T extends boolean = true>(
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
   const ix = await programFolioAdmin.methods
-    .setDaoFeeConfig(feeRecipient, feeRecipientNumerator)
+    .setDaoFeeConfig(feeRecipient, feeRecipientNumerator, feeFloor)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
@@ -191,7 +192,7 @@ export async function initFolio<T extends boolean = true>(
     return createAndProcessTransaction(
       client,
       folioOwner,
-      [initFolio],
+      [...getComputeLimitInstruction(600_000), initFolio],
       [folioTokenMint]
     ) as any;
   }
@@ -1049,8 +1050,7 @@ export async function approveAuction<T extends boolean = true>(
       auction.id,
       auction.sellLimit,
       auction.buyLimit,
-      auction.prices.start,
-      auction.prices.end,
+      auction.prices,
       ttl
     )
     .accountsPartial({

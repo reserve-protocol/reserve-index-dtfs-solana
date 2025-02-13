@@ -13,7 +13,7 @@ import {
   updateProgramRegistrar,
 } from "../utils/folio-admin-helper";
 
-import { FOLIO_ADMIN_PROGRAM_ID } from "../utils/constants";
+import { FOLIO_ADMIN_PROGRAM_ID, MAX_FEE_FLOOR } from "../utils/constants";
 
 describe("Folio Admin Tests", () => {
   let connection: Connection;
@@ -43,7 +43,8 @@ describe("Folio Admin Tests", () => {
       connection,
       adminKeypair,
       feeRecipient,
-      feeRecipientNumerator
+      feeRecipientNumerator,
+      MAX_FEE_FLOOR
     );
 
     const daoFeeConfigPDA = getDAOFeeConfigPDA();

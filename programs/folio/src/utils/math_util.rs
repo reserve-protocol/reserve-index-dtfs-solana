@@ -193,21 +193,74 @@ impl Decimal {
             return Ok(Decimal::ONE_E18);
         }
 
-        let mut low = Decimal::ZERO;
-        // If value > 1, use value as high bound, otherwise use ONE_E18
+        if n > 1_000_000 {
+            let x = Decimal::ONE_E18.sub(self)?;
+
+            // First term: use from_scaled to keep n's raw value
+            let n_decimal = Decimal::from_scaled(n);
+            let first_term = x.div(&n_decimal)?;
+
+            // Second term
+            let x_squared = x.mul(&x)?; // D36
+
+            let n_value = n.checked_mul(n).ok_or(MathOverflow)?;
+
+            // Use (n-1) in numerator
+            let n_minus_one = n.checked_sub(1).ok_or(MathOverflow)?;
+
+            // Calculate second term with correct coefficient
+            let second_term = x_squared // D36
+                .mul(&Decimal::from_scaled(n_minus_one))? // Multiply by (n-1)
+                .div(&Decimal::ONE_E18)? // Scale down
+                .div(&Decimal::from_scaled(n_value))? // Divide by n²
+                .div(&Decimal::from_scaled(2u128))?; // Divide by 2
+
+            // Third term (D18):
+            let x_cubed = x_squared.mul(&x)?; // D36 * D18 = D54
+
+            // Calculate (n-1)(n-2)
+            let n_minus_two = n.checked_sub(2).ok_or(MathOverflow)?;
+            let numerator = n_minus_one.checked_mul(n_minus_two).ok_or(MathOverflow)?;
+
+            // Calculate n³
+            let n_cubed = (n_value as u128)
+                .checked_mul(n as u128)
+                .ok_or(MathOverflow)?;
+
+            let n_cubed_decimal = Decimal::from_scaled(n_cubed);
+
+            let third_term = x_cubed // D54
+                .mul(&Decimal::from_scaled(numerator))? // Multiply by (n-1)(n-2)
+                .div(&Decimal::ONE_E18)? // Scale down to D54
+                .div(&Decimal::ONE_E18)? // Scale down to D54
+                .div(&n_cubed_decimal)? // Divide by n³
+                .div(&Decimal::from_scaled(6u128))?; // Divide by 6
+
+            let result = Decimal::ONE_E18
+                .sub(&first_term)?
+                .sub(&second_term)?
+                .sub(&third_term)?;
+
+            return Ok(result);
+        }
+
+        // For other cases use binary search with limited iterations
+        let mut low = Decimal::ZERO; // D18
         let mut high = if self.0 > Decimal::ONE_E18.0 {
-            self.clone()
+            self.clone() // D18
         } else {
-            Decimal::ONE_E18
+            Decimal::ONE_E18 // D18
         };
-        let target = self.clone();
+        let target = self.clone(); // D18
+        let two = &Decimal::from_scaled(2u128); // D18
 
-        let two = &Decimal::from_scaled(2u128);
+        for _ in 0..15 {
+            let mid = low.add(&high)?.div(two)?; // D18
+            let mut mid_pow = mid.clone(); // D18
 
-        // Binary search for 50 iterations
-        for _ in 0..50 {
-            let mid = low.add(&high)?.div(two)?;
-            let mid_pow = mid.pow(n)?;
+            for _ in 1..n {
+                mid_pow = mid_pow.mul(&mid)?.div(&Decimal::ONE_E18)?; // Keep at D18
+            }
 
             match mid_pow.cmp(&target) {
                 Ordering::Greater => high = mid,
@@ -216,8 +269,7 @@ impl Decimal {
             }
         }
 
-        // Return average of low and high for best approximation
-        low.add(&high)?.div(&Decimal::from_scaled(2u128))
+        low.add(&high)?.div(two) // Final result in D18
     }
 }
 

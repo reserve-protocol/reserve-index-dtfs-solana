@@ -21,7 +21,7 @@ import { Folio } from "../../../target/types/folio";
 import { FolioAdmin } from "../../../target/types/folio_admin";
 import {
   DEFAULT_DECIMALS,
-  MIN_DAO_MINT_FEE,
+  MAX_MINT_FEE,
   TOTAL_PORTION_FEE_RECIPIENT,
 } from "../../../utils/constants";
 import {
@@ -372,7 +372,7 @@ describe("Bankrun - Fees", () => {
       context,
       programFolioAdmin,
       feeRecipient.publicKey,
-      MIN_DAO_MINT_FEE
+      MAX_MINT_FEE
     );
 
     await createAndSetFolio(context, programFolio, folioTokenMint.publicKey);

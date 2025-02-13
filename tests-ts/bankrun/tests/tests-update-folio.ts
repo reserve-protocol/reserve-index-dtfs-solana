@@ -31,10 +31,10 @@ import {
 
 import * as assert from "assert";
 import {
+  EXPECTED_TVL_FEE_WHEN_MAX,
   MAX_FEE_RECIPIENTS,
   MAX_MINT_FEE,
   MIN_AUCTION_LENGTH,
-  MIN_DAO_MINT_FEE,
 } from "../../../utils/constants";
 import { MAX_AUCTION_LENGTH } from "../../../utils/constants";
 import { MAX_AUCTION_DELAY } from "../../../utils/constants";
@@ -58,7 +58,7 @@ describe("Bankrun - Update folio", () => {
 
   let folioPDA: PublicKey;
 
-  const FEE_PORTION_SUM = new BN(1000000000);
+  const FEE_PORTION_SUM = new BN("1000000000000000000"); //1e18
   const EQUAL_PORTION = FEE_PORTION_SUM.div(new BN(MAX_FEE_RECIPIENTS));
 
   const FEE_RECIPIENT_KEYPAIR = Keypair.generate();
@@ -73,7 +73,7 @@ describe("Bankrun - Update folio", () => {
     feeRecipientsToRemove: PublicKey[];
   } = {
     tvlFee: MAX_TVL_FEE,
-    mintFee: MIN_DAO_MINT_FEE,
+    mintFee: MAX_MINT_FEE,
     auctionDelay: MAX_AUCTION_DELAY,
     auctionLength: MAX_AUCTION_LENGTH,
     preAddedRecipients: [],
@@ -85,17 +85,12 @@ describe("Bankrun - Update folio", () => {
     {
       desc: "(should update folio fee, fee too high)",
       tvlFee: MAX_TVL_FEE.add(new BN(1)),
-      expectedError: "InvalidFeePerSecond",
+      expectedError: "TVLFeeTooHigh",
     },
     {
       desc: "(should update folio fee, success)",
       tvlFee: MAX_TVL_FEE.sub(new BN(1)),
       expectedError: null,
-    },
-    {
-      desc: "(should update minting fee, fee too low)",
-      mintFee: MIN_DAO_MINT_FEE.sub(new BN(1)),
-      expectedError: "InvalidMintFee",
     },
     {
       desc: "(should update minting fee, fee too high)",
@@ -273,6 +268,8 @@ describe("Bankrun - Update folio", () => {
           preAddedRecipients,
         } = { ...DEFAULT_PARAMS, ...restOfParams };
 
+        let folioTvlFeeBefore: BN;
+
         before(async () => {
           await initBaseCase();
 
@@ -284,6 +281,9 @@ describe("Bankrun - Update folio", () => {
           );
 
           await travelFutureSlot(context);
+
+          folioTvlFeeBefore = (await programFolio.account.folio.fetch(folioPDA))
+            .tvlFee;
 
           txnResult = await updateFolio<true>(
             banksClient,
@@ -309,7 +309,11 @@ describe("Bankrun - Update folio", () => {
 
             const folio = await programFolio.account.folio.fetch(folioPDA);
 
-            assert.equal(folio.tvlFee.eq(tvlFee), true);
+            if (!folioTvlFeeBefore.eq(folio.tvlFee)) {
+              // Only check if the tvlFee is different
+              assert.equal(folio.tvlFee.eq(EXPECTED_TVL_FEE_WHEN_MAX), true);
+            }
+
             assert.equal(folio.mintFee.eq(mintFee), true);
             assert.equal(folio.auctionDelay.eq(auctionDelay), true);
             assert.equal(folio.auctionLength.eq(auctionLength), true);

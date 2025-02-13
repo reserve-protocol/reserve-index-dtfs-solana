@@ -121,25 +121,27 @@ pub fn handler<'info>(
     let dao_fee_denominator = FEE_DENOMINATOR;
     let dao_fee_floor = ctx.accounts.dao_fee_config.fee_floor;
 
-    let folio = &mut ctx.accounts.folio.load_mut()?;
+    {
+        let folio = &mut ctx.accounts.folio.load_mut()?;
 
-    token_amounts_user.to_assets(
-        shares,
-        ctx.accounts.folio_token_mint.supply,
-        &folio_key,
-        &token_program_id,
-        folio_basket,
-        folio,
-        PendingBasketType::MintProcess,
-        remaining_accounts,
-        current_time,
-        dao_fee_numerator,
-        dao_fee_denominator,
-        dao_fee_floor,
-    )?;
+        token_amounts_user.to_assets(
+            shares,
+            ctx.accounts.folio_token_mint.supply,
+            &folio_key,
+            &token_program_id,
+            folio_basket,
+            folio,
+            PendingBasketType::MintProcess,
+            remaining_accounts,
+            current_time,
+            dao_fee_numerator,
+            dao_fee_denominator,
+            dao_fee_floor,
+        )?;
+    }
 
     // Mint folio token to user based on shares
-    let fee_shares = folio.calculate_fees_for_minting(
+    let fee_shares = ctx.accounts.folio.load_mut()?.calculate_fees_for_minting(
         shares,
         dao_fee_numerator,
         dao_fee_denominator,

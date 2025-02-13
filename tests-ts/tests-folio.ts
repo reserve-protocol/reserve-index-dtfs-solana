@@ -53,8 +53,9 @@ import {
   MAX_AUCTION_LENGTH,
   MAX_TVL_FEE,
   MAX_AUCTION_DELAY,
-  MIN_DAO_MINT_FEE,
   MAX_TTL,
+  MAX_MINT_FEE,
+  MAX_FEE_FLOOR,
 } from "../utils/constants";
 import { TestHelper } from "../utils/test-helper";
 import { createGovernanceAccounts } from "../utils/data-helper";
@@ -64,7 +65,6 @@ import {
   initToken,
   mintToken,
 } from "../utils/token-helper";
-import { deserializeU256 } from "../utils/math-helper";
 import {
   createTransferInstruction,
   getMint,
@@ -216,7 +216,8 @@ describe("Folio Tests", () => {
       connection,
       adminKeypair,
       feeRecipient,
-      feeRecipientNumerator
+      feeRecipientNumerator,
+      MAX_FEE_FLOOR
     );
   });
 
@@ -226,7 +227,7 @@ describe("Folio Tests", () => {
       folioOwnerKeypair,
       folioTokenMint,
       MAX_TVL_FEE,
-      MIN_DAO_MINT_FEE,
+      MAX_MINT_FEE,
       MAX_AUCTION_DELAY,
       MAX_AUCTION_LENGTH,
       "Test Folio",
@@ -243,7 +244,7 @@ describe("Folio Tests", () => {
 
     assert.notEqual(folio.bump, 0);
     assert.equal(folio.tvlFee.eq(MAX_TVL_FEE), true);
-    assert.equal(folio.mintFee.eq(MIN_DAO_MINT_FEE), true);
+    assert.equal(folio.mintFee.eq(MAX_MINT_FEE), true);
     assert.deepEqual(folio.folioTokenMint, folioTokenMint.publicKey);
     assert.equal(feeRecipients, null);
     assert.equal(folio.auctionDelay.eq(MAX_AUCTION_DELAY), true);
@@ -1081,7 +1082,7 @@ describe("Folio Tests", () => {
     );
     assert.equal(auction.start.eq(new BN(0)), true);
     assert.equal(auction.end.eq(new BN(0)), true);
-    assert.equal(deserializeU256(auction.k.value) === BigInt(0), true);
+    assert.equal(auction.k.eq(new BN(0)), true);
   });
 
   it("should allow user to open auction", async () => {
@@ -1118,10 +1119,7 @@ describe("Folio Tests", () => {
       true
     );
 
-    assert.equal(
-      deserializeU256(auction.k.value) === BigInt(1146076687433),
-      true
-    );
+    assert.equal(auction.k.eq(new BN(1146076687433)), true);
   });
 
   it.skip("should allow auction actor to kill auction", async () => {
@@ -1314,11 +1312,7 @@ describe("Folio Tests", () => {
       folioRewardTokens.rewardTokens[0].toBase58(),
       rewardTokenMints[0].mint.publicKey.toBase58()
     );
-    assert.equal(
-      deserializeU256(folioRewardTokens.rewardRatio.value) ===
-        BigInt(8022536812036),
-      true
-    );
+    assert.equal(folioRewardTokens.rewardRatio.eq(new BN(8022536812036)), true);
     assert.deepEqual(folioRewardTokens.folio, folioPDA);
     assert.notEqual(folioRewardTokens.bump, 0);
   });
@@ -1337,8 +1331,7 @@ describe("Folio Tests", () => {
       );
 
     assert.equal(
-      deserializeU256(folioRewardTokensAfter.rewardRatio.value) ===
-        BigInt(1146076687433),
+      folioRewardTokensAfter.rewardRatio.eq(new BN(1146076687433)),
       true
     );
   });
@@ -1442,8 +1435,7 @@ describe("Folio Tests", () => {
     );
 
     assert.equal(
-      deserializeU256(rewardInfoAfterSecondCall.rewardIndex.value) >
-        deserializeU256(rewardInfoBefore.rewardIndex.value),
+      rewardInfoAfterSecondCall.rewardIndex.gt(rewardInfoBefore.rewardIndex),
       true
     );
     assert.equal(
@@ -1466,8 +1458,10 @@ describe("Folio Tests", () => {
     // TODO
     assert.equal(userInfoRewardAfter.accruedRewards.gte(new BN(0)), true);
     assert.equal(
-      deserializeU256(userInfoRewardAfter.lastRewardIndex.value),
-      deserializeU256(rewardInfoAfterSecondCall.rewardIndex.value)
+      userInfoRewardAfter.lastRewardIndex.eq(
+        rewardInfoAfterSecondCall.rewardIndex
+      ),
+      true
     );
   });
 

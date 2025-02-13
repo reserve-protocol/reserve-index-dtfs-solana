@@ -54,7 +54,6 @@ import {
   mintToken,
 } from "../bankrun-token-helper";
 import { FolioAdmin } from "../../../target/types/folio_admin";
-import { deserializeU256 } from "../../../utils/math-helper";
 import { createTransferInstruction, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 describe("Bankrun - Folio migration", () => {
   let context: ProgramTestContext;
@@ -804,10 +803,7 @@ describe("Bankrun - Folio migration", () => {
               );
               assert.equal(auctionAfter.start.eq(new BN(0)), true);
               assert.equal(auctionAfter.end.eq(new BN(0)), true);
-              assert.equal(
-                deserializeU256(auctionAfter.k.value),
-                BigInt(auctionToUse.k.toString())
-              );
+              assert.equal(auctionAfter.k.eq(auctionToUse.k), true);
               assert.deepEqual(auctionAfter.folio, folioPDA);
               assert.deepEqual(auctionAfter.sell, sellMint.publicKey);
               assert.deepEqual(auctionAfter.buy, buyMint.publicKey);
@@ -1013,10 +1009,7 @@ describe("Bankrun - Folio migration", () => {
                 auctionAfter.end.eq(currentTime.add(folio.auctionLength)),
                 true
               );
-              assert.equal(
-                deserializeU256(auctionAfter.k.value),
-                BigInt(auctionToUse.k.toString())
-              );
+              assert.equal(auctionAfter.k.eq(auctionToUse.k), true);
             });
           }
         });
@@ -1110,10 +1103,7 @@ describe("Bankrun - Folio migration", () => {
                 auctionAfter.end.eq(currentTime.add(folio.auctionLength)),
                 true
               );
-              assert.equal(
-                deserializeU256(auctionAfter.k.value),
-                BigInt(auctionToUse.k.toString())
-              );
+              assert.equal(auctionAfter.k.eq(auctionToUse.k), true);
             });
           }
         });

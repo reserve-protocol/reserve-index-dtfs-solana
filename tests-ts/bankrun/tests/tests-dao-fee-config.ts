@@ -39,10 +39,12 @@ describe("Bankrun - Dao Fee Config Tests", () => {
     existsBefore: boolean;
     expectedFeeRecipient: PublicKey;
     expectedFeeNumerator: BN;
+    expectedFeeFloor: BN;
   } = {
     existsBefore: false,
     expectedFeeRecipient: Keypair.generate().publicKey,
     expectedFeeNumerator: new BN(10),
+    expectedFeeFloor: new BN(10),
   };
 
   const TEST_CASES = [
@@ -90,6 +92,7 @@ describe("Bankrun - Dao Fee Config Tests", () => {
         adminKeypair,
         DEFAULT_PARAMS.expectedFeeRecipient,
         DEFAULT_PARAMS.expectedFeeNumerator,
+        DEFAULT_PARAMS.expectedFeeFloor,
         false
       );
 
@@ -100,7 +103,12 @@ describe("Bankrun - Dao Fee Config Tests", () => {
 
   TEST_CASES.forEach(({ desc, expectedError, getKeypair, ...restOfParams }) => {
     describe(`When ${desc}`, () => {
-      const { existsBefore, expectedFeeRecipient, expectedFeeNumerator } = {
+      const {
+        existsBefore,
+        expectedFeeRecipient,
+        expectedFeeNumerator,
+        expectedFeeFloor,
+      } = {
         ...DEFAULT_PARAMS,
         ...restOfParams,
       };
@@ -123,7 +131,8 @@ describe("Bankrun - Dao Fee Config Tests", () => {
           programFolioAdmin,
           getKeypair(),
           expectedFeeRecipient,
-          expectedFeeNumerator
+          expectedFeeNumerator,
+          expectedFeeFloor
         );
       });
 

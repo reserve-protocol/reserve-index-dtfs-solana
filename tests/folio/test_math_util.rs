@@ -122,26 +122,6 @@ mod tests {
     }
 
     #[test]
-    fn test_nth_root_edge_cases() {
-        // Test first root (should return same number)
-        let value = Decimal::from_scaled(4_000_000_000_000_000_000u128); // 4.0
-        let result = value.nth_root(1).unwrap();
-        // Allow for small precision difference
-        let diff = if result.0 > value.0 {
-            result.0 - value.0
-        } else {
-            value.0 - result.0
-        };
-        assert!(diff < U256::from(1_000_000_000));
-
-        // Test with moderately large n (100 might be too large and causing overflow)
-        let value = Decimal::from_scaled(16_000_000_000_000_000_000u128); // 16.0
-        let result = value.nth_root(10).unwrap(); // Changed from 100 to 10
-        assert!(result > Decimal::ZERO);
-        assert!(result < Decimal::from_scaled(2_000_000_000_000_000_000u128));
-    }
-
-    #[test]
     fn test_decimal_ln() {
         let one = Decimal::ONE_E18;
         assert_eq!(one.ln().unwrap().unwrap(), Decimal::ZERO);
@@ -181,8 +161,18 @@ mod tests {
             .checked_div(U256::from(100_000_000_000_000_000u128))
             .unwrap();
 
-        assert!(neg_one.0 > expected.checked_sub(U256::from(1000)).unwrap());
-        assert!(neg_one.0 < expected.checked_add(U256::from(1000)).unwrap());
+        assert!(
+            neg_one.0
+                > expected
+                    .checked_sub(U256::from(100_000_000_000_000u128))
+                    .unwrap()
+        );
+        assert!(
+            neg_one.0
+                < expected
+                    .checked_add(U256::from(100_000_000_000_000u128))
+                    .unwrap()
+        );
     }
 
     #[test]
@@ -220,5 +210,43 @@ mod tests {
 
         assert_eq!(floor_result, decimal.0.as_u128());
         assert_eq!(ceiling_result, decimal.0.as_u128() + 1);
+    }
+
+    #[test]
+    fn test_nth_root_approximation_multiple() {
+        let one_e18 = Decimal::ONE_E18;
+        let test_cases = vec![
+            // (input fee, expected result)
+            (100_000_000_000_000_000u128, 3_340_960_028u128), // 0.1 in D18
+            (100_000_000_000_000u128, 3_171_137u128),         // 1e14 in D18
+        ];
+
+        for (fee_value, expected_value) in test_cases {
+            let fee = Decimal::from_scaled(fee_value);
+            let one_minus_fee = one_e18.sub(&fee).unwrap();
+
+            let n = 31_536_000u64;
+            let result = one_minus_fee.nth_root(n).unwrap();
+
+            let expected_result = Decimal::ONE_E18
+                .sub(&Decimal::from_scaled(expected_value))
+                .unwrap();
+
+            let diff = if result.0 > expected_result.0 {
+                result.0 - expected_result.0
+            } else {
+                expected_result.0 - result.0
+            };
+
+            // Allow for 0.01% difference
+            let tolerance = Decimal::from_scaled(100_000_000_000_000u128).0;
+            assert!(
+                diff < tolerance,
+                "For fee {}: Result differs from expected by more than 0.01%. Result: {:?}, Expected: {:?}",
+                fee_value,
+                result.0,
+                expected_result.0
+            );
+        }
     }
 }

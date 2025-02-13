@@ -26,7 +26,7 @@ import { Folio } from "../../../target/types/folio";
 import {
   DEFAULT_DECIMALS,
   DEFAULT_DECIMALS_MUL,
-  MIN_DAO_MINT_FEE,
+  MAX_MINT_FEE,
 } from "../../../utils/constants";
 import {
   assertExpectedBalancesChanges,
@@ -51,7 +51,6 @@ import {
   assertInvalidFolioStatusTestCase,
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
-import { deserializeU256 } from "../../../utils/math-helper";
 import * as assert from "assert";
 import { FolioAdmin } from "../../../target/types/folio_admin";
 
@@ -499,7 +498,7 @@ describe("Bankrun - Staking User", () => {
         new RewardInfo(
           rewardInfo.folioRewardToken,
           rewardInfo.payoutLastPaid,
-          new BN(deserializeU256(rewardInfo.rewardIndex.value).toString()),
+          rewardInfo.rewardIndex,
           rewardInfo.balanceAccounted,
           rewardInfo.balanceLastKnown,
           rewardInfo.totalClaimed
@@ -534,9 +533,7 @@ describe("Bankrun - Staking User", () => {
           new UserRewardInfo(
             userRewardInfo.folioRewardToken,
             userToClaimFor,
-            new BN(
-              deserializeU256(userRewardInfo.lastRewardIndex.value).toString()
-            ),
+            userRewardInfo.lastRewardIndex,
             userRewardInfo.accruedRewards
           )
         );
@@ -563,7 +560,7 @@ describe("Bankrun - Staking User", () => {
       context,
       programFolioAdmin,
       new Keypair().publicKey,
-      MIN_DAO_MINT_FEE
+      MAX_MINT_FEE
     );
 
     const folioTokenMintToUse = customFolioTokenMint || folioTokenMint;

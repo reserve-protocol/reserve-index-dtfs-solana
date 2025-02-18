@@ -1,8 +1,27 @@
 #! /bin/bash
-########################################################################################
-# Building local will build 2 folio programs, so we can test migration between them
-########################################################################################
+set -e  # Exit on error
 
+########################################################################################
+# Building our custom governance program
+########################################################################################
+echo "Building SPL Governance program..."
+cd ../solana-program-library/governance/program
+cargo build-sbf
+
+cd ../.. # Back to solana-program-library, where the governance .so is created
+
+# Copy the built program
+if [ -f "target/deploy/spl_governance.so" ]; then
+    cp target/deploy/spl_governance.so ../dtfs-solana/tests-ts/programs/governance.so
+elif [ -f "target/sbf-solana-solana/release/spl_governance.so" ]; then
+    cp target/sbf-solana-solana/release/spl_governance.so ../dtfs-solana/tests-ts/programs/governance.so
+fi
+
+cd ../dtfs-solana # Back to the solana-dtf repo
+
+########################################################################################
+# Building local will build 2 folio programs 
+########################################################################################
 # Build and deploy second instance with feature flag
 echo "Building second instance of the program..."
 cp utils/keys/folio-2-keypair-local.json target/deploy/folio-keypair.json

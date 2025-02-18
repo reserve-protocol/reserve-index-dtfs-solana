@@ -15,13 +15,13 @@ import {
 } from "governance-idl-sdk";
 import { cSendAndConfirmTxn } from "../program-helper";
 import { getOrCreateAtaAddress } from "../token-helper";
-
+import { SPL_GOVERNANCE_PROGRAM_ID } from "../constants";
 let governanceClient: SplGovernance = null;
 
 export function getGovernanceClient(connection: Connection): SplGovernance {
   if (!governanceClient) {
     // @ts-ignore
-    governanceClient = new SplGovernance(connection);
+    governanceClient = new SplGovernance(connection, SPL_GOVERNANCE_PROGRAM_ID);
   }
   return governanceClient;
 }

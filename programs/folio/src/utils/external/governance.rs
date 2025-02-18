@@ -1,13 +1,20 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token_interface::spl_token_metadata_interface::borsh::BorshDeserialize;
 use anchor_spl::token_interface::{Mint, TokenAccount};
 use shared::check_condition;
 use shared::constants::{GOVERNANCE_SEEDS, SPL_GOVERNANCE_PROGRAM_ID};
 use shared::errors::ErrorCode;
+use spl_governance::solana_program::pubkey::Pubkey as SolanaPubkey;
 use spl_governance::state::realm::get_governing_token_holding_address;
 
 pub struct GovernanceUtil;
 
 impl GovernanceUtil {
+    // Annoying that anchor and spl governance use different pubkey types
+    pub fn anchor_pubkey_to_solana_pubkey(pubkey: &Pubkey) -> SolanaPubkey {
+        SolanaPubkey::new_from_array(pubkey.to_bytes())
+    }
+
     pub fn get_governance_account_balance(
         token_owner_record_governance_account: &AccountInfo,
         realm: &Pubkey,
@@ -51,13 +58,14 @@ impl GovernanceUtil {
         holding_token_account_info: &AccountInfo,
     ) -> Result<(u64, u8)> {
         let holding_pda = get_governing_token_holding_address(
-            &SPL_GOVERNANCE_PROGRAM_ID,
-            realm,
-            governing_token_mint.key,
+            &GovernanceUtil::anchor_pubkey_to_solana_pubkey(&SPL_GOVERNANCE_PROGRAM_ID),
+            &GovernanceUtil::anchor_pubkey_to_solana_pubkey(realm),
+            &GovernanceUtil::anchor_pubkey_to_solana_pubkey(governing_token_mint.key),
         );
 
         check_condition!(
-            holding_token_account_info.key() == holding_pda,
+            GovernanceUtil::anchor_pubkey_to_solana_pubkey(holding_token_account_info.key)
+                == holding_pda,
             InvalidHoldingTokenAccount
         );
 

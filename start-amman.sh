@@ -1,15 +1,11 @@
 #!/bin/bash
 
-PROGRAMS_DIR="tests/programs"
+PROGRAMS_DIR="tests-ts/programs"
 mkdir -p "$PROGRAMS_DIR"
 
 # Dump the programs first
 if [ ! -f "$PROGRAMS_DIR/metadata.so" ]; then
     solana program dump --url mainnet-beta metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s "$PROGRAMS_DIR/metadata.so"
-fi
-
-if [ ! -f "$PROGRAMS_DIR/governance.so" ]; then
-    solana program dump --url mainnet-beta GovER5Lthms3bLBqWub97yVrMmEogzX7xNjdXpPPCVZw "$PROGRAMS_DIR/governance.so"
 fi
 
 if [ ! -f "$PROGRAMS_DIR/squads.so" ]; then

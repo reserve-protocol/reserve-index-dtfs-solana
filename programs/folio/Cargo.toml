@@ -25,5 +25,7 @@ bytemuck = "=1.20.0"
 mpl-token-metadata = "=5.1.0"
 folio_admin = { path = "../folio-admin", features = ["no-entrypoint"] }
 shared = { path = "../../shared" }
-spl-governance = { version = "4.0.0", features = ["no-entrypoint"] }
+spl-governance = { path = "../../../solana-program-library/governance/program", features = [
+    "no-entrypoint",
+] }
 spl-math = { version = "=0.2.0", features = ["no-entrypoint"] }

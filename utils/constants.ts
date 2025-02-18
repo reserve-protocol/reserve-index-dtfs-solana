@@ -12,7 +12,7 @@ export const BPF_LOADER_PROGRAM_ID = new PublicKey(
   "BPFLoaderUpgradeab1e11111111111111111111111"
 );
 export const SPL_GOVERNANCE_PROGRAM_ID = new PublicKey(
-  "GovER5Lthms3bLBqWub97yVrMmEogzX7xNjdXpPPCVZw"
+  "HwXcHGabc19PxzYFVSfKvuaDSNpbLGL8fhVtkcTyEymj"
 );
 
 export const TOKEN_METADATA_PROGRAM_ID = new PublicKey(

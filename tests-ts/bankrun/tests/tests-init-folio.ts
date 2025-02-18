@@ -22,6 +22,7 @@ import {
   MAX_AUCTION_DELAY,
   MAX_MINT_FEE,
   MIN_AUCTION_LENGTH,
+  MAX_PADDED_STRING_LENGTH,
 } from "../../../utils/constants";
 import { MAX_AUCTION_LENGTH } from "../../../utils/constants";
 
@@ -48,6 +49,7 @@ describe("Bankrun - Init folio", () => {
     name: string;
     symbol: string;
     uri: string;
+    mandate: string;
   } = {
     tvlFee: MAX_TVL_FEE,
     mintFee: MAX_MINT_FEE,
@@ -56,6 +58,7 @@ describe("Bankrun - Init folio", () => {
     name: "Test Folio",
     symbol: "TFOL",
     uri: "https://test.com",
+    mandate: "mandate",
   };
 
   const TEST_CASES = [
@@ -83,6 +86,11 @@ describe("Bankrun - Init folio", () => {
       desc: "(auction length too high)",
       auctionLength: MAX_AUCTION_LENGTH.add(new BN(1)),
       expectedError: "InvalidAuctionLength",
+    },
+    {
+      desc: "(mandate too long)",
+      mandate: "a".repeat(MAX_PADDED_STRING_LENGTH + 1),
+      expectedError: "InvalidMandateLength",
     },
     {
       desc: "(valid creation)",

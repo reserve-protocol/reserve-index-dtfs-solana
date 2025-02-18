@@ -125,7 +125,7 @@ describe("Folio Tests", () => {
   ];
 
   const feeRecipient: PublicKey = Keypair.generate().publicKey;
-  const feeRecipientNumerator: BN = new BN("500000000000000000"); //50% in D18
+  const feeNumerator: BN = new BN("500000000000000000"); //50% in D18
 
   before(async () => {
     ({ connection, programFolio, programFolioAdmin, keys } =
@@ -218,7 +218,7 @@ describe("Folio Tests", () => {
       connection,
       adminKeypair,
       feeRecipient,
-      feeRecipientNumerator,
+      feeNumerator,
       MAX_FEE_FLOOR
     );
   });
@@ -233,8 +233,6 @@ describe("Folio Tests", () => {
 
     // Clear connection
     if (connection) {
-      const endpoint = connection.rpcEndpoint;
-      console.log(`Closing connection to ${endpoint}`);
       // @ts-ignore - force clear internal properties
       connection._rpcWebSocket.close();
       connection = null;
@@ -242,7 +240,6 @@ describe("Folio Tests", () => {
 
     // Force exit after 1 second
     setTimeout(() => {
-      console.log("Forcing exit...");
       process.exit(0);
     }, 5000);
   });
@@ -258,7 +255,8 @@ describe("Folio Tests", () => {
       MAX_AUCTION_LENGTH,
       "Test Folio",
       "TFOL",
-      "https://test.com"
+      "https://test.com",
+      "mandate"
     );
 
     const folio = await programFolio.account.folio.fetch(folioPDA);
@@ -333,7 +331,8 @@ describe("Folio Tests", () => {
       null,
       null,
       [],
-      []
+      [],
+      null
     );
 
     const folioAfter = await programFolio.account.folio.fetch(folioPDA);
@@ -356,7 +355,8 @@ describe("Folio Tests", () => {
       null,
       null,
       [],
-      []
+      [],
+      null
     );
   });
 
@@ -375,7 +375,8 @@ describe("Folio Tests", () => {
       null,
       null,
       newFeeRecipient,
-      []
+      [],
+      null
     );
 
     const folioAfter = await programFolio.account.folio.fetch(folioPDA);
@@ -1384,7 +1385,8 @@ describe("Folio Tests", () => {
     );
   });
 
-  it("should allow user to accrue rewards, after adding 1 more reward tokens", async () => {
+  // When we have the realms integration it'll be easier to test this, for now mocking isn't worth it (tested in bankrun)
+  it.skip("should allow user to accrue rewards, after adding 1 more reward tokens", async () => {
     // Adding the tokens
     await addRewardToken(
       connection,
@@ -1425,6 +1427,8 @@ describe("Folio Tests", () => {
       folioPDA,
       folioTokenMint.publicKey,
       [rewardTokenMints[1].mint.publicKey],
+      // Here set governance as same as folio token mint, since it doesn't really matter
+      folioTokenMint.publicKey,
       userKeypair.publicKey
     );
 
@@ -1449,6 +1453,8 @@ describe("Folio Tests", () => {
       folioPDA,
       folioTokenMint.publicKey,
       [rewardTokenMints[1].mint.publicKey],
+      // Here set governance as same as folio token mint, since it doesn't really matter
+      folioTokenMint.publicKey,
       userKeypair.publicKey
     );
 

@@ -18,6 +18,7 @@ import {
   getUserRewardInfoPDA,
   getUserRewardInfoPDAWithBump,
   getUserTokenRecordRealmsPDA,
+  getFolioFeeConfigPDAWithBump,
 } from "../../utils/pda-helper";
 import { createFakeTokenOwnerRecordV2 } from "../../utils/data-helper";
 import * as crypto from "crypto";
@@ -37,8 +38,11 @@ import {
   MAX_MINT_FEE,
   EXPECTED_TVL_FEE_WHEN_MAX,
   MAX_FEE_FLOOR,
+  MAX_PADDED_STRING_LENGTH,
 } from "../../utils/constants";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
+import { ACCOUNT_SIZE, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { AccountLayout } from "@solana/spl-token";
 
 export enum Role {
   Owner = 0b00000001, // 1
@@ -285,6 +289,43 @@ export function createGovernanceAccount(
   });
 }
 
+/*
+This is a token account that holds all the staked governance tokens for a realm,
+is just a normal token account where the owner is the realm and the mint is the governance token
+*/
+export function createGovernanceHoldingAccount(
+  context: ProgramTestContext,
+  governanceOwner: PublicKey,
+  governanceTokenMint: PublicKey,
+  governanceHoldingPda: PublicKey,
+  balance: BN
+) {
+  const tokenAccData = Buffer.alloc(ACCOUNT_SIZE);
+  AccountLayout.encode(
+    {
+      mint: governanceTokenMint,
+      owner: governanceOwner,
+      amount: BigInt(balance.toString()),
+      delegateOption: 0,
+      delegate: PublicKey.default,
+      delegatedAmount: BigInt(0),
+      state: 1,
+      isNativeOption: 0,
+      isNative: BigInt(0),
+      closeAuthorityOption: 0,
+      closeAuthority: PublicKey.default,
+    },
+    tokenAccData
+  );
+
+  context.setAccount(governanceHoldingPda, {
+    lamports: 1_000_000_000,
+    data: tokenAccData,
+    owner: TOKEN_PROGRAM_ID,
+    executable: false,
+  });
+}
+
 export async function closeAccount(
   ctx: ProgramTestContext,
   accountAddress: PublicKey
@@ -334,7 +375,8 @@ export async function createAndSetFolio(
   feeRecipientsPendingFeeShares: BN = new BN(0),
   useSecondFolioProgram: boolean = false,
   buyEnds: AuctionEnd[] = [],
-  sellEnds: AuctionEnd[] = []
+  sellEnds: AuctionEnd[] = [],
+  mandate: string = ""
 ) {
   // Set last poke as current time stamp, else 0 would make the elapsed time huge
   if (lastPoke.isZero()) {
@@ -348,7 +390,7 @@ export async function createAndSetFolio(
     useSecondFolioProgram
   );
 
-  const buffer = Buffer.alloc(1432);
+  const buffer = Buffer.alloc(1560);
   let offset = 0;
 
   // Encode discriminator
@@ -425,6 +467,10 @@ export async function createAndSetFolio(
     }
     offset += 40;
   }
+
+  // Write mandate
+  Buffer.from(mandate).copy(buffer, offset);
+  offset += MAX_PADDED_STRING_LENGTH;
 
   await setFolioAccountInfo(
     ctx,
@@ -1144,6 +1190,59 @@ export async function createAndSetDaoFeeConfig(
     daoFeeConfigPDAWithBump[0],
     "daoFeeConfig",
     daoFeeConfig,
+    buffer
+  );
+}
+
+export async function createAndSetFolioFeeConfig(
+  ctx: ProgramTestContext,
+  program: Program<FolioAdmin>,
+  folio: PublicKey,
+  feeNumerator: BN,
+  feeFloor: BN = MAX_FEE_FLOOR
+) {
+  const folioFeeConfigPDAWithBump = getFolioFeeConfigPDAWithBump(folio);
+  const folioFeeConfig = {
+    bump: folioFeeConfigPDAWithBump[1],
+    feeNumerator,
+    feeFloor,
+  };
+
+  const buffer = Buffer.alloc(41);
+  let offset = 0;
+
+  // Encode discriminator
+  const discriminator = getAccountDiscriminator("FolioFeeConfig");
+  discriminator.copy(buffer, offset);
+  offset += 8;
+
+  // Encode bump
+  buffer.writeUInt8(folioFeeConfig.bump, offset);
+  offset += 1;
+
+  // Encode fee numerator
+  const value = BigInt(folioFeeConfig.feeNumerator.toString());
+  buffer.writeBigUInt64LE(BigInt(value & BigInt("0xFFFFFFFFFFFFFFFF")), offset);
+  offset += 8;
+  buffer.writeBigUInt64LE(BigInt(value >> BigInt(64)), offset);
+  offset += 8;
+
+  // Encode fee floor
+  const floorValue = BigInt(folioFeeConfig.feeFloor.toString());
+  buffer.writeBigUInt64LE(
+    BigInt(floorValue & BigInt("0xFFFFFFFFFFFFFFFF")),
+    offset
+  );
+  offset += 8;
+  buffer.writeBigUInt64LE(BigInt(floorValue >> BigInt(64)), offset);
+  offset += 8;
+
+  await setFolioAdminAccountInfo(
+    ctx,
+    program,
+    folioFeeConfigPDAWithBump[0],
+    "folioFeeConfig",
+    folioFeeConfig,
     buffer
   );
 }

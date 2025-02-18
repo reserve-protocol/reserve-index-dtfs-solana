@@ -5,6 +5,7 @@ pub const AUCTION_SEEDS: &[u8] = b"auction";
 pub const DAO_FEE_CONFIG_SEEDS: &[u8] = b"dao_fee_config";
 pub const FEE_RECIPIENTS_SEEDS: &[u8] = b"fee_recipients";
 pub const FOLIO_BASKET_SEEDS: &[u8] = b"folio_basket";
+pub const FOLIO_FEE_CONFIG_SEEDS: &[u8] = b"folio_fee_config";
 pub const USER_PENDING_BASKET_SEEDS: &[u8] = b"user_pending_basket";
 pub const FEE_DISTRIBUTION_SEEDS: &[u8] = b"fee_distribution";
 pub const FOLIO_REWARD_TOKENS_SEEDS: &[u8] = b"folio_reward_tokens";

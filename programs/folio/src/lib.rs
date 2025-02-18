@@ -34,6 +34,7 @@ pub mod folio {
         name: String,
         symbol: String,
         uri: String,
+        mandate: String,
     ) -> Result<()> {
         init_folio::handler(
             ctx,
@@ -44,6 +45,7 @@ pub mod folio {
             name,
             symbol,
             uri,
+            mandate,
         )
     }
 
@@ -60,6 +62,7 @@ pub mod folio {
         auction_length: Option<u64>,
         fee_recipients_to_add: Vec<FeeRecipient>,
         fee_recipients_to_remove: Vec<Pubkey>,
+        mandate: Option<String>,
     ) -> Result<()> {
         update_folio::handler(
             ctx,
@@ -69,6 +72,7 @@ pub mod folio {
             auction_length,
             fee_recipients_to_add,
             fee_recipients_to_remove,
+            mandate,
         )
     }
 

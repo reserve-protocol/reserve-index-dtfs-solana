@@ -26,6 +26,8 @@ import {
   getRewardInfoPDA,
   getAuctionPDA,
   getUserPendingBasketPDA,
+  getGovernanceHoldingPDA,
+  getFolioFeeConfigPDA,
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -96,6 +98,7 @@ export async function initFolio(
   name: string,
   symbol: string,
   uri: string,
+  mandate: string,
   useSecondFolioProgram: boolean = false
 ): Promise<PublicKey> {
   const folioProgram = useSecondFolioProgram
@@ -105,7 +108,16 @@ export async function initFolio(
   const folioPDA = getFolioPDA(folioTokenMint.publicKey, useSecondFolioProgram);
 
   const initFolio = await folioProgram.methods
-    .initFolio(tvlFee, mintFee, auctionDelay, auctionLength, name, symbol, uri)
+    .initFolio(
+      tvlFee,
+      mintFee,
+      auctionDelay,
+      auctionLength,
+      name,
+      symbol,
+      uri,
+      mandate
+    )
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
@@ -160,7 +172,8 @@ export async function updateFolio(
   auctionDelay: BN | null,
   auctionLength: BN | null,
   feeRecipientsToAdd: { recipient: PublicKey; portion: BN }[],
-  feeRecipientsToRemove: PublicKey[]
+  feeRecipientsToRemove: PublicKey[],
+  mandate: string | null
 ) {
   const folioProgram = getFolioProgram(connection, folioOwnerKeypair);
 
@@ -171,7 +184,8 @@ export async function updateFolio(
       auctionDelay,
       auctionLength,
       feeRecipientsToAdd,
-      feeRecipientsToRemove
+      feeRecipientsToRemove,
+      mandate
     )
     .accountsPartial({
       systemProgram: SystemProgram.programId,
@@ -427,7 +441,8 @@ export async function mintFolioToken(
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,
-
+      daoFeeConfig: getDAOFeeConfigPDA(),
+      folioFeeConfig: getFolioFeeConfigPDA(folio),
       folio,
       folioTokenMint,
       folioBasket: getFolioBasketPDA(folio),
@@ -479,7 +494,8 @@ export async function burnFolioToken(
       tokenProgram: TOKEN_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,
-
+      daoFeeConfig: getDAOFeeConfigPDA(),
+      folioFeeConfig: getFolioFeeConfigPDA(folio),
       folio,
       folioTokenMint,
       folioBasket: getFolioBasketPDA(folio),
@@ -564,8 +580,8 @@ export async function pokeFolio(
       user: userKeypair.publicKey,
       folio: folioPDA,
       folioTokenMint: folioTokenMint,
-
       daoFeeConfig: getDAOFeeConfigPDA(),
+      folioFeeConfig: getFolioFeeConfigPDA(folioPDA),
     })
     .instruction();
 
@@ -591,9 +607,8 @@ export async function distributeFees(
       rent: SYSVAR_RENT_PUBKEY,
       tokenProgram: TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,
-
       daoFeeConfig: getDAOFeeConfigPDA(),
-
+      folioFeeConfig: getFolioFeeConfigPDA(folio),
       folio: folio,
       folioTokenMint,
       feeRecipients: getTVLFeeRecipientsPDA(folio),
@@ -922,6 +937,7 @@ export async function accrueRewards(
   folio: PublicKey,
   folioTokenMint: PublicKey,
   rewardTokens: PublicKey[],
+  governanceMint: PublicKey,
   extraUser: PublicKey = callerKeypair.publicKey
 ) {
   const folioProgram = getFolioProgram(connection, callerKeypair);
@@ -935,6 +951,11 @@ export async function accrueRewards(
       actor: getActorPDA(folioOwner, folio),
       folio,
       folioRewardTokens: getFolioRewardTokensPDA(folio),
+      governanceTokenMint: governanceMint,
+      governanceStakedTokenAccount: getGovernanceHoldingPDA(
+        folioOwner,
+        governanceMint
+      ),
       user: extraUser,
     })
     .remainingAccounts(

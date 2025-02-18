@@ -22,6 +22,7 @@ import {
   buildRemainingAccountsForClaimRewards,
   buildRemainingAccountsForAccruesRewards,
   closeAccount,
+  createGovernanceHoldingAccount,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
 import {
@@ -45,6 +46,7 @@ import { travelFutureSlot } from "../bankrun-program-helper";
 import {
   getFolioPDA,
   getFolioRewardTokensPDA,
+  getGovernanceHoldingPDA,
   getRewardInfoPDA,
   getUserRewardInfoPDA,
   getUserTokenRecordRealmsPDA,
@@ -76,6 +78,8 @@ describe("Bankrun - Staking User", () => {
 
   const rewardedUser1: Keypair = Keypair.generate();
   const rewardedUser2: Keypair = Keypair.generate();
+
+  const GOVERNANCE_MINT = Keypair.generate();
 
   const REWARD_TOKEN_MINTS = [Keypair.generate(), Keypair.generate()];
 
@@ -117,6 +121,9 @@ describe("Bankrun - Staking User", () => {
     rewardsTokenToClaim: PublicKey[];
     extraUserToClaimFor: PublicKey;
 
+    governanceMint: PublicKey;
+    governanceHoldingTokenAccount: PublicKey;
+
     expectedRewardIndex: BN[];
     expectedBalanceAccountedChanges: BN[];
     expectedAccruedRewardsChanges: BN[];
@@ -143,6 +150,9 @@ describe("Bankrun - Staking User", () => {
     rewardsTokenToClaim: [],
     extraUserToClaimFor: null,
 
+    governanceMint: GOVERNANCE_MINT.publicKey,
+    governanceHoldingTokenAccount: null,
+
     expectedRewardIndex: [],
     expectedBalanceAccountedChanges: [],
     expectedAccruedRewardsChanges: [],
@@ -154,6 +164,11 @@ describe("Bankrun - Staking User", () => {
       desc: "(passes the wrong folio owner as account [not as signer, just not the right one], errors out)",
       expectedError: "InvalidRole",
       customRole: Role.AuctionLauncher,
+    },
+    {
+      desc: "(passes wrong governance holding token account, errors out)",
+      expectedError: "InvalidHoldingTokenAccount",
+      governanceHoldingTokenAccount: PublicKey.default,
     },
     {
       desc: "(passes wrong number of remaining accounts, errors out)",
@@ -277,22 +292,20 @@ describe("Bankrun - Staking User", () => {
       extraUserToClaimFor: rewardedUser2.publicKey,
       runTwice: true,
       expectedBalanceAccountedChanges: [
-        new BN("8022247193297401"), // First token (100 balance)
-        new BN("80222471932974001"), // Second token (1000 balance)
+        new BN("8022247193297401"), // ≈0.8% of 100 tokens
+        new BN("80222471932974001"), // ≈0.8% of 1000 tokens
       ],
       expectedRewardIndex: [
-        new BN("80222471932975"),
-        new BN("80222471932975"),
-        new BN("80222471932975"),
-        new BN("80222471932975"),
+        new BN("26740823977659"),
+        new BN("267408239776581"),
       ],
       expectedAccruedRewardsChanges: [
         // First token
-        new BN("8022247193297500"), // User 1
-        new BN("16044494386595000"), // User2
+        new BN("2674082397765900"), // User1 (1/3 share)
+        new BN("5348164795531800"), // User2 (2/3 share)
         // Second token
-        new BN("8022247193297500"), // User1
-        new BN("16044494386595000"), // User2
+        new BN("26740823977658100"), // User1 (1/3 share)
+        new BN("53481647955316200"), // User2 (2/3 share)
       ],
     },
     // Testing how long before we get a math overflow
@@ -311,30 +324,15 @@ describe("Bankrun - Staking User", () => {
         [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100),
         [REWARD_TOKEN_MINTS[1].publicKey.toBase58()]: new BN(1000),
       },
-      rewardsTokenToClaim: [
-        REWARD_TOKEN_MINTS[0].publicKey,
-        // REWARD_TOKEN_MINTS[1].publicKey,
-      ],
+      rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
       timeToAddToClock: new BN(60),
       extraUserToClaimFor: rewardedUser2.publicKey,
       runTwice: true,
-      expectedBalanceAccountedChanges: [
-        new BN("48123830724785201"),
-        new BN("481238307247852001"),
-      ],
-      expectedRewardIndex: [
-        new BN("481238307247853"),
-        new BN("481238307247853"),
-        new BN("481238307247853"),
-        new BN("481238307247853"),
-      ],
+      expectedBalanceAccountedChanges: [new BN("48123830724785201")],
+      expectedRewardIndex: [new BN("160412769082618")],
       expectedAccruedRewardsChanges: [
-        // First token
-        new BN("48123830724785300"), // User1
-        new BN("96247661449570600"), // User2
-        // Second token
-        new BN("48133483159784400"), // User1
-        new BN("96247661449570600"), // User2
+        new BN("16041276908261800"), // User1
+        new BN("32082553816523600"), // User2
       ],
     },
     {
@@ -356,23 +354,11 @@ describe("Bankrun - Staking User", () => {
       timeToAddToClock: new BN(3600),
       extraUserToClaimFor: rewardedUser2.publicKey,
       runTwice: true,
-      expectedBalanceAccountedChanges: [
-        new BN("2846817139894439001"),
-        new BN("2888004634005555940"),
-      ],
-      expectedRewardIndex: [
-        new BN("28468171398944391"),
-        new BN("28468171398944391"),
-        new BN("28468171398944391"),
-        new BN("28468171398944391"),
-      ],
+      expectedBalanceAccountedChanges: [new BN("2846817139894439001")],
+      expectedRewardIndex: [new BN("9489390466314797")],
       expectedAccruedRewardsChanges: [
-        // First token
-        new BN("2846817139894439100"), // User1
-        new BN("5693634279788878200"), // User2
-        // Second token
-        new BN("288800463400555600"), // User1
-        new BN("577600926801111200"), // User2
+        new BN("948939046631479700"), // User1
+        new BN("1897878093262959400"), // User2
       ],
     },
     {
@@ -383,8 +369,8 @@ describe("Bankrun - Staking User", () => {
         await RewardInfo.default(context, REWARD_TOKEN_MINTS[1].publicKey),
       ],
       userStakedBalances: {
-        [rewardedUser1.publicKey.toBase58()]: new BN(100),
-        [rewardedUser2.publicKey.toBase58()]: new BN(200),
+        [rewardedUser1.publicKey.toBase58()]: new BN(100).mul(D9),
+        [rewardedUser2.publicKey.toBase58()]: new BN(200).mul(D9),
       },
       folioRewardTokenBalances: {
         [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100),
@@ -402,18 +388,16 @@ describe("Bankrun - Staking User", () => {
         new BN("500001390205248531001"),
       ],
       expectedRewardIndex: [
-        new BN("500001390205248532"),
-        new BN("500001390205248532"),
-        new BN("500001390205248532"),
-        new BN("500001390205248532"),
+        new BN("166667130068416178"),
+        new BN("1666671300684161771"),
       ],
       expectedAccruedRewardsChanges: [
         // First token
-        new BN("50000139020"), // User1
-        new BN("100000278041"), // User2
+        new BN("16666713006841617800"), // User1
+        new BN("33333426013683235600"), // User2
         // Second token
-        new BN("50000139020"), // User1
-        new BN("100000278041"), // User2
+        new BN("166667130068416177100"), // User1
+        new BN("333334260136832354200"), // User2
       ],
     },
     // Taken from solidity code (to match results)
@@ -756,7 +740,11 @@ describe("Bankrun - Staking User", () => {
     }
 
     // Init governance accounts if provided
+    let totalStakedBalance = new BN(0);
+
     for (const [userPubkey, amount] of Object.entries(userStakedBalances)) {
+      totalStakedBalance = totalStakedBalance.add(amount);
+
       createGovernanceAccount(
         context,
         getUserTokenRecordRealmsPDA(
@@ -767,6 +755,27 @@ describe("Bankrun - Staking User", () => {
         amount.toNumber()
       );
     }
+
+    // Init governance holding token account and mint
+    initToken(
+      context,
+      // We don't care about who owns it
+      folioOwnerKeypair.publicKey,
+      GOVERNANCE_MINT.publicKey,
+      DEFAULT_DECIMALS,
+      new BN(0)
+    );
+
+    createGovernanceHoldingAccount(
+      context,
+      folioOwnerKeypair.publicKey,
+      GOVERNANCE_MINT.publicKey,
+      getGovernanceHoldingPDA(
+        folioOwnerKeypair.publicKey,
+        GOVERNANCE_MINT.publicKey
+      ),
+      totalStakedBalance
+    );
   }
 
   before(async () => {
@@ -796,15 +805,17 @@ describe("Bankrun - Staking User", () => {
   describe("General Tests", () => {
     const generalIxAccrueRewards = () =>
       accrueRewards<true>(
-        context,
         banksClient,
         programFolio,
         rewardedUser1,
         folioOwnerKeypair.publicKey,
         folioPDA,
-        [REWARD_TOKEN_MINTS[0].publicKey],
+        GOVERNANCE_MINT.publicKey,
+        getGovernanceHoldingPDA(
+          folioOwnerKeypair.publicKey,
+          GOVERNANCE_MINT.publicKey
+        ),
         rewardedUser1.publicKey,
-
         true,
         []
       );
@@ -855,6 +866,7 @@ describe("Bankrun - Staking User", () => {
           rewardRatio,
           expectedRewardIndex,
           expectedAccruedRewardsChanges,
+          governanceHoldingTokenAccount,
         } = {
           ...DEFAULT_PARAMS,
           ...restOfParams,
@@ -940,15 +952,18 @@ describe("Bankrun - Staking User", () => {
           );
 
           txnResult = await accrueRewards<true>(
-            context,
             banksClient,
             programFolio,
             rewardedUser1,
             folioOwnerKeypair.publicKey,
             folioPDA,
-            rewardsTokenToClaim,
+            GOVERNANCE_MINT.publicKey,
+            governanceHoldingTokenAccount ??
+              getGovernanceHoldingPDA(
+                folioOwnerKeypair.publicKey,
+                GOVERNANCE_MINT.publicKey
+              ),
             extraUser,
-
             true,
             remainingAccountsToUse
           );
@@ -968,15 +983,17 @@ describe("Bankrun - Staking User", () => {
             );
 
             txnResult = await accrueRewards<true>(
-              context,
               banksClient,
               programFolio,
               rewardedUser1,
               folioOwnerKeypair.publicKey,
               folioPDA,
-              rewardsTokenToClaim,
+              GOVERNANCE_MINT.publicKey,
+              getGovernanceHoldingPDA(
+                folioOwnerKeypair.publicKey,
+                GOVERNANCE_MINT.publicKey
+              ),
               extraUser,
-
               true,
               remainingAccountsToUse
             );
@@ -1065,6 +1082,10 @@ describe("Bankrun - Staking User", () => {
               extraUser
             );
 
+            const numberOfUsers = extraUser.equals(rewardedUser1.publicKey)
+              ? 1
+              : 2;
+
             for (let i = 0; i < userRewardInfos.length; i++) {
               let accruedRewardsBefore = defaultUserRewardInfo.accruedRewards;
               let lastRewardIndexBefore = defaultUserRewardInfo.lastRewardIndex;
@@ -1088,8 +1109,8 @@ describe("Bankrun - Staking User", () => {
               );
 
               const expectedRewardIndexToUse =
-                expectedRewardIndex.length > i
-                  ? expectedRewardIndex[i]
+                expectedRewardIndex.length > Math.floor(i / numberOfUsers)
+                  ? expectedRewardIndex[Math.floor(i / numberOfUsers)]
                   : new BN(0);
 
               assert.equal(

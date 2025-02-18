@@ -17,6 +17,7 @@ import {
   createAndSetUserPendingBasket,
   createAndSetDaoFeeConfig,
   getInvalidRemainingAccounts,
+  createAndSetFolioFeeConfig,
 } from "../bankrun-account-helper";
 import {
   assertExpectedBalancesChanges,
@@ -45,6 +46,7 @@ import {
 } from "../bankrun-program-helper";
 import {
   getFolioBasketPDA,
+  getFolioFeeConfigPDA,
   getFolioPDA,
   getUserPendingBasketPDA,
 } from "../../../utils/pda-helper";
@@ -99,6 +101,12 @@ describe("Bankrun - Folio minting", () => {
     customDAOMintFee: BN | null;
     shares: BN;
 
+    /*
+    For simplicity's sake, to test folio fee config, we will change the dao fee config current values, but use them
+    to set the folio fee config. Therefore nothing fancy needs to be done to assert changes.
+    */
+    customFolioFeeConfig: boolean;
+
     // Is Validated before sending the transaction
     isPreTransactionValidated: boolean;
 
@@ -118,6 +126,8 @@ describe("Bankrun - Folio minting", () => {
     shares: new BN(0),
     // Is Validated before sending the transaction
     isPreTransactionValidated: false,
+
+    customFolioFeeConfig: false,
 
     // Expected changes
     expectedFolioTokenBalanceChange: new BN(0),
@@ -470,6 +480,8 @@ describe("Bankrun - Folio minting", () => {
       expectedDaoFeeShares: new BN(25_000_025_000_000), // 2.5% (which is max dao fee of 50%) (Scaled in d18)
       expectedFeeRecipientShares: new BN(25_000_025_000_000), // 2.5% (scaled in d18)
       expectedTokenBalanceChanges: [new BN(1_000_000), new BN(1_000_000)],
+      // Test the custom folio fee config here
+      customFolioFeeConfig: true,
     },
     {
       desc: "(user claims, fee recipient should get fees as well, succeeds)",
@@ -514,19 +526,46 @@ describe("Bankrun - Folio minting", () => {
     );
   }
 
+  async function setFeeRegistry(
+    customDAOMintFee: BN | null,
+    customFolioFeeConfig: boolean
+  ) {
+    if (customFolioFeeConfig) {
+      // So we set worng values on dao fee config, but use them to set the folio fee config
+      await createAndSetDaoFeeConfig(
+        context,
+        programFolioAdmin,
+        feeRecipient.publicKey,
+        new BN(0),
+        new BN(0)
+      );
+
+      await createAndSetFolioFeeConfig(
+        context,
+        programFolioAdmin,
+        folioPDA,
+        customDAOMintFee ?? MAX_DAO_FEE
+      );
+    } else {
+      await createAndSetDaoFeeConfig(
+        context,
+        programFolioAdmin,
+        feeRecipient.publicKey,
+        customDAOMintFee ?? MAX_DAO_FEE
+      );
+      await closeAccount(context, getFolioFeeConfigPDA(folioPDA));
+    }
+  }
+
   async function initBaseCase(
     folioBasketTokens: TokenAmount[] = [],
     customFolioTokenMint: Keypair | null = null,
     customFolioTokenSupply: BN = new BN(0),
     customDAOMintFee: BN | null = null,
-    customFolioMintFee: BN | null = null
+    customFolioMintFee: BN | null = null,
+    customFolioFeeConfig: boolean = false
   ) {
-    await createAndSetDaoFeeConfig(
-      context,
-      programFolioAdmin,
-      feeRecipient.publicKey,
-      customDAOMintFee ?? MAX_DAO_FEE
-    );
+    await setFeeRegistry(customDAOMintFee, customFolioFeeConfig);
 
     await createAndSetFolio(
       context,
@@ -1089,6 +1128,7 @@ describe("Bankrun - Folio minting", () => {
             shares,
             customDAOMintFee,
             customFolioMintFee,
+            customFolioFeeConfig,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
@@ -1109,7 +1149,8 @@ describe("Bankrun - Folio minting", () => {
               customFolioTokenMint,
               new BN(1000_000_000_000),
               customDAOMintFee,
-              customFolioMintFee
+              customFolioMintFee,
+              customFolioFeeConfig
             );
 
             await createAndSetUserPendingBasket(

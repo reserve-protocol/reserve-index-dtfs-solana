@@ -38,9 +38,6 @@ pub enum ErrorCode {
     #[msg("Invalid Fee Recipient")]
     InvalidFeeRecipient,
 
-    #[msg("Invalid Fee Recipient Numerator")]
-    InvalidFeeRecipientNumerator,
-
     #[msg("TVL Fee Too Low")]
     TVLFeeTooLow,
 
@@ -232,6 +229,12 @@ pub enum ErrorCode {
 
     #[msg("Invalid Fee Floor")]
     InvalidFeeFloor,
+
+    #[msg("Invalid Mandate Length")]
+    InvalidMandateLength,
+
+    #[msg("Invalid Holding Token Account")]
+    InvalidHoldingTokenAccount,
 }
 
 #[macro_export]

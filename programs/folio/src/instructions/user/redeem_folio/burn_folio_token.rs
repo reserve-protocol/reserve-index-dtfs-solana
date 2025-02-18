@@ -9,7 +9,7 @@ use anchor_spl::{
 use folio_admin::state::DAOFeeConfig;
 use folio_admin::ID as FOLIO_ADMIN_PROGRAM_ID;
 use shared::constants::{
-    DAO_FEE_CONFIG_SEEDS, FEE_DENOMINATOR, FOLIO_BASKET_SEEDS, USER_PENDING_BASKET_SEEDS,
+    DAO_FEE_CONFIG_SEEDS, FOLIO_BASKET_SEEDS, FOLIO_FEE_CONFIG_SEEDS, USER_PENDING_BASKET_SEEDS,
 };
 use shared::errors::ErrorCode;
 use shared::{check_condition, constants::PendingBasketType};
@@ -29,6 +29,14 @@ pub struct BurnFolioToken<'info> {
         seeds::program = FOLIO_ADMIN_PROGRAM_ID,
     )]
     pub dao_fee_config: Account<'info, DAOFeeConfig>,
+
+    /// CHECK: Could be empty or could be set, if set we use that one, else we use dao fee config
+    #[account(
+        seeds = [FOLIO_FEE_CONFIG_SEEDS, folio.key().as_ref()],
+        bump,
+        seeds::program = FOLIO_ADMIN_PROGRAM_ID,
+    )]
+    pub folio_fee_config: UncheckedAccount<'info>,
 
     #[account(mut)]
     pub folio: AccountLoader<'info, Folio>,
@@ -111,9 +119,11 @@ pub fn handler<'info>(
     }
 
     // Get the related folio fees
-    let dao_fee_numerator = ctx.accounts.dao_fee_config.fee_recipient_numerator;
-    let dao_fee_denominator = FEE_DENOMINATOR;
-    let dao_fee_floor = ctx.accounts.dao_fee_config.fee_floor;
+    let fee_details = ctx
+        .accounts
+        .dao_fee_config
+        .get_fee_details(&ctx.accounts.folio_fee_config)?;
+
     {
         let token_amounts_user = &mut ctx.accounts.user_pending_basket.load_mut()?;
         let folio = &mut ctx.accounts.folio.load_mut()?;
@@ -129,9 +139,9 @@ pub fn handler<'info>(
             PendingBasketType::RedeemProcess,
             remaining_accounts,
             current_time,
-            dao_fee_numerator,
-            dao_fee_denominator,
-            dao_fee_floor,
+            fee_details.fee_numerator,
+            fee_details.fee_denominator,
+            fee_details.fee_floor,
         )?;
     }
 

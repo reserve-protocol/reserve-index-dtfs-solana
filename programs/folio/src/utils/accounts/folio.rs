@@ -20,7 +20,7 @@ impl Folio {
         &self,
         folio_pubkey: &Pubkey,
         actor: Option<&Account<'_, Actor>>,
-        required_role: Option<Role>,
+        required_roles: Option<Vec<Role>>,
         expected_statuses: Option<Vec<FolioStatus>>,
     ) -> Result<()> {
         // Validate folio seeds & bump
@@ -35,8 +35,8 @@ impl Folio {
         );
 
         // Validate Role if needed
-        if let (Some(actor), Some(required_role)) = (actor, required_role) {
-            Folio::validate_permission_for_action(actor, required_role)?;
+        if let (Some(actor), Some(required_roles)) = (actor, required_roles) {
+            Folio::validate_permission_for_action(actor, required_roles)?;
         }
 
         // Validate folio status
@@ -52,9 +52,18 @@ impl Folio {
 
     fn validate_permission_for_action(
         actor: &Account<'_, Actor>,
-        required_role: Role,
+        required_roles: Vec<Role>,
     ) -> Result<()> {
-        check_condition!(Role::has_role(actor.roles, required_role), InvalidRole);
+        let mut has_one_of_the_roles = false;
+
+        for required_role in required_roles {
+            if Role::has_role(actor.roles, required_role) {
+                has_one_of_the_roles = true;
+                break;
+            }
+        }
+
+        check_condition!(has_one_of_the_roles, InvalidRole);
 
         Ok(())
     }

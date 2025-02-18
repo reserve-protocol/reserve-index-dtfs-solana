@@ -36,7 +36,7 @@ describe("Extreme Folio Tests", () => {
   const NUMBER_OF_TOKENS = 16;
 
   const feeRecipient: PublicKey = Keypair.generate().publicKey;
-  const feeRecipientNumerator: BN = new BN("500000000000000000"); //50% in D18
+  const feeNumerator: BN = new BN("500000000000000000"); //50% in D18
 
   const tokenMints = Array.from({ length: NUMBER_OF_TOKENS }, () => ({
     mint: Keypair.generate(),
@@ -70,7 +70,8 @@ describe("Extreme Folio Tests", () => {
       MIN_AUCTION_LENGTH,
       "Test Folio",
       "TFOL",
-      "https://test.com"
+      "https://test.com",
+      "mandate"
     );
 
     // Create the tokens that can be included in the folio
@@ -131,7 +132,7 @@ describe("Extreme Folio Tests", () => {
       connection,
       adminKeypair,
       feeRecipient,
-      feeRecipientNumerator,
+      feeNumerator,
       MAX_FEE_FLOOR
     );
   });

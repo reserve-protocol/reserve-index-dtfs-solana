@@ -38,7 +38,7 @@ impl RemoveActor<'_> {
         folio.validate_folio(
             &self.folio.key(),
             Some(&self.folio_owner_actor),
-            Some(Role::Owner),
+            Some(vec![Role::Owner]),
             None, // Can CRUD actors no matter the status
         )?;
 

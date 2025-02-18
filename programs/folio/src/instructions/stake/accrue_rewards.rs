@@ -5,7 +5,7 @@ use crate::utils::structs::{FolioStatus, Role};
 use crate::GovernanceUtil;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::{self};
-use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use anchor_spl::token_interface::{TokenAccount, TokenInterface};
 use shared::check_condition;
 use shared::constants::{ACTOR_SEEDS, SPL_GOVERNANCE_PROGRAM_ID};
 use shared::constants::{FOLIO_REWARD_TOKENS_SEEDS, REWARD_INFO_SEEDS, USER_REWARD_INFO_SEEDS};
@@ -41,6 +41,14 @@ pub struct AccrueRewards<'info> {
     )]
     pub folio_reward_tokens: AccountLoader<'info, FolioRewardTokens>,
 
+    /// CHECK: the governance's token mint (community mint)
+    #[account()]
+    pub governance_token_mint: UncheckedAccount<'info>,
+
+    /// CHECK: the governance's token account of all tokens staked
+    #[account()]
+    pub governance_staked_token_account: UncheckedAccount<'info>,
+
     /// CHECK: User's token account
     #[account()]
     pub user: UncheckedAccount<'info>,
@@ -62,7 +70,7 @@ impl AccrueRewards<'_> {
         folio.validate_folio(
             &self.folio.key(),
             Some(&self.actor),
-            Some(Role::Owner),
+            Some(vec![Role::Owner]),
             Some(vec![FolioStatus::Initializing, FolioStatus::Initialized]),
         )?;
 
@@ -95,6 +103,13 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
     let folio_token_mint = folio.folio_token_mint;
 
     let folio_reward_tokens = ctx.accounts.folio_reward_tokens.load()?;
+
+    let (governance_staked_token_account_balance, governance_token_decimals) =
+        GovernanceUtil::get_realm_staked_balance_and_mint_decimals(
+            &realm_key,
+            &ctx.accounts.governance_token_mint,
+            &ctx.accounts.governance_staked_token_account,
+        )?;
 
     let remaining_account_divider = if ctx.accounts.user.key() == ctx.accounts.caller.key() {
         REMAINING_ACCOUNT_DIVIDER_FOR_CALLER
@@ -172,9 +187,6 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
             InvalidUserRewardInfo
         );
 
-        let data = reward_token.try_borrow_data()?;
-        let mint = Mint::try_deserialize(&mut &data[..])?;
-
         // Fee recipient is the folio's token account
         let fee_recipient_token_account_data = fee_recipient_token_account.try_borrow_data()?;
         let fee_recipient_token_account_parsed =
@@ -195,8 +207,8 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
         reward_info.accrue_rewards(
             folio_reward_tokens.reward_ratio,
             fee_recipient_token_account_parsed.amount,
-            mint.supply,
-            mint.decimals,
+            governance_staked_token_account_balance,
+            governance_token_decimals,
             current_time,
         )?;
 

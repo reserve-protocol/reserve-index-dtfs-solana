@@ -74,6 +74,20 @@ export function getDaoFeeConfigPDAWithBump() {
   );
 }
 
+export function getFolioFeeConfigPDA(folio: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("folio_fee_config"), folio.toBuffer()],
+    FOLIO_ADMIN_PROGRAM_ID
+  )[0];
+}
+
+export function getFolioFeeConfigPDAWithBump(folio: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("folio_fee_config"), folio.toBuffer()],
+    FOLIO_ADMIN_PROGRAM_ID
+  );
+}
+
 export function getTVLFeeRecipientsPDA(folio: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("fee_recipients"), folio.toBuffer()],
@@ -240,6 +254,20 @@ export function getUserTokenRecordRealmsPDA(
       folioOwner.toBuffer(),
       folioTokenMint.toBuffer(),
       user.toBuffer(),
+    ],
+    SPL_GOVERNANCE_PROGRAM_ID
+  )[0];
+}
+
+export function getGovernanceHoldingPDA(
+  realm: PublicKey,
+  governanceTokenMint: PublicKey
+) {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("governance"),
+      realm.toBuffer(),
+      governanceTokenMint.toBuffer(),
     ],
     SPL_GOVERNANCE_PROGRAM_ID
   )[0];

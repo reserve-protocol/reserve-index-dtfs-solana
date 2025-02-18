@@ -60,7 +60,7 @@ impl StartFolioMigration<'_> {
         old_folio.validate_folio(
             &self.old_folio.key(),
             Some(&self.actor),
-            Some(Role::Owner),
+            Some(vec![Role::Owner]),
             Some(vec![FolioStatus::Initialized, FolioStatus::Killed]),
         )?;
 

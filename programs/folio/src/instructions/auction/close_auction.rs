@@ -31,7 +31,11 @@ impl CloseAuction<'_> {
         folio.validate_folio(
             &self.folio.key(),
             Some(&self.actor),
-            Some(Role::AuctionApprover),
+            Some(vec![
+                Role::AuctionApprover,
+                Role::AuctionLauncher,
+                Role::Owner,
+            ]),
             Some(vec![FolioStatus::Initialized, FolioStatus::Initializing]),
         )?;
 

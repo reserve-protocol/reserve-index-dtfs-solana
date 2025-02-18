@@ -1,6 +1,7 @@
 use crate::{
     events::FolioCreated,
     state::{Actor, Folio},
+    utils::{FixedSizeString, MAX_PADDED_STRING_LENGTH},
     CreateMetadataAccount, Metaplex,
 };
 use anchor_lang::prelude::*;
@@ -89,6 +90,7 @@ impl InitFolio<'_> {
         mint_fee: u128,
         auction_delay: u64,
         auction_length: u64,
+        mandate: &str,
     ) -> Result<()> {
         check_condition!(tvl_fee <= MAX_TVL_FEE, TVLFeeTooHigh);
 
@@ -98,6 +100,11 @@ impl InitFolio<'_> {
         check_condition!(
             (MIN_AUCTION_LENGTH..=MAX_AUCTION_LENGTH).contains(&auction_length),
             InvalidAuctionLength
+        );
+
+        check_condition!(
+            mandate.len() <= MAX_PADDED_STRING_LENGTH,
+            InvalidMandateLength
         );
 
         Ok(())
@@ -130,9 +137,10 @@ pub fn handler(
     name: String,
     symbol: String,
     uri: String,
+    mandate: String,
 ) -> Result<()> {
     ctx.accounts
-        .validate(tvl_fee, mint_fee, auction_delay, auction_length)?;
+        .validate(tvl_fee, mint_fee, auction_delay, auction_length, &mandate)?;
 
     let folio_token_mint_key = ctx.accounts.folio_token_mint.key();
     {
@@ -151,6 +159,7 @@ pub fn handler(
         folio.current_auction_id = 0;
         folio.sell_ends = [AuctionEnd::default(); MAX_CONCURRENT_AUCTIONS];
         folio.buy_ends = [AuctionEnd::default(); MAX_CONCURRENT_AUCTIONS];
+        folio.mandate = FixedSizeString::new(&mandate);
     }
 
     let actor = &mut ctx.accounts.actor;

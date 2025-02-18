@@ -1,6 +1,6 @@
 use crate::utils::{
     structs::{AuctionEnd, BasketRange, FeeRecipient, TokenAmount},
-    Prices,
+    FixedSizeString, Prices,
 };
 use anchor_lang::prelude::*;
 use shared::constants::{
@@ -25,12 +25,9 @@ impl Actor {
     pub const SIZE: usize = 8 + Actor::INIT_SPACE;
 }
 
-/*
-All numbers for calculations are u64 (up to 9 "decimals")
-*/
 /// PDA Seeds ["folio", folio token pubkey]
 #[account(zero_copy)]
-#[derive(Default, InitSpace)]
+#[derive(InitSpace, Default)]
 #[repr(C)]
 pub struct Folio {
     pub bump: u8,
@@ -63,6 +60,9 @@ pub struct Folio {
 
     pub sell_ends: [AuctionEnd; MAX_CONCURRENT_AUCTIONS],
     pub buy_ends: [AuctionEnd; MAX_CONCURRENT_AUCTIONS],
+
+    // Fixed size mandate
+    pub mandate: FixedSizeString,
 }
 
 impl Folio {

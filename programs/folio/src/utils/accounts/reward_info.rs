@@ -34,7 +34,8 @@ impl RewardInfo {
         &mut self,
         folio_reward_ratio: u128,          // D18
         current_reward_token_balance: u64, // D9
-        current_reward_token_supply: u64,  // D9
+        // Represent the supply of tokens that are staked in the governance account
+        current_staked_token_balance: u64, // D9
         current_token_decimals: u8,
         current_time: u64,
     ) -> Result<()> {
@@ -68,10 +69,10 @@ impl RewardInfo {
             .mul(&handout_percentage)?
             .div(&Decimal::ONE_E18)?;
 
-        if current_reward_token_supply > 0 {
+        if current_staked_token_balance > 0 {
             self.calculate_delta_index(
                 &tokens_to_handout,
-                current_reward_token_supply,
+                current_staked_token_balance,
                 current_token_decimals,
             )?;
 

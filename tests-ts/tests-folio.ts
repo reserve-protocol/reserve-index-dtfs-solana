@@ -233,8 +233,6 @@ describe("Folio Tests", () => {
 
     // Clear connection
     if (connection) {
-      const endpoint = connection.rpcEndpoint;
-      console.log(`Closing connection to ${endpoint}`);
       // @ts-ignore - force clear internal properties
       connection._rpcWebSocket.close();
       connection = null;
@@ -242,7 +240,6 @@ describe("Folio Tests", () => {
 
     // Force exit after 1 second
     setTimeout(() => {
-      console.log("Forcing exit...");
       process.exit(0);
     }, 5000);
   });
@@ -258,7 +255,8 @@ describe("Folio Tests", () => {
       MAX_AUCTION_LENGTH,
       "Test Folio",
       "TFOL",
-      "https://test.com"
+      "https://test.com",
+      "mandate"
     );
 
     const folio = await programFolio.account.folio.fetch(folioPDA);
@@ -333,7 +331,8 @@ describe("Folio Tests", () => {
       null,
       null,
       [],
-      []
+      [],
+      null
     );
 
     const folioAfter = await programFolio.account.folio.fetch(folioPDA);
@@ -356,7 +355,8 @@ describe("Folio Tests", () => {
       null,
       null,
       [],
-      []
+      [],
+      null
     );
   });
 
@@ -375,7 +375,8 @@ describe("Folio Tests", () => {
       null,
       null,
       newFeeRecipient,
-      []
+      [],
+      null
     );
 
     const folioAfter = await programFolio.account.folio.fetch(folioPDA);

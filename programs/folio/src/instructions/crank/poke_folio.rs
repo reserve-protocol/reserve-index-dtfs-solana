@@ -36,7 +36,7 @@ impl PokeFolio<'_> {
             &self.folio.key(),
             None,
             None,
-            Some(vec![FolioStatus::Initialized]),
+            Some(vec![FolioStatus::Initialized, FolioStatus::Killed]),
         )?;
 
         check_condition!(

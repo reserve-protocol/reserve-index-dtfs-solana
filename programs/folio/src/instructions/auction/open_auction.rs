@@ -39,7 +39,7 @@ impl OpenAuction<'_> {
         folio.validate_folio(
             &self.folio.key(),
             Some(&self.actor),
-            Some(Role::AuctionLauncher),
+            Some(vec![Role::AuctionLauncher]),
             Some(vec![FolioStatus::Initialized]),
         )?;
 

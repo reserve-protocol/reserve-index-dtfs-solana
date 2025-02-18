@@ -37,6 +37,7 @@ import {
   MAX_MINT_FEE,
   EXPECTED_TVL_FEE_WHEN_MAX,
   MAX_FEE_FLOOR,
+  MAX_PADDED_STRING_LENGTH,
 } from "../../utils/constants";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
 
@@ -334,7 +335,8 @@ export async function createAndSetFolio(
   feeRecipientsPendingFeeShares: BN = new BN(0),
   useSecondFolioProgram: boolean = false,
   buyEnds: AuctionEnd[] = [],
-  sellEnds: AuctionEnd[] = []
+  sellEnds: AuctionEnd[] = [],
+  mandate: string = ""
 ) {
   // Set last poke as current time stamp, else 0 would make the elapsed time huge
   if (lastPoke.isZero()) {
@@ -348,7 +350,7 @@ export async function createAndSetFolio(
     useSecondFolioProgram
   );
 
-  const buffer = Buffer.alloc(1432);
+  const buffer = Buffer.alloc(1560);
   let offset = 0;
 
   // Encode discriminator
@@ -425,6 +427,10 @@ export async function createAndSetFolio(
     }
     offset += 40;
   }
+
+  // Write mandate
+  Buffer.from(mandate).copy(buffer, offset);
+  offset += MAX_PADDED_STRING_LENGTH;
 
   await setFolioAccountInfo(
     ctx,

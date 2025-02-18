@@ -58,5 +58,7 @@ export const TOTAL_PORTION_FEE_RECIPIENT = new BN("1000000000000000000");
 export const MAX_REWARD_TOKENS = 30;
 export const MAX_CONCURRENT_AUCTIONS = 16;
 
+export const MAX_PADDED_STRING_LENGTH = 128;
+
 export const MAX_REWARD_HALF_LIFE = new BN(1_209_600);
 export const MIN_REWARD_HALF_LIFE = new BN(86400);

@@ -58,7 +58,7 @@ impl AddToBasket<'_> {
         folio.validate_folio(
             &self.folio.key(),
             Some(&self.actor),
-            Some(Role::Owner),
+            Some(vec![Role::Owner]),
             Some(vec![FolioStatus::Initializing, FolioStatus::Initialized]),
         )?;
 

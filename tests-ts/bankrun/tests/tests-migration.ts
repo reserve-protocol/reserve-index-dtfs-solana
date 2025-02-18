@@ -34,6 +34,7 @@ import * as assert from "assert";
 
 import {
   BPF_PROGRAM_USED_BY_BANKRUN,
+  D9,
   DEFAULT_DECIMALS,
   FOLIO_PROGRAM_ID,
 } from "../../../utils/constants";
@@ -213,19 +214,37 @@ describe("Bankrun - Folio migration", () => {
       desc: "(migrate balance, has some pending redeeming and minting basket, valid)",
       expectedError: null,
       initialFolioBasket: [
-        new TokenAmount(MINTS[0].publicKey, new BN(100), new BN(0)),
-        new TokenAmount(MINTS[1].publicKey, new BN(200), new BN(100)),
+        new TokenAmount(MINTS[0].publicKey, new BN(100).mul(D9), new BN(0)),
+        new TokenAmount(
+          MINTS[1].publicKey,
+          new BN(200).mul(D9),
+          new BN(100).mul(D9)
+        ),
       ],
       tokens: [MINTS[0].publicKey, MINTS[1].publicKey],
-      // Folio has 1000 total of each (negative as the old folio is losing them)
-      expectedTokenBalanceChanges: [new BN(900).neg(), new BN(300).neg()],
+      // Folio has 1000 in D9 total of each (negative as the old folio is losing them)
+      expectedTokenBalanceChanges: [
+        new BN(900).mul(D9).neg(),
+        new BN(700).mul(D9).neg(),
+        new BN(900).mul(D9),
+        new BN(700).mul(D9),
+      ],
     },
     {
       desc: "(migrate balance, has no pending redeeming and minting basket, valid)",
       expectedError: null,
+      initialFolioBasket: [
+        new TokenAmount(MINTS[0].publicKey, new BN(0), new BN(0)),
+        new TokenAmount(MINTS[1].publicKey, new BN(0), new BN(0)),
+      ],
       tokens: [MINTS[0].publicKey, MINTS[1].publicKey],
-      // Folio has 1000 total of each (negative as the old folio is losing them)
-      expectedTokenBalanceChanges: [new BN(1000).neg(), new BN(1000).neg()],
+      // Folio has 1000 in D9 total of each (negative as the old folio is losing them)
+      expectedTokenBalanceChanges: [
+        new BN(1000).mul(D9).neg(),
+        new BN(1000).mul(D9).neg(),
+        new BN(1000).mul(D9),
+        new BN(1000).mul(D9),
+      ],
     },
   ];
 
@@ -305,13 +324,6 @@ describe("Bankrun - Folio migration", () => {
       programFolio.programId,
       programFolioSecond.programId,
     ]);
-
-    await createAndSetFolioBasket(
-      context,
-      programFolio,
-      oldFolioPDA,
-      MINTS.map((mint) => new TokenAmount(mint.publicKey, new BN(0), new BN(0)))
-    );
   }
 
   before(async () => {
@@ -581,15 +593,15 @@ describe("Bankrun - Folio migration", () => {
           } else {
             it("should succeed", async () => {
               await travelFutureSlot(context);
-            });
 
-            assertExpectedBalancesChanges(
-              context,
-              beforeBalances,
-              tokens,
-              [oldFolioPDA, newFolioPDA],
-              expectedTokenBalanceChanges
-            );
+              await assertExpectedBalancesChanges(
+                context,
+                beforeBalances,
+                tokens,
+                [oldFolioPDA, newFolioPDA],
+                expectedTokenBalanceChanges
+              );
+            });
           }
         });
       }

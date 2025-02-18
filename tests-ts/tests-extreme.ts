@@ -70,7 +70,8 @@ describe("Extreme Folio Tests", () => {
       MIN_AUCTION_LENGTH,
       "Test Folio",
       "TFOL",
-      "https://test.com"
+      "https://test.com",
+      "mandate"
     );
 
     // Create the tokens that can be included in the folio

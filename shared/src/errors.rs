@@ -232,6 +232,9 @@ pub enum ErrorCode {
 
     #[msg("Invalid Fee Floor")]
     InvalidFeeFloor,
+
+    #[msg("Invalid Mandate Length")]
+    InvalidMandateLength,
 }
 
 #[macro_export]

@@ -500,15 +500,7 @@ describe("Bankrun - Fees", () => {
     });
 
     describe("should run general tests for poke folio", () => {
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and INITIALIZING and MIGRATING`, async () => {
-        await assertInvalidFolioStatusTestCase(
-          context,
-          programFolio,
-          folioTokenMint.publicKey,
-          generalIxPokeFolio,
-          FolioStatus.Killed
-        );
-
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both INITIALIZING and MIGRATING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
@@ -528,23 +520,13 @@ describe("Bankrun - Fees", () => {
     });
 
     describe("should run general tests for distribute fees", () => {
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for INITIALIZING & KILLED & MIGRATING`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for INITIALIZING & MIGRATING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
           folioTokenMint.publicKey,
-
           generalIxDistributeFees,
           FolioStatus.Initializing
-        );
-
-        await assertInvalidFolioStatusTestCase(
-          context,
-          programFolio,
-          folioTokenMint.publicKey,
-
-          generalIxDistributeFees,
-          FolioStatus.Killed
         );
 
         await assertInvalidFolioStatusTestCase(

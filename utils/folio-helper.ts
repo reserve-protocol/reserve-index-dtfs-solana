@@ -96,6 +96,7 @@ export async function initFolio(
   name: string,
   symbol: string,
   uri: string,
+  mandate: string,
   useSecondFolioProgram: boolean = false
 ): Promise<PublicKey> {
   const folioProgram = useSecondFolioProgram
@@ -105,7 +106,16 @@ export async function initFolio(
   const folioPDA = getFolioPDA(folioTokenMint.publicKey, useSecondFolioProgram);
 
   const initFolio = await folioProgram.methods
-    .initFolio(tvlFee, mintFee, auctionDelay, auctionLength, name, symbol, uri)
+    .initFolio(
+      tvlFee,
+      mintFee,
+      auctionDelay,
+      auctionLength,
+      name,
+      symbol,
+      uri,
+      mandate
+    )
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
@@ -160,7 +170,8 @@ export async function updateFolio(
   auctionDelay: BN | null,
   auctionLength: BN | null,
   feeRecipientsToAdd: { recipient: PublicKey; portion: BN }[],
-  feeRecipientsToRemove: PublicKey[]
+  feeRecipientsToRemove: PublicKey[],
+  mandate: string | null
 ) {
   const folioProgram = getFolioProgram(connection, folioOwnerKeypair);
 
@@ -171,7 +182,8 @@ export async function updateFolio(
       auctionDelay,
       auctionLength,
       feeRecipientsToAdd,
-      feeRecipientsToRemove
+      feeRecipientsToRemove,
+      mandate
     )
     .accountsPartial({
       systemProgram: SystemProgram.programId,

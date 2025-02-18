@@ -153,6 +153,7 @@ export async function initFolio<T extends boolean = true>(
     name: string;
     symbol: string;
     uri: string;
+    mandate: string;
   },
   executeTxn: T = true as T
 ): Promise<
@@ -170,7 +171,8 @@ export async function initFolio<T extends boolean = true>(
       params.auctionLength,
       params.name,
       params.symbol,
-      params.uri
+      params.uri,
+      params.mandate
     )
     .accountsPartial({
       systemProgram: SystemProgram.programId,
@@ -247,6 +249,7 @@ export async function updateFolio<T extends boolean = true>(
   auctionLength: BN | null,
   feeRecipientsToAdd: { recipient: PublicKey; portion: BN }[],
   feeRecipientsToRemove: PublicKey[],
+  mandate: string | null,
   executeTxn: T = true as T
 ): Promise<
   T extends true
@@ -260,7 +263,8 @@ export async function updateFolio<T extends boolean = true>(
       auctionDelay,
       auctionLength,
       feeRecipientsToAdd,
-      feeRecipientsToRemove
+      feeRecipientsToRemove,
+      mandate
     )
     .accountsPartial({
       systemProgram: SystemProgram.programId,

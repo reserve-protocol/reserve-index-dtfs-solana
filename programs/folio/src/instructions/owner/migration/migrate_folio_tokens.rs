@@ -41,7 +41,7 @@ pub struct MigrateFolioTokens<'info> {
     #[account()]
     pub old_folio: AccountLoader<'info, Folio>,
 
-    #[account(
+    #[account(mut,
         seeds = [FOLIO_BASKET_SEEDS, old_folio.key().as_ref()],
         bump
     )]
@@ -109,7 +109,7 @@ impl MigrateFolioTokens<'_> {
 pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'info>>) -> Result<()> {
     let old_folio_key = ctx.accounts.old_folio.key();
     let new_folio_key = ctx.accounts.new_folio.key();
-    let old_folio_basket = ctx.accounts.old_folio_basket.load()?;
+    let old_folio_basket = &mut ctx.accounts.old_folio_basket.load_mut()?;
     let token_program_id = ctx.accounts.token_program.key();
 
     let old_folio_token_mint: Pubkey;
@@ -204,6 +204,9 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
             migrate_balance,
             mint_decimals,
         )?;
+
+        // Remove the token from the old folio basket
+        old_folio_basket.remove_tokens_from_basket(&vec![token_mint.key()])?;
     }
 
     Ok(())

@@ -59,7 +59,7 @@ impl ApproveAuction<'_> {
         folio.validate_folio(
             &self.folio.key(),
             Some(&self.actor),
-            Some(Role::AuctionApprover),
+            Some(vec![Role::AuctionApprover]),
             Some(vec![FolioStatus::Initialized]),
         )?;
         check_condition!(folio.current_auction_id + 1 == auction_id, InvalidAuctionId);

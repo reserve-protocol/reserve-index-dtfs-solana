@@ -1,6 +1,7 @@
 use crate::events::{AuctionDelaySet, AuctionLengthSet, MintFeeSet};
 use crate::state::{Actor, FeeRecipients, Folio};
 use crate::utils::structs::{FeeRecipient, Role};
+use crate::utils::{FixedSizeString, MAX_PADDED_STRING_LENGTH};
 use anchor_lang::prelude::*;
 use shared::constants::{
     FEE_RECIPIENTS_SEEDS, MAX_AUCTION_DELAY, MAX_AUCTION_LENGTH, MAX_MINT_FEE, MAX_TVL_FEE,
@@ -42,7 +43,7 @@ impl UpdateFolio<'_> {
         folio.validate_folio(
             &self.folio.key(),
             Some(&self.actor),
-            Some(Role::Owner),
+            Some(vec![Role::Owner]),
             None, // Can update no matter the status
         )?;
 
@@ -59,6 +60,7 @@ pub fn handler(
     auction_length: Option<u64>,
     fee_recipients_to_add: Vec<FeeRecipient>,
     fee_recipients_to_remove: Vec<Pubkey>,
+    mandate: Option<String>,
 ) -> Result<()> {
     ctx.accounts.validate()?;
 
@@ -110,6 +112,15 @@ pub fn handler(
         emit!(AuctionLengthSet {
             new_auction_length: auction_length
         });
+    }
+
+    if let Some(mandate) = mandate {
+        check_condition!(
+            mandate.len() <= MAX_PADDED_STRING_LENGTH,
+            InvalidMandateLength
+        );
+
+        folio.mandate = FixedSizeString::new(&mandate);
     }
 
     Ok(())

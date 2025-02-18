@@ -33,6 +33,7 @@ import * as assert from "assert";
 import {
   EXPECTED_TVL_FEE_WHEN_MAX,
   MAX_FEE_RECIPIENTS,
+  MAX_PADDED_STRING_LENGTH,
   MAX_MINT_FEE,
   MIN_AUCTION_LENGTH,
 } from "../../../utils/constants";
@@ -68,6 +69,7 @@ describe("Bankrun - Update folio", () => {
     mintFee: BN;
     auctionDelay: BN;
     auctionLength: BN;
+    mandate: string;
     preAddedRecipients: FeeRecipient[];
     feeRecipientsToAdd: FeeRecipient[];
     feeRecipientsToRemove: PublicKey[];
@@ -76,6 +78,7 @@ describe("Bankrun - Update folio", () => {
     mintFee: MAX_MINT_FEE,
     auctionDelay: MAX_AUCTION_DELAY,
     auctionLength: MAX_AUCTION_LENGTH,
+    mandate: "a".repeat(MAX_PADDED_STRING_LENGTH),
     preAddedRecipients: [],
     feeRecipientsToAdd: [],
     feeRecipientsToRemove: [],
@@ -184,6 +187,16 @@ describe("Bankrun - Update folio", () => {
       feeRecipientsToRemove: [],
       expectedError: "InvalidFeeRecipientPortion",
     },
+    {
+      desc: "(should update mandate, too long)",
+      mandate: "a".repeat(MAX_PADDED_STRING_LENGTH + 1),
+      expectedError: "InvalidMandateLength",
+    },
+    {
+      desc: "(should update mandate, success)",
+      mandate: "a".repeat(MAX_PADDED_STRING_LENGTH),
+      expectedError: null,
+    },
   ];
 
   async function initBaseCase() {
@@ -232,7 +245,7 @@ describe("Bankrun - Update folio", () => {
         null,
         [],
         [],
-
+        null,
         true
       );
 
@@ -266,6 +279,7 @@ describe("Bankrun - Update folio", () => {
           feeRecipientsToAdd,
           feeRecipientsToRemove,
           preAddedRecipients,
+          mandate,
         } = { ...DEFAULT_PARAMS, ...restOfParams };
 
         let folioTvlFeeBefore: BN;
@@ -295,7 +309,8 @@ describe("Bankrun - Update folio", () => {
             auctionDelay,
             auctionLength,
             feeRecipientsToAdd,
-            feeRecipientsToRemove
+            feeRecipientsToRemove,
+            mandate
           );
         });
 

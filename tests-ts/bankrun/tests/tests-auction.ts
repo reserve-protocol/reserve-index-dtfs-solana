@@ -21,7 +21,7 @@ import {
 import {
   approveAuction,
   bid,
-  killAuction,
+  killAuction as closeAuction,
   openAuction,
   openAuctionPermissionless,
 } from "../bankrun-ix-helper";
@@ -183,7 +183,7 @@ describe("Bankrun - Folio migration", () => {
     },
   ];
 
-  const TEST_CASE_KILL_AUCTION = [
+  const TEST_CASE_CLOSE_AUCTION = [
     {
       desc: "(is valid)",
       expectedError: null,
@@ -465,8 +465,8 @@ describe("Bankrun - Folio migration", () => {
         true
       );
 
-    const generalIxKillAuction = () =>
-      killAuction<true>(
+    const generalIxCloseAuction = () =>
+      closeAuction<true>(
         banksClient,
         programFolio,
         auctionApproverKeypair,
@@ -581,8 +581,8 @@ describe("Bankrun - Folio migration", () => {
           programFolio,
           auctionApproverKeypair,
           folioPDA,
-          generalIxKillAuction,
-          Role.AuctionLauncher
+          generalIxCloseAuction,
+          Role.BrandManager
         );
       });
 
@@ -591,7 +591,7 @@ describe("Bankrun - Folio migration", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-          generalIxKillAuction,
+          generalIxCloseAuction,
           FolioStatus.Migrating
         );
 
@@ -599,7 +599,7 @@ describe("Bankrun - Folio migration", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-          generalIxKillAuction,
+          generalIxCloseAuction,
           FolioStatus.Killed
         );
       });
@@ -854,7 +854,7 @@ describe("Bankrun - Folio migration", () => {
   });
 
   describe("Specific Cases - Kill Auction", () => {
-    TEST_CASE_KILL_AUCTION.forEach(
+    TEST_CASE_CLOSE_AUCTION.forEach(
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {
           let txnResult: BanksTransactionResultWithMeta;
@@ -876,7 +876,7 @@ describe("Bankrun - Folio migration", () => {
 
             await travelFutureSlot(context);
 
-            txnResult = await killAuction<true>(
+            txnResult = await closeAuction<true>(
               banksClient,
               programFolio,
               auctionApproverKeypair,

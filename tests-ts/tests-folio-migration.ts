@@ -111,7 +111,8 @@ describe("Folio Tests", () => {
       MAX_AUCTION_LENGTH,
       "Test Folio",
       "TFOL",
-      "https://test.com"
+      "https://test.com",
+      "mandate"
     );
 
     await addToBasket(
@@ -144,6 +145,7 @@ describe("Folio Tests", () => {
       "Test Folio",
       "TFOL",
       "https://test.com",
+      "mandate",
       true
     );
   });

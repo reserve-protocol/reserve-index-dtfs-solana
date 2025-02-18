@@ -244,3 +244,17 @@ export function getUserTokenRecordRealmsPDA(
     SPL_GOVERNANCE_PROGRAM_ID
   )[0];
 }
+
+export function getGovernanceHoldingPDA(
+  realm: PublicKey,
+  governanceTokenMint: PublicKey
+) {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("governance"),
+      realm.toBuffer(),
+      governanceTokenMint.toBuffer(),
+    ],
+    SPL_GOVERNANCE_PROGRAM_ID
+  )[0];
+}

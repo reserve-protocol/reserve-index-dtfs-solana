@@ -235,6 +235,9 @@ pub enum ErrorCode {
 
     #[msg("Invalid Mandate Length")]
     InvalidMandateLength,
+
+    #[msg("Invalid Holding Token Account")]
+    InvalidHoldingTokenAccount,
 }
 
 #[macro_export]

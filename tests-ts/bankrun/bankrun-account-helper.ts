@@ -40,6 +40,8 @@ import {
   MAX_PADDED_STRING_LENGTH,
 } from "../../utils/constants";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
+import { ACCOUNT_SIZE, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { AccountLayout } from "@solana/spl-token";
 
 export enum Role {
   Owner = 0b00000001, // 1
@@ -282,6 +284,43 @@ export function createGovernanceAccount(
     lamports: 1_000_000_000,
     data: governanceAccountData,
     owner: SPL_GOVERNANCE_PROGRAM_ID,
+    executable: false,
+  });
+}
+
+/*
+This is a token account that holds all the staked governance tokens for a realm,
+is just a normal token account where the owner is the realm and the mint is the governance token
+*/
+export function createGovernanceHoldingAccount(
+  context: ProgramTestContext,
+  governanceOwner: PublicKey,
+  governanceTokenMint: PublicKey,
+  governanceHoldingPda: PublicKey,
+  balance: BN
+) {
+  const tokenAccData = Buffer.alloc(ACCOUNT_SIZE);
+  AccountLayout.encode(
+    {
+      mint: governanceTokenMint,
+      owner: governanceOwner,
+      amount: BigInt(balance.toString()),
+      delegateOption: 0,
+      delegate: PublicKey.default,
+      delegatedAmount: BigInt(0),
+      state: 1,
+      isNativeOption: 0,
+      isNative: BigInt(0),
+      closeAuthorityOption: 0,
+      closeAuthority: PublicKey.default,
+    },
+    tokenAccData
+  );
+
+  context.setAccount(governanceHoldingPda, {
+    lamports: 1_000_000_000,
+    data: tokenAccData,
+    owner: TOKEN_PROGRAM_ID,
     executable: false,
   });
 }

@@ -26,6 +26,7 @@ import {
   getRewardInfoPDA,
   getAuctionPDA,
   getUserPendingBasketPDA,
+  getGovernanceHoldingPDA,
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -934,6 +935,7 @@ export async function accrueRewards(
   folio: PublicKey,
   folioTokenMint: PublicKey,
   rewardTokens: PublicKey[],
+  governanceMint: PublicKey,
   extraUser: PublicKey = callerKeypair.publicKey
 ) {
   const folioProgram = getFolioProgram(connection, callerKeypair);
@@ -947,6 +949,11 @@ export async function accrueRewards(
       actor: getActorPDA(folioOwner, folio),
       folio,
       folioRewardTokens: getFolioRewardTokensPDA(folio),
+      governanceTokenMint: governanceMint,
+      governanceStakedTokenAccount: getGovernanceHoldingPDA(
+        folioOwner,
+        governanceMint
+      ),
       user: extraUser,
     })
     .remainingAccounts(

@@ -946,15 +946,14 @@ export async function initOrSetRewardRatio<T extends boolean = true>(
 }
 
 export async function accrueRewards<T extends boolean = true>(
-  context: ProgramTestContext,
   client: BanksClient,
   programFolio: Program<Folio>,
   callerKeypair: Keypair,
   folioOwner: PublicKey,
   folio: PublicKey,
-  rewardTokens: PublicKey[],
+  governanceMint: PublicKey,
+  governanceHoldingTokenAccount: PublicKey,
   extraUser: PublicKey = callerKeypair.publicKey,
-
   executeTxn: T = true as T,
   remainingAccounts: AccountMeta[] = []
 ): Promise<
@@ -972,6 +971,8 @@ export async function accrueRewards<T extends boolean = true>(
       actor: getActorPDA(folioOwner, folio),
       folio,
       folioRewardTokens: getFolioRewardTokensPDA(folio),
+      governanceTokenMint: governanceMint,
+      governanceStakedTokenAccount: governanceHoldingTokenAccount,
       user: extraUser ?? callerKeypair.publicKey,
     })
     .remainingAccounts(remainingAccounts)
@@ -995,7 +996,6 @@ export async function claimRewards<T extends boolean = true>(
   folioOwner: PublicKey,
   folio: PublicKey,
   rewardTokens: PublicKey[],
-
   executeTxn: T = true as T,
   remainingAccounts: AccountMeta[] = []
 ): Promise<

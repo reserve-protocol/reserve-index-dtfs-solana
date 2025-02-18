@@ -123,7 +123,7 @@ export class RewardInfo {
     return new RewardInfo(
       folioRewardToken,
       new BN((await context.banksClient.getClock()).unixTimestamp.toString()),
-      new BN(1),
+      new BN(0),
       new BN(0),
       new BN(0),
       new BN(0)
@@ -150,7 +150,7 @@ export class UserRewardInfo {
   }
 
   public static default(folioRewardToken: PublicKey, user: PublicKey) {
-    return new UserRewardInfo(folioRewardToken, user, new BN(1), new BN(0));
+    return new UserRewardInfo(folioRewardToken, user, new BN(0), new BN(0));
   }
 }
 
@@ -551,7 +551,7 @@ export async function createAndSetFeeDistribution(
   };
 
   // Manual encoding for fee recipients
-  const buffer = Buffer.alloc(2662);
+  const buffer = Buffer.alloc(3176);
   let offset = 0;
 
   // Encode discriminator
@@ -594,8 +594,8 @@ export async function createAndSetFeeDistribution(
   feeDistribution.fee_recipients.forEach((fr: any) => {
     fr.recipient.toBuffer().copy(buffer, offset);
     offset += 32;
-    fr.portion.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
-    offset += 8;
+    fr.portion.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+    offset += 16;
   });
 
   await setFolioAccountInfo(

@@ -8,7 +8,7 @@ use anchor_spl::associated_token::{self};
 use anchor_spl::token_interface;
 use anchor_spl::token_interface::{Mint, TokenInterface, TransferChecked};
 use shared::check_condition;
-use shared::constants::ACTOR_SEEDS;
+use shared::constants::{ACTOR_SEEDS, D9_U128};
 use shared::constants::{FOLIO_REWARD_TOKENS_SEEDS, REWARD_INFO_SEEDS, USER_REWARD_INFO_SEEDS};
 use shared::errors::ErrorCode;
 
@@ -178,14 +178,22 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
 
         reward_info.total_claimed = reward_info
             .total_claimed
-            .checked_add(claimable_rewards.0 as u128)
+            .checked_add(
+                (claimable_rewards.0 as u128)
+                    .checked_mul(D9_U128)
+                    .ok_or(ErrorCode::MathOverflow)?,
+            )
             .ok_or(ErrorCode::MathOverflow)?;
 
         // Potentially can't withdraw the whole balance if decimals are too small (since D9 max for Solana)
         // so we save the dust so that one day it might become a full unit in D9
         user_reward_info.accrued_rewards = user_reward_info
             .accrued_rewards
-            .checked_sub(claimable_rewards.0 as u128)
+            .checked_sub(
+                (claimable_rewards.0 as u128)
+                    .checked_mul(D9_U128)
+                    .ok_or(ErrorCode::MathOverflow)?,
+            )
             .ok_or(ErrorCode::MathOverflow)?;
 
         reward_info.exit(ctx.program_id)?;

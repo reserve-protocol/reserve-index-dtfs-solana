@@ -61,7 +61,7 @@ impl StartFolioMigration<'_> {
             &self.old_folio.key(),
             Some(&self.actor),
             Some(Role::Owner),
-            Some(vec![FolioStatus::Initialized]),
+            Some(vec![FolioStatus::Initialized, FolioStatus::Killed]),
         )?;
 
         check_condition!(

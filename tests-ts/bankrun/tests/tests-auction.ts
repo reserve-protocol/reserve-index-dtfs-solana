@@ -45,7 +45,7 @@ import {
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
 import * as assert from "assert";
-import { DEFAULT_DECIMALS, MAX_TTL } from "../../../utils/constants";
+import { D9, DEFAULT_DECIMALS, MAX_TTL } from "../../../utils/constants";
 import {
   assertExpectedBalancesChanges,
   getOrCreateAtaAddress,
@@ -276,17 +276,24 @@ describe("Bankrun - Folio migration", () => {
       ],
     },
     {
-      // TODO fix max
       desc: "(is valid, sold out sell mint, updates auction end)",
       expectedError: null,
-      sellAmount: new BN(8000),
+      // With decimals
+      sellAmount: new BN(1000).mul(D9),
       maxBuyAmount: new BN(1000000000000),
       sellOut: true,
+      auctionToUse: {
+        ...VALID_AUCTION,
+        buyLimit: {
+          ...VALID_AUCTION.buyLimit,
+          spot: new BN(1000).mul(D9),
+        },
+      },
       expectedTokenBalanceChanges: [
-        new BN(8000),
-        new BN(8000).neg(),
-        new BN(8000).neg(),
-        new BN(8000),
+        new BN(1000000000000),
+        new BN(1000000000000).neg(),
+        new BN(1000000000000).neg(),
+        new BN(1000000000000),
       ],
     },
   ];
@@ -733,7 +740,7 @@ describe("Bankrun - Folio migration", () => {
     });
   });
 
-  describe("Specific Cases", () => {
+  describe("Specific Cases - Approve Auction", () => {
     TEST_CASE_APPROVE_AUCTION.forEach(
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {
@@ -844,7 +851,9 @@ describe("Bankrun - Folio migration", () => {
         });
       }
     );
+  });
 
+  describe("Specific Cases - Kill Auction", () => {
     TEST_CASE_KILL_AUCTION.forEach(
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {
@@ -854,8 +863,6 @@ describe("Bankrun - Folio migration", () => {
             ...DEFAULT_PARAMS,
             ...restOfParams,
           };
-
-          let currentTime: BN;
 
           before(async () => {
             await initBaseCase(customFolioTokenMint, initialFolioBasket);
@@ -868,10 +875,6 @@ describe("Bankrun - Folio migration", () => {
             );
 
             await travelFutureSlot(context);
-
-            currentTime = new BN(
-              (await context.banksClient.getClock()).unixTimestamp.toString()
-            );
 
             txnResult = await killAuction<true>(
               banksClient,
@@ -894,34 +897,16 @@ describe("Bankrun - Folio migration", () => {
               const auctionAfter = await programFolio.account.auction.fetch(
                 getAuctionPDA(folioPDA, auctionToUse.id)
               );
-              const folioAfter = await programFolio.account.folio.fetch(
-                folioPDA
-              );
 
               assert.equal(auctionAfter.end.eq(new BN(1)), true);
-
-              // TODO
-              // const folioBuyMintAuctionEnd = folioAfter.buyEnds.find(
-              //   (auctionEnd) => auctionEnd.mint.equals(auctionToUse.buy)
-              // );
-              // const folioSellMintAuctionEnd = folioAfter.sellEnds.find(
-              //   (auctionEnd) => auctionEnd.mint.equals(auctionToUse.sell)
-              // );
-
-              // assert.equal(
-              //   folioBuyMintAuctionEnd.endTime.eq(currentTime),
-              //   true
-              // );
-              // assert.equal(
-              //   folioSellMintAuctionEnd.endTime.eq(currentTime),
-              //   true
-              // );
             });
           }
         });
       }
     );
+  });
 
+  describe("Specific Cases - Open Auction", () => {
     TEST_CASE_OPEN_AUCTION.forEach(
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {
@@ -1015,7 +1000,9 @@ describe("Bankrun - Folio migration", () => {
         });
       }
     );
+  });
 
+  describe("Specific Cases - Open Auction Permissionless", () => {
     TEST_CASE_OPEN_AUCTION_PERMISSIONLESS.forEach(
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {
@@ -1109,7 +1096,9 @@ describe("Bankrun - Folio migration", () => {
         });
       }
     );
+  });
 
+  describe("Specific Cases - Bid", () => {
     TEST_CASE_BID.forEach(({ desc, expectedError, ...restOfParams }) => {
       describe(`When ${desc}`, () => {
         let txnResult: BanksTransactionResultWithMeta;
@@ -1136,8 +1125,6 @@ describe("Bankrun - Folio migration", () => {
           owner: PublicKey;
           balances: bigint[];
         }[];
-
-        let folioBasketTokensBefore: TokenAmount[];
 
         before(async () => {
           const mintToUse = customFolioTokenMint || folioTokenMint;
@@ -1173,12 +1160,6 @@ describe("Bankrun - Folio migration", () => {
             [sellMint.publicKey, buyMint.publicKey],
             [bidderKeypair.publicKey, folioPDA]
           );
-
-          const folioBasketBefore =
-            await programFolio.account.folioBasket.fetch(
-              getFolioBasketPDA(folioPDA)
-            );
-          folioBasketTokensBefore = folioBasketBefore.tokenAmounts;
 
           const callbackFields = await callback();
 
@@ -1223,27 +1204,17 @@ describe("Bankrun - Folio migration", () => {
               );
 
             if (sellOut) {
-              // Basket removed token & auction ends are set & auction end is set
-              // const folioAfter = await programFolio.account.folio.fetch(
-              //   folioPDA
-              // );
-              // const auctionAfter = await programFolio.account.auction.fetch(
-              //   getAuctionPDA(folioPDA, auctionToUse.id)
-              // );
-              // const folioBasketSellMint = folioBasketAfter.tokenAmounts.find(
-              //   (token) => token.mint.equals(sellMint.publicKey)
-              // );
-              // const sellAuctionEnd = folioAfter.auctionEnds.find((auctionEnd) =>
-              //   auctionEnd.mint.equals(sellMint.publicKey)
-              // );
-              // const buyAuctionEnd = folioAfter.auctionEnds.find((auctionEnd) =>
-              //   auctionEnd.mint.equals(buyMint.publicKey)
-              // );
-              // TODO
-              // assert.equal(folioBasketSellMint, null);
-              // assert.equal(sellAuctionEnd.endTime.eq(currentTime), true);
-              // assert.equal(buyAuctionEnd.endTime.eq(currentTime), true);
-              // assert.equal(auctionAfter.end.eq(currentTime), true);
+              // Basket removed token & auction end is set
+              const auctionAfter = await programFolio.account.auction.fetch(
+                getAuctionPDA(folioPDA, auctionToUse.id)
+              );
+
+              const folioBasketSellMint = folioBasketAfter.tokenAmounts.find(
+                (token) => token.mint.equals(sellMint.publicKey)
+              );
+
+              assert.equal(folioBasketSellMint, null);
+              assert.equal(auctionAfter.end.eq(currentTime), true);
             }
 
             // Buy mint should be added to the folio basket

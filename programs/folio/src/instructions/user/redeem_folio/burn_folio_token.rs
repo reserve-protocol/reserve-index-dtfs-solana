@@ -30,7 +30,7 @@ pub struct BurnFolioToken<'info> {
     )]
     pub dao_fee_config: Account<'info, DAOFeeConfig>,
 
-    #[account()]
+    #[account(mut)]
     pub folio: AccountLoader<'info, Folio>,
 
     #[account(mut)]
@@ -86,49 +86,54 @@ pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, BurnFolioToken<'info>>,
     shares: u64,
 ) -> Result<()> {
-    let folio = ctx.accounts.folio.load()?;
-
-    ctx.accounts.validate(&folio)?;
-
     let remaining_accounts = &ctx.remaining_accounts;
 
     let folio_key = ctx.accounts.folio.key();
     let token_program_id = ctx.accounts.token_program.key();
     let current_time = Clock::get()?.unix_timestamp;
 
-    let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
+    {
+        let folio = ctx.accounts.folio.load()?;
 
-    // Reorder the user's token amounts to match the folio's token amounts, for efficiency
-    let token_amounts_user = &mut ctx.accounts.user_pending_basket.load_mut()?;
-    token_amounts_user.reorder_token_amounts(&folio_basket.token_amounts)?;
+        ctx.accounts.validate(&folio)?;
 
-    // Validate the user passes as many remaining accounts as the folio has mints (validation on those mints is done later)
-    check_condition!(
-        folio_basket.get_total_number_of_mints() == remaining_accounts.len() as u8,
-        InvalidNumberOfRemainingAccounts
-    );
+        let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
+
+        // Reorder the user's token amounts to match the folio's token amounts, for efficiency
+        let token_amounts_user = &mut ctx.accounts.user_pending_basket.load_mut()?;
+        token_amounts_user.reorder_token_amounts(&folio_basket.token_amounts)?;
+
+        // Validate the user passes as many remaining accounts as the folio has mints (validation on those mints is done later)
+        check_condition!(
+            folio_basket.get_total_number_of_mints() == remaining_accounts.len() as u8,
+            InvalidNumberOfRemainingAccounts
+        );
+    }
 
     // Get the related folio fees
     let dao_fee_numerator = ctx.accounts.dao_fee_config.fee_recipient_numerator;
     let dao_fee_denominator = FEE_DENOMINATOR;
     let dao_fee_floor = ctx.accounts.dao_fee_config.fee_floor;
+    {
+        let token_amounts_user = &mut ctx.accounts.user_pending_basket.load_mut()?;
+        let folio = &mut ctx.accounts.folio.load_mut()?;
+        let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
 
-    let folio = &mut ctx.accounts.folio.load_mut()?;
-
-    token_amounts_user.to_assets(
-        shares,
-        ctx.accounts.folio_token_mint.supply,
-        &folio_key,
-        &token_program_id,
-        folio_basket,
-        folio,
-        PendingBasketType::RedeemProcess,
-        remaining_accounts,
-        current_time,
-        dao_fee_numerator,
-        dao_fee_denominator,
-        dao_fee_floor,
-    )?;
+        token_amounts_user.to_assets(
+            shares,
+            ctx.accounts.folio_token_mint.supply,
+            &folio_key,
+            &token_program_id,
+            folio_basket,
+            folio,
+            PendingBasketType::RedeemProcess,
+            remaining_accounts,
+            current_time,
+            dao_fee_numerator,
+            dao_fee_denominator,
+            dao_fee_floor,
+        )?;
+    }
 
     // Burn folio token from user's folio token account
     token::burn(

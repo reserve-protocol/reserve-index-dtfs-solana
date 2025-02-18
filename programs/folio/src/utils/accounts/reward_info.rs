@@ -46,11 +46,11 @@ impl RewardInfo {
 
         let balance_last_known = self.balance_last_known;
 
-        self.balance_last_known = Decimal::from_token_amount(current_reward_token_balance)?
-            .add(&Decimal::from_scaled(self.total_claimed))?
-            .to_scaled(Rounding::Ceiling)?;
+        self.balance_last_known = Decimal::from_token_amount(current_reward_token_balance)? // D18
+            .add(&Decimal::from_scaled(self.total_claimed))? // D18
+            .to_scaled(Rounding::Ceiling)?; // D18
 
-        // All in D9, so we keep it that way
+        // All in D18, so we keep it that way
         let unaccounted_balance = balance_last_known
             .checked_sub(self.balance_accounted)
             .ok_or(ErrorCode::MathOverflow)?;
@@ -103,8 +103,8 @@ impl RewardInfo {
 
         let delta_index = Decimal::ONE_E18 // D18
             .mul(tokens_to_handout)? // D18 * D18 = D36
-            .mul(&current_token_decimals_exponent)? // D36 / D(decimals) i.e. D9 = D45
-            // D45 / D(decimals) i.e. D9 = D27 (D decimals since mint token supply has the decimals included)
+            .mul(&current_token_decimals_exponent)? // D36 * D(decimals) i.e. D9 = D45
+            // D45 / D(decimals) i.e. D9 = 36 (D decimals since mint token supply has the decimals included)
             .div(&current_reward_token_supply)?
             .div(&Decimal::ONE_E18)?; // Scale back down to D18
 

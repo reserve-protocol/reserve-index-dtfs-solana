@@ -42,6 +42,9 @@ pub const MAX_REWARD_HALF_LIFE: u64 = 604800 * 2; // 2 weeks
 pub const MIN_REWARD_HALF_LIFE: u64 = 86400; // 1 day
 pub const LN_2: u128 = 693_147_180_559_945_309; // ln(2)
 
+// Used to validate the folio program seeds on the set folio fee config
+pub const FOLIO_PROGRAM_ID: Pubkey = pubkey!("n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG");
+
 pub enum PendingBasketType {
     MintProcess,
     RedeemProcess,

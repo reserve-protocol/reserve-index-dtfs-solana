@@ -74,6 +74,20 @@ export function getDaoFeeConfigPDAWithBump() {
   );
 }
 
+export function getFolioFeeConfigPDA(folio: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("folio_fee_config"), folio.toBuffer()],
+    FOLIO_ADMIN_PROGRAM_ID
+  )[0];
+}
+
+export function getFolioFeeConfigPDAWithBump(folio: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("folio_fee_config"), folio.toBuffer()],
+    FOLIO_ADMIN_PROGRAM_ID
+  );
+}
+
 export function getTVLFeeRecipientsPDA(folio: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("fee_recipients"), folio.toBuffer()],

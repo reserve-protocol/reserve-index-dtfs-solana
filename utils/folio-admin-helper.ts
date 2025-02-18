@@ -9,7 +9,11 @@ import {
 import idlFolioAdmin from "../target/idl/folio_admin.json";
 import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 import { pSendAndConfirmTxn } from "./program-helper";
-import { getProgramRegistrarPDA, getDAOFeeConfigPDA } from "./pda-helper";
+import {
+  getProgramRegistrarPDA,
+  getDAOFeeConfigPDA,
+  getFolioFeeConfigPDA,
+} from "./pda-helper";
 import { FolioAdmin } from "../target/types/folio_admin";
 
 let folioAdminProgram: Program<FolioAdmin> = null;
@@ -41,13 +45,13 @@ export async function setDaoFeeConfig(
   connection: Connection,
   adminKeypair: Keypair,
   feeRecipient: PublicKey,
-  feeRecipientNumerator: BN,
+  feeNumerator: BN,
   feeFloor: BN
 ) {
   const folioAdminProgram = getFolioAdminProgram(connection, adminKeypair);
 
   const setDaoFeeConfig = await folioAdminProgram.methods
-    .setDaoFeeConfig(feeRecipient, feeRecipientNumerator, feeFloor)
+    .setDaoFeeConfig(feeRecipient, feeNumerator, feeFloor)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
@@ -57,6 +61,34 @@ export async function setDaoFeeConfig(
     .instruction();
 
   await pSendAndConfirmTxn(folioAdminProgram, [setDaoFeeConfig], [], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+}
+
+export async function setFolioFeeConfig(
+  connection: Connection,
+  adminKeypair: Keypair,
+  folio: PublicKey,
+  folioTokenMint: PublicKey,
+  feeNumerator: BN,
+  feeFloor: BN
+) {
+  const folioAdminProgram = getFolioAdminProgram(connection, adminKeypair);
+
+  const setFolioFeeConfig = await folioAdminProgram.methods
+    .setFolioFeeConfig(feeNumerator, feeFloor)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      rent: SYSVAR_RENT_PUBKEY,
+      admin: adminKeypair.publicKey,
+      daoFeeConfig: getDAOFeeConfigPDA(),
+      folioTokenMint: folioTokenMint,
+      folio: folio,
+      folioFeeConfig: getFolioFeeConfigPDA(folio),
+    })
+    .instruction();
+
+  await pSendAndConfirmTxn(folioAdminProgram, [setFolioFeeConfig], [], {
     skipPreflight: SKIP_PREFLIGHT,
   });
 }

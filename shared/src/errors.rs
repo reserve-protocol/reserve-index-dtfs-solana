@@ -38,9 +38,6 @@ pub enum ErrorCode {
     #[msg("Invalid Fee Recipient")]
     InvalidFeeRecipient,
 
-    #[msg("Invalid Fee Recipient Numerator")]
-    InvalidFeeRecipientNumerator,
-
     #[msg("TVL Fee Too Low")]
     TVLFeeTooLow,
 

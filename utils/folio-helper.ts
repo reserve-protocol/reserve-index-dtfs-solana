@@ -27,6 +27,7 @@ import {
   getAuctionPDA,
   getUserPendingBasketPDA,
   getGovernanceHoldingPDA,
+  getFolioFeeConfigPDA,
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -440,7 +441,8 @@ export async function mintFolioToken(
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,
-
+      daoFeeConfig: getDAOFeeConfigPDA(),
+      folioFeeConfig: getFolioFeeConfigPDA(folio),
       folio,
       folioTokenMint,
       folioBasket: getFolioBasketPDA(folio),
@@ -492,7 +494,8 @@ export async function burnFolioToken(
       tokenProgram: TOKEN_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,
-
+      daoFeeConfig: getDAOFeeConfigPDA(),
+      folioFeeConfig: getFolioFeeConfigPDA(folio),
       folio,
       folioTokenMint,
       folioBasket: getFolioBasketPDA(folio),
@@ -577,8 +580,8 @@ export async function pokeFolio(
       user: userKeypair.publicKey,
       folio: folioPDA,
       folioTokenMint: folioTokenMint,
-
       daoFeeConfig: getDAOFeeConfigPDA(),
+      folioFeeConfig: getFolioFeeConfigPDA(folioPDA),
     })
     .instruction();
 
@@ -604,9 +607,8 @@ export async function distributeFees(
       rent: SYSVAR_RENT_PUBKEY,
       tokenProgram: TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,
-
       daoFeeConfig: getDAOFeeConfigPDA(),
-
+      folioFeeConfig: getFolioFeeConfigPDA(folio),
       folio: folio,
       folioTokenMint,
       feeRecipients: getTVLFeeRecipientsPDA(folio),

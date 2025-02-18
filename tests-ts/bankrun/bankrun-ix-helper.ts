@@ -12,6 +12,7 @@ import {
   getRewardInfoPDA,
   getAuctionPDA,
   getUserPendingBasketPDA,
+  getFolioFeeConfigPDA,
 } from "../../utils/pda-helper";
 import {
   AccountMeta,
@@ -53,7 +54,7 @@ export async function setDaoFeeConfig<T extends boolean = true>(
   programFolioAdmin: Program<FolioAdmin>,
   adminKeypair: Keypair,
   feeRecipient: PublicKey,
-  feeRecipientNumerator: BN,
+  feeNumerator: BN,
   feeFloor: BN,
   executeTxn: T = true as T
 ): Promise<
@@ -62,12 +63,46 @@ export async function setDaoFeeConfig<T extends boolean = true>(
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
   const ix = await programFolioAdmin.methods
-    .setDaoFeeConfig(feeRecipient, feeRecipientNumerator, feeFloor)
+    .setDaoFeeConfig(feeRecipient, feeNumerator, feeFloor)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
       admin: !executeTxn ? OTHER_ADMIN_KEY.publicKey : adminKeypair.publicKey,
       daoFeeConfig: getDAOFeeConfigPDA(),
+    })
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, adminKeypair, [ix]) as any;
+  }
+
+  return { ix, extraSigners: [] } as any;
+}
+
+export async function setFolioFeeConfig<T extends boolean = true>(
+  client: BanksClient,
+  programFolioAdmin: Program<FolioAdmin>,
+  adminKeypair: Keypair,
+  folio: PublicKey,
+  folioTokenMint: PublicKey,
+  feeNumerator: BN,
+  feeFloor: BN,
+  executeTxn: T = true as T
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const ix = await programFolioAdmin.methods
+    .setFolioFeeConfig(feeNumerator, feeFloor)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      rent: SYSVAR_RENT_PUBKEY,
+      admin: !executeTxn ? OTHER_ADMIN_KEY.publicKey : adminKeypair.publicKey,
+      daoFeeConfig: getDAOFeeConfigPDA(),
+      folioTokenMint: folioTokenMint,
+      folio: folio,
+      folioFeeConfig: getFolioFeeConfigPDA(folio),
     })
     .instruction();
 
@@ -580,7 +615,8 @@ export async function mintFolioToken<T extends boolean = true>(
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,
-
+      daoFeeConfig: getDAOFeeConfigPDA(),
+      folioFeeConfig: getFolioFeeConfigPDA(folio),
       folio,
       folioTokenMint,
       folioBasket: getFolioBasketPDA(folio),
@@ -628,7 +664,8 @@ export async function burnFolioToken<T extends boolean = true>(
       tokenProgram: TOKEN_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,
-
+      daoFeeConfig: getDAOFeeConfigPDA(),
+      folioFeeConfig: getFolioFeeConfigPDA(folio),
       folio,
       folioTokenMint,
       folioBasket: getFolioBasketPDA(folio),
@@ -721,8 +758,8 @@ export async function pokeFolio<T extends boolean = true>(
       user: userKeypair.publicKey,
       folio: folioPDA,
       folioTokenMint: folioTokenMint,
-
       daoFeeConfig: getDAOFeeConfigPDA(),
+      folioFeeConfig: getFolioFeeConfigPDA(folioPDA),
     })
     .instruction();
 
@@ -755,9 +792,8 @@ export async function distributeFees<T extends boolean = true>(
       rent: SYSVAR_RENT_PUBKEY,
       tokenProgram: TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,
-
       daoFeeConfig: getDAOFeeConfigPDA(),
-
+      folioFeeConfig: getFolioFeeConfigPDA(folio),
       folio: folio,
       folioTokenMint,
       feeRecipients: getTVLFeeRecipientsPDA(folio),

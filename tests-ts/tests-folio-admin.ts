@@ -5,15 +5,19 @@ import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import * as assert from "assert";
 import {
   getDAOFeeConfigPDA,
+  getFolioFeeConfigPDA,
+  getFolioPDA,
   getProgramRegistrarPDA,
 } from "../utils/pda-helper";
 import {
   initProgramRegistrar,
   setDaoFeeConfig,
+  setFolioFeeConfig,
   updateProgramRegistrar,
 } from "../utils/folio-admin-helper";
 
 import { FOLIO_ADMIN_PROGRAM_ID, MAX_FEE_FLOOR } from "../utils/constants";
+import { initToken } from "../utils/token-helper";
 
 describe("Folio Admin Tests", () => {
   let connection: Connection;
@@ -26,7 +30,7 @@ describe("Folio Admin Tests", () => {
   const randomProgramId: PublicKey = Keypair.generate().publicKey;
 
   const feeRecipient: PublicKey = Keypair.generate().publicKey;
-  const feeRecipientNumerator: BN = new BN("500000000000000000"); //50% in D18
+  const feeNumerator: BN = new BN("500000000000000000"); //50% in D18
 
   before(async () => {
     ({ connection, programFolioAdmin, keys } = await getConnectors());
@@ -43,7 +47,7 @@ describe("Folio Admin Tests", () => {
       connection,
       adminKeypair,
       feeRecipient,
-      feeRecipientNumerator,
+      feeNumerator,
       MAX_FEE_FLOOR
     );
 
@@ -55,8 +59,37 @@ describe("Folio Admin Tests", () => {
 
     assert.notEqual(daoFeeConfig.bump, 0);
     assert.deepEqual(daoFeeConfig.feeRecipient, feeRecipient);
+    assert.deepEqual(daoFeeConfig.defaultFeeNumerator.eq(feeNumerator), true);
+  });
+
+  it("should set the folio fee config", async () => {
+    const folioTokenMint = Keypair.generate();
+    await initToken(connection, adminKeypair, folioTokenMint);
+
+    await setFolioFeeConfig(
+      connection,
+      adminKeypair,
+      getFolioPDA(folioTokenMint.publicKey),
+      folioTokenMint.publicKey,
+      feeNumerator.sub(new BN(1)),
+      MAX_FEE_FLOOR.sub(new BN(1))
+    );
+
+    const folioFeeConfigPDA = getFolioFeeConfigPDA(
+      getFolioPDA(folioTokenMint.publicKey)
+    );
+
+    const folioFeeConfig = await programFolioAdmin.account.folioFeeConfig.fetch(
+      folioFeeConfigPDA
+    );
+
+    assert.notEqual(folioFeeConfig.bump, 0);
     assert.deepEqual(
-      daoFeeConfig.feeRecipientNumerator.eq(feeRecipientNumerator),
+      folioFeeConfig.feeNumerator.eq(feeNumerator.sub(new BN(1))),
+      true
+    );
+    assert.deepEqual(
+      folioFeeConfig.feeFloor.eq(MAX_FEE_FLOOR.sub(new BN(1))),
       true
     );
   });

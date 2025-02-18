@@ -18,6 +18,7 @@ import {
   getUserRewardInfoPDA,
   getUserRewardInfoPDAWithBump,
   getUserTokenRecordRealmsPDA,
+  getFolioFeeConfigPDAWithBump,
 } from "../../utils/pda-helper";
 import { createFakeTokenOwnerRecordV2 } from "../../utils/data-helper";
 import * as crypto from "crypto";
@@ -1189,6 +1190,59 @@ export async function createAndSetDaoFeeConfig(
     daoFeeConfigPDAWithBump[0],
     "daoFeeConfig",
     daoFeeConfig,
+    buffer
+  );
+}
+
+export async function createAndSetFolioFeeConfig(
+  ctx: ProgramTestContext,
+  program: Program<FolioAdmin>,
+  folio: PublicKey,
+  feeNumerator: BN,
+  feeFloor: BN = MAX_FEE_FLOOR
+) {
+  const folioFeeConfigPDAWithBump = getFolioFeeConfigPDAWithBump(folio);
+  const folioFeeConfig = {
+    bump: folioFeeConfigPDAWithBump[1],
+    feeNumerator,
+    feeFloor,
+  };
+
+  const buffer = Buffer.alloc(41);
+  let offset = 0;
+
+  // Encode discriminator
+  const discriminator = getAccountDiscriminator("FolioFeeConfig");
+  discriminator.copy(buffer, offset);
+  offset += 8;
+
+  // Encode bump
+  buffer.writeUInt8(folioFeeConfig.bump, offset);
+  offset += 1;
+
+  // Encode fee numerator
+  const value = BigInt(folioFeeConfig.feeNumerator.toString());
+  buffer.writeBigUInt64LE(BigInt(value & BigInt("0xFFFFFFFFFFFFFFFF")), offset);
+  offset += 8;
+  buffer.writeBigUInt64LE(BigInt(value >> BigInt(64)), offset);
+  offset += 8;
+
+  // Encode fee floor
+  const floorValue = BigInt(folioFeeConfig.feeFloor.toString());
+  buffer.writeBigUInt64LE(
+    BigInt(floorValue & BigInt("0xFFFFFFFFFFFFFFFF")),
+    offset
+  );
+  offset += 8;
+  buffer.writeBigUInt64LE(BigInt(floorValue >> BigInt(64)), offset);
+  offset += 8;
+
+  await setFolioAdminAccountInfo(
+    ctx,
+    program,
+    folioFeeConfigPDAWithBump[0],
+    "folioFeeConfig",
+    folioFeeConfig,
     buffer
   );
 }

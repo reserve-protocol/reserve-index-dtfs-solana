@@ -16,6 +16,8 @@ import {
   createAndSetFeeRecipients,
   createAndSetFeeDistribution,
   FeeRecipient,
+  createAndSetFolioFeeConfig,
+  closeAccount,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
 import { FolioAdmin } from "../../../target/types/folio_admin";
@@ -45,6 +47,7 @@ import {
   getFeeDistributionPDA,
   getTVLFeeRecipientsPDA,
   getFolioPDA,
+  getFolioFeeConfigPDA,
 } from "../../../utils/pda-helper";
 import {
   crankFeeDistribution,
@@ -98,6 +101,12 @@ describe("Bankrun - Fees", () => {
     // Is Validated before sending the transaction
     isPreTransactionValidated: boolean;
 
+    /*
+    For simplicity's sake, to test folio fee config, we will change the dao fee config current values, but use them
+    to set the folio fee config. Therefore nothing fancy needs to be done to assert changes.
+    */
+    customFolioFeeConfig: boolean;
+
     addedClockTime: number;
 
     feeDistributionIndex: BN;
@@ -139,6 +148,8 @@ describe("Bankrun - Fees", () => {
 
     // Is Validated before sending the transaction
     isPreTransactionValidated: false,
+
+    customFolioFeeConfig: false,
 
     addedClockTime: 0,
 
@@ -198,6 +209,7 @@ describe("Bankrun - Fees", () => {
       expectedDaoFeeShares: new BN(600269965163606),
       expectedFeeRecipientShares: new BN("11405129338108512"),
       addedClockTime: 3600,
+      customFolioFeeConfig: true,
     },
   ];
 
@@ -223,6 +235,7 @@ describe("Bankrun - Fees", () => {
       initialDaoPendingFeeShares: new BN(1000).mul(D18),
       // D9 as this is token amounts
       expectedDaoFeeShares: new BN(1000).mul(D9),
+      customFolioFeeConfig: true,
     },
   ];
 
@@ -368,16 +381,40 @@ describe("Bankrun - Fees", () => {
     },
   ];
 
+  async function setFeeRegistry(customFolioFeeConfig: boolean) {
+    if (customFolioFeeConfig) {
+      // So we set worng values on dao fee config, but use them to set the folio fee config
+      await createAndSetDaoFeeConfig(
+        context,
+        programFolioAdmin,
+        feeRecipient.publicKey,
+        new BN(0),
+        new BN(0)
+      );
+
+      await createAndSetFolioFeeConfig(
+        context,
+        programFolioAdmin,
+        folioPDA,
+        MAX_MINT_FEE
+      );
+    } else {
+      await createAndSetDaoFeeConfig(
+        context,
+        programFolioAdmin,
+        feeRecipient.publicKey,
+        MAX_MINT_FEE
+      );
+      await closeAccount(context, getFolioFeeConfigPDA(folioPDA));
+    }
+  }
+
   async function initBaseCase(
     customFolioTokenMint: Keypair | null = null,
-    customFolioTokenSupply: BN = new BN(0)
+    customFolioTokenSupply: BN = new BN(0),
+    customFolioFeeConfig: boolean = false
   ) {
-    await createAndSetDaoFeeConfig(
-      context,
-      programFolioAdmin,
-      feeRecipient.publicKey,
-      MAX_MINT_FEE
-    );
+    await setFeeRegistry(customFolioFeeConfig);
 
     await createAndSetFolio(context, programFolio, folioTokenMint.publicKey);
 
@@ -576,6 +613,7 @@ describe("Bankrun - Fees", () => {
             addedClockTime,
             initialDaoPendingFeeShares,
             initialFeeRecipientPendingFeeShares,
+            customFolioFeeConfig,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
@@ -585,7 +623,11 @@ describe("Bankrun - Fees", () => {
           let currentClock: Clock;
 
           before(async () => {
-            await initBaseCase(customFolioTokenMint, new BN(1000_000_000_000));
+            await initBaseCase(
+              customFolioTokenMint,
+              new BN(1000_000_000_000),
+              customFolioFeeConfig
+            );
 
             currentClock = await context.banksClient.getClock();
 
@@ -676,6 +718,7 @@ describe("Bankrun - Fees", () => {
             daoFeeRecipient,
             feeDistributionIndex,
             initialFeeDistributionIndex,
+            customFolioFeeConfig,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
@@ -688,7 +731,11 @@ describe("Bankrun - Fees", () => {
           let currentClock: Clock;
 
           before(async () => {
-            await initBaseCase(customFolioTokenMint, new BN(1000_000_000_000));
+            await initBaseCase(
+              customFolioTokenMint,
+              new BN(1000_000_000_000),
+              customFolioFeeConfig
+            );
 
             currentClock = await context.banksClient.getClock();
 

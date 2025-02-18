@@ -8,8 +8,8 @@ pub struct DAOFeeConfig {
     pub bump: u8,
 
     pub fee_recipient: Pubkey,
-    pub fee_recipient_numerator: u128,
-    pub fee_floor: u128,
+    pub default_fee_numerator: u128,
+    pub default_fee_floor: u128,
 }
 
 impl DAOFeeConfig {
@@ -29,4 +29,19 @@ impl ProgramRegistrar {
     pub const SIZE: usize = 8 + ProgramRegistrar::INIT_SPACE;
 
     pub const MAX_ACCEPTED_PROGRAMS: usize = 10;
+}
+
+/// PDA Seeds ["folio_fee_config", folio pubkey]
+/// This can be set or not (if not uses the default one above) per folio
+#[account]
+#[derive(Default, InitSpace)]
+pub struct FolioFeeConfig {
+    pub bump: u8,
+
+    pub fee_numerator: u128,
+    pub fee_floor: u128,
+}
+
+impl FolioFeeConfig {
+    pub const SIZE: usize = 8 + FolioFeeConfig::INIT_SPACE;
 }

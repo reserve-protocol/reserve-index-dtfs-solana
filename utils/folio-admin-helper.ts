@@ -41,12 +41,13 @@ export async function setDaoFeeConfig(
   connection: Connection,
   adminKeypair: Keypair,
   feeRecipient: PublicKey,
-  feeRecipientNumerator: BN
+  feeRecipientNumerator: BN,
+  feeFloor: BN
 ) {
   const folioAdminProgram = getFolioAdminProgram(connection, adminKeypair);
 
   const setDaoFeeConfig = await folioAdminProgram.methods
-    .setDaoFeeConfig(feeRecipient, feeRecipientNumerator)
+    .setDaoFeeConfig(feeRecipient, feeRecipientNumerator, feeFloor)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,

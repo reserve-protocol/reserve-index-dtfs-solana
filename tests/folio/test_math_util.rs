@@ -1,196 +1,252 @@
 #[cfg(test)]
 mod tests {
-
-    use folio::utils::math_util::CustomPreciseNumber;
-    use shared::constants::D18;
+    use folio::utils::{Decimal, IntoU256, Rounding};
+    use shared::constants::{D18_U256, D9_U256};
     use spl_math::uint::U256;
-    mod basic_operations {
 
-        use super::*;
+    #[test]
+    fn test_decimal_from_plain() {
+        let result = Decimal::from_plain(1).unwrap();
+        assert_eq!(result.0, D18_U256);
 
-        #[test]
-        fn test_one_e18() {
-            let one = CustomPreciseNumber::one_e18();
-            assert_eq!(one.0, D18);
-        }
+        let result = Decimal::from_plain(0).unwrap();
+        assert_eq!(result.0, U256::from(0));
 
-        #[test]
-        fn test_from_conversions() {
-            let num_u64 = CustomPreciseNumber::from_u64(100).unwrap();
-            assert_eq!(num_u64.to_u64_floor().unwrap(), 100);
-
-            let num_u128 = CustomPreciseNumber::from_u128(100).unwrap();
-            assert_eq!(num_u128.to_u128_floor().unwrap(), 100);
-
-            let value = U256::from(100u64) * D18;
-            let num_u256 = CustomPreciseNumber::from(value);
-            assert_eq!(num_u256.to_u64_floor().unwrap(), 100);
-        }
-
-        #[test]
-        fn test_basic_arithmetic() {
-            let a = CustomPreciseNumber::from_u64(100).unwrap();
-            let b = CustomPreciseNumber::from_u64(50).unwrap();
-
-            assert_eq!(a.add(&b).unwrap().to_u64_floor().unwrap(), 150);
-            assert_eq!(a.sub(&b).unwrap().to_u64_floor().unwrap(), 50);
-            assert_eq!(a.mul(&b).unwrap().to_u64_floor().unwrap(), 5000);
-            assert_eq!(a.div(&b).unwrap().to_u64_floor().unwrap(), 2);
-        }
-
-        #[test]
-        fn test_generic_arithmetic() {
-            let a = CustomPreciseNumber::from_u64(100).unwrap();
-
-            assert_eq!(a.add_generic(50u64).unwrap().to_u64_floor().unwrap(), 150);
-            assert_eq!(a.sub_generic(50u64).unwrap().to_u64_floor().unwrap(), 50);
-            assert_eq!(a.mul_generic(50u64).unwrap().to_u64_floor().unwrap(), 5000);
-            assert_eq!(a.div_generic(50u64).unwrap().to_u64_floor().unwrap(), 2);
-        }
-
-        #[test]
-        #[should_panic]
-        fn test_div_by_zero() {
-            let a = CustomPreciseNumber::from_u64(100).unwrap();
-            let b = CustomPreciseNumber(U256::zero());
-            a.div(&b).unwrap();
-        }
+        let result = Decimal::from_plain(1000).unwrap();
+        assert_eq!(result.0, U256::from(1000) * D18_U256);
     }
 
-    mod pow_operations {
+    #[test]
+    fn test_decimal_from_token_amount() {
+        let result = Decimal::from_token_amount(1u64).unwrap();
+        assert_eq!(result.0, D9_U256);
 
-        use super::*;
+        let result = Decimal::from_token_amount(0u64).unwrap();
+        assert_eq!(result.0, U256::from(0));
 
-        #[test]
-        fn test_pow() {
-            // let base = CustomPreciseNumber::from_u64(2).unwrap();
-            // assert_eq!(base.pow(3).unwrap().to_u64_floor().unwrap(), 8);
-
-            // TODO
-            // let base = CustomPreciseNumber(D18);
-            // assert_eq!(base.pow(1).unwrap().0, D18);
-
-            // let base = CustomPreciseNumber::from_u64(9).unwrap();
-            // assert_eq!(base.pow(2).unwrap().to_u64_floor().unwrap(), 81);
-        }
-
-        #[test]
-        fn test_pow_zero_exponent() {
-            let base = CustomPreciseNumber::from_u64(2).unwrap();
-            assert_eq!(base.pow(0).unwrap().0, D18);
-        }
+        let result = Decimal::from_token_amount(1000u64).unwrap();
+        assert_eq!(result.0, U256::from(1000) * D9_U256);
     }
 
-    mod rounding_operations {
-        use super::*;
+    #[test]
+    fn test_decimal_to_token_amount() {
+        let decimal = Decimal::from_token_amount(100u64).unwrap();
+        let result = decimal.to_token_amount(Rounding::Floor).unwrap();
+        assert_eq!(result.0, 100);
 
-        #[test]
-        fn test_floor_ceil_u64() {
-            let value = U256::from(100) * D18 + U256::from(500_000_000_000_000_000u64);
-            let num = CustomPreciseNumber(value);
-            assert_eq!(num.to_u64_floor().unwrap(), 100);
-            assert_eq!(num.to_u64_ceil().unwrap(), 101);
-        }
+        let decimal = Decimal::from_token_amount(100u64).unwrap();
+        let result = decimal.to_token_amount(Rounding::Ceiling).unwrap();
+        assert_eq!(result.0, 100);
 
-        #[test]
-        fn test_floor_ceil_u128() {
-            let value = U256::from(100u128) * D18 + U256::from(500_000_000_000_000_000u128);
-            let num = CustomPreciseNumber(value);
-            assert_eq!(num.to_u128_floor().unwrap(), 100);
-            assert_eq!(num.to_u128_ceil().unwrap(), 101);
-        }
+        let decimal = Decimal(U256::from(100) * D9_U256 + U256::from(1));
+        let floor_result = decimal.to_token_amount(Rounding::Floor).unwrap();
+        let ceiling_result = decimal.to_token_amount(Rounding::Ceiling).unwrap();
+        assert_eq!(floor_result.0, 100);
+        assert_eq!(ceiling_result.0, 101);
     }
 
-    mod logarithm_operations {
-        use super::*;
+    #[test]
+    fn test_decimal_arithmetic() {
+        let a = Decimal::from_plain(100).unwrap();
+        let b = Decimal::from_plain(50).unwrap();
 
-        #[test]
-        fn test_ln_basic() {
-            let one = CustomPreciseNumber::one_e18();
-            assert_eq!(one.ln().unwrap().unwrap().to_u64_floor().unwrap(), 0);
+        let sum = a.add(&b).unwrap();
+        assert_eq!(sum.0, Decimal::from_plain(150).unwrap().0);
 
-            let e = CustomPreciseNumber(U256::from(2718281828459045235u64));
+        let diff = a.sub(&b).unwrap();
+        assert_eq!(diff.0, Decimal::from_plain(50).unwrap().0);
 
-            let ln_e = e.ln().unwrap().unwrap();
+        // Don't scale back the mul, since it's done outside of that instruction
+        let product = a.mul(&b).unwrap();
+        assert_eq!(
+            product.0,
+            Decimal::from_plain(5000)
+                .unwrap()
+                .0
+                .checked_mul(D18_U256)
+                .unwrap()
+        );
 
-            // ln(e) should be very close to 1 * D18
-            let tolerance = U256::from(1_000_000_000_000_000u64);
-            assert!(ln_e.0 > D18 - tolerance);
-            assert!(ln_e.0 < D18 + tolerance);
-        }
-
-        #[test]
-        fn test_ln_values() {
-            let two = CustomPreciseNumber(U256::from(2) * D18);
-            let ln_2 = two.ln().unwrap().unwrap();
-            let expected = U256::from(693147180559945309u64); // ln(2) * 1e18
-            assert!(ln_2.0 > expected - U256::from(1_000_000u64));
-            assert!(ln_2.0 < expected + U256::from(1_000_000u64));
-        }
-
-        #[test]
-        fn test_ln_invalid_input() {
-            let zero = CustomPreciseNumber(U256::zero());
-            assert!(zero.ln().unwrap().is_none());
-
-            let less_than_one = CustomPreciseNumber(D18 / U256::from(2));
-            assert!(less_than_one.ln().unwrap().is_none());
-        }
+        // Don't scale back the div, since it's done outside of that instruction
+        let quotient = a.div(&b).unwrap();
+        assert_eq!(quotient.0, Decimal::from_scaled(2u128).0);
     }
 
-    mod exponential_operations {
-        use spl_math::uint::U256;
+    #[test]
+    fn test_decimal_pow() {
+        let base = Decimal::from_plain(2).unwrap();
 
-        use super::*;
+        let result = base.pow(0).unwrap();
+        assert_eq!(result, Decimal::ONE_E18);
 
-        #[test]
-        fn test_exp_basic() {
-            // Test exp(0) = 1
-            let zero = CustomPreciseNumber(U256::zero());
-            assert_eq!(zero.exp(false).unwrap().unwrap().0, D18); // exp(0) = 1
+        let result = base.pow(1).unwrap();
+        assert_eq!(result, base);
 
-            // Test exp(1) = e
-            let one = CustomPreciseNumber(D18);
-            let e = one.exp(false).unwrap().unwrap();
+        let result = base.pow(2).unwrap();
+        assert_eq!(result.0, Decimal::from_plain(4).unwrap().0);
 
-            let expected = U256::from(2718281828459045235u64);
-            let tolerance = U256::from(10000000000000u64);
-
-            assert!(e.0 > expected - tolerance);
-            assert!(e.0 < expected + tolerance);
-        }
-
-        #[test]
-        fn test_exp_negative() {
-            let one = CustomPreciseNumber(D18);
-            let exp_neg = one.exp(true).unwrap().unwrap();
-            assert!(exp_neg.0 < D18);
-        }
+        let result = base.pow(3).unwrap();
+        assert_eq!(result.0, Decimal::from_plain(8).unwrap().0);
     }
 
-    mod overflow_tests {
-        use super::*;
+    #[test]
+    fn test_nth_root() {
+        // Test zero
+        let zero = Decimal::ZERO;
+        assert_eq!(zero.nth_root(2).unwrap(), Decimal::ZERO);
 
-        #[test]
-        #[should_panic]
-        fn test_add_overflow() {
-            let max = CustomPreciseNumber(U256::MAX);
-            let one = CustomPreciseNumber::from_u64(1).unwrap();
-            max.add(&one).unwrap();
-        }
+        // Test one
+        let one = Decimal::ONE_E18;
+        assert_eq!(one.nth_root(2).unwrap(), Decimal::ONE_E18);
 
-        #[test]
-        #[should_panic]
-        fn test_mul_overflow() {
-            let max = CustomPreciseNumber(U256::MAX);
-            max.mul(&max).unwrap();
-        }
+        // Test square root of 4 (should be 2)
+        let four = Decimal::from_scaled(4_000_000_000_000_000_000u128); // 4.0
+        let result = four.nth_root(2).unwrap();
 
-        #[test]
-        #[should_panic]
-        fn test_pow_overflow() {
-            let large = CustomPreciseNumber(U256::MAX);
-            large.pow(10).unwrap();
+        assert!(result > Decimal::from_scaled(1_900_000_000_000_000_000u128)); // > 1.9
+        assert!(result < Decimal::from_scaled(2_100_000_000_000_000_000u128)); // < 2.1
+
+        // Test cube root of 8 (should be 2)
+        let eight = Decimal::from_scaled(8_000_000_000_000_000_000u128); // 8.0
+        let result = eight.nth_root(3).unwrap();
+
+        assert!(result > Decimal::from_scaled(1_900_000_000_000_000_000u128)); // > 1.9
+        assert!(result < Decimal::from_scaled(2_100_000_000_000_000_000u128)); // < 2.1
+
+        // Test square root of 2
+        let two = Decimal::from_scaled(2_000_000_000_000_000_000u128); // 2.0
+        let result = two.nth_root(2).unwrap();
+
+        assert!(result > Decimal::from_scaled(1_400_000_000_000_000_000u128)); // > 1.4
+        assert!(result < Decimal::from_scaled(1_500_000_000_000_000_000u128)); // < 1.5
+    }
+
+    #[test]
+    fn test_decimal_ln() {
+        let one = Decimal::ONE_E18;
+        assert_eq!(one.ln().unwrap().unwrap(), Decimal::ZERO);
+
+        let e = Decimal::from_scaled(Decimal::E);
+        let ln_e = e.ln().unwrap().unwrap();
+        assert!(ln_e.0 > Decimal::ONE_E18.0 - U256::from(1000));
+        assert!(ln_e.0 < Decimal::ONE_E18.0 + U256::from(1000));
+
+        let less_than_one = Decimal::from_plain(0).unwrap();
+        assert_eq!(less_than_one.ln().unwrap(), None);
+
+        // Test ln(1000)
+        let thousand = Decimal::from_plain(1000).unwrap();
+        let ln_thousand = thousand.ln().unwrap().unwrap();
+
+        let expected = U256::from(6_907_755_278_982_137_052u128);
+        assert!(ln_thousand.0 > expected - U256::from(1000));
+        assert!(ln_thousand.0 < expected + U256::from(1000));
+    }
+
+    #[test]
+    fn test_decimal_exp() {
+        let zero = Decimal::ZERO;
+        assert_eq!(zero.exp(false).unwrap().unwrap(), Decimal::ONE_E18);
+
+        let one = Decimal::ONE_E18;
+        let e = one.exp(false).unwrap().unwrap();
+
+        assert!(e.0 > Decimal::from_scaled(Decimal::E).0 - U256::from(1000));
+        assert!(e.0 < Decimal::from_scaled(Decimal::E).0 + U256::from(1000));
+
+        let neg_one = one.exp(true).unwrap().unwrap();
+        let expected = D18_U256
+            .checked_mul(U256::from(36787944117144232u128))
+            .unwrap()
+            .checked_div(U256::from(100_000_000_000_000_000u128))
+            .unwrap();
+
+        assert!(
+            neg_one.0
+                > expected
+                    .checked_sub(U256::from(100_000_000_000_000u128))
+                    .unwrap()
+        );
+        assert!(
+            neg_one.0
+                < expected
+                    .checked_add(U256::from(100_000_000_000_000u128))
+                    .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_decimal_comparison() {
+        let a = Decimal::from_plain(100).unwrap();
+        let b = Decimal::from_plain(50).unwrap();
+        let c = Decimal::from_plain(100).unwrap();
+
+        assert!(a > b);
+        assert!(b < a);
+        assert!(a >= c);
+        assert!(a <= c);
+        assert_eq!(a, c);
+        assert!(a != b);
+    }
+
+    #[test]
+    fn test_into_u256() {
+        let a: u64 = 100;
+        let b: u128 = 100;
+        let c = U256::from(100);
+
+        assert_eq!(a.into_u256(), U256::from(100));
+        assert_eq!(b.into_u256(), U256::from(100));
+        assert_eq!(c.into_u256(), U256::from(100));
+    }
+
+    #[test]
+    fn test_decimal_to_scaled() {
+        let decimal = Decimal::from_scaled(D18_U256 + U256::from(1))
+            .div(&Decimal::from_scaled(100u128))
+            .unwrap();
+        let floor_result = decimal.to_scaled(Rounding::Floor).unwrap();
+        let ceiling_result = decimal.to_scaled(Rounding::Ceiling).unwrap();
+
+        assert_eq!(floor_result, decimal.0.as_u128());
+        assert_eq!(ceiling_result, decimal.0.as_u128() + 1);
+    }
+
+    #[test]
+    fn test_nth_root_approximation_multiple() {
+        let one_e18 = Decimal::ONE_E18;
+        let test_cases = vec![
+            // (input fee, expected result)
+            (100_000_000_000_000_000u128, 3_340_960_028u128), // 0.1 in D18
+            (100_000_000_000_000u128, 3_171_137u128),         // 1e14 in D18
+        ];
+
+        for (fee_value, expected_value) in test_cases {
+            let fee = Decimal::from_scaled(fee_value);
+            let one_minus_fee = one_e18.sub(&fee).unwrap();
+
+            let n = 31_536_000u64;
+            let result = one_minus_fee.nth_root(n).unwrap();
+
+            let expected_result = Decimal::ONE_E18
+                .sub(&Decimal::from_scaled(expected_value))
+                .unwrap();
+
+            let diff = if result.0 > expected_result.0 {
+                result.0 - expected_result.0
+            } else {
+                expected_result.0 - result.0
+            };
+
+            // Allow for 0.01% difference
+            let tolerance = Decimal::from_scaled(100_000_000_000_000u128).0;
+            assert!(
+                diff < tolerance,
+                "For fee {}: Result differs from expected by more than 0.01%. Result: {:?}, Expected: {:?}",
+                fee_value,
+                result.0,
+                expected_result.0
+            );
         }
     }
 }

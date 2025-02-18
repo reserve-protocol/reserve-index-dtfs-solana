@@ -41,8 +41,11 @@ pub enum ErrorCode {
     #[msg("Invalid Fee Recipient Numerator")]
     InvalidFeeRecipientNumerator,
 
-    #[msg("Invalid Fee Per Second")]
-    InvalidFeePerSecond,
+    #[msg("TVL Fee Too Low")]
+    TVLFeeTooLow,
+
+    #[msg("TVL Fee Too High")]
+    TVLFeeTooHigh,
 
     #[msg("Invalid Fee Recipient Shares")]
     InvalidFeeRecipientPortion,
@@ -226,6 +229,9 @@ pub enum ErrorCode {
 
     #[msg("Can't Migrate To Same Program")]
     CantMigrateToSameProgram,
+
+    #[msg("Invalid Fee Floor")]
+    InvalidFeeFloor,
 }
 
 #[macro_export]

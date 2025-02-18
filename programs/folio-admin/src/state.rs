@@ -9,6 +9,7 @@ pub struct DAOFeeConfig {
 
     pub fee_recipient: Pubkey,
     pub fee_recipient_numerator: u128,
+    pub fee_floor: u128,
 }
 
 impl DAOFeeConfig {

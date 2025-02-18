@@ -2,7 +2,7 @@ use crate::state::DAOFeeConfig;
 use anchor_lang::prelude::*;
 use shared::check_condition;
 use shared::constants::common::ADMIN;
-use shared::constants::{DAO_FEE_CONFIG_SEEDS, MAX_DAO_FEE};
+use shared::constants::{DAO_FEE_CONFIG_SEEDS, MAX_DAO_FEE, MAX_FEE_FLOOR};
 use shared::errors::ErrorCode;
 
 #[derive(Accounts)]
@@ -24,11 +24,19 @@ pub struct SetDAOFeeConfig<'info> {
 }
 
 impl SetDAOFeeConfig<'_> {
-    pub fn validate(&self, fee_recipient_numerator: &Option<u128>) -> Result<()> {
+    pub fn validate(
+        &self,
+        fee_recipient_numerator: &Option<u128>,
+        fee_floor: &Option<u128>,
+    ) -> Result<()> {
         check_condition!(self.admin.key() == ADMIN, Unauthorized);
 
         if let Some(fee_recipient_numerator) = fee_recipient_numerator {
             check_condition!(*fee_recipient_numerator <= MAX_DAO_FEE, InvalidFeeNumerator);
+        }
+
+        if let Some(fee_floor) = fee_floor {
+            check_condition!(*fee_floor <= MAX_FEE_FLOOR, InvalidFeeFloor);
         }
 
         Ok(())
@@ -39,8 +47,10 @@ pub fn handler(
     ctx: Context<SetDAOFeeConfig>,
     fee_recipient: Option<Pubkey>,
     fee_recipient_numerator: Option<u128>,
+    fee_floor: Option<u128>,
 ) -> Result<()> {
-    ctx.accounts.validate(&fee_recipient_numerator)?;
+    ctx.accounts
+        .validate(&fee_recipient_numerator, &fee_floor)?;
 
     let dao_fee_config = &mut ctx.accounts.dao_fee_config;
 
@@ -49,6 +59,7 @@ pub fn handler(
         ctx.bumps.dao_fee_config,
         fee_recipient,
         fee_recipient_numerator,
+        fee_floor,
     )?;
 
     Ok(())

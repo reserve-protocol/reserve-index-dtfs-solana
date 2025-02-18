@@ -4,7 +4,7 @@ use crate::utils::structs::{FeeRecipient, Role};
 use anchor_lang::prelude::*;
 use shared::constants::{
     FEE_RECIPIENTS_SEEDS, MAX_AUCTION_DELAY, MAX_AUCTION_LENGTH, MAX_MINT_FEE, MAX_TVL_FEE,
-    MIN_AUCTION_LENGTH, MIN_DAO_MINT_FEE,
+    MIN_AUCTION_LENGTH,
 };
 use shared::errors::ErrorCode;
 use shared::{check_condition, constants::ACTOR_SEEDS};
@@ -71,16 +71,13 @@ pub fn handler(
     let mut folio = ctx.accounts.folio.load_mut()?;
 
     if let Some(tvl_fee) = tvl_fee {
-        check_condition!(tvl_fee <= MAX_TVL_FEE, InvalidFeePerSecond);
+        check_condition!(tvl_fee <= MAX_TVL_FEE, TVLFeeTooHigh);
 
         folio.set_tvl_fee(tvl_fee)?;
     }
 
     if let Some(mint_fee) = mint_fee {
-        check_condition!(
-            (MIN_DAO_MINT_FEE..=MAX_MINT_FEE).contains(&mint_fee),
-            InvalidMintFee
-        );
+        check_condition!(mint_fee <= MAX_MINT_FEE, InvalidMintFee);
         folio.mint_fee = mint_fee;
 
         emit!(MintFeeSet { new_fee: mint_fee });

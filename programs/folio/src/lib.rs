@@ -194,19 +194,10 @@ pub mod folio {
         auction_id: u64,
         sell_limit: BasketRange,
         buy_limit: BasketRange,
-        start_price: u128,
-        end_price: u128,
+        prices: Prices,
         ttl: u64,
     ) -> Result<()> {
-        approve_auction::handler(
-            ctx,
-            auction_id,
-            sell_limit,
-            buy_limit,
-            start_price,
-            end_price,
-            ttl,
-        )
+        approve_auction::handler(ctx, auction_id, sell_limit, buy_limit, prices, ttl)
     }
 
     pub fn open_auction<'info>(

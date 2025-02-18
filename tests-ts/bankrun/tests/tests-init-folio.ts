@@ -20,7 +20,6 @@ import * as assert from "assert";
 import {
   MAX_TVL_FEE,
   MAX_AUCTION_DELAY,
-  MIN_DAO_MINT_FEE,
   MAX_MINT_FEE,
   MIN_AUCTION_LENGTH,
 } from "../../../utils/constants";
@@ -63,12 +62,7 @@ describe("Bankrun - Init folio", () => {
     {
       desc: "(folio fee too high)",
       tvlFee: MAX_TVL_FEE.add(new BN(1)),
-      expectedError: "InvalidFeePerSecond",
-    },
-    {
-      desc: "(minting fee too low)",
-      mintFee: MIN_DAO_MINT_FEE.sub(new BN(1)),
-      expectedError: "InvalidMintFee",
+      expectedError: "TVLFeeTooHigh",
     },
     {
       desc: "(test minting fee too high)",
@@ -144,7 +138,8 @@ describe("Bankrun - Init folio", () => {
           const folio = await programFolio.account.folio.fetch(folioPDA);
 
           assert.notEqual(folio.bump, 0);
-          assert.equal(folio.tvlFee.eq(MAX_TVL_FEE), true);
+          // should be ~3.34e-9 * 1e18, but with estimation we accept the 0.1% error rate for this max value
+          assert.equal(folio.tvlFee.eq(new BN("3334813116")), true);
           assert.equal(folio.mintFee.eq(MAX_MINT_FEE), true);
           assert.deepEqual(folio.folioTokenMint, folioTokenMint.publicKey);
           assert.equal(folio.auctionDelay.eq(MAX_AUCTION_DELAY), true);

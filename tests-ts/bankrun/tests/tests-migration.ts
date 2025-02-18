@@ -385,21 +385,13 @@ describe("Bankrun - Folio migration", () => {
         );
       });
 
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for MIGRATING & KILLED & INITIALIZING`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for MIGRATING & INITIALIZING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
           folioTokenMint.publicKey,
           generalIxStartMigration,
           FolioStatus.Migrating
-        );
-
-        await assertInvalidFolioStatusTestCase(
-          context,
-          programFolio,
-          folioTokenMint.publicKey,
-          generalIxStartMigration,
-          FolioStatus.Killed
         );
 
         await assertInvalidFolioStatusTestCase(

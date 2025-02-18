@@ -27,8 +27,8 @@ import { Folio } from "../../../target/types/folio";
 import {
   DEFAULT_DECIMALS,
   MAX_FOLIO_TOKEN_AMOUNTS,
+  MAX_MINT_FEE,
   MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
-  MIN_DAO_MINT_FEE,
 } from "../../../utils/constants";
 import { initToken } from "../bankrun-token-helper";
 import { createAndSetFolioBasket, Role } from "../bankrun-account-helper";
@@ -371,7 +371,7 @@ describe("Bankrun - Folio redeeming", () => {
       context,
       programFolioAdmin,
       adminKeypair.publicKey,
-      MIN_DAO_MINT_FEE
+      MAX_MINT_FEE
     );
 
     await createAndSetFolio(context, programFolio, folioTokenMint.publicKey);

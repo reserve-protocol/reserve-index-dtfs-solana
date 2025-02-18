@@ -3,10 +3,8 @@ mod tests {
 
     use anchor_lang::prelude::Pubkey;
     use folio::state::FolioRewardTokens;
-    use folio::utils::math_util::U256Number;
     use shared::constants::{MAX_REWARD_HALF_LIFE, MAX_REWARD_TOKENS, MIN_REWARD_HALF_LIFE};
     use shared::errors::ErrorCode::*;
-    use spl_math::uint::U256;
 
     fn setup_folio_reward_tokens() -> FolioRewardTokens {
         FolioRewardTokens {
@@ -14,8 +12,8 @@ mod tests {
             folio: Pubkey::new_unique(),
             reward_tokens: [Pubkey::default(); MAX_REWARD_TOKENS],
             disallowed_token: [Pubkey::default(); MAX_REWARD_TOKENS],
-            reward_ratio: U256Number::ZERO,
-            _padding: [0; 7],
+            reward_ratio: 0,
+            _padding: [0; 15],
         }
     }
 
@@ -103,12 +101,15 @@ mod tests {
         let mut reward_tokens = setup_folio_reward_tokens();
 
         let result = reward_tokens.set_reward_ratio(MIN_REWARD_HALF_LIFE);
+        // ln(2) / 86400 ~= 8_022_536_812_036
         assert!(result.is_ok());
-        assert!(reward_tokens.reward_ratio.to_u256() > U256::from(0));
+        assert!(reward_tokens.reward_ratio == 8_022_536_812_036u128);
 
+        // ln(2) / (1209600) ~= 573_038_343_716
         let result = reward_tokens.set_reward_ratio(MAX_REWARD_HALF_LIFE);
+
         assert!(result.is_ok());
-        assert!(reward_tokens.reward_ratio.to_u256() > U256::from(0));
+        assert!(reward_tokens.reward_ratio == 573_038_343_716u128);
     }
 
     #[test]

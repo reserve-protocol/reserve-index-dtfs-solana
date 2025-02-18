@@ -20,8 +20,10 @@ import {
 import { Folio } from "../../../target/types/folio";
 import { FolioAdmin } from "../../../target/types/folio_admin";
 import {
+  D18,
+  D9,
   DEFAULT_DECIMALS,
-  MIN_DAO_MINT_FEE,
+  MAX_MINT_FEE,
   TOTAL_PORTION_FEE_RECIPIENT,
 } from "../../../utils/constants";
 import {
@@ -177,15 +179,15 @@ describe("Bankrun - Fees", () => {
     {
       desc: "(current time is after last poke 10 seconds, succeeds)",
       expectedError: null,
-      expectedDaoFeeShares: new BN(142),
-      expectedFeeRecipientShares: new BN(285246),
+      expectedDaoFeeShares: new BN(1667406588755), // In D18
+      expectedFeeRecipientShares: new BN(31680725186342), // In D18
       addedClockTime: 10,
     },
     {
       desc: "(current time is after last poke 60 seconds, succeeds)",
       expectedError: null,
-      expectedDaoFeeShares: new BN(856),
-      expectedFeeRecipientShares: new BN(1_711_472),
+      expectedDaoFeeShares: new BN(10004440366677),
+      expectedFeeRecipientShares: new BN(190084366966845),
       addedClockTime: 60,
       initialDaoPendingFeeShares: new BN(1000),
       initialFeeRecipientPendingFeeShares: new BN(2000),
@@ -193,8 +195,8 @@ describe("Bankrun - Fees", () => {
     {
       desc: "(current time is after last poke 3600 seconds, succeeds)",
       expectedError: null,
-      expectedDaoFeeShares: new BN(51369),
-      expectedFeeRecipientShares: new BN(102688357),
+      expectedDaoFeeShares: new BN(600269965163606),
+      expectedFeeRecipientShares: new BN("11405129338108512"),
       addedClockTime: 3600,
     },
   ];
@@ -218,8 +220,9 @@ describe("Bankrun - Fees", () => {
     {
       desc: "(is valid, succeeds)",
       expectedError: null,
-      initialDaoPendingFeeShares: new BN(1000),
-      expectedDaoFeeShares: new BN(1000),
+      initialDaoPendingFeeShares: new BN(1000).mul(D18),
+      // D9 as this is token amounts
+      expectedDaoFeeShares: new BN(1000).mul(D9),
     },
   ];
 
@@ -250,7 +253,7 @@ describe("Bankrun - Fees", () => {
     {
       desc: "(user tries to distribute fees to a user that has already been distributed to, succeeds but no changes)",
       expectedError: null,
-      amountToDistribute: new BN(8_000_000_000),
+      amountToDistribute: new BN(8_000_000_000).mul(D9),
       alreadyDistributedFeeRecipients: [feeRecipient1.publicKey.toBase58()],
       feeRecipients: [
         {
@@ -284,7 +287,8 @@ describe("Bankrun - Fees", () => {
     {
       desc: "(user tries to distribute fees to a non fee recipient, errors out)",
       expectedError: "InvalidFeeRecipient",
-      amountToDistribute: new BN(8_000_000_000),
+      // Stored in D18
+      amountToDistribute: new BN(8_000_000_000).mul(D9),
       feeRecipients: [
         {
           recipient: feeRecipient1.publicKey,
@@ -309,7 +313,7 @@ describe("Bankrun - Fees", () => {
     {
       desc: "(user distribute fees to only a partial number of fee recipients, account doesn't close)",
       expectedError: null,
-      amountToDistribute: new BN(8_000_000_000),
+      amountToDistribute: new BN(8_000_000_000).mul(D9),
       feeRecipients: [
         {
           recipient: feeRecipient1.publicKey,
@@ -337,7 +341,7 @@ describe("Bankrun - Fees", () => {
     {
       desc: "(user distributes fees to all fee recipients, account closes)",
       expectedError: null,
-      amountToDistribute: new BN(8_000_000_000),
+      amountToDistribute: new BN(8_000_000_000).mul(D9),
       feeRecipients: [
         {
           recipient: feeRecipient1.publicKey,
@@ -372,7 +376,7 @@ describe("Bankrun - Fees", () => {
       context,
       programFolioAdmin,
       feeRecipient.publicKey,
-      MIN_DAO_MINT_FEE
+      MAX_MINT_FEE
     );
 
     await createAndSetFolio(context, programFolio, folioTokenMint.publicKey);
@@ -566,7 +570,7 @@ describe("Bankrun - Fees", () => {
         );
       });
 
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both INITIALIZING`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for INITIALIZING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,

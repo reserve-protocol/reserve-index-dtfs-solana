@@ -1,11 +1,10 @@
 use crate::events::RewardRatioSet;
 use crate::state::FolioRewardTokens;
-use crate::utils::math_util::U256Number;
+use crate::utils::{Decimal, Rounding};
 use anchor_lang::prelude::*;
 use shared::check_condition;
 use shared::constants::{LN_2, MAX_REWARD_HALF_LIFE, MIN_REWARD_HALF_LIFE};
 use shared::errors::ErrorCode;
-use spl_math::uint::U256;
 
 impl FolioRewardTokens {
     pub fn process_init_if_needed(
@@ -114,11 +113,11 @@ impl FolioRewardTokens {
             InvalidRewardHalfLife
         );
 
-        let calculated_reward_ratio = U256::from(LN_2)
-            .checked_div(U256::from(reward_half_life))
-            .ok_or(ErrorCode::MathOverflow)?;
+        // D18{1/s} = D18{1} / {s} (reward_half_life is in seconds, so don't need to scale)
+        let calculated_reward_ratio =
+            Decimal::from_scaled(LN_2).div(&Decimal::from_scaled(reward_half_life))?;
 
-        self.reward_ratio = U256Number::from_u256(calculated_reward_ratio);
+        self.reward_ratio = calculated_reward_ratio.to_scaled(Rounding::Floor)?;
 
         emit!(RewardRatioSet {
             reward_ratio: self.reward_ratio,

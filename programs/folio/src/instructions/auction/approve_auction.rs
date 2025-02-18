@@ -1,5 +1,5 @@
-use crate::utils::math_util::U256Number;
 use crate::utils::structs::{BasketRange, FolioStatus, Role};
+use crate::utils::Prices;
 use crate::{
     events::AuctionApproved,
     state::{Actor, Auction, Folio},
@@ -53,8 +53,7 @@ impl ApproveAuction<'_> {
         auction_id: u64,
         sell_limit: &BasketRange,
         buy_limit: &BasketRange,
-        start_price: u128,
-        end_price: u128,
+        prices: &Prices,
         ttl: u64,
     ) -> Result<()> {
         folio.validate_folio(
@@ -67,7 +66,7 @@ impl ApproveAuction<'_> {
 
         check_condition!(self.buy_mint.key() != self.sell_mint.key(), MintCantBeEqual);
 
-        Auction::validate_auction_approve(sell_limit, buy_limit, start_price, end_price, ttl)?;
+        Auction::validate_auction_approve(sell_limit, buy_limit, prices, ttl)?;
 
         Ok(())
     }
@@ -78,22 +77,14 @@ pub fn handler(
     auction_id: u64,
     sell_limit: BasketRange,
     buy_limit: BasketRange,
-    start_price: u128,
-    end_price: u128,
+    prices: Prices,
     ttl: u64,
 ) -> Result<()> {
     let folio_key = ctx.accounts.folio.key();
     let folio = &mut ctx.accounts.folio.load_mut()?;
 
-    ctx.accounts.validate(
-        folio,
-        auction_id,
-        &sell_limit,
-        &buy_limit,
-        start_price,
-        end_price,
-        ttl,
-    )?;
+    ctx.accounts
+        .validate(folio, auction_id, &sell_limit, &buy_limit, &prices, ttl)?;
 
     folio.current_auction_id = auction_id;
 
@@ -108,20 +99,20 @@ pub fn handler(
     auction.buy = ctx.accounts.buy_mint.key();
     auction.sell_limit = sell_limit;
     auction.buy_limit = buy_limit;
-    auction.prices.start = start_price;
-    auction.prices.end = end_price;
+    auction.prices.start = prices.start;
+    auction.prices.end = prices.end;
     auction.available_at = current_time + folio.auction_delay;
     auction.launch_timeout = current_time + ttl;
     auction.start = 0;
     auction.end = 0;
-    auction.k = U256Number::ZERO;
+    auction.k = 0;
 
     emit!(AuctionApproved {
         auction_id,
         from: ctx.accounts.sell_mint.key(),
         to: ctx.accounts.buy_mint.key(),
         amount: 0,
-        start_price,
+        start_price: prices.start,
     });
 
     Ok(())

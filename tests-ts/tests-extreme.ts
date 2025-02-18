@@ -13,8 +13,9 @@ import {
   MAX_AUCTION_DELAY,
   MAX_TVL_FEE,
   MIN_AUCTION_LENGTH,
-  MIN_DAO_MINT_FEE,
   DEFAULT_DECIMALS_MUL,
+  MAX_MINT_FEE,
+  MAX_FEE_FLOOR,
 } from "../utils/constants";
 
 describe("Extreme Folio Tests", () => {
@@ -64,7 +65,7 @@ describe("Extreme Folio Tests", () => {
       folioOwnerKeypair,
       folioTokenMint,
       MAX_TVL_FEE,
-      MIN_DAO_MINT_FEE,
+      MAX_MINT_FEE,
       MAX_AUCTION_DELAY,
       MIN_AUCTION_LENGTH,
       "Test Folio",
@@ -130,7 +131,8 @@ describe("Extreme Folio Tests", () => {
       connection,
       adminKeypair,
       feeRecipient,
-      feeRecipientNumerator
+      feeRecipientNumerator,
+      MAX_FEE_FLOOR
     );
   });
 

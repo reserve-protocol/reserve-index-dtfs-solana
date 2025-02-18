@@ -24,7 +24,7 @@ wallet = "~/.config/solana/id.json"
 
 
 [scripts]
-test = "tsc && yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests-ts/tests-folio.ts"
+test = "tsc && yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests-ts/tests-*.ts"
 # Needs to be serial https://github.com/kevinheavey/solana-bankrun/issues/2
 test-bankrun = "tsc && yarn ts-mocha -p ./tsconfig.json -t 1000000 --serial --recursive tests-ts/bankrun/test-runner.ts"
 # Anchor struggles with lock file version 4, even if it's locked at verison 3 in config.toml

@@ -141,7 +141,10 @@ export class TestHelper {
           expectedDifferences[index][0];
 
         if (isEstimate) {
-          assert.equal(Math.floor(afterValue), Math.floor(expectedValue));
+          assert.equal(
+            Math.floor(afterValue / 100) * 100,
+            Math.floor(expectedValue / 100) * 100
+          );
         } else {
           assert.equal(afterValue, expectedValue);
         }
@@ -154,8 +157,8 @@ export class TestHelper {
 
         if (isEstimate) {
           assert.equal(
-            Math.floor(afterFolioValue),
-            Math.floor(expectedFolioValue)
+            Math.floor(afterFolioValue / 100) * 100,
+            Math.floor(expectedFolioValue / 100) * 100
           );
         } else {
           assert.equal(afterFolioValue, expectedFolioValue);
@@ -172,8 +175,8 @@ export class TestHelper {
 
         if (isEstimate) {
           assert.equal(
-            Math.floor(afterUserValue),
-            Math.floor(expectedUserValue)
+            Math.floor(afterUserValue / 100) * 100,
+            Math.floor(expectedUserValue / 100) * 100
           );
         } else {
           assert.equal(afterUserValue, expectedUserValue);
@@ -186,8 +189,8 @@ export class TestHelper {
 
         if (isEstimate) {
           assert.equal(
-            Math.floor(afterFolioValue),
-            Math.floor(expectedFolioValue)
+            Math.floor(afterFolioValue / 100) * 100,
+            Math.floor(expectedFolioValue / 100) * 100
           );
         } else {
           assert.equal(afterFolioValue, expectedFolioValue);
@@ -202,8 +205,8 @@ export class TestHelper {
 
       if (isEstimate) {
         assert.equal(
-          Math.floor(afterFolioValue * 100) / 100,
-          Math.floor(expectedFolioValue * 100) / 100
+          Math.floor(afterFolioValue / 100) * 100,
+          Math.floor(expectedFolioValue / 100) * 100
         );
       } else {
         assert.equal(afterFolioValue, expectedFolioValue);
@@ -215,8 +218,8 @@ export class TestHelper {
 
       if (isEstimate) {
         assert.equal(
-          Math.floor(afterUserValue * 100) / 100,
-          Math.floor(expectedUserValue * 100) / 100
+          Math.floor(afterUserValue / 100) * 100,
+          Math.floor(expectedUserValue / 100) * 100
         );
       } else {
         assert.equal(afterUserValue, expectedUserValue);

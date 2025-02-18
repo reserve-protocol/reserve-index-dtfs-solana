@@ -21,12 +21,15 @@ import {
   createGovernanceAccount,
   buildRemainingAccountsForClaimRewards,
   buildRemainingAccountsForAccruesRewards,
+  closeAccount,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
 import {
+  D18,
+  D9,
   DEFAULT_DECIMALS,
   DEFAULT_DECIMALS_MUL,
-  MIN_DAO_MINT_FEE,
+  MAX_MINT_FEE,
 } from "../../../utils/constants";
 import {
   assertExpectedBalancesChanges,
@@ -51,7 +54,6 @@ import {
   assertInvalidFolioStatusTestCase,
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
-import { deserializeU256 } from "../../../utils/math-helper";
 import * as assert from "assert";
 import { FolioAdmin } from "../../../target/types/folio_admin";
 
@@ -110,9 +112,14 @@ describe("Bankrun - Staking User", () => {
 
     timeToAddToClock: BN;
 
+    rewardRatio: BN;
+
     rewardsTokenToClaim: PublicKey[];
     extraUserToClaimFor: PublicKey;
 
+    expectedRewardIndex: BN[];
+    expectedBalanceAccountedChanges: BN[];
+    expectedAccruedRewardsChanges: BN[];
     expectedRewardBalanceChanges: BN[];
   } = {
     customFolioTokenMint: null,
@@ -131,9 +138,14 @@ describe("Bankrun - Staking User", () => {
 
     timeToAddToClock: new BN(0),
 
+    rewardRatio: new BN(8_022_536_812_037), // LN2 / min reward ratio available (so LN 2 / 1 day)
+
     rewardsTokenToClaim: [],
     extraUserToClaimFor: null,
 
+    expectedRewardIndex: [],
+    expectedBalanceAccountedChanges: [],
+    expectedAccruedRewardsChanges: [],
     expectedRewardBalanceChanges: [],
   };
 
@@ -223,6 +235,9 @@ describe("Bankrun - Staking User", () => {
     {
       desc: "(passes wrong pda for user's reward info, errors out)",
       expectedError: "InvalidUserRewardInfo",
+      rewardInfosAlreadyThere: async () => [
+        await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
+      ],
       rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
       indexAccountToInvalidate:
         INDEX_FOR_REMAINING_ACCOUNTS.EXTRA_USER_REWARD_INFO,
@@ -247,38 +262,50 @@ describe("Bankrun - Staking User", () => {
         await RewardInfo.default(context, REWARD_TOKEN_MINTS[1].publicKey),
       ],
       userStakedBalances: {
-        [rewardedUser1.publicKey.toBase58()]: new BN(100),
-        [rewardedUser2.publicKey.toBase58()]: new BN(200),
+        [rewardedUser1.publicKey.toBase58()]: new BN(100).mul(D9),
+        [rewardedUser2.publicKey.toBase58()]: new BN(200).mul(D9),
       },
       folioRewardTokenBalances: {
-        [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100),
-        [REWARD_TOKEN_MINTS[1].publicKey.toBase58()]: new BN(1000),
+        [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100), // is multipled by decimals in function
+        [REWARD_TOKEN_MINTS[1].publicKey.toBase58()]: new BN(1000), // is multipled by decimals in function
       },
       rewardsTokenToClaim: [
         REWARD_TOKEN_MINTS[0].publicKey,
-        // REWARD_TOKEN_MINTS[1].publicKey,
+        REWARD_TOKEN_MINTS[1].publicKey,
       ],
       timeToAddToClock: new BN(10),
       extraUserToClaimFor: rewardedUser2.publicKey,
-      expectedRewardBalanceChanges: [
-        new BN(100),
-        new BN(1000),
-        new BN(100),
-        new BN(1000),
-      ],
       runTwice: true,
+      expectedBalanceAccountedChanges: [
+        new BN("8022247193297401"), // First token (100 balance)
+        new BN("80222471932974001"), // Second token (1000 balance)
+      ],
+      expectedRewardIndex: [
+        new BN("80222471932975"),
+        new BN("80222471932975"),
+        new BN("80222471932975"),
+        new BN("80222471932975"),
+      ],
+      expectedAccruedRewardsChanges: [
+        // First token
+        new BN("8022247193297500"), // User 1
+        new BN("16044494386595000"), // User2
+        // Second token
+        new BN("8022247193297500"), // User1
+        new BN("16044494386595000"), // User2
+      ],
     },
     // Testing how long before we get a math overflow
     {
-      desc: "(accrue for both users and rewards, 60 seconds later, errors out)",
+      desc: "(accrue for both users and rewards, 60 seconds later, does not error out)",
       expectedError: null,
       rewardInfosAlreadyThere: async () => [
         await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
         await RewardInfo.default(context, REWARD_TOKEN_MINTS[1].publicKey),
       ],
       userStakedBalances: {
-        [rewardedUser1.publicKey.toBase58()]: new BN(100),
-        [rewardedUser2.publicKey.toBase58()]: new BN(200),
+        [rewardedUser1.publicKey.toBase58()]: new BN(100).mul(D9),
+        [rewardedUser2.publicKey.toBase58()]: new BN(200).mul(D9),
       },
       folioRewardTokenBalances: {
         [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100),
@@ -290,13 +317,25 @@ describe("Bankrun - Staking User", () => {
       ],
       timeToAddToClock: new BN(60),
       extraUserToClaimFor: rewardedUser2.publicKey,
-      expectedRewardBalanceChanges: [
-        new BN(100),
-        new BN(1000),
-        new BN(100),
-        new BN(1000),
-      ],
       runTwice: true,
+      expectedBalanceAccountedChanges: [
+        new BN("48123830724785201"),
+        new BN("481238307247852001"),
+      ],
+      expectedRewardIndex: [
+        new BN("481238307247853"),
+        new BN("481238307247853"),
+        new BN("481238307247853"),
+        new BN("481238307247853"),
+      ],
+      expectedAccruedRewardsChanges: [
+        // First token
+        new BN("48123830724785300"), // User1
+        new BN("96247661449570600"), // User2
+        // Second token
+        new BN("48133483159784400"), // User1
+        new BN("96247661449570600"), // User2
+      ],
     },
     {
       desc: "(accrue for both users and rewards, 3,600 seconds (1h) later, errors out)",
@@ -306,26 +345,35 @@ describe("Bankrun - Staking User", () => {
         await RewardInfo.default(context, REWARD_TOKEN_MINTS[1].publicKey),
       ],
       userStakedBalances: {
-        [rewardedUser1.publicKey.toBase58()]: new BN(100),
-        [rewardedUser2.publicKey.toBase58()]: new BN(200),
+        [rewardedUser1.publicKey.toBase58()]: new BN(100).mul(D9),
+        [rewardedUser2.publicKey.toBase58()]: new BN(200).mul(D9),
       },
       folioRewardTokenBalances: {
         [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100),
         [REWARD_TOKEN_MINTS[1].publicKey.toBase58()]: new BN(1000),
       },
-      rewardsTokenToClaim: [
-        REWARD_TOKEN_MINTS[0].publicKey,
-        // REWARD_TOKEN_MINTS[1].publicKey,
-      ],
+      rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
       timeToAddToClock: new BN(3600),
       extraUserToClaimFor: rewardedUser2.publicKey,
-      expectedRewardBalanceChanges: [
-        new BN(100),
-        new BN(1000),
-        new BN(100),
-        new BN(1000),
-      ],
       runTwice: true,
+      expectedBalanceAccountedChanges: [
+        new BN("2846817139894439001"),
+        new BN("2888004634005555940"),
+      ],
+      expectedRewardIndex: [
+        new BN("28468171398944391"),
+        new BN("28468171398944391"),
+        new BN("28468171398944391"),
+        new BN("28468171398944391"),
+      ],
+      expectedAccruedRewardsChanges: [
+        // First token
+        new BN("2846817139894439100"), // User1
+        new BN("5693634279788878200"), // User2
+        // Second token
+        new BN("288800463400555600"), // User1
+        new BN("577600926801111200"), // User2
+      ],
     },
     {
       desc: "(accrue for both users and rewards, 86,400 seconds (1d) later, errors out)",
@@ -344,17 +392,57 @@ describe("Bankrun - Staking User", () => {
       },
       rewardsTokenToClaim: [
         REWARD_TOKEN_MINTS[0].publicKey,
-        // REWARD_TOKEN_MINTS[1].publicKey,
+        REWARD_TOKEN_MINTS[1].publicKey,
       ],
       timeToAddToClock: new BN(86400),
       extraUserToClaimFor: rewardedUser2.publicKey,
-      expectedRewardBalanceChanges: [
-        new BN(100),
-        new BN(1000),
-        new BN(100),
-        new BN(1000),
+      runTwice: true,
+      expectedBalanceAccountedChanges: [
+        new BN("50000139020524853101"),
+        new BN("500001390205248531001"),
+      ],
+      expectedRewardIndex: [
+        new BN("500001390205248532"),
+        new BN("500001390205248532"),
+        new BN("500001390205248532"),
+        new BN("500001390205248532"),
+      ],
+      expectedAccruedRewardsChanges: [
+        // First token
+        new BN("50000139020"), // User1
+        new BN("100000278041"), // User2
+        // Second token
+        new BN("50000139020"), // User1
+        new BN("100000278041"), // User2
+      ],
+    },
+    // Taken from solidity code (to match results)
+    {
+      desc: "single reward token multiple even actors",
+      expectedError: null,
+      rewardInfosAlreadyThere: async () => [
+        await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
+      ],
+      userStakedBalances: {
+        [rewardedUser1.publicKey.toBase58()]: new BN("500000000000"), // 500e9
+        [rewardedUser2.publicKey.toBase58()]: new BN("500000000000"), // 500e9
+      },
+      folioRewardTokenBalances: {
+        [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN("1000"), // 1000 is multipled by decimals in function
+      },
+      rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
+      timeToAddToClock: new BN(259200), // 3 days
+      expectedBalanceAccountedChanges: [new BN("500000463400555594001")], //
+      expectedRewardIndex: [
+        new BN("500000463400555595"),
+        new BN("500000463400555595"),
+      ],
+      expectedAccruedRewardsChanges: [
+        new BN("250000231700277797500"),
+        new BN("250000231700277797500"),
       ],
       runTwice: true,
+      rewardRatio: new BN(2_674_178_937_345), // LN2 / 3 days
     },
   ];
 
@@ -417,7 +505,7 @@ describe("Bankrun - Staking User", () => {
       desc: "(claimable rewards != 0, claims rewards)",
       expectedError: null,
       folioRewardTokenBalances: {
-        [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100),
+        [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100).mul(D9),
       },
       rewardInfosAlreadyThere: async () => [
         await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
@@ -427,11 +515,12 @@ describe("Bankrun - Staking User", () => {
           REWARD_TOKEN_MINTS[0].publicKey,
           rewardedUser1.publicKey,
           new BN(1),
-          new BN(5)
+          // Is stored in D18 for increase precision
+          new BN(5).mul(D18)
         ),
       ],
       rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
-      expectedRewardBalanceChanges: [new BN(5)],
+      expectedRewardBalanceChanges: [new BN(5).mul(D9)],
     },
   ];
 
@@ -499,7 +588,7 @@ describe("Bankrun - Staking User", () => {
         new RewardInfo(
           rewardInfo.folioRewardToken,
           rewardInfo.payoutLastPaid,
-          new BN(deserializeU256(rewardInfo.rewardIndex.value).toString()),
+          rewardInfo.rewardIndex,
           rewardInfo.balanceAccounted,
           rewardInfo.balanceLastKnown,
           rewardInfo.totalClaimed
@@ -534,9 +623,7 @@ describe("Bankrun - Staking User", () => {
           new UserRewardInfo(
             userRewardInfo.folioRewardToken,
             userToClaimFor,
-            new BN(
-              deserializeU256(userRewardInfo.lastRewardIndex.value).toString()
-            ),
+            userRewardInfo.lastRewardIndex,
             userRewardInfo.accruedRewards
           )
         );
@@ -557,13 +644,14 @@ describe("Bankrun - Staking User", () => {
     userRewardInfos: UserRewardInfo[] = [],
     userStakedBalances: {
       [key: string]: BN;
-    } = {}
+    } = {},
+    rewardRatio: BN = new BN(8_022_536_812_037) // LN2 / min reward ratio available (so LN 2 / 1 day)
   ) {
     await createAndSetDaoFeeConfig(
       context,
       programFolioAdmin,
       new Keypair().publicKey,
-      MIN_DAO_MINT_FEE
+      MAX_MINT_FEE
     );
 
     const folioTokenMintToUse = customFolioTokenMint || folioTokenMint;
@@ -596,7 +684,7 @@ describe("Bankrun - Staking User", () => {
       context,
       programFolio,
       folioPDA,
-      new BN(8_022_536_812_037), // LN2 / min reward ratio available
+      rewardRatio, // LN2 / min reward ratio available (so LN 2 / 1 day)
       REWARD_TOKEN_MINTS.map((mint) => mint.publicKey),
       []
     );
@@ -608,8 +696,9 @@ describe("Bankrun - Staking User", () => {
       let supply = new BN(0);
       // Mint token to the PDA for rewards
       if (initialRewardTokenBalances[rewardTokenMint.publicKey.toBase58()]) {
-        supply =
-          initialRewardTokenBalances[rewardTokenMint.publicKey.toBase58()];
+        supply = initialRewardTokenBalances[
+          rewardTokenMint.publicKey.toBase58()
+        ].mul(new BN(DEFAULT_DECIMALS_MUL));
 
         mintToken(
           context,
@@ -636,12 +725,27 @@ describe("Bankrun - Staking User", () => {
       );
     }
 
+    // Reset reward info accounts
+    for (const rewardToken of REWARD_TOKEN_MINTS) {
+      closeAccount(context, getRewardInfoPDA(folioPDA, rewardToken.publicKey));
+    }
+
     // Init reward info if provided
     for (const rewardInfo of rewardInfos) {
       await createAndSetRewardInfo(context, programFolio, folioPDA, rewardInfo);
     }
 
-    // Init reward user info if provided
+    // Reset user reward info account
+    for (const rewardToken of REWARD_TOKEN_MINTS) {
+      for (const user of [rewardedUser1.publicKey, rewardedUser2.publicKey]) {
+        closeAccount(
+          context,
+          getUserRewardInfoPDA(folioPDA, rewardToken.publicKey, user)
+        );
+      }
+    }
+
+    // Init reward user info if provided (
     for (const userRewardInfo of userRewardInfos) {
       await createAndSetUserRewardInfo(
         context,
@@ -747,6 +851,10 @@ describe("Bankrun - Staking User", () => {
           userStakedBalances,
           timeToAddToClock,
           runTwice,
+          expectedBalanceAccountedChanges,
+          rewardRatio,
+          expectedRewardIndex,
+          expectedAccruedRewardsChanges,
         } = {
           ...DEFAULT_PARAMS,
           ...restOfParams,
@@ -773,7 +881,8 @@ describe("Bankrun - Staking User", () => {
             folioRewardTokenBalances,
             rewardInfosAlreadyThereToUse,
             userRewardInfosAlreadyThere,
-            userStakedBalances
+            userStakedBalances,
+            rewardRatio
           );
 
           currentClock = await context.banksClient.getClock();
@@ -893,7 +1002,7 @@ describe("Bankrun - Staking User", () => {
                 folioRewardTokenBalances[
                   rewardInfos[i].folioRewardToken.toBase58()
                 ] ?? new BN(0)
-              ).mul(new BN(DEFAULT_DECIMALS_MUL));
+              ).mul(D18);
 
               assert.equal(
                 rewardInfos[i].balanceLastKnown.eq(
@@ -911,31 +1020,41 @@ describe("Bankrun - Staking User", () => {
                 true
               );
 
-              // TODO
-              // assert.equal(
-              //   rewardInfos[i].payoutLastPaid.eq(
-              //     rewardInfosBefore[i].payoutLastPaid.add(
-              //       new BN(
-              //         runTwice
-              //           ? timeToAddToClock.mul(new BN(2))
-              //           : timeToAddToClock
-              //       )
-              //     )
-              //   ),
-              //   true
-              // );
-
-              //TODO For now > but will make it more precise when we have the correct logic
               assert.equal(
-                rewardInfos[i].balanceAccounted.gte(
-                  rewardInfosBefore[i].balanceAccounted
+                rewardInfos[i].payoutLastPaid.eq(
+                  rewardInfosBefore[i].payoutLastPaid.add(
+                    new BN(
+                      runTwice
+                        ? timeToAddToClock.mul(new BN(2))
+                        : timeToAddToClock
+                    )
+                  )
                 ),
                 true
               );
 
+              const expectedBalanceAccounted =
+                expectedBalanceAccountedChanges.length > i
+                  ? expectedBalanceAccountedChanges[i]
+                  : new BN(0);
+
               assert.equal(
-                rewardInfos[i].rewardIndex.gte(
-                  rewardInfosBefore[i].rewardIndex
+                rewardInfos[i].balanceAccounted.eq(
+                  rewardInfosBefore[i].balanceAccounted.add(
+                    expectedBalanceAccounted
+                  )
+                ),
+                true
+              );
+
+              const expectedRewardIndexToUse =
+                expectedRewardIndex.length > i
+                  ? expectedRewardIndex[i]
+                  : new BN(0);
+
+              assert.equal(
+                rewardInfos[i].rewardIndex.eq(
+                  rewardInfosBefore[i].rewardIndex.add(expectedRewardIndexToUse)
                 ),
                 true
               );
@@ -945,24 +1064,38 @@ describe("Bankrun - Staking User", () => {
               rewardsTokenToClaim[0],
               extraUser
             );
+
             for (let i = 0; i < userRewardInfos.length; i++) {
               let accruedRewardsBefore = defaultUserRewardInfo.accruedRewards;
               let lastRewardIndexBefore = defaultUserRewardInfo.lastRewardIndex;
 
-              // Might get initialized in the instruction itself
               if (i < userRewardInfosBefore.length) {
                 accruedRewardsBefore = userRewardInfosBefore[i].accruedRewards;
                 lastRewardIndexBefore =
                   userRewardInfosBefore[i].lastRewardIndex;
               }
 
-              // TODO For now > but will make it more precise when we have the correct logic
+              const expectedAccrueRewards =
+                expectedAccruedRewardsChanges.length > i
+                  ? expectedAccruedRewardsChanges[i]
+                  : new BN(0);
+
               assert.equal(
-                userRewardInfos[i].accruedRewards.gte(accruedRewardsBefore),
+                userRewardInfos[i].accruedRewards.eq(
+                  accruedRewardsBefore.add(expectedAccrueRewards)
+                ),
                 true
               );
+
+              const expectedRewardIndexToUse =
+                expectedRewardIndex.length > i
+                  ? expectedRewardIndex[i]
+                  : new BN(0);
+
               assert.equal(
-                userRewardInfos[i].lastRewardIndex.gte(lastRewardIndexBefore),
+                userRewardInfos[i].lastRewardIndex.eq(
+                  lastRewardIndexBefore.add(expectedRewardIndexToUse)
+                ),
                 true
               );
             }
@@ -1085,7 +1218,8 @@ describe("Bankrun - Staking User", () => {
               assert.equal(
                 rewardInfos[i].totalClaimed.eq(
                   rewardInfosBefore[i].totalClaimed.add(
-                    expectedRewardBalanceChanges[i]
+                    // Stored in d18
+                    expectedRewardBalanceChanges[i].mul(D9)
                   )
                 ),
                 true

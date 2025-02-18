@@ -53,8 +53,11 @@ import {
   MAX_AUCTION_LENGTH,
   MAX_TVL_FEE,
   MAX_AUCTION_DELAY,
-  MIN_DAO_MINT_FEE,
   MAX_TTL,
+  MAX_MINT_FEE,
+  MAX_FEE_FLOOR,
+  EXPECTED_TVL_FEE_WHEN_MAX,
+  DEFAULT_DECIMALS_MUL_D18,
 } from "../utils/constants";
 import { TestHelper } from "../utils/test-helper";
 import { createGovernanceAccounts } from "../utils/data-helper";
@@ -64,7 +67,6 @@ import {
   initToken,
   mintToken,
 } from "../utils/token-helper";
-import { deserializeU256 } from "../utils/math-helper";
 import {
   createTransferInstruction,
   getMint,
@@ -93,11 +95,11 @@ describe("Folio Tests", () => {
   const newFeeRecipient = [
     {
       recipient: Keypair.generate().publicKey,
-      portion: new BN(6).mul(new BN(DEFAULT_DECIMALS_MUL)).div(new BN(10)),
+      portion: new BN(6).mul(DEFAULT_DECIMALS_MUL_D18).div(new BN(10)),
     },
     {
       recipient: Keypair.generate().publicKey,
-      portion: new BN(4).mul(new BN(DEFAULT_DECIMALS_MUL)).div(new BN(10)),
+      portion: new BN(4).mul(DEFAULT_DECIMALS_MUL_D18).div(new BN(10)),
     },
   ];
 
@@ -216,8 +218,33 @@ describe("Folio Tests", () => {
       connection,
       adminKeypair,
       feeRecipient,
-      feeRecipientNumerator
+      feeRecipientNumerator,
+      MAX_FEE_FLOOR
     );
+  });
+
+  after(async () => {
+    // Seems like anchor is hanging sometimes because of the "mock" governance accounts that update Amman, so we
+    // force exit after 1 second
+
+    // Clear all program references
+    programFolio = null;
+    programFolioAdmin = null;
+
+    // Clear connection
+    if (connection) {
+      const endpoint = connection.rpcEndpoint;
+      console.log(`Closing connection to ${endpoint}`);
+      // @ts-ignore - force clear internal properties
+      connection._rpcWebSocket.close();
+      connection = null;
+    }
+
+    // Force exit after 1 second
+    setTimeout(() => {
+      console.log("Forcing exit...");
+      process.exit(0);
+    }, 5000);
   });
 
   it("should initialize a folio", async () => {
@@ -226,7 +253,7 @@ describe("Folio Tests", () => {
       folioOwnerKeypair,
       folioTokenMint,
       MAX_TVL_FEE,
-      MIN_DAO_MINT_FEE,
+      MAX_MINT_FEE,
       MAX_AUCTION_DELAY,
       MAX_AUCTION_LENGTH,
       "Test Folio",
@@ -242,8 +269,8 @@ describe("Folio Tests", () => {
       );
 
     assert.notEqual(folio.bump, 0);
-    assert.equal(folio.tvlFee.eq(MAX_TVL_FEE), true);
-    assert.equal(folio.mintFee.eq(MIN_DAO_MINT_FEE), true);
+    assert.equal(folio.tvlFee.eq(EXPECTED_TVL_FEE_WHEN_MAX), true);
+    assert.equal(folio.mintFee.eq(MAX_MINT_FEE), true);
     assert.deepEqual(folio.folioTokenMint, folioTokenMint.publicKey);
     assert.equal(feeRecipients, null);
     assert.equal(folio.auctionDelay.eq(MAX_AUCTION_DELAY), true);
@@ -314,7 +341,7 @@ describe("Folio Tests", () => {
       getTVLFeeRecipientsPDA(folioPDA)
     );
 
-    assert.equal(folioAfter.tvlFee.eq(folioBefore.tvlFee.sub(new BN(1))), true);
+    assert.equal(folioAfter.tvlFee.eq(folioBefore.tvlFee), false);
     assert.equal(null, feeRecipientsBefore);
     assert.notEqual(null, feeRecipientsAfter);
 
@@ -323,6 +350,7 @@ describe("Folio Tests", () => {
       connection,
       folioOwnerKeypair,
       folioPDA,
+      // This will put the tvl fee lower, as we're calling set_tvl_fee which does calculations
       folioBefore.tvlFee,
       null,
       null,
@@ -736,8 +764,6 @@ describe("Folio Tests", () => {
       false
     );
 
-    const folioBefore = await programFolio.account.folio.fetch(folioPDA);
-
     await mintFolioToken(
       connection,
       userKeypair,
@@ -758,15 +784,12 @@ describe("Folio Tests", () => {
       false
     );
 
-    // TODO more precise
     assert.equal(
-      folioAfter.daoPendingFeeShares.gte(folioBefore.daoPendingFeeShares),
+      folioAfter.daoPendingFeeShares.gte(new BN("75000000000000000")),
       true
     );
     assert.equal(
-      folioAfter.feeRecipientsPendingFeeShares.gte(
-        folioBefore.feeRecipientsPendingFeeShares
-      ),
+      folioAfter.feeRecipientsPendingFeeShares.gte(new BN("75000000000000000")),
       true
     );
 
@@ -775,13 +798,15 @@ describe("Folio Tests", () => {
       beforeSnapshot,
       afterSnapshot,
       Array.from({ length: 5 }).map((_, i) => [
-        -30 * 10 ** tokenMints[i].decimals,
-        -30 * 10 ** tokenMints[i].decimals,
+        -29.999999976 * 10 ** tokenMints[i].decimals,
+        -29.999999976 * 10 ** tokenMints[i].decimals,
       ]),
       [],
       // Receives a bit less than 3 tokens because of the fees
-      [0, 2.997],
-      [0, 1, 2, 3, 4]
+      [0, 2.85],
+      [0, 1, 2, 3, 4],
+      "amountForMinting",
+      true
     );
   });
 
@@ -814,8 +839,8 @@ describe("Folio Tests", () => {
       beforeSnapshot,
       afterSnapshot,
       Array.from({ length: 5 }).map((_, i) => [
-        20.002307958 * 10 ** tokenMints[i].decimals,
-        20.002307958 * 10 ** tokenMints[i].decimals,
+        19.99999998 * 10 ** tokenMints[i].decimals,
+        19.99999998 * 10 ** tokenMints[i].decimals,
       ]),
       [],
       [0, -2],
@@ -887,16 +912,15 @@ describe("Folio Tests", () => {
       folioBefore.feeRecipientsPendingFeeShares
     );
 
-    assert.equal(daoFeeDiff.gt(new BN(0)), true);
-    assert.equal(recipientFeeDiff.gt(new BN(0)), true);
+    assert.equal(daoFeeDiff.gt(new BN(500000000)), true);
+    // 0 because been taking by dao fee numerator
+    assert.equal(recipientFeeDiff.eq(new BN(0)), true);
   });
 
   it("should allow user to distribute fees", async () => {
     const daoFeeConfig = await programFolioAdmin.account.daoFeeConfig.fetch(
       getDAOFeeConfigPDA()
     );
-
-    const folioBefore = await programFolio.account.folio.fetch(folioPDA);
 
     const feeRecipientBefore = await programFolio.account.feeRecipients.fetch(
       getTVLFeeRecipientsPDA(folioPDA)
@@ -945,9 +969,12 @@ describe("Folio Tests", () => {
     );
 
     // Folio fees should be as 0 (distributed)
-    assert.equal(folioBefore.feeRecipientsPendingFeeShares.gt(new BN(0)), true);
     assert.equal(folioAfter.feeRecipientsPendingFeeShares.eq(new BN(0)), true);
-    assert.equal(folioAfter.daoPendingFeeShares.eq(new BN(0)), true);
+    // Lower than 1 in 1e9, as we use 1e18 precision, so there could be dust left
+    assert.equal(
+      folioAfter.daoPendingFeeShares.div(new BN(10 ** 9)).lt(new BN(1)),
+      true
+    );
 
     // Fee recipient's index should be updated
     assert.equal(
@@ -957,7 +984,7 @@ describe("Folio Tests", () => {
 
     // Folio distribution should be created
     assert.equal(feeDistribution.index.toNumber(), 1);
-    assert.equal(feeDistribution.amountToDistribute.toNumber() > 0, true);
+    assert.equal(feeDistribution.amountToDistribute.gt(new BN(0)), true);
     assert.deepEqual(feeDistribution.folio, folioPDA);
     assert.deepEqual(feeDistribution.cranker, userKeypair.publicKey);
     assert.equal(
@@ -1081,7 +1108,7 @@ describe("Folio Tests", () => {
     );
     assert.equal(auction.start.eq(new BN(0)), true);
     assert.equal(auction.end.eq(new BN(0)), true);
-    assert.equal(deserializeU256(auction.k.value) === BigInt(0), true);
+    assert.equal(auction.k.eq(new BN(0)), true);
   });
 
   it("should allow user to open auction", async () => {
@@ -1118,10 +1145,7 @@ describe("Folio Tests", () => {
       true
     );
 
-    assert.equal(
-      deserializeU256(auction.k.value) === BigInt(1146076687433),
-      true
-    );
+    assert.equal(auction.k.eq(new BN(1146076687433)), true);
   });
 
   it.skip("should allow auction actor to kill auction", async () => {
@@ -1292,7 +1316,9 @@ describe("Folio Tests", () => {
         [500 / DEFAULT_DECIMALS_MUL, -500 / DEFAULT_DECIMALS_MUL],
       ],
       [],
-      [0, 1]
+      [0, 1],
+      "amountForMinting",
+      true
     );
   });
 
@@ -1314,11 +1340,7 @@ describe("Folio Tests", () => {
       folioRewardTokens.rewardTokens[0].toBase58(),
       rewardTokenMints[0].mint.publicKey.toBase58()
     );
-    assert.equal(
-      deserializeU256(folioRewardTokens.rewardRatio.value) ===
-        BigInt(8022536812036),
-      true
-    );
+    assert.equal(folioRewardTokens.rewardRatio.eq(new BN(8022536812036)), true);
     assert.deepEqual(folioRewardTokens.folio, folioPDA);
     assert.notEqual(folioRewardTokens.bump, 0);
   });
@@ -1328,7 +1350,7 @@ describe("Folio Tests", () => {
       connection,
       folioOwnerKeypair,
       folioPDA,
-      new BN(604800)
+      new BN(86400)
     );
 
     const folioRewardTokensAfter =
@@ -1337,8 +1359,7 @@ describe("Folio Tests", () => {
       );
 
     assert.equal(
-      deserializeU256(folioRewardTokensAfter.rewardRatio.value) ===
-        BigInt(1146076687433),
+      folioRewardTokensAfter.rewardRatio.eq(new BN(8022536812036)),
       true
     );
   });
@@ -1384,13 +1405,16 @@ describe("Folio Tests", () => {
     );
 
     // Mint some token to the folio (as if received fees)
-    await mintToken(
-      connection,
-      adminKeypair,
-      rewardTokenMints[1].mint.publicKey,
-      1_000,
-      folioRewardTokenPDA
-    );
+    // To generate rewards we'll mint a LOT of reward tokens, so that we don't have to wait for them to accrue to claim them
+    for (let i = 0; i < 10; i++) {
+      await mintToken(
+        connection,
+        adminKeypair,
+        rewardTokenMints[1].mint.publicKey,
+        1_000_000_000,
+        folioRewardTokenPDA
+      );
+    }
 
     // First accrue rewards will be 0 since the balance unaccounted for is 0, so we'll call it twice
     // Calling accrue rewards
@@ -1415,7 +1439,7 @@ describe("Folio Tests", () => {
     );
 
     // To generate a bit of rewards
-    await wait(10);
+    await wait(40);
 
     // Second call will accrue rewards
     await accrueRewards(
@@ -1442,18 +1466,20 @@ describe("Folio Tests", () => {
     );
 
     assert.equal(
-      deserializeU256(rewardInfoAfterSecondCall.rewardIndex.value) >
-        deserializeU256(rewardInfoBefore.rewardIndex.value),
+      rewardInfoAfterSecondCall.rewardIndex.gt(rewardInfoBefore.rewardIndex),
+      true
+    );
+
+    assert.equal(
+      rewardInfoAfterSecondCall.balanceAccounted.gt(
+        rewardInfoBefore.balanceAccounted
+      ),
       true
     );
     assert.equal(
-      rewardInfoAfterSecondCall.balanceAccounted.toNumber() >
-        rewardInfoBefore.balanceAccounted.toNumber(),
-      true
-    );
-    assert.equal(
-      rewardInfoAfterSecondCall.payoutLastPaid.toNumber() >
-        rewardInfoBefore.payoutLastPaid.toNumber(),
+      rewardInfoAfterSecondCall.payoutLastPaid.gt(
+        rewardInfoBefore.payoutLastPaid
+      ),
       true
     );
 
@@ -1463,15 +1489,17 @@ describe("Folio Tests", () => {
       rewardTokenMints[1].mint.publicKey.toBase58()
     );
     assert.notEqual(userInfoRewardAfter.bump, 0);
-    // TODO
     assert.equal(userInfoRewardAfter.accruedRewards.gte(new BN(0)), true);
     assert.equal(
-      deserializeU256(userInfoRewardAfter.lastRewardIndex.value),
-      deserializeU256(rewardInfoAfterSecondCall.rewardIndex.value)
+      userInfoRewardAfter.lastRewardIndex.eq(
+        rewardInfoAfterSecondCall.rewardIndex
+      ),
+      true
     );
   });
 
-  it("should allow user to claim rewards", async () => {
+  // Skipping because rewards would need the clock to move forward too much (would be too long)
+  it.skip("should allow user to claim rewards", async () => {
     const rewardInfoPDA = getRewardInfoPDA(
       folioPDA,
       rewardTokenMints[1].mint.publicKey

@@ -1,11 +1,14 @@
+use std::cell::RefMut;
+use std::cmp::max;
+
 use crate::program::Folio as FolioProgram;
 use crate::state::{Auction, Folio};
-use crate::utils::BasketRange;
+use crate::utils::{AuctionEnd, BasketRange, Prices, Rounding};
 use anchor_lang::prelude::*;
-use shared::constants::{D18, MAX_PRICE_RANGE, MAX_RATE, MAX_TTL};
+use shared::constants::{MAX_PRICE_RANGE, MAX_RATE, MAX_TTL};
 use shared::errors::ErrorCode;
 
-use crate::utils::math_util::{CustomPreciseNumber, U256Number};
+use crate::utils::math_util::Decimal;
 use crate::utils::structs::AuctionStatus;
 use shared::{check_condition, constants::AUCTION_SEEDS};
 
@@ -27,13 +30,11 @@ impl Auction {
     pub fn validate_auction_approve(
         sell_limit: &BasketRange,
         buy_limit: &BasketRange,
-        start_price: u128,
-        end_price: u128,
+        prices: &Prices,
         ttl: u64,
     ) -> Result<()> {
         check_condition!(
-            sell_limit.spot <= MAX_RATE
-                && sell_limit.high <= MAX_RATE
+            sell_limit.high <= MAX_RATE
                 && sell_limit.low <= sell_limit.spot
                 && sell_limit.high >= sell_limit.spot,
             InvalidSellLimit
@@ -41,14 +42,13 @@ impl Auction {
 
         check_condition!(
             buy_limit.spot != 0
-                && buy_limit.spot <= MAX_RATE
                 && buy_limit.high <= MAX_RATE
                 && buy_limit.low <= buy_limit.spot
                 && buy_limit.high >= buy_limit.spot,
             InvalidBuyLimit
         );
 
-        check_condition!(start_price >= end_price, InvalidPrices);
+        check_condition!(prices.start >= prices.end, InvalidPrices);
 
         check_condition!(ttl <= MAX_TTL, InvalidTtl);
 
@@ -94,7 +94,7 @@ impl Auction {
         }
     }
 
-    pub fn open_auction(&mut self, folio: &Folio, current_time: u64) -> Result<()> {
+    pub fn open_auction(&mut self, folio: &mut RefMut<'_, Folio>, current_time: u64) -> Result<()> {
         let auction_status = self.try_get_status(current_time);
 
         check_condition!(
@@ -105,8 +105,9 @@ impl Auction {
         // do not open auctions that have timed out from ttl
         check_condition!(current_time <= self.launch_timeout, AuctionTimeout);
 
+        // get the auction ends for the mints to see if there are any collisions
         let (sell_auction_end, buy_auction_end) =
-            folio.get_auction_end_for_mint(&self.sell, &self.buy)?;
+            folio.get_auction_end_for_mints(&self.buy, &self.sell)?;
 
         // ensure no conflicting auctions by token
         // necessary to prevent dutch auctions from taking losses
@@ -118,18 +119,41 @@ impl Auction {
             check_condition!(current_time > buy_auction_end.end_time, AuctionCollision);
         }
 
+        // now get the actual ends for the mints
+        let current_time_with_auction_length = current_time + folio.auction_length;
+
+        let (end_sell_time, end_buy_time) = {
+            let (sell_auction_end, buy_auction_end) =
+                folio.get_auction_end_for_mints(&self.sell, &self.buy)?;
+            (
+                sell_auction_end.unwrap_or(&AuctionEnd::default()).end_time,
+                buy_auction_end.unwrap_or(&AuctionEnd::default()).end_time,
+            )
+        };
+
+        folio.set_auction_end_for_mints(
+            &self.sell,
+            &self.buy,
+            max(end_sell_time, current_time_with_auction_length),
+            max(end_buy_time, current_time_with_auction_length),
+        );
+
         // ensure valid price range (startPrice == endPrice is valid)
         check_condition!(
             self.prices.start >= self.prices.end
-                && self.prices.start != 0
                 && self.prices.end != 0
                 && self.prices.start <= MAX_RATE
-                && self.prices.start / self.prices.end <= MAX_PRICE_RANGE,
+                && self
+                    .prices
+                    .start
+                    .checked_div(self.prices.end)
+                    .ok_or(ErrorCode::MathOverflow)?
+                    <= MAX_PRICE_RANGE,
             InvalidPrices
         );
 
         self.start = current_time;
-        self.end = current_time + folio.auction_length;
+        self.end = current_time_with_auction_length;
 
         self.calculate_k(folio.auction_length)?;
 
@@ -137,27 +161,22 @@ impl Auction {
     }
 
     pub fn calculate_k(&mut self, auction_length: u64) -> Result<()> {
-        if self.prices.start == self.prices.end {
-            self.k = U256Number::ZERO;
-            return Ok(());
-        }
-
-        let price_ratio = CustomPreciseNumber::from_u128(self.prices.start)?
-            .mul_generic(D18)?
-            .div_generic(self.prices.end)?;
+        let price_ratio = Decimal::from_scaled(self.prices.start)
+            .mul(&Decimal::ONE_E18)?
+            .div(&Decimal::from_scaled(self.prices.end))?;
 
         self.k = price_ratio
             .ln()?
             .unwrap()
-            .div_generic(auction_length)?
-            .as_u256_number();
+            .div(&Decimal::from_scaled(auction_length))?
+            .to_scaled(Rounding::Floor)?;
 
         Ok(())
     }
 
     pub fn get_price(&self, current_time: u64) -> Result<u128> {
         check_condition!(
-            self.start <= current_time && self.end >= current_time,
+            current_time >= self.start && current_time <= self.end,
             AuctionNotOngoing
         );
 
@@ -165,19 +184,20 @@ impl Auction {
             i if i == self.start => Ok(self.prices.start),
             i if i == self.end => Ok(self.prices.end),
             _ => {
-                let time_value = self.k.to_custom_precise_number().mul_generic(
-                    current_time
-                        .checked_sub(self.start)
-                        .ok_or(ErrorCode::MathOverflow)?,
-                )?;
+                let elapsed = current_time
+                    .checked_sub(self.start)
+                    .ok_or(ErrorCode::MathOverflow)?;
+
+                let time_value =
+                    Decimal::from_scaled(self.k).mul(&Decimal::from_scaled(elapsed))?;
 
                 //(-time_value).exp()
                 let time_value_exponent = time_value.exp(true)?.unwrap();
 
-                let p = CustomPreciseNumber::from_u128(self.prices.start)?
-                    .mul_generic(time_value_exponent)?
-                    .div_generic(D18)?
-                    .to_u128_floor()?;
+                let p = Decimal::from_scaled(self.prices.start)
+                    .mul(&time_value_exponent)?
+                    .div(&Decimal::ONE_E18)?
+                    .to_scaled(Rounding::Ceiling)?;
 
                 if p < self.prices.end {
                     Ok(self.prices.end)

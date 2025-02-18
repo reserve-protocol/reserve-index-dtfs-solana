@@ -29,16 +29,16 @@ import {
   MAX_CONCURRENT_AUCTIONS,
   MAX_AUCTION_LENGTH,
   MAX_AUCTION_DELAY,
-  MIN_DAO_MINT_FEE,
-  MAX_TVL_FEE,
   SPL_GOVERNANCE_PROGRAM_ID,
   MAX_FOLIO_TOKEN_AMOUNTS,
   MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
   MAX_REWARD_TOKENS,
   FOLIO_ADMIN_PROGRAM_ID,
+  MAX_MINT_FEE,
+  EXPECTED_TVL_FEE_WHEN_MAX,
+  MAX_FEE_FLOOR,
 } from "../../utils/constants";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
-import { serializeU256 } from "../../utils/math-helper";
 
 export enum Role {
   Owner = 0b00000001, // 1
@@ -123,7 +123,7 @@ export class RewardInfo {
     return new RewardInfo(
       folioRewardToken,
       new BN((await context.banksClient.getClock()).unixTimestamp.toString()),
-      new BN(1),
+      new BN(0),
       new BN(0),
       new BN(0),
       new BN(0)
@@ -150,7 +150,7 @@ export class UserRewardInfo {
   }
 
   public static default(folioRewardToken: PublicKey, user: PublicKey) {
-    return new UserRewardInfo(folioRewardToken, user, new BN(1), new BN(0));
+    return new UserRewardInfo(folioRewardToken, user, new BN(0), new BN(0));
   }
 }
 
@@ -336,12 +336,19 @@ export async function createAndSetFolio(
   buyEnds: AuctionEnd[] = [],
   sellEnds: AuctionEnd[] = []
 ) {
+  // Set last poke as current time stamp, else 0 would make the elapsed time huge
+  if (lastPoke.isZero()) {
+    lastPoke = new BN(
+      (await ctx.banksClient.getClock()).unixTimestamp.toString()
+    );
+  }
+
   const folioPDAWithBump = getFolioPDAWithBump(
     folioTokenMint,
     useSecondFolioProgram
   );
 
-  const buffer = Buffer.alloc(1416);
+  const buffer = Buffer.alloc(1432);
   let offset = 0;
 
   // Encode discriminator
@@ -364,24 +371,22 @@ export async function createAndSetFolio(
   folioTokenMint.toBuffer().copy(buffer, offset);
   offset += 32;
 
-  MAX_TVL_FEE.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  // Set the value as if we went through set tvl fee on folio
+  EXPECTED_TVL_FEE_WHEN_MAX.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
   offset += 16;
 
-  (customFolioMintFee ?? MIN_DAO_MINT_FEE)
+  (customFolioMintFee ?? MAX_MINT_FEE)
     .toArrayLike(Buffer, "le", 16)
     .copy(buffer, offset);
   offset += 16;
 
-  lastPoke.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
-  offset += 8;
-
-  daoPendingFeeShares.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
-  offset += 8;
+  daoPendingFeeShares.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  offset += 16;
 
   feeRecipientsPendingFeeShares
-    .toArrayLike(Buffer, "le", 8)
+    .toArrayLike(Buffer, "le", 16)
     .copy(buffer, offset);
-  offset += 8;
+  offset += 16;
 
   MAX_AUCTION_DELAY.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
   offset += 8;
@@ -390,6 +395,9 @@ export async function createAndSetFolio(
   offset += 8;
 
   new BN(0).toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+  offset += 8;
+
+  lastPoke.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
   offset += 8;
 
   // Write sell ends
@@ -468,7 +476,7 @@ export async function createAndSetFeeRecipients(
   };
 
   // Manual encoding for fee recipients
-  const buffer = Buffer.alloc(2616);
+  const buffer = Buffer.alloc(3128);
   let offset = 0;
 
   // Encode discriminator
@@ -501,8 +509,8 @@ export async function createAndSetFeeRecipients(
   feeRecipients.feeRecipients.forEach((fr: any) => {
     fr.recipient.toBuffer().copy(buffer, offset);
     offset += 32;
-    fr.portion.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
-    offset += 8;
+    fr.portion.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+    offset += 16;
   });
 
   await setFolioAccountInfo(
@@ -543,7 +551,7 @@ export async function createAndSetFeeDistribution(
   };
 
   // Manual encoding for fee recipients
-  const buffer = Buffer.alloc(2656);
+  const buffer = Buffer.alloc(3176);
   let offset = 0;
 
   // Encode discriminator
@@ -577,18 +585,17 @@ export async function createAndSetFeeDistribution(
   offset += 32;
 
   // Encode amount to distribute
-  buffer.writeBigUInt64LE(
-    BigInt(feeDistribution.amountToDistribute.toNumber()),
-    offset // Start writing at the current offset
-  );
-  offset += 8;
+  feeDistribution.amountToDistribute
+    .toArrayLike(Buffer, "le", 16)
+    .copy(buffer, offset);
+  offset += 16;
 
   // Encode fee recipients
   feeDistribution.fee_recipients.forEach((fr: any) => {
     fr.recipient.toBuffer().copy(buffer, offset);
     offset += 32;
-    fr.portion.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
-    offset += 8;
+    fr.portion.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+    offset += 16;
   });
 
   await setFolioAccountInfo(
@@ -757,7 +764,7 @@ export async function createAndSetFolioRewardTokens(
 
   const folioRewardTokens = {
     bump: folioRewardTokensPDAWithBump[1],
-    _padding: [0, 0, 0, 0, 0, 0, 0],
+    _padding: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     rewardRatio: rewardRatio,
     folio: folio,
     rewardTokens: rewardTokens,
@@ -765,7 +772,7 @@ export async function createAndSetFolioRewardTokens(
   };
 
   // Manual encoding for fee recipients
-  const buffer = Buffer.alloc(2000);
+  const buffer = Buffer.alloc(1992);
   let offset = 0;
 
   // Encode discriminator
@@ -788,11 +795,8 @@ export async function createAndSetFolioRewardTokens(
   offset += 32;
 
   // Encode reward ratio (u256)
-  const rewardRatioValue = serializeU256(BigInt(rewardRatio.toString()));
-  for (let i = 0; i < 4; i++) {
-    buffer.writeBigUInt64LE(BigInt(rewardRatioValue[i]), offset);
-    offset += 8;
-  }
+  rewardRatio.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  offset += 16;
 
   // Fill reward tokens array with provided tokens and pad with PublicKey.default
   const paddedRewardTokens = [
@@ -846,7 +850,7 @@ export async function createAndSetRewardInfo(
   };
 
   // Manual encoding for fee recipients
-  const buffer = Buffer.alloc(137);
+  const buffer = Buffer.alloc(145);
   let offset = 0;
 
   // Encode discriminator
@@ -870,26 +874,25 @@ export async function createAndSetRewardInfo(
   rewardInfo.payoutLastPaid.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
   offset += 8;
 
-  // Encode reward ratio (4x u64 for u256)
-  const rewardIndexValue = serializeU256(
-    BigInt(rewardInfo.rewardIndex.toString())
-  );
-  for (let i = 0; i < 4; i++) {
-    buffer.writeBigUInt64LE(BigInt(rewardIndexValue[i]), offset);
-    offset += 8;
-  }
+  // Encode reward index
+  rewardInfo.rewardIndex.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  offset += 16;
 
   // Encode balance accounted
-  rewardInfo.balanceAccounted.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
-  offset += 8;
+  rewardInfo.balanceAccounted
+    .toArrayLike(Buffer, "le", 16)
+    .copy(buffer, offset);
+  offset += 16;
 
   // Encode balance last known
-  rewardInfo.balanceLastKnown.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
-  offset += 8;
+  rewardInfo.balanceLastKnown
+    .toArrayLike(Buffer, "le", 16)
+    .copy(buffer, offset);
+  offset += 16;
 
   // Encode total claimed
-  rewardInfo.totalClaimed.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
-  offset += 8;
+  rewardInfo.totalClaimed.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  offset += 16;
 
   await setFolioAccountInfo(
     ctx,
@@ -922,7 +925,7 @@ export async function createAndSetUserRewardInfo(
   };
 
   // Manual encoding for fee recipients
-  const buffer = Buffer.alloc(113);
+  const buffer = Buffer.alloc(105);
   let offset = 0;
 
   // Encode discriminator
@@ -943,21 +946,16 @@ export async function createAndSetUserRewardInfo(
   offset += 32;
 
   // Encode last reward index
-  const lastRewardIndexValue = userRewardInfo.lastRewardIndex.toArrayLike(
-    Buffer,
-    "le",
-    32
-  );
-  for (let i = 0; i < 4; i++) {
-    buffer.writeBigUInt64LE(BigInt(lastRewardIndexValue[i]), offset);
-    offset += 8;
-  }
+  userRewardInfo.lastRewardIndex
+    .toArrayLike(Buffer, "le", 16)
+    .copy(buffer, offset);
+  offset += 16;
 
   // Encode accrued rewards
   userRewardInfo.accruedRewards
-    .toArrayLike(Buffer, "le", 8)
+    .toArrayLike(Buffer, "le", 16)
     .copy(buffer, offset);
-  offset += 8;
+  offset += 16;
 
   await setFolioAccountInfo(
     ctx,
@@ -978,7 +976,7 @@ export async function createAndSetAuction(
   const auctionPDAWithBump = getAuctionPDAWithBump(folio, auction.id);
 
   // Manual encoding for fee recipients
-  const buffer = Buffer.alloc(312);
+  const buffer = Buffer.alloc(296);
   let offset = 0;
 
   // Encode discriminator
@@ -1016,12 +1014,9 @@ export async function createAndSetAuction(
   auction.end.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
   offset += 8;
 
-  // Encode k (4x u64 for u256)
-  const kValue = serializeU256(BigInt(auction.k.toString()));
-  for (let i = 0; i < 4; i++) {
-    buffer.writeBigUInt64LE(BigInt(kValue[i]), offset);
-    offset += 8;
-  }
+  // Encode k (u128)
+  auction.k.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  offset += 16;
 
   // Encode folio pubkey
   folio.toBuffer().copy(buffer, offset);
@@ -1100,16 +1095,18 @@ export async function createAndSetDaoFeeConfig(
   ctx: ProgramTestContext,
   program: Program<FolioAdmin>,
   feeRecipient: PublicKey,
-  feeNumerator: BN
+  feeNumerator: BN,
+  feeFloor: BN = MAX_FEE_FLOOR
 ) {
   const daoFeeConfigPDAWithBump = getDaoFeeConfigPDAWithBump();
   const daoFeeConfig = {
     bump: daoFeeConfigPDAWithBump[1],
     feeRecipient,
     feeNumerator,
+    feeFloor,
   };
 
-  const buffer = Buffer.alloc(57);
+  const buffer = Buffer.alloc(73);
   let offset = 0;
   // Encode discriminator
   const discriminator = getAccountDiscriminator("DAOFeeConfig");
@@ -1129,6 +1126,16 @@ export async function createAndSetDaoFeeConfig(
   buffer.writeBigUInt64LE(BigInt(value & BigInt("0xFFFFFFFFFFFFFFFF")), offset);
   offset += 8;
   buffer.writeBigUInt64LE(BigInt(value >> BigInt(64)), offset);
+  offset += 8;
+
+  // Encode fee floor
+  const floorValue = BigInt(daoFeeConfig.feeFloor.toString());
+  buffer.writeBigUInt64LE(
+    BigInt(floorValue & BigInt("0xFFFFFFFFFFFFFFFF")),
+    offset
+  );
+  offset += 8;
+  buffer.writeBigUInt64LE(BigInt(floorValue >> BigInt(64)), offset);
   offset += 8;
 
   await setFolioAdminAccountInfo(

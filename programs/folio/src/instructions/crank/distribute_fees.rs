@@ -1,4 +1,5 @@
 use crate::utils::structs::FolioStatus;
+use crate::utils::{Decimal, Rounding};
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 use anchor_spl::token;
@@ -7,7 +8,7 @@ use folio_admin::state::DAOFeeConfig;
 use folio_admin::ID as FOLIO_ADMIN_PROGRAM_ID;
 use shared::check_condition;
 use shared::constants::{
-    DAO_FEE_CONFIG_SEEDS, FEE_DENOMINATOR, FEE_DISTRIBUTION_SEEDS, FEE_RECIPIENTS_SEEDS,
+    D9_U128, DAO_FEE_CONFIG_SEEDS, FEE_DENOMINATOR, FEE_DISTRIBUTION_SEEDS, FEE_RECIPIENTS_SEEDS,
     FOLIO_SEEDS,
 };
 use shared::errors::ErrorCode;
@@ -71,7 +72,6 @@ impl DistributeFees<'_> {
             &self.folio.key(),
             None,
             None,
-            // TODO want to let it be distributed even if the folio is migrating or killed
             Some(vec![FolioStatus::Initialized]),
         )?;
 
@@ -112,22 +112,35 @@ pub fn handler<'info>(
             InvalidDaoFeeRecipient
         );
 
+        // DAO Fee Config
+        let dao_fee_numerator = dao_fee_config.fee_recipient_numerator;
+        let dao_fee_denominator = FEE_DENOMINATOR;
+        let dao_fee_floor = dao_fee_config.fee_floor;
+
         // Update fees by poking
         let current_time = Clock::get()?.unix_timestamp;
         folio.poke(
             ctx.accounts.folio_token_mint.supply,
             current_time,
-            dao_fee_config.fee_recipient_numerator,
-            FEE_DENOMINATOR, // TODO
+            dao_fee_numerator,
+            dao_fee_denominator,
+            dao_fee_floor,
         )?;
     }
 
+    let scaled_down_fee_recipients_pending_fee_shares: u128;
+
     // Mint fees to dao recipient
+    let scaled_dao_pending_fee_shares: u64;
     {
         let folio_key = ctx.accounts.folio.key();
         let folio = ctx.accounts.folio.load()?;
         let fee_recipients = ctx.accounts.fee_recipients.load()?;
         let token_mint_key = ctx.accounts.folio_token_mint.key();
+
+        scaled_dao_pending_fee_shares = Decimal::from_scaled(folio.dao_pending_fee_shares)
+            .to_token_amount(Rounding::Floor)?
+            .0;
 
         let bump = folio.bump;
         let signer_seeds = &[FOLIO_SEEDS, token_mint_key.as_ref(), &[bump]];
@@ -144,8 +157,17 @@ pub fn handler<'info>(
                 cpi_accounts,
                 &[signer_seeds],
             ),
-            folio.dao_pending_fee_shares,
+            scaled_dao_pending_fee_shares,
         )?;
+
+        // We scale down as token units and bring back in D18, to get the amount
+        // minus the dust that we can split
+        scaled_down_fee_recipients_pending_fee_shares =
+            (Decimal::from_scaled(folio.fee_recipients_pending_fee_shares)
+                .to_token_amount(Rounding::Floor)?
+                .0 as u128)
+                .checked_mul(D9_U128)
+                .ok_or(ErrorCode::MathOverflow)?;
 
         // Create new fee distribution for other recipients
         let fee_distribution = &mut ctx.accounts.fee_distribution.load_init()?;
@@ -154,20 +176,31 @@ pub fn handler<'info>(
         fee_distribution.index = index;
         fee_distribution.folio = folio_key;
         fee_distribution.cranker = ctx.accounts.user.key();
-        fee_distribution.amount_to_distribute = folio.fee_recipients_pending_fee_shares;
+        fee_distribution.amount_to_distribute = scaled_down_fee_recipients_pending_fee_shares;
         fee_distribution.fee_recipients_state = fee_recipients.fee_recipients;
 
         emit!(ProtocolFeePaid {
             recipient: ctx.accounts.dao_fee_recipient.key(),
-            amount: folio.dao_pending_fee_shares,
+            amount: scaled_dao_pending_fee_shares,
         });
     }
 
     // Update pending fee
     {
         let folio = &mut ctx.accounts.folio.load_mut()?;
-        folio.dao_pending_fee_shares = 0;
-        folio.fee_recipients_pending_fee_shares = 0;
+        folio.dao_pending_fee_shares = folio
+            .dao_pending_fee_shares
+            .checked_sub(
+                (scaled_dao_pending_fee_shares as u128)
+                    // Got to multiply back in D18 since we track with extra precision
+                    .checked_mul(D9_U128)
+                    .ok_or(ErrorCode::MathOverflow)?,
+            )
+            .ok_or(ErrorCode::MathOverflow)?;
+        folio.fee_recipients_pending_fee_shares = folio
+            .fee_recipients_pending_fee_shares
+            .checked_sub(scaled_down_fee_recipients_pending_fee_shares)
+            .unwrap();
 
         let fee_recipients = &mut ctx.accounts.fee_recipients.load_mut()?;
         fee_recipients.distribution_index = index;

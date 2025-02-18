@@ -1,7 +1,8 @@
 use std::cell::RefMut;
 
-use crate::utils::math_util::CustomPreciseNumber;
+use crate::utils::math_util::Decimal;
 use crate::utils::structs::TokenAmount;
+use crate::utils::Rounding;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 use anchor_spl::token::TokenAccount;
@@ -11,7 +12,7 @@ use shared::errors::ErrorCode;
 use shared::errors::ErrorCode::InvalidAddedTokenMints;
 use shared::errors::ErrorCode::*;
 
-use crate::state::{FolioBasket, UserPendingBasket};
+use crate::state::{Folio, FolioBasket, UserPendingBasket};
 
 impl UserPendingBasket {
     pub fn process_init_if_needed(
@@ -186,17 +187,42 @@ impl UserPendingBasket {
         self.token_amounts = [TokenAmount::default(); MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS];
     }
 
+    /// This function pokes the folio to get the latest pending fee shares, and then converts the user's pending amounts to assets.
+    ///
+    /// shares: u64: is in folio token amount, which we consider D9
+    /// folio_token_supply: u64: is in folio token amount, which we consider D9
+    /// dao_fee_numerator: u128: D18
+    /// dao_fee_denominator: u128: D18
+    /// dao_fee_floor: u128: D18
     #[allow(clippy::too_many_arguments)]
     pub fn to_assets(
         &mut self,
         shares: u64,
+        folio_token_supply: u64, // D9
         folio_key: &Pubkey,
         token_program_id: &Pubkey,
         folio_basket: &mut RefMut<'_, FolioBasket>,
-        total_supply_folio_token: u64,
+        folio: &mut RefMut<'_, Folio>,
         pending_basket_type: PendingBasketType,
         included_tokens: &&[AccountInfo<'_>],
+        // Also pokes the folio, to make sure we get the latest fee shares
+        current_time: i64,
+        dao_fee_numerator: u128,   // D18
+        dao_fee_denominator: u128, // D18
+        dao_fee_floor: u128,       // D18
     ) -> Result<()> {
+        // Poke the folio to make sure we get the latest fee shares
+        folio.poke(
+            folio_token_supply,
+            current_time,
+            dao_fee_numerator,
+            dao_fee_denominator,
+            dao_fee_floor,
+        )?;
+
+        // Returned in D18
+        let total_supply_folio_token = folio.get_total_supply(folio_token_supply)?;
+
         for (index, folio_token_account) in included_tokens.iter().enumerate() {
             let related_mint = &mut folio_basket.token_amounts[index];
 
@@ -210,7 +236,7 @@ impl UserPendingBasket {
                 InvalidRecipientTokenAccount
             );
 
-            // Get user amount (validate mint)
+            // Get user amount (validate mint) (in D9)
             let user_amount = &mut self.token_amounts[index];
 
             check_condition!(user_amount.mint == related_mint.mint, MintMismatch);
@@ -222,13 +248,16 @@ impl UserPendingBasket {
             let folio_token_balance =
                 FolioBasket::get_clean_token_balance(folio_token_account.amount, related_mint)?;
 
+            // Token balances always in D9
+            let folio_token_balance_decimal = Decimal::from_token_amount(folio_token_balance)?;
+
             match pending_basket_type {
                 PendingBasketType::MintProcess => {
                     UserPendingBasket::to_assets_for_minting(
                         user_amount,
                         related_mint,
-                        total_supply_folio_token,
-                        folio_token_balance,
+                        &total_supply_folio_token,
+                        &folio_token_balance_decimal,
                         shares,
                     )?;
                 }
@@ -236,8 +265,8 @@ impl UserPendingBasket {
                     UserPendingBasket::to_assets_for_redeeming(
                         user_amount,
                         related_mint,
-                        total_supply_folio_token,
-                        folio_token_balance,
+                        &total_supply_folio_token,
+                        &folio_token_balance_decimal,
                         shares,
                     )?;
                 }
@@ -248,32 +277,35 @@ impl UserPendingBasket {
     }
 
     pub fn to_assets_for_minting(
-        user_amount: &mut TokenAmount,
-        related_mint: &mut TokenAmount,
-        total_supply_folio_token: u64,
-        folio_token_balance: u64,
-        shares: u64,
+        user_amount: &mut TokenAmount,      // D9
+        related_mint: &mut TokenAmount,     // D9
+        total_supply_folio_token: &Decimal, // D18
+        folio_token_balance: &Decimal,      // D18
+        shares: u64,                        // D9
     ) -> Result<()> {
-        let calculated_shares = CustomPreciseNumber::from_u64(user_amount.amount_for_minting)?
-            .mul_generic(total_supply_folio_token)?
-            .div_generic(folio_token_balance)?
-            .to_u64_floor()?;
+        let calculated_shares = Decimal::from_token_amount(user_amount.amount_for_minting)?
+            .mul(total_supply_folio_token)?
+            .div(folio_token_balance)?;
 
-        check_condition!(calculated_shares >= shares, InvalidShareAmountProvided);
+        check_condition!(
+            calculated_shares.to_token_amount(Rounding::Floor)?.0 >= shares,
+            InvalidShareAmountProvided
+        );
 
-        let user_amount_taken = CustomPreciseNumber::from_u64(shares)?
-            .mul_generic(folio_token_balance)?
-            .div_generic(total_supply_folio_token)?
-            .to_u64_ceil()?;
+        // {tok} = {share} * {tok} / {share}
+        let user_amount_taken = Decimal::from_token_amount(shares)?
+            .mul(folio_token_balance)?
+            .div(total_supply_folio_token)?
+            .to_token_amount(Rounding::Ceiling)?;
 
         // Remove from both pending amounts
         user_amount.amount_for_minting = user_amount
             .amount_for_minting
-            .checked_sub(user_amount_taken)
+            .checked_sub(user_amount_taken.0)
             .ok_or(ErrorCode::MathOverflow)?;
         related_mint.amount_for_minting = related_mint
             .amount_for_minting
-            .checked_sub(user_amount_taken)
+            .checked_sub(user_amount_taken.0)
             .ok_or(ErrorCode::MathOverflow)?;
 
         Ok(())
@@ -282,23 +314,24 @@ impl UserPendingBasket {
     pub fn to_assets_for_redeeming(
         user_amount: &mut TokenAmount,
         related_mint: &mut TokenAmount,
-        total_supply_folio_token: u64,
-        folio_token_balance: u64,
+        total_supply_folio_token: &Decimal,
+        folio_token_balance: &Decimal,
         shares: u64,
     ) -> Result<()> {
-        let amount_to_give_to_user = CustomPreciseNumber::from_u64(shares)?
-            .mul_generic(folio_token_balance)?
-            .div_generic(total_supply_folio_token)?
-            .to_u64_floor()?;
+        // Shares in D9
+        let amount_to_give_to_user = Decimal::from_token_amount(shares)?
+            .mul(folio_token_balance)?
+            .div(total_supply_folio_token)?
+            .to_token_amount(Rounding::Floor)?;
 
         // Add to both pending amounts for redeeming
         user_amount.amount_for_redeeming = user_amount
             .amount_for_redeeming
-            .checked_add(amount_to_give_to_user)
+            .checked_add(amount_to_give_to_user.0)
             .ok_or(ErrorCode::MathOverflow)?;
         related_mint.amount_for_redeeming = related_mint
             .amount_for_redeeming
-            .checked_add(amount_to_give_to_user)
+            .checked_add(amount_to_give_to_user.0)
             .ok_or(ErrorCode::MathOverflow)?;
 
         Ok(())

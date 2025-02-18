@@ -102,6 +102,7 @@ pub fn handler<'info>(
     let folio_key = ctx.accounts.folio.key();
     let token_mint_key = ctx.accounts.folio_token_mint.key();
     let token_program_id = ctx.accounts.token_program.key();
+    let current_time = Clock::get()?.unix_timestamp;
 
     let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
 
@@ -115,26 +116,40 @@ pub fn handler<'info>(
     let token_amounts_user = &mut ctx.accounts.user_pending_basket.load_mut()?;
     token_amounts_user.reorder_token_amounts(&folio_basket.token_amounts)?;
 
-    token_amounts_user.to_assets(
-        shares,
-        &folio_key,
-        &token_program_id,
-        folio_basket,
-        ctx.accounts.folio_token_mint.supply,
-        PendingBasketType::MintProcess,
-        remaining_accounts,
-    )?;
+    // Get the related folio fees
+    let dao_fee_numerator = ctx.accounts.dao_fee_config.fee_recipient_numerator;
+    let dao_fee_denominator = FEE_DENOMINATOR;
+    let dao_fee_floor = ctx.accounts.dao_fee_config.fee_floor;
+
+    {
+        let folio = &mut ctx.accounts.folio.load_mut()?;
+
+        token_amounts_user.to_assets(
+            shares,
+            ctx.accounts.folio_token_mint.supply,
+            &folio_key,
+            &token_program_id,
+            folio_basket,
+            folio,
+            PendingBasketType::MintProcess,
+            remaining_accounts,
+            current_time,
+            dao_fee_numerator,
+            dao_fee_denominator,
+            dao_fee_floor,
+        )?;
+    }
 
     // Mint folio token to user based on shares
-
     let fee_shares = ctx.accounts.folio.load_mut()?.calculate_fees_for_minting(
         shares,
-        ctx.accounts.dao_fee_config.fee_recipient_numerator,
-        FEE_DENOMINATOR,
+        dao_fee_numerator,
+        dao_fee_denominator,
+        dao_fee_floor,
     )?;
 
     let folio_token_amount_to_mint = shares
-        .checked_sub(fee_shares)
+        .checked_sub(fee_shares.0)
         .ok_or(ErrorCode::MathOverflow)?;
 
     let signer_seeds = &[FOLIO_SEEDS, token_mint_key.as_ref(), &[folio_bump]];

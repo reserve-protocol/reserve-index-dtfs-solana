@@ -193,10 +193,10 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
         // Accrue rewards on reward info
         let mut reward_info: Account<RewardInfo> = Account::try_from(reward_info)?;
         reward_info.accrue_rewards(
-            folio_reward_tokens.reward_ratio.to_u256(),
+            folio_reward_tokens.reward_ratio,
             fee_recipient_token_account_parsed.amount,
             mint.supply,
-            mint.decimals as u64,
+            mint.decimals,
             current_time,
         )?;
 

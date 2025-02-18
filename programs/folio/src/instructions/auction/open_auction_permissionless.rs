@@ -15,7 +15,7 @@ pub struct OpenAuctionPermissionless<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
-    #[account()]
+    #[account(mut)]
     pub folio: AccountLoader<'info, Folio>,
 
     #[account(mut)]
@@ -45,7 +45,7 @@ impl OpenAuctionPermissionless<'_> {
 }
 
 pub fn handler(ctx: Context<OpenAuctionPermissionless>) -> Result<()> {
-    let folio = &ctx.accounts.folio.load()?;
+    let folio = &mut ctx.accounts.folio.load_mut()?;
     let auction = &mut ctx.accounts.auction.load_mut()?;
 
     ctx.accounts.validate(folio, auction)?;

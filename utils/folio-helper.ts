@@ -663,7 +663,13 @@ export async function approveAuction(
   const folioProgram = getFolioProgram(connection, auctionApproverKeypair);
 
   const approveAuction = await folioProgram.methods
-    .approveAuction(auctionId, sellLimit, buyLimit, startPrice, endPrice, ttl)
+    .approveAuction(
+      auctionId,
+      sellLimit,
+      buyLimit,
+      { start: startPrice, end: endPrice },
+      ttl
+    )
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,

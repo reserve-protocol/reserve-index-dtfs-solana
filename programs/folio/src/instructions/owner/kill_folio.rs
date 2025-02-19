@@ -36,7 +36,9 @@ impl KillFolio<'_> {
 
 pub fn handler(ctx: Context<KillFolio>) -> Result<()> {
     let folio = &mut ctx.accounts.folio.load_mut()?;
+
     ctx.accounts.validate(folio)?;
+
     folio.status = FolioStatus::Killed as u8;
 
     emit!(FolioKilled {});

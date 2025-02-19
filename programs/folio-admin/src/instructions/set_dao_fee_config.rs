@@ -26,17 +26,20 @@ pub struct SetDAOFeeConfig<'info> {
 impl SetDAOFeeConfig<'_> {
     pub fn validate(
         &self,
-        default_fee_numerator: &Option<u128>,
-        default_fee_floor: &Option<u128>,
+        scaled_default_fee_numerator: &Option<u128>,
+        scaled_default_fee_floor: &Option<u128>,
     ) -> Result<()> {
         check_condition!(self.admin.key() == ADMIN, Unauthorized);
 
-        if let Some(default_fee_numerator) = default_fee_numerator {
-            check_condition!(*default_fee_numerator <= MAX_DAO_FEE, InvalidFeeNumerator);
+        if let Some(scaled_default_fee_numerator) = scaled_default_fee_numerator {
+            check_condition!(
+                *scaled_default_fee_numerator <= MAX_DAO_FEE,
+                InvalidFeeNumerator
+            );
         }
 
-        if let Some(default_fee_floor) = default_fee_floor {
-            check_condition!(*default_fee_floor <= MAX_FEE_FLOOR, InvalidFeeFloor);
+        if let Some(scaled_default_fee_floor) = scaled_default_fee_floor {
+            check_condition!(*scaled_default_fee_floor <= MAX_FEE_FLOOR, InvalidFeeFloor);
         }
 
         Ok(())
@@ -46,11 +49,11 @@ impl SetDAOFeeConfig<'_> {
 pub fn handler(
     ctx: Context<SetDAOFeeConfig>,
     fee_recipient: Option<Pubkey>,
-    default_fee_numerator: Option<u128>,
-    default_fee_floor: Option<u128>,
+    scaled_default_fee_numerator: Option<u128>,
+    scaled_default_fee_floor: Option<u128>,
 ) -> Result<()> {
     ctx.accounts
-        .validate(&default_fee_numerator, &default_fee_floor)?;
+        .validate(&scaled_default_fee_numerator, &scaled_default_fee_floor)?;
 
     let dao_fee_config = &mut ctx.accounts.dao_fee_config;
 
@@ -58,8 +61,8 @@ pub fn handler(
         dao_fee_config,
         ctx.bumps.dao_fee_config,
         fee_recipient,
-        default_fee_numerator,
-        default_fee_floor,
+        scaled_default_fee_numerator,
+        scaled_default_fee_floor,
     )?;
 
     Ok(())

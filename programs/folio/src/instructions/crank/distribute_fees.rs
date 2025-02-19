@@ -128,23 +128,23 @@ pub fn handler<'info>(
         folio.poke(
             ctx.accounts.folio_token_mint.supply,
             current_time,
-            fee_details.fee_numerator,
-            fee_details.fee_denominator,
-            fee_details.fee_floor,
+            fee_details.scaled_fee_numerator,
+            fee_details.scaled_fee_denominator,
+            fee_details.scaled_fee_floor,
         )?;
     }
 
-    let scaled_down_fee_recipients_pending_fee_shares: u128;
-
     // Mint fees to dao recipient
-    let scaled_dao_pending_fee_shares: u64;
+    let raw_dao_pending_fee_shares: u64;
+    let scaled_fee_recipients_pending_fee_shares_minus_dust: u128;
+
     {
         let folio_key = ctx.accounts.folio.key();
         let folio = ctx.accounts.folio.load()?;
         let fee_recipients = ctx.accounts.fee_recipients.load()?;
         let token_mint_key = ctx.accounts.folio_token_mint.key();
 
-        scaled_dao_pending_fee_shares = Decimal::from_scaled(folio.dao_pending_fee_shares)
+        raw_dao_pending_fee_shares = Decimal::from_scaled(folio.dao_pending_fee_shares)
             .to_token_amount(Rounding::Floor)?
             .0;
 
@@ -163,12 +163,12 @@ pub fn handler<'info>(
                 cpi_accounts,
                 &[signer_seeds],
             ),
-            scaled_dao_pending_fee_shares,
+            raw_dao_pending_fee_shares,
         )?;
 
         // We scale down as token units and bring back in D18, to get the amount
         // minus the dust that we can split
-        scaled_down_fee_recipients_pending_fee_shares =
+        scaled_fee_recipients_pending_fee_shares_minus_dust =
             (Decimal::from_scaled(folio.fee_recipients_pending_fee_shares)
                 .to_token_amount(Rounding::Floor)?
                 .0 as u128)
@@ -182,30 +182,31 @@ pub fn handler<'info>(
         fee_distribution.index = index;
         fee_distribution.folio = folio_key;
         fee_distribution.cranker = ctx.accounts.user.key();
-        fee_distribution.amount_to_distribute = scaled_down_fee_recipients_pending_fee_shares;
+        fee_distribution.amount_to_distribute = scaled_fee_recipients_pending_fee_shares_minus_dust;
         fee_distribution.fee_recipients_state = fee_recipients.fee_recipients;
 
         emit!(ProtocolFeePaid {
             recipient: ctx.accounts.dao_fee_recipient.key(),
-            amount: scaled_dao_pending_fee_shares,
+            amount: raw_dao_pending_fee_shares,
         });
     }
 
-    // Update pending fee
+    // Update folio pending fees
     {
         let folio = &mut ctx.accounts.folio.load_mut()?;
         folio.dao_pending_fee_shares = folio
             .dao_pending_fee_shares
             .checked_sub(
-                (scaled_dao_pending_fee_shares as u128)
+                (raw_dao_pending_fee_shares as u128)
                     // Got to multiply back in D18 since we track with extra precision
                     .checked_mul(D9_U128)
                     .ok_or(ErrorCode::MathOverflow)?,
             )
             .ok_or(ErrorCode::MathOverflow)?;
+
         folio.fee_recipients_pending_fee_shares = folio
             .fee_recipients_pending_fee_shares
-            .checked_sub(scaled_down_fee_recipients_pending_fee_shares)
+            .checked_sub(scaled_fee_recipients_pending_fee_shares_minus_dust)
             .unwrap();
 
         let fee_recipients = &mut ctx.accounts.fee_recipients.load_mut()?;

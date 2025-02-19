@@ -71,9 +71,9 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, PokeFolio<'info>>) -> R
     folio.poke(
         ctx.accounts.folio_token_mint.supply,
         current_time,
-        fee_details.fee_numerator,
-        fee_details.fee_denominator,
-        fee_details.fee_floor,
+        fee_details.scaled_fee_numerator,
+        fee_details.scaled_fee_denominator,
+        fee_details.scaled_fee_floor,
     )?;
 
     Ok(())

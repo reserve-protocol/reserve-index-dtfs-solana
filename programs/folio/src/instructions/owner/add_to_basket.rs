@@ -11,6 +11,8 @@ use shared::check_condition;
 use shared::constants::{ACTOR_SEEDS, FOLIO_BASKET_SEEDS, FOLIO_SEEDS};
 use shared::errors::ErrorCode;
 
+const EXPECTED_REMAINING_ACCOUNTS_LENGTH: usize = 3;
+
 #[derive(Accounts)]
 pub struct AddToBasket<'info> {
     pub system_program: Program<'info, System>,
@@ -69,7 +71,7 @@ impl AddToBasket<'_> {
 
 fn mint_initial_shares<'info>(
     ctx: &Context<'_, '_, 'info, 'info, AddToBasket<'info>>,
-    initial_shares: Option<u64>,
+    raw_initial_shares: Option<u64>,
 ) -> Result<()> {
     let token_mint_key = ctx.accounts.folio_token_mint.key();
 
@@ -92,7 +94,7 @@ fn mint_initial_shares<'info>(
                     cpi_accounts,
                     &[signer_seeds],
                 ),
-                initial_shares.ok_or(ErrorCode::MathOverflow)?,
+                raw_initial_shares.ok_or(ErrorCode::MathOverflow)?,
             )?;
         }
     }
@@ -112,8 +114,8 @@ creates the folio and is done adding the initial list of tokens for the folio.
 */
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, AddToBasket<'info>>,
-    amounts: Vec<u64>,
-    initial_shares: Option<u64>,
+    raw_amounts: Vec<u64>,
+    raw_initial_shares: Option<u64>,
 ) -> Result<()> {
     {
         let folio = ctx.accounts.folio.load()?;
@@ -130,19 +132,17 @@ pub fn handler<'info>(
 
     let mut added_mints: Vec<Pubkey> = vec![];
 
-    // Remaining accounts need to be divisible by 3
     check_condition!(
-        remaining_accounts.len() % 3 == 0,
+        remaining_accounts.len() % EXPECTED_REMAINING_ACCOUNTS_LENGTH == 0,
         InvalidNumberOfRemainingAccounts
     );
 
-    // Remaining accounts divisible by 3 needs to be equal to length of amounts
     check_condition!(
-        remaining_accounts.len() / 3 == amounts.len(),
+        remaining_accounts.len() / EXPECTED_REMAINING_ACCOUNTS_LENGTH == raw_amounts.len(),
         InvalidNumberOfRemainingAccounts
     );
 
-    for amount in amounts {
+    for raw_amount in raw_amounts {
         let token_mint = next_account(
             &mut remaining_accounts_iter,
             false,
@@ -189,7 +189,7 @@ pub fn handler<'info>(
 
         token_interface::transfer_checked(
             CpiContext::new(cpi_program, cpi_accounts),
-            amount,
+            raw_amount,
             mint.decimals,
         )?;
 
@@ -207,8 +207,8 @@ pub fn handler<'info>(
         &added_mints,
     )?;
 
-    if initial_shares.is_some() {
-        mint_initial_shares(&ctx, initial_shares)?;
+    if raw_initial_shares.is_some() {
+        mint_initial_shares(&ctx, raw_initial_shares)?;
     }
 
     Ok(())

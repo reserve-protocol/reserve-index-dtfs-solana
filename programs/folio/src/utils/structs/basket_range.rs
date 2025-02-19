@@ -15,8 +15,14 @@ use bytemuck::{Pod, Zeroable};
     Pod,
 )]
 #[repr(C)]
+/// Scaled in D18
 pub struct BasketRange {
+    /// Scaled in D18
     pub spot: u128,
+
+    /// Scaled in D18
     pub low: u128,
+
+    /// Scaled in D18
     pub high: u128,
 }

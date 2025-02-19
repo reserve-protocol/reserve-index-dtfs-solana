@@ -46,15 +46,19 @@ pub struct SetFolioFeeConfig<'info> {
 }
 
 impl SetFolioFeeConfig<'_> {
-    pub fn validate(&self, fee_numerator: &Option<u128>, fee_floor: &Option<u128>) -> Result<()> {
+    pub fn validate(
+        &self,
+        scaled_fee_numerator: &Option<u128>,
+        scaled_fee_floor: &Option<u128>,
+    ) -> Result<()> {
         check_condition!(self.admin.key() == ADMIN, Unauthorized);
 
-        if let Some(fee_numerator) = fee_numerator {
-            check_condition!(*fee_numerator <= MAX_DAO_FEE, InvalidFeeNumerator);
+        if let Some(scaled_fee_numerator) = scaled_fee_numerator {
+            check_condition!(*scaled_fee_numerator <= MAX_DAO_FEE, InvalidFeeNumerator);
         }
 
-        if let Some(fee_floor) = fee_floor {
-            check_condition!(*fee_floor <= MAX_FEE_FLOOR, InvalidFeeFloor);
+        if let Some(scaled_fee_floor) = scaled_fee_floor {
+            check_condition!(*scaled_fee_floor <= MAX_FEE_FLOOR, InvalidFeeFloor);
         }
 
         Ok(())
@@ -63,10 +67,11 @@ impl SetFolioFeeConfig<'_> {
 
 pub fn handler(
     ctx: Context<SetFolioFeeConfig>,
-    fee_numerator: Option<u128>,
-    fee_floor: Option<u128>,
+    scaled_fee_numerator: Option<u128>,
+    scaled_fee_floor: Option<u128>,
 ) -> Result<()> {
-    ctx.accounts.validate(&fee_numerator, &fee_floor)?;
+    ctx.accounts
+        .validate(&scaled_fee_numerator, &scaled_fee_floor)?;
 
     let folio_fee_config = &mut ctx.accounts.folio_fee_config;
 
@@ -74,8 +79,8 @@ pub fn handler(
         folio_fee_config,
         &ctx.accounts.dao_fee_config,
         ctx.bumps.folio_fee_config,
-        fee_numerator,
-        fee_floor,
+        scaled_fee_numerator,
+        scaled_fee_floor,
     )?;
 
     Ok(())

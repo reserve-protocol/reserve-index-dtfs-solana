@@ -114,10 +114,10 @@ impl FolioRewardTokens {
         );
 
         // D18{1/s} = D18{1} / {s} (reward_half_life is in seconds, so don't need to scale)
-        let calculated_reward_ratio =
+        let scaled_calculated_reward_ratio =
             Decimal::from_scaled(LN_2).div(&Decimal::from_scaled(reward_half_life))?;
 
-        self.reward_ratio = calculated_reward_ratio.to_scaled(Rounding::Floor)?;
+        self.reward_ratio = scaled_calculated_reward_ratio.to_scaled(Rounding::Floor)?;
 
         emit!(RewardRatioSet {
             reward_ratio: self.reward_ratio,

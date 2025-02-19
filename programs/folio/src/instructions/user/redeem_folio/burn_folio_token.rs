@@ -92,7 +92,7 @@ impl BurnFolioToken<'_> {
 /// shares: u64: is in token amount, which we consider D9
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, BurnFolioToken<'info>>,
-    shares: u64,
+    raw_shares: u64,
 ) -> Result<()> {
     let remaining_accounts = &ctx.remaining_accounts;
 
@@ -130,7 +130,7 @@ pub fn handler<'info>(
         let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
 
         token_amounts_user.to_assets(
-            shares,
+            raw_shares,
             ctx.accounts.folio_token_mint.supply,
             &folio_key,
             &token_program_id,
@@ -139,9 +139,9 @@ pub fn handler<'info>(
             PendingBasketType::RedeemProcess,
             remaining_accounts,
             current_time,
-            fee_details.fee_numerator,
-            fee_details.fee_denominator,
-            fee_details.fee_floor,
+            fee_details.scaled_fee_numerator,
+            fee_details.scaled_fee_denominator,
+            fee_details.scaled_fee_floor,
         )?;
     }
 
@@ -155,7 +155,7 @@ pub fn handler<'info>(
                 authority: ctx.accounts.user.to_account_info(),
             },
         ),
-        shares,
+        raw_shares,
     )?;
 
     Ok(())

@@ -42,20 +42,30 @@ pub struct Folio {
     /*
     Fee related properties
      */
+    /// Scaled in D18
     pub tvl_fee: u128,
+
+    /// Scaled in D18
     pub mint_fee: u128,
 
+    /// Scaled in D18
     pub dao_pending_fee_shares: u128,
+
+    /// Scaled in D18
     pub fee_recipients_pending_fee_shares: u128,
 
     /*
     Auction related properties
      */
+    /// Scaled in time units
     pub auction_delay: u64,
+
+    /// Scaled in time units
     pub auction_length: u64,
 
     pub current_auction_id: u64,
 
+    /// Scaled in time units
     pub last_poke: i64,
 
     pub sell_ends: [AuctionEnd; MAX_CONCURRENT_AUCTIONS],
@@ -114,6 +124,7 @@ pub struct FeeDistribution {
     // Person who cranked the distribute, tracking to reimburse rent
     pub cranker: Pubkey,
 
+    /// Scaled in D18    
     pub amount_to_distribute: u128,
 
     pub fee_recipients_state: [FeeRecipient; MAX_FEE_RECIPIENTS],
@@ -223,10 +234,19 @@ pub struct Auction {
 
     pub id: u64,
 
+    /// Scaled in time units
     pub available_at: u64,
+
+    /// Scaled in time units
     pub launch_timeout: u64,
+
+    /// Scaled in time units
     pub start: u64,
+
+    /// Scaled in time units
     pub end: u64,
+
+    /// Scaled in D18
     pub k: u128,
 
     pub folio: Pubkey,
@@ -254,6 +274,7 @@ pub struct FolioRewardTokens {
     /// Folio's pubkey
     pub folio: Pubkey,
 
+    /// Scaled in D18
     pub reward_ratio: u128,
 
     // List of current reward tokens
@@ -278,13 +299,19 @@ pub struct RewardInfo {
 
     pub folio_reward_token: Pubkey,
 
+    /// Scaled in time units
     pub payout_last_paid: u64,
 
+    /// Scaled in D18
     pub reward_index: u128,
 
+    /// Scaled in D18
     pub balance_accounted: u128,
+
+    /// Scaled in D18
     pub balance_last_known: u128,
 
+    /// Scaled in D18
     pub total_claimed: u128,
 }
 
@@ -304,8 +331,10 @@ pub struct UserRewardInfo {
 
     pub folio_reward_token: Pubkey,
 
+    /// Scaled in D18
     pub last_reward_index: u128,
 
+    /// Scaled in D18
     pub accrued_rewards: u128,
 }
 

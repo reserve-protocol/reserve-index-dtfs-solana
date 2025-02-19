@@ -168,28 +168,22 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
         let mut reward_info = Account::<RewardInfo>::try_from(reward_info)?;
         let mut user_reward_info = Account::<UserRewardInfo>::try_from(user_reward_info)?;
 
-        // Those are already in D18, when we accrue them, even if token is in D9, to have extra precision
-        let claimable_rewards = Decimal::from_scaled(user_reward_info.accrued_rewards)
+        let raw_claimable_rewards = Decimal::from_scaled(user_reward_info.accrued_rewards)
             .to_token_amount(Rounding::Floor)?;
 
-        reward_info.total_claimed = reward_info
-            .total_claimed
-            .checked_add(
-                (claimable_rewards.0 as u128)
-                    .checked_mul(D9_U128)
-                    .ok_or(ErrorCode::MathOverflow)?,
-            )
+        let scaled_claimable_rewards_without_dust = (raw_claimable_rewards.0 as u128)
+            .checked_mul(D9_U128)
             .ok_or(ErrorCode::MathOverflow)?;
 
-        // Potentially can't withdraw the whole balance if decimals are too small (since D9 max for Solana)
-        // so we save the dust so that one day it might become a full unit in D9
+        // Add the amount withot dust as claimed
+        reward_info.total_claimed = reward_info
+            .total_claimed
+            .checked_add(scaled_claimable_rewards_without_dust)
+            .ok_or(ErrorCode::MathOverflow)?;
+
         user_reward_info.accrued_rewards = user_reward_info
             .accrued_rewards
-            .checked_sub(
-                (claimable_rewards.0 as u128)
-                    .checked_mul(D9_U128)
-                    .ok_or(ErrorCode::MathOverflow)?,
-            )
+            .checked_sub(scaled_claimable_rewards_without_dust)
             .ok_or(ErrorCode::MathOverflow)?;
 
         reward_info.exit(ctx.program_id)?;
@@ -197,7 +191,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
 
         // Because of potential rounding errors since we have to go back to u64, if user claims too early it might
         // be 0 as a u64, we don't want to update the other fields while not giving anything, so we'll error out.
-        check_condition!(claimable_rewards.0 > 0, NoRewardsToClaim);
+        check_condition!(raw_claimable_rewards.0 > 0, NoRewardsToClaim);
 
         // Send the rewards to the user
         let cpi_accounts = TransferChecked {
@@ -211,7 +205,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
 
         token_interface::transfer_checked(
             CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds),
-            claimable_rewards.0,
+            raw_claimable_rewards.0,
             mint.decimals,
         )?;
     }

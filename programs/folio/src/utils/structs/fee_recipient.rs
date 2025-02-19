@@ -16,5 +16,7 @@ use bytemuck::{Pod, Zeroable};
 #[repr(C)]
 pub struct FeeRecipient {
     pub recipient: Pubkey,
+
+    /// Scaled in D18
     pub portion: u128,
 }

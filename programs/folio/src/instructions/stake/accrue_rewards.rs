@@ -105,7 +105,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
 
     let folio_reward_tokens = ctx.accounts.folio_reward_tokens.load()?;
 
-    let (governance_staked_token_account_balance, governance_token_decimals) =
+    let (raw_governance_staked_token_account_balance, governance_token_decimals) =
         GovernanceUtil::get_realm_staked_balance_and_mint_decimals(
             &realm_key,
             &ctx.accounts.governance_token_mint,
@@ -202,13 +202,13 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
         reward_info.accrue_rewards(
             folio_reward_tokens.reward_ratio,
             fee_recipient_token_account_parsed.amount,
-            governance_staked_token_account_balance,
+            raw_governance_staked_token_account_balance,
             governance_token_decimals,
             current_time,
         )?;
 
         // Init if needed and accrue rewards on user reward info
-        let caller_governance_account_balance = GovernanceUtil::get_governance_account_balance(
+        let raw_caller_governance_account_balance = GovernanceUtil::get_governance_account_balance(
             &ctx.accounts.caller_governance_token_account,
             &realm_key,
             &governance_token_mint_key,
@@ -224,7 +224,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
             &folio_key,
             &reward_token.key(),
             &reward_info,
-            caller_governance_account_balance,
+            raw_caller_governance_account_balance,
         )?;
 
         // All the logic for the extra user if user != caller
@@ -252,12 +252,14 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
             );
 
             // Create the user reward info if it doesn't exist and accrue rewards on user reward info
-            let user_governance_account_balance = GovernanceUtil::get_governance_account_balance(
-                &ctx.accounts.user_governance_token_account,
-                &realm_key,
-                &governance_token_mint_key,
-                &user_key,
-            )?;
+
+            let raw_user_governance_account_balance =
+                GovernanceUtil::get_governance_account_balance(
+                    &ctx.accounts.user_governance_token_account,
+                    &realm_key,
+                    &governance_token_mint_key,
+                    &user_key,
+                )?;
 
             UserRewardInfo::process_init_if_needed(
                 user_reward_info,
@@ -268,7 +270,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
                 &folio_key,
                 &reward_token.key(),
                 &reward_info,
-                user_governance_account_balance,
+                raw_user_governance_account_balance,
             )?;
         }
 

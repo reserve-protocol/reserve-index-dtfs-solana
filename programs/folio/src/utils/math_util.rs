@@ -11,9 +11,11 @@ pub enum Rounding {
 }
 
 #[derive(Debug, Clone)]
+/// Scaled in D18
 pub struct Decimal(pub U256);
 
 #[derive(Debug, Clone)]
+/// Scaled in D9
 pub struct TokenResult(pub u64);
 
 pub trait IntoU256 {

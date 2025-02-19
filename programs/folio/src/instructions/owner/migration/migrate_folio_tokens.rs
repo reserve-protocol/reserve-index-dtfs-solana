@@ -182,13 +182,13 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
             Mint::try_deserialize(&mut &data[..])?.decimals
         };
 
-        let sender_token_account_amount = {
+        let raw_sender_token_account_amount = {
             let data = sender_token_account.try_borrow_data()?;
             TokenAccount::try_deserialize(&mut &data[..])?.amount
         };
 
-        let migrate_balance =
-            old_folio_basket.get_migrate_balance(sender_token_account_amount, token_mint.key)?;
+        let raw_migrate_balance = old_folio_basket
+            .get_migrate_balance(raw_sender_token_account_amount, token_mint.key)?;
 
         let cpi_accounts = TransferChecked {
             from: sender_token_account.to_account_info(),
@@ -201,7 +201,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
 
         token_interface::transfer_checked(
             CpiContext::new_with_signer(cpi_program, cpi_accounts, folio_signer),
-            migrate_balance,
+            raw_migrate_balance,
             mint_decimals,
         )?;
 

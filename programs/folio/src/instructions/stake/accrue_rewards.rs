@@ -74,12 +74,6 @@ impl AccrueRewards<'_> {
             Some(vec![FolioStatus::Initializing, FolioStatus::Initialized]),
         )?;
 
-        // Leaving here to show it's not something I forgot, but it's already validateed when we get the deposit balances
-        // for the users claiming.
-        //
-        // Validate that the folio owner is a realm
-        // GovernanceUtil::folio_owner_is_realm(&self.folio_owner)?;
-
         Ok(())
     }
 }

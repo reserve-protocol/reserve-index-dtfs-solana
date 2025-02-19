@@ -5,14 +5,32 @@ use shared::errors::ErrorCode;
 
 use crate::state::{DAOFeeConfig, FolioFeeConfig};
 
+/// Fee details for a given Folio.
 pub struct FeeDetails {
+    /// The fee recipient of the DAO, is the owner and not the token account itself.
     pub fee_recipient: Pubkey,
+
+    /// The denominator of the fee, in D18.
     pub scaled_fee_denominator: u128,
+
+    /// The numerator of the fee, in D18.
     pub scaled_fee_numerator: u128,
+
+    /// The floor of the fee, in D18.
     pub scaled_fee_floor: u128,
 }
 
 impl DAOFeeConfig {
+    /// Initialize or update the DAO fee config.
+    /// If the DAO fee config is not initialized, it will be initialized with the given fee recipient, default fee numerator, and default fee floor.
+    /// If the DAO fee config is already initialized, it will update the fee recipient, default fee numerator, and default fee floor.
+    ///
+    /// # Arguments
+    /// * `dao_fee_config` - The account info of the DAOFeeConfig account.
+    /// * `context_bump` - The bump of the dao fee config account in the context.
+    /// * `fee_recipient` - The fee recipient of the DAO, is the owner and not the token account itself.
+    /// * `scaled_default_fee_numerator` - The default fee numerator of the DAO, scaled in D18.
+    /// * `scaled_default_fee_floor` - The default fee floor of the DAO, scaled in D18.
     pub fn init_or_update_dao_fee_config(
         dao_fee_config: &mut Account<DAOFeeConfig>,
         context_bump: u8,
@@ -56,6 +74,12 @@ impl DAOFeeConfig {
         Ok(())
     }
 
+    /// Get the fee details for a given Folio.
+    /// If the Folio has its own fee config set, it will use that one, otherwise it will use the default one in DAOFeeConfig.
+    ///
+    /// folio_fee_config is the account info of the FolioFeeConfig account.
+    ///
+    /// Returns the fee details for the Folio.
     pub fn get_fee_details(&self, folio_fee_config: &AccountInfo) -> Result<FeeDetails> {
         let mut fee_details = FeeDetails {
             fee_recipient: self.fee_recipient,

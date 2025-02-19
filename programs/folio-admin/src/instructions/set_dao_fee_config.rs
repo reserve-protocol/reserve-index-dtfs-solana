@@ -5,6 +5,13 @@ use shared::constants::common::ADMIN;
 use shared::constants::{DAO_FEE_CONFIG_SEEDS, MAX_DAO_FEE, MAX_FEE_FLOOR};
 use shared::errors::ErrorCode;
 
+/// Set the DAO fee config.
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `rent` - The rent sysvar.
+/// * `admin` - The admin account (mut, signer).
+/// * `dao_fee_config` - The DAO fee config account (PDA) (init_if_needed, not signer).
 #[derive(Accounts)]
 pub struct SetDAOFeeConfig<'info> {
     pub system_program: Program<'info, System>,
@@ -24,6 +31,12 @@ pub struct SetDAOFeeConfig<'info> {
 }
 
 impl SetDAOFeeConfig<'_> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * Admin account is the authorized admin.
+    /// * Fee numerator is less than or equal to the max DAO fee.
+    /// * Fee floor is less than or equal to the max fee floor.
     pub fn validate(
         &self,
         scaled_default_fee_numerator: &Option<u128>,
@@ -46,6 +59,13 @@ impl SetDAOFeeConfig<'_> {
     }
 }
 
+/// Set the DAO fee config.
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
+/// * `fee_recipient` - The fee recipient of the DAO.
+/// * `scaled_default_fee_numerator` - The default fee numerator of the DAO, scaled in D18.
+/// * `scaled_default_fee_floor` - The default fee floor of the DAO, scaled in D18.
 pub fn handler(
     ctx: Context<SetDAOFeeConfig>,
     fee_recipient: Option<Pubkey>,

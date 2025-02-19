@@ -1,3 +1,18 @@
+//! Folio Admin Program
+//!
+//! This program is used to initialize and update the program registrar, DAO fee config, and Folio fee config.
+//!
+//! # Instructions
+//!
+//! * `init_program_registrar` - Initialize the program registrar.
+//! * `update_program_registrar` - Update the program registrar.
+//! * `set_dao_fee_config` - Set the DAO fee config.
+//! * `set_folio_fee_config` - Set the Folio fee config.
+//!
+//! # Events
+//!
+//! * `ProgramRegistryUpdate` - Emitted when the program registrar is updated.
+//!
 use anchor_lang::prelude::*;
 
 use instructions::*;

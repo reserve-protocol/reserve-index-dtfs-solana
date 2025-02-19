@@ -36,7 +36,7 @@ pub const MAX_FEE_RECIPIENTS_PORTION: u128 = 1_000_000_000_000_000_000; // 1e18
 pub const MAX_FOLIO_TOKEN_AMOUNTS: usize = 16;
 pub const MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS: usize = 20; // Higher than our 16 maximum token, since they can have tokens that have been removed / added
 pub const MAX_CONCURRENT_AUCTIONS: usize = 16;
-pub const MAX_REWARD_TOKENS: usize = 30; // Isn't a hard limit, but to specify account size, we'll use it
+pub const MAX_REWARD_TOKENS: usize = 5; // Is a hard limit, since we need accrue rewards to be atomic
 
 pub const MAX_REWARD_HALF_LIFE: u64 = 604800 * 2; // 2 weeks
 pub const MIN_REWARD_HALF_LIFE: u64 = 86400; // 1 day

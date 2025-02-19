@@ -989,6 +989,8 @@ export async function accrueRewards<T extends boolean = true>(
   folio: PublicKey,
   governanceMint: PublicKey,
   governanceHoldingTokenAccount: PublicKey,
+  callerGovernanceTokenAccount: PublicKey,
+  userGovernanceTokenAccount: PublicKey,
   extraUser: PublicKey = callerKeypair.publicKey,
   executeTxn: T = true as T,
   remainingAccounts: AccountMeta[] = []
@@ -1009,6 +1011,8 @@ export async function accrueRewards<T extends boolean = true>(
       folioRewardTokens: getFolioRewardTokensPDA(folio),
       governanceTokenMint: governanceMint,
       governanceStakedTokenAccount: governanceHoldingTokenAccount,
+      callerGovernanceTokenAccount,
+      userGovernanceTokenAccount,
       user: extraUser ?? callerKeypair.publicKey,
     })
     .remainingAccounts(remainingAccounts)

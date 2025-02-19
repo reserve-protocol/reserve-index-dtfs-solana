@@ -4,7 +4,6 @@ import {
   getFolioRewardTokensPDA,
   getRewardInfoPDA,
   getUserRewardInfoPDA,
-  getUserTokenRecordRealmsPDA,
 } from "./pda-helper";
 import { getOrCreateAtaAddress } from "./token-helper";
 
@@ -59,8 +58,6 @@ export async function buildRemainingAccountsForAccruesRewards(
   connection: Connection,
   callerKeypair: Keypair,
   folio: PublicKey,
-  folioTokenMint: PublicKey,
-  folioOwner: PublicKey, // Is the realm
   rewardTokens: PublicKey[],
   extraUser: PublicKey = callerKeypair.publicKey
 ): Promise<AccountMeta[]> {
@@ -98,30 +95,11 @@ export async function buildRemainingAccountsForAccruesRewards(
       isWritable: true,
     });
 
-    remainingAccounts.push({
-      pubkey: getUserTokenRecordRealmsPDA(
-        folioOwner,
-        folioTokenMint,
-        callerKeypair.publicKey
-      ),
-      isSigner: false,
-      isWritable: false,
-    });
-
     if (extraUser.toString() !== callerKeypair.publicKey.toString()) {
       remainingAccounts.push({
         pubkey: getUserRewardInfoPDA(folio, token, extraUser),
         isSigner: false,
         isWritable: true,
-      });
-      remainingAccounts.push({
-        pubkey: getUserTokenRecordRealmsPDA(
-          folioOwner,
-          folioTokenMint,
-          extraUser
-        ),
-        isSigner: false,
-        isWritable: false,
       });
     }
   }

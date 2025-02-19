@@ -17,7 +17,6 @@ import {
   getUserPendingBasketPDAWithBump,
   getUserRewardInfoPDA,
   getUserRewardInfoPDAWithBump,
-  getUserTokenRecordRealmsPDA,
   getFolioFeeConfigPDAWithBump,
 } from "../../utils/pda-helper";
 import { createFakeTokenOwnerRecordV2 } from "../../utils/data-helper";
@@ -818,7 +817,7 @@ export async function createAndSetFolioRewardTokens(
   };
 
   // Manual encoding for fee recipients
-  const buffer = Buffer.alloc(1992);
+  const buffer = Buffer.alloc(392);
   let offset = 0;
 
   // Encode discriminator
@@ -1328,8 +1327,6 @@ export async function buildRemainingAccountsForAccruesRewards(
   context: ProgramTestContext,
   callerKeypair: Keypair,
   folio: PublicKey,
-  folioTokenMint: PublicKey,
-  folioOwner: PublicKey, // Is the realm
   rewardTokens: PublicKey[],
   extraUser: PublicKey = callerKeypair.publicKey
 ): Promise<AccountMeta[]> {
@@ -1362,30 +1359,11 @@ export async function buildRemainingAccountsForAccruesRewards(
       isWritable: true,
     });
 
-    remainingAccounts.push({
-      pubkey: getUserTokenRecordRealmsPDA(
-        folioOwner,
-        folioTokenMint,
-        callerKeypair.publicKey
-      ),
-      isSigner: false,
-      isWritable: false,
-    });
-
     if (extraUser.toString() !== callerKeypair.publicKey.toString()) {
       remainingAccounts.push({
         pubkey: getUserRewardInfoPDA(folio, token, extraUser),
         isSigner: false,
         isWritable: true,
-      });
-      remainingAccounts.push({
-        pubkey: getUserTokenRecordRealmsPDA(
-          folioOwner,
-          folioTokenMint,
-          extraUser
-        ),
-        isSigner: false,
-        isWritable: false,
       });
     }
   }

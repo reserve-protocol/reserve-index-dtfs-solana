@@ -88,9 +88,7 @@ describe("Bankrun - Staking User", () => {
     REWARD_INFO: 1,
     REWARD_TOKEN_ATA: 2,
     USER_REWARD_INFO: 3,
-    USER_GOVERNANCE: 4,
-    EXTRA_USER_REWARD_INFO: 5,
-    EXTRA_USER_GOVERNANCE: 6,
+    EXTRA_USER_REWARD_INFO: 4,
   };
 
   const DEFAULT_PARAMS: {
@@ -124,6 +122,9 @@ describe("Bankrun - Staking User", () => {
     governanceMint: PublicKey;
     governanceHoldingTokenAccount: PublicKey;
 
+    callerGovernanceTokenAccount: () => PublicKey;
+    userGovernanceTokenAccount: () => PublicKey;
+
     expectedRewardIndex: BN[];
     expectedBalanceAccountedChanges: BN[];
     expectedAccruedRewardsChanges: BN[];
@@ -152,6 +153,9 @@ describe("Bankrun - Staking User", () => {
 
     governanceMint: GOVERNANCE_MINT.publicKey,
     governanceHoldingTokenAccount: null,
+
+    callerGovernanceTokenAccount: () => null,
+    userGovernanceTokenAccount: () => null,
 
     expectedRewardIndex: [],
     expectedBalanceAccountedChanges: [],
@@ -206,7 +210,7 @@ describe("Bankrun - Staking User", () => {
         await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
       ],
       rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
-      indexAccountToInvalidate: INDEX_FOR_REMAINING_ACCOUNTS.USER_GOVERNANCE,
+      callerGovernanceTokenAccount: () => getInvalidGovernanceAccount(),
     },
     {
       desc: "(accrue rewards: current time is = last payout time, does nothing)",
@@ -265,8 +269,7 @@ describe("Bankrun - Staking User", () => {
         await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
       ],
       rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
-      indexAccountToInvalidate:
-        INDEX_FOR_REMAINING_ACCOUNTS.EXTRA_USER_GOVERNANCE,
+      userGovernanceTokenAccount: () => getInvalidGovernanceAccount(),
       extraUserToClaimFor: rewardedUser2.publicKey,
     },
     {
@@ -508,6 +511,18 @@ describe("Bankrun - Staking User", () => {
     },
   ];
 
+  function getInvalidGovernanceAccount(): PublicKey {
+    const invalidGovernanceAccount = getUserTokenRecordRealmsPDA(
+      folioOwnerKeypair.publicKey,
+      GOVERNANCE_MINT.publicKey,
+      Keypair.generate().publicKey
+    );
+
+    createGovernanceAccount(context, invalidGovernanceAccount, 0);
+
+    return invalidGovernanceAccount;
+  }
+
   async function buildRemainingAccountsAccrue(
     remainingAccounts: AccountMeta[],
     indexAccountToInvalidate: number
@@ -527,22 +542,6 @@ describe("Bankrun - Staking User", () => {
           REWARD_TOKEN_MINTS[0].publicKey,
           Keypair.generate().publicKey
         );
-    } else if (
-      [
-        INDEX_FOR_REMAINING_ACCOUNTS.EXTRA_USER_GOVERNANCE,
-        INDEX_FOR_REMAINING_ACCOUNTS.USER_GOVERNANCE,
-      ].includes(indexAccountToInvalidate)
-    ) {
-      const invalidGovernanceAccount = getUserTokenRecordRealmsPDA(
-        folioOwnerKeypair.publicKey,
-        folioTokenMint.publicKey,
-        Keypair.generate().publicKey
-      );
-
-      createGovernanceAccount(context, invalidGovernanceAccount, 0);
-
-      remainingAccounts[indexAccountToInvalidate].pubkey =
-        invalidGovernanceAccount;
     } else {
       remainingAccounts[indexAccountToInvalidate].pubkey =
         Keypair.generate().publicKey;
@@ -749,7 +748,7 @@ describe("Bankrun - Staking User", () => {
         context,
         getUserTokenRecordRealmsPDA(
           folioOwnerKeypair.publicKey,
-          folioTokenMint.publicKey,
+          GOVERNANCE_MINT.publicKey,
           new PublicKey(userPubkey)
         ),
         amount.toNumber()
@@ -816,6 +815,16 @@ describe("Bankrun - Staking User", () => {
           GOVERNANCE_MINT.publicKey
         ),
         rewardedUser1.publicKey,
+        getUserTokenRecordRealmsPDA(
+          folioOwnerKeypair.publicKey,
+          GOVERNANCE_MINT.publicKey,
+          rewardedUser1.publicKey
+        ),
+        getUserTokenRecordRealmsPDA(
+          folioOwnerKeypair.publicKey,
+          GOVERNANCE_MINT.publicKey,
+          rewardedUser1.publicKey
+        ),
         true,
         []
       );
@@ -867,6 +876,8 @@ describe("Bankrun - Staking User", () => {
           expectedRewardIndex,
           expectedAccruedRewardsChanges,
           governanceHoldingTokenAccount,
+          callerGovernanceTokenAccount,
+          userGovernanceTokenAccount,
         } = {
           ...DEFAULT_PARAMS,
           ...restOfParams,
@@ -874,6 +885,9 @@ describe("Bankrun - Staking User", () => {
 
         let folioMintToUse: Keypair;
         let extraUser: PublicKey;
+
+        let callerGovernanceTokenAccountToUse: PublicKey;
+        let userGovernanceTokenAccountToUse: PublicKey;
 
         let currentClock: Clock;
 
@@ -905,6 +919,22 @@ describe("Bankrun - Staking User", () => {
             folioMintToUse.publicKey
           );
 
+          callerGovernanceTokenAccountToUse =
+            callerGovernanceTokenAccount() ??
+            getUserTokenRecordRealmsPDA(
+              folioOwnerKeypair.publicKey,
+              GOVERNANCE_MINT.publicKey,
+              rewardedUser1.publicKey
+            );
+
+          userGovernanceTokenAccountToUse =
+            userGovernanceTokenAccount() ??
+            getUserTokenRecordRealmsPDA(
+              folioOwnerKeypair.publicKey,
+              GOVERNANCE_MINT.publicKey,
+              extraUser
+            );
+
           await travelFutureSlot(context);
 
           // We'll build remaining accounts outside, so we can test the different cases
@@ -916,8 +946,6 @@ describe("Bankrun - Staking User", () => {
                 context,
                 rewardedUser1,
                 folioPDA,
-                folioMintToUse.publicKey,
-                folioOwnerKeypair.publicKey,
                 rewardsTokenToClaim,
                 extraUser
               );
@@ -963,6 +991,8 @@ describe("Bankrun - Staking User", () => {
                 folioOwnerKeypair.publicKey,
                 GOVERNANCE_MINT.publicKey
               ),
+            callerGovernanceTokenAccountToUse,
+            userGovernanceTokenAccountToUse,
             extraUser,
             true,
             remainingAccountsToUse
@@ -993,6 +1023,8 @@ describe("Bankrun - Staking User", () => {
                 folioOwnerKeypair.publicKey,
                 GOVERNANCE_MINT.publicKey
               ),
+              callerGovernanceTokenAccountToUse,
+              userGovernanceTokenAccountToUse,
               extraUser,
               true,
               remainingAccountsToUse

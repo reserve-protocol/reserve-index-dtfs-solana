@@ -245,14 +245,14 @@ export function getUserRewardInfoPDAWithBump(
 
 export function getUserTokenRecordRealmsPDA(
   folioOwner: PublicKey, // Is the realm
-  folioTokenMint: PublicKey,
+  governanceTokenMint: PublicKey,
   user: PublicKey
 ) {
   return PublicKey.findProgramAddressSync(
     [
       Buffer.from("governance"),
       folioOwner.toBuffer(),
-      folioTokenMint.toBuffer(),
+      governanceTokenMint.toBuffer(),
       user.toBuffer(),
     ],
     SPL_GOVERNANCE_PROGRAM_ID

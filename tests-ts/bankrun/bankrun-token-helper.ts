@@ -8,9 +8,19 @@ import {
   TOKEN_PROGRAM_ID,
   ACCOUNT_SIZE,
   AccountLayout,
+  ExtensionType,
+  TOKEN_2022_PROGRAM_ID,
+  getMintLen,
+  createInitializeMint2Instruction,
+  createInitializeTransferHookInstruction,
+  createInitializePermanentDelegateInstruction,
+  createMintToInstruction,
+  createAssociatedTokenAccountInstruction,
 } from "@solana/spl-token";
 import * as assert from "assert";
 import { BN } from "@coral-xyz/anchor";
+import { SystemProgram } from "@solana/web3.js";
+import { createAndProcessTransaction } from "./bankrun-program-helper";
 
 export function initToken(
   context: ProgramTestContext,
@@ -241,4 +251,118 @@ export async function assertExpectedBalancesChanges(
       );
     }
   }
+}
+
+/*
+SPL 2022
+*/
+export async function initToken2022Tx(
+  context: ProgramTestContext,
+  mintAuthority: Keypair,
+  mint: Keypair = Keypair.generate(),
+  extension: ExtensionType,
+  decimals: number = DEFAULT_DECIMALS
+) {
+  const rent = await context.banksClient.getRent();
+
+  const mintLen = getMintLen(extension ? [extension] : []);
+
+  const createAccountIx = SystemProgram.createAccount({
+    fromPubkey: mintAuthority.publicKey,
+    newAccountPubkey: mint.publicKey,
+    space: mintLen,
+    lamports: Number.parseInt(rent.minimumBalance(BigInt(mintLen)).toString()),
+    programId: TOKEN_2022_PROGRAM_ID,
+  });
+
+  const instructions = [createAccountIx];
+
+  if (extension === ExtensionType.TransferHook) {
+    instructions.push(
+      createInitializeTransferHookInstruction(
+        mint.publicKey,
+        mintAuthority.publicKey,
+        // programId for the hook, don't really care here
+        mintAuthority.publicKey,
+        TOKEN_2022_PROGRAM_ID
+      )
+    );
+  } else if (extension === ExtensionType.PermanentDelegate) {
+    instructions.push(
+      createInitializePermanentDelegateInstruction(
+        mint.publicKey,
+        mintAuthority.publicKey,
+        TOKEN_2022_PROGRAM_ID
+      )
+    );
+  }
+
+  instructions.push(
+    createInitializeMint2Instruction(
+      mint.publicKey,
+      decimals,
+      mintAuthority.publicKey,
+      mintAuthority.publicKey,
+      TOKEN_2022_PROGRAM_ID
+    )
+  );
+
+  const tx = await createAndProcessTransaction(
+    context.banksClient,
+    mintAuthority,
+    instructions,
+    [mintAuthority, mint]
+  );
+
+  return tx;
+}
+
+export async function mintToken2022Tx(
+  context: ProgramTestContext,
+  mintAuthority: Keypair,
+  mint: PublicKey,
+  recipient: PublicKey,
+  amount: BN
+) {
+  const instructions = [];
+
+  const ata = getAssociatedTokenAddressSync(
+    mint,
+    recipient,
+    true,
+    TOKEN_2022_PROGRAM_ID
+  );
+
+  const account = await context.banksClient.getAccount(ata);
+  if (!account) {
+    instructions.push(
+      createAssociatedTokenAccountInstruction(
+        mintAuthority.publicKey,
+        ata,
+        recipient,
+        mint,
+        TOKEN_2022_PROGRAM_ID
+      )
+    );
+  }
+
+  instructions.push(
+    createMintToInstruction(
+      mint,
+      ata,
+      mintAuthority.publicKey,
+      BigInt(amount.toString()),
+      [],
+      TOKEN_2022_PROGRAM_ID
+    )
+  );
+
+  const tx = await createAndProcessTransaction(
+    context.banksClient,
+    mintAuthority,
+    instructions,
+    [mintAuthority]
+  );
+
+  return tx;
 }

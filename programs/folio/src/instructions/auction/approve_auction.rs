@@ -1,5 +1,5 @@
 use crate::utils::structs::{BasketRange, FolioStatus, Role};
-use crate::utils::Prices;
+use crate::utils::{Prices, TokenUtil};
 use crate::{
     events::AuctionApproved,
     state::{Actor, Auction, Folio},
@@ -67,6 +67,12 @@ impl ApproveAuction<'_> {
         check_condition!(self.buy_mint.key() != self.sell_mint.key(), MintCantBeEqual);
 
         Auction::validate_auction_approve(sell_limit, buy_limit, prices, ttl)?;
+
+        // Validate that the buy mint is a supported SPL token (can only check mint here, will check token account in the bid)
+        check_condition!(
+            TokenUtil::is_supported_spl_token(Some(&self.buy_mint.to_account_info()), None)?,
+            UnsupportedSPLToken
+        );
 
         Ok(())
     }

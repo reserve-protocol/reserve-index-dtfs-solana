@@ -2,6 +2,7 @@ use crate::events::BasketTokenAdded;
 use crate::state::{Actor, Folio, FolioBasket};
 use crate::utils::account_util::next_account;
 use crate::utils::structs::{FolioStatus, Role};
+use crate::utils::TokenUtil;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::{get_associated_token_address_with_program_id, AssociatedToken};
 use anchor_spl::token;
@@ -162,6 +163,15 @@ pub fn handler<'info>(
                     &token_program_id,
                 ),
             InvalidRecipientTokenAccount
+        );
+
+        // Validate that the token mint is a supported SPL token
+        check_condition!(
+            TokenUtil::is_supported_spl_token(
+                Some(&token_mint.to_account_info()),
+                Some(&sender_token_account.to_account_info())
+            )?,
+            UnsupportedSPLToken
         );
 
         // Get decimals from token mint

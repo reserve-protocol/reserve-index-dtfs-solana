@@ -877,7 +877,6 @@ export async function addRewardToken<T extends boolean = true>(
   folio: PublicKey,
   rewardToken: PublicKey,
   rewardPeriod: BN,
-
   executeTxn: T = true as T,
   rewardTokenATA: PublicKey = null
 ): Promise<

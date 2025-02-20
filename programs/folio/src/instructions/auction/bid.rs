@@ -1,6 +1,6 @@
 use crate::utils::math_util::Decimal;
 use crate::utils::structs::FolioStatus;
-use crate::utils::Rounding;
+use crate::utils::{Rounding, TokenUtil};
 use crate::{
     cpi_call,
     events::AuctionBid,
@@ -97,6 +97,15 @@ impl Bid<'_> {
         check_condition!(
             self.auction_buy_token_mint.key() == auction.buy,
             InvalidAuctionBuyTokenMint
+        );
+
+        // Validate that the buy token is a supported SPL token (only need to check the token account here)
+        check_condition!(
+            TokenUtil::is_supported_spl_token(
+                None,
+                Some(&self.bidder_buy_token_account.to_account_info())
+            )?,
+            UnsupportedSPLToken
         );
 
         Ok(())

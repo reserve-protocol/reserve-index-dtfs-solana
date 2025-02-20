@@ -1,6 +1,7 @@
 use crate::events::RewardTokenAdded;
 use crate::state::{Actor, Folio, FolioRewardTokens, RewardInfo};
 use crate::utils::structs::{FolioStatus, Role};
+use crate::utils::TokenUtil;
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount};
 use shared::check_condition;
@@ -69,6 +70,15 @@ impl AddRewardToken<'_> {
         check_condition!(
             self.reward_token_account.owner == self.folio_reward_tokens.key(),
             InvalidRewardTokenAccount
+        );
+
+        // Check that the reward token is a supported SPL token (doesn't require extra accounts for transfers)
+        check_condition!(
+            TokenUtil::is_supported_spl_token(
+                Some(&self.reward_token.to_account_info()),
+                Some(&self.reward_token_account.to_account_info())
+            )?,
+            UnsupportedSPLToken
         );
 
         Ok(())

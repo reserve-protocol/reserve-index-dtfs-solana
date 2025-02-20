@@ -92,7 +92,7 @@ pub fn handler<'info>(
     indices: Vec<u64>,
 ) -> Result<()> {
     let folio_bump: u8;
-    let total_amount_to_distribute: u128;
+    let scaled_total_amount_to_distribute: u128;
 
     let token_mint_key = ctx.accounts.folio_token_mint.key();
 
@@ -101,7 +101,7 @@ pub fn handler<'info>(
         let fee_distribution = &ctx.accounts.fee_distribution.load()?;
 
         folio_bump = folio.bump;
-        total_amount_to_distribute = fee_distribution.amount_to_distribute;
+        scaled_total_amount_to_distribute = fee_distribution.amount_to_distribute;
 
         ctx.accounts.validate(folio, fee_distribution)?;
     }
@@ -141,7 +141,7 @@ pub fn handler<'info>(
 
             related_fee_distribution.recipient = Pubkey::default();
 
-            let amount_to_distribute = Decimal::from_scaled(total_amount_to_distribute)
+            let raw_amount_to_distribute = Decimal::from_scaled(scaled_total_amount_to_distribute)
                 .mul(&Decimal::from_scaled(related_fee_distribution.portion))?
                 .div(&Decimal::from_scaled(MAX_FEE_RECIPIENTS_PORTION))?
                 .to_token_amount(Rounding::Floor)?
@@ -160,12 +160,12 @@ pub fn handler<'info>(
                         cpi_accounts,
                         &[signer_seeds],
                     ),
-                    amount_to_distribute,
+                    raw_amount_to_distribute,
                 )?;
 
                 emit!(TVLFeePaid {
                     recipient: related_fee_distribution.recipient.key(),
-                    amount: amount_to_distribute,
+                    amount: raw_amount_to_distribute,
                 });
             }
         }

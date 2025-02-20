@@ -1,7 +1,21 @@
+//! Folio Admin Program
+//!
+//! This program is used to initialize and update the program registrar, DAO fee config, and Folio fee config.
+//!
+//! # Instructions
+//!
+//! * `init_program_registrar` - Initialize the program registrar.
+//! * `update_program_registrar` - Update the program registrar.
+//! * `set_dao_fee_config` - Set the DAO fee config.
+//! * `set_folio_fee_config` - Set the Folio fee config.
+//!
+//! # Events
+//!
+//! * `ProgramRegistryUpdate` - Emitted when the program registrar is updated.
+//!
 use anchor_lang::prelude::*;
 
 use instructions::*;
-
 pub mod events;
 pub mod instructions;
 pub mod state;
@@ -14,9 +28,6 @@ pub mod folio_admin {
 
     use super::*;
 
-    /*
-    Admin functions
-     */
     pub fn init_program_registrar(
         ctx: Context<InitProgramRegistrar>,
         program_id: Pubkey,
@@ -35,17 +46,22 @@ pub mod folio_admin {
     pub fn set_dao_fee_config(
         ctx: Context<SetDAOFeeConfig>,
         fee_recipient: Option<Pubkey>,
-        default_fee_numerator: Option<u128>,
-        default_fee_floor: Option<u128>,
+        scaled_default_fee_numerator: Option<u128>,
+        scaled_default_fee_floor: Option<u128>,
     ) -> Result<()> {
-        set_dao_fee_config::handler(ctx, fee_recipient, default_fee_numerator, default_fee_floor)
+        set_dao_fee_config::handler(
+            ctx,
+            fee_recipient,
+            scaled_default_fee_numerator,
+            scaled_default_fee_floor,
+        )
     }
 
     pub fn set_folio_fee_config(
         ctx: Context<SetFolioFeeConfig>,
-        fee_numerator: Option<u128>,
-        fee_floor: Option<u128>,
+        scaled_fee_numerator: Option<u128>,
+        scaled_fee_floor: Option<u128>,
     ) -> Result<()> {
-        set_folio_fee_config::handler(ctx, fee_numerator, fee_floor)
+        set_folio_fee_config::handler(ctx, scaled_fee_numerator, scaled_fee_floor)
     }
 }

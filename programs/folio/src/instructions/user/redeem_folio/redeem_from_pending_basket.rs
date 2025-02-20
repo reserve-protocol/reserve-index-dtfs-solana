@@ -13,6 +13,8 @@ use shared::{
 
 use crate::state::{Folio, FolioBasket, UserPendingBasket};
 
+const EXPECTED_REMAINING_ACCOUNTS_LENGTH: usize = 3;
+
 #[derive(Accounts)]
 pub struct RedeemFromPendingBasket<'info> {
     pub system_program: Program<'info, System>,
@@ -67,7 +69,7 @@ impl RedeemFromPendingBasket<'_> {
 /// amounts: Vec<u64>: is in token amount, which we consider D9
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, RedeemFromPendingBasket<'info>>,
-    amounts: Vec<u64>,
+    raw_amounts: Vec<u64>,
 ) -> Result<()> {
     ctx.accounts.validate()?;
 
@@ -79,21 +81,19 @@ pub fn handler<'info>(
     let folio = ctx.accounts.folio.to_account_info();
     let folio_data = ctx.accounts.folio.load()?;
 
-    // Remaining accounts need to be divisible by 3
     check_condition!(
-        remaining_accounts.len() % 3 == 0,
+        remaining_accounts.len() % EXPECTED_REMAINING_ACCOUNTS_LENGTH == 0,
         InvalidNumberOfRemainingAccounts
     );
 
-    // Remaining accounts divisible by 3 needs to be equal to length of amounts
     check_condition!(
-        remaining_accounts.len() / 3 == amounts.len(),
+        remaining_accounts.len() / EXPECTED_REMAINING_ACCOUNTS_LENGTH == raw_amounts.len(),
         InvalidNumberOfRemainingAccounts
     );
 
     let mut removed_mints: Vec<TokenAmount> = vec![];
 
-    for amount in amounts {
+    for raw_amount in raw_amounts {
         let token_mint = next_account(
             &mut remaining_accounts_iter,
             false,
@@ -137,14 +137,14 @@ pub fn handler<'info>(
 
         token_interface::transfer_checked(
             CpiContext::new_with_signer(cpi_program, cpi_accounts, &[&signer_seeds[..]]),
-            amount,
+            raw_amount,
             mint.decimals,
         )?;
 
         removed_mints.push(TokenAmount {
             mint: token_mint.key(),
             amount_for_minting: 0,
-            amount_for_redeeming: amount,
+            amount_for_redeeming: raw_amount,
         });
     }
 

@@ -1,3 +1,9 @@
+# dont forget
+scaled_VAR = in d18
+raw_VAR  = in d9
+prefix not in state properties so we match solidity or not in events
+
+
 # Initial setup
 
 Follow installation instructions at https://solana.com/docs/intro/installation

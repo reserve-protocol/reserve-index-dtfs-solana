@@ -188,17 +188,11 @@ impl UserPendingBasket {
     }
 
     /// This function pokes the folio to get the latest pending fee shares, and then converts the user's pending amounts to assets.
-    ///
-    /// shares: u64: is in folio token amount, which we consider D9
-    /// folio_token_supply: u64: is in folio token amount, which we consider D9
-    /// dao_fee_numerator: u128: D18
-    /// dao_fee_denominator: u128: D18
-    /// dao_fee_floor: u128: D18
     #[allow(clippy::too_many_arguments)]
     pub fn to_assets(
         &mut self,
-        shares: u64,
-        folio_token_supply: u64, // D9
+        raw_shares: u64,
+        raw_folio_token_supply: u64,
         folio_key: &Pubkey,
         token_program_id: &Pubkey,
         folio_basket: &mut RefMut<'_, FolioBasket>,
@@ -207,21 +201,20 @@ impl UserPendingBasket {
         included_tokens: &&[AccountInfo<'_>],
         // Also pokes the folio, to make sure we get the latest fee shares
         current_time: i64,
-        dao_fee_numerator: u128,   // D18
-        dao_fee_denominator: u128, // D18
-        dao_fee_floor: u128,       // D18
+        scaled_dao_fee_numerator: u128,
+        scaled_dao_fee_denominator: u128,
+        scaled_dao_fee_floor: u128,
     ) -> Result<()> {
         // Poke the folio to make sure we get the latest fee shares
         folio.poke(
-            folio_token_supply,
+            raw_folio_token_supply,
             current_time,
-            dao_fee_numerator,
-            dao_fee_denominator,
-            dao_fee_floor,
+            scaled_dao_fee_numerator,
+            scaled_dao_fee_denominator,
+            scaled_dao_fee_floor,
         )?;
 
-        // Returned in D18
-        let total_supply_folio_token = folio.get_total_supply(folio_token_supply)?;
+        let scaled_total_supply_folio_token = folio.get_total_supply(raw_folio_token_supply)?;
 
         for (index, folio_token_account) in included_tokens.iter().enumerate() {
             let related_mint = &mut folio_basket.token_amounts[index];
@@ -236,38 +229,36 @@ impl UserPendingBasket {
                 InvalidRecipientTokenAccount
             );
 
-            // Get user amount (validate mint) (in D9)
-            let user_amount = &mut self.token_amounts[index];
+            let raw_user_amount = &mut self.token_amounts[index];
 
-            check_condition!(user_amount.mint == related_mint.mint, MintMismatch);
+            check_condition!(raw_user_amount.mint == related_mint.mint, MintMismatch);
 
             // Get token balance for folio
             let data = folio_token_account.try_borrow_data()?;
             let folio_token_account = TokenAccount::try_deserialize(&mut &data[..])?;
 
-            let folio_token_balance =
+            let raw_folio_token_balance =
                 FolioBasket::get_clean_token_balance(folio_token_account.amount, related_mint)?;
 
-            // Token balances always in D9
-            let folio_token_balance_decimal = Decimal::from_token_amount(folio_token_balance)?;
+            let scaled_folio_token_balance = Decimal::from_token_amount(raw_folio_token_balance)?;
 
             match pending_basket_type {
                 PendingBasketType::MintProcess => {
                     UserPendingBasket::to_assets_for_minting(
-                        user_amount,
+                        raw_user_amount,
                         related_mint,
-                        &total_supply_folio_token,
-                        &folio_token_balance_decimal,
-                        shares,
+                        &scaled_total_supply_folio_token,
+                        &scaled_folio_token_balance,
+                        raw_shares,
                     )?;
                 }
                 PendingBasketType::RedeemProcess => {
                     UserPendingBasket::to_assets_for_redeeming(
-                        user_amount,
+                        raw_user_amount,
                         related_mint,
-                        &total_supply_folio_token,
-                        &folio_token_balance_decimal,
-                        shares,
+                        &scaled_total_supply_folio_token,
+                        &scaled_folio_token_balance,
+                        raw_shares,
                     )?;
                 }
             }
@@ -277,61 +268,61 @@ impl UserPendingBasket {
     }
 
     pub fn to_assets_for_minting(
-        user_amount: &mut TokenAmount,      // D9
-        related_mint: &mut TokenAmount,     // D9
-        total_supply_folio_token: &Decimal, // D18
-        folio_token_balance: &Decimal,      // D18
-        shares: u64,                        // D9
+        raw_user_amount: &mut TokenAmount,
+        raw_related_mint_amount: &mut TokenAmount,
+        scaled_total_supply_folio_token: &Decimal,
+        scaled_folio_token_balance: &Decimal,
+        raw_shares: u64,
     ) -> Result<()> {
-        let calculated_shares = Decimal::from_token_amount(user_amount.amount_for_minting)?
-            .mul(total_supply_folio_token)?
-            .div(folio_token_balance)?;
+        let scaled_calculated_shares =
+            Decimal::from_token_amount(raw_user_amount.amount_for_minting)?
+                .mul(scaled_total_supply_folio_token)?
+                .div(scaled_folio_token_balance)?;
 
         check_condition!(
-            calculated_shares.to_token_amount(Rounding::Floor)?.0 >= shares,
+            scaled_calculated_shares.to_token_amount(Rounding::Floor)?.0 >= raw_shares,
             InvalidShareAmountProvided
         );
 
         // {tok} = {share} * {tok} / {share}
-        let user_amount_taken = Decimal::from_token_amount(shares)?
-            .mul(folio_token_balance)?
-            .div(total_supply_folio_token)?
+        let raw_user_amount_taken = Decimal::from_token_amount(raw_shares)?
+            .mul(scaled_folio_token_balance)?
+            .div(scaled_total_supply_folio_token)?
             .to_token_amount(Rounding::Ceiling)?;
 
         // Remove from both pending amounts
-        user_amount.amount_for_minting = user_amount
+        raw_user_amount.amount_for_minting = raw_user_amount
             .amount_for_minting
-            .checked_sub(user_amount_taken.0)
+            .checked_sub(raw_user_amount_taken.0)
             .ok_or(ErrorCode::MathOverflow)?;
-        related_mint.amount_for_minting = related_mint
+        raw_related_mint_amount.amount_for_minting = raw_related_mint_amount
             .amount_for_minting
-            .checked_sub(user_amount_taken.0)
+            .checked_sub(raw_user_amount_taken.0)
             .ok_or(ErrorCode::MathOverflow)?;
 
         Ok(())
     }
 
     pub fn to_assets_for_redeeming(
-        user_amount: &mut TokenAmount,
-        related_mint: &mut TokenAmount,
-        total_supply_folio_token: &Decimal,
-        folio_token_balance: &Decimal,
-        shares: u64,
+        raw_user_amount: &mut TokenAmount,
+        raw_related_mint_amount: &mut TokenAmount,
+        scaled_total_supply_folio_token: &Decimal,
+        scaled_folio_token_balance: &Decimal,
+        raw_shares: u64,
     ) -> Result<()> {
-        // Shares in D9
-        let amount_to_give_to_user = Decimal::from_token_amount(shares)?
-            .mul(folio_token_balance)?
-            .div(total_supply_folio_token)?
+        let raw_amount_to_give_to_user = Decimal::from_token_amount(raw_shares)?
+            .mul(scaled_folio_token_balance)?
+            .div(scaled_total_supply_folio_token)?
             .to_token_amount(Rounding::Floor)?;
 
         // Add to both pending amounts for redeeming
-        user_amount.amount_for_redeeming = user_amount
+        raw_user_amount.amount_for_redeeming = raw_user_amount
             .amount_for_redeeming
-            .checked_add(amount_to_give_to_user.0)
+            .checked_add(raw_amount_to_give_to_user.0)
             .ok_or(ErrorCode::MathOverflow)?;
-        related_mint.amount_for_redeeming = related_mint
+        raw_related_mint_amount.amount_for_redeeming = raw_related_mint_amount
             .amount_for_redeeming
-            .checked_add(amount_to_give_to_user.0)
+            .checked_add(raw_amount_to_give_to_user.0)
             .ok_or(ErrorCode::MathOverflow)?;
 
         Ok(())

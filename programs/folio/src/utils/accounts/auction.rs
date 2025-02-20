@@ -28,27 +28,27 @@ impl Auction {
     }
 
     pub fn validate_auction_approve(
-        sell_limit: &BasketRange,
-        buy_limit: &BasketRange,
-        prices: &Prices,
+        scaled_sell_limit: &BasketRange,
+        scaled_buy_limit: &BasketRange,
+        scaled_prices: &Prices,
         ttl: u64,
     ) -> Result<()> {
         check_condition!(
-            sell_limit.high <= MAX_RATE
-                && sell_limit.low <= sell_limit.spot
-                && sell_limit.high >= sell_limit.spot,
+            scaled_sell_limit.high <= MAX_RATE
+                && scaled_sell_limit.low <= scaled_sell_limit.spot
+                && scaled_sell_limit.high >= scaled_sell_limit.spot,
             InvalidSellLimit
         );
 
         check_condition!(
-            buy_limit.spot != 0
-                && buy_limit.high <= MAX_RATE
-                && buy_limit.low <= buy_limit.spot
-                && buy_limit.high >= buy_limit.spot,
+            scaled_buy_limit.spot != 0
+                && scaled_buy_limit.high <= MAX_RATE
+                && scaled_buy_limit.low <= scaled_buy_limit.spot
+                && scaled_buy_limit.high >= scaled_buy_limit.spot,
             InvalidBuyLimit
         );
 
-        check_condition!(prices.start >= prices.end, InvalidPrices);
+        check_condition!(scaled_prices.start >= scaled_prices.end, InvalidPrices);
 
         check_condition!(ttl <= MAX_TTL, InvalidTtl);
 
@@ -57,25 +57,25 @@ impl Auction {
 
     pub fn validate_auction_opening_from_auction_launcher(
         &self,
-        start_price: u128,
-        end_price: u128,
-        sell_limit: u128,
-        buy_limit: u128,
+        scaled_start_price: u128,
+        scaled_end_price: u128,
+        scaled_sell_limit: u128,
+        scaled_buy_limit: u128,
     ) -> Result<()> {
         check_condition!(
-            start_price >= self.prices.start
-                && end_price >= self.prices.end
-                && (self.prices.start == 0 || start_price <= 100 * self.prices.start),
+            scaled_start_price >= self.prices.start
+                && scaled_end_price >= self.prices.end
+                && (self.prices.start == 0 || scaled_start_price <= 100 * self.prices.start),
             InvalidPrices
         );
 
         check_condition!(
-            sell_limit >= self.sell_limit.low && sell_limit <= self.sell_limit.high,
+            scaled_sell_limit >= self.sell_limit.low && scaled_sell_limit <= self.sell_limit.high,
             InvalidSellLimit
         );
 
         check_condition!(
-            buy_limit >= self.buy_limit.low && buy_limit <= self.buy_limit.high,
+            scaled_buy_limit >= self.buy_limit.low && scaled_buy_limit <= self.buy_limit.high,
             InvalidBuyLimit
         );
 
@@ -161,11 +161,11 @@ impl Auction {
     }
 
     pub fn calculate_k(&mut self, auction_length: u64) -> Result<()> {
-        let price_ratio = Decimal::from_scaled(self.prices.start)
+        let scaled_price_ratio = Decimal::from_scaled(self.prices.start)
             .mul(&Decimal::ONE_E18)?
             .div(&Decimal::from_scaled(self.prices.end))?;
 
-        self.k = price_ratio
+        self.k = scaled_price_ratio
             .ln()?
             .unwrap()
             .div(&Decimal::from_scaled(auction_length))?
@@ -188,21 +188,21 @@ impl Auction {
                     .checked_sub(self.start)
                     .ok_or(ErrorCode::MathOverflow)?;
 
-                let time_value =
+                let scaled_time_value =
                     Decimal::from_scaled(self.k).mul(&Decimal::from_scaled(elapsed))?;
 
                 //(-time_value).exp()
-                let time_value_exponent = time_value.exp(true)?.unwrap();
+                let scaled_time_value_exponent = scaled_time_value.exp(true)?.unwrap();
 
-                let p = Decimal::from_scaled(self.prices.start)
-                    .mul(&time_value_exponent)?
+                let scaled_p = Decimal::from_scaled(self.prices.start)
+                    .mul(&scaled_time_value_exponent)?
                     .div(&Decimal::ONE_E18)?
                     .to_scaled(Rounding::Ceiling)?;
 
-                if p < self.prices.end {
+                if scaled_p < self.prices.end {
                     Ok(self.prices.end)
                 } else {
-                    Ok(p)
+                    Ok(scaled_p)
                 }
             }
         }

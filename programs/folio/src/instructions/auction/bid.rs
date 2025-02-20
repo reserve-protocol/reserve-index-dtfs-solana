@@ -114,8 +114,8 @@ impl Bid<'_> {
 
 pub fn handler(
     ctx: Context<Bid>,
-    sell_amount: u64,
-    max_buy_amount: u64,
+    raw_sell_amount: u64,
+    raw_max_buy_amount: u64,
     with_callback: bool,
     callback_data: Vec<u8>,
 ) -> Result<()> {
@@ -128,31 +128,33 @@ pub fn handler(
 
     let current_time = Clock::get()?.unix_timestamp as u64;
 
-    let price = Decimal::from_scaled(auction.get_price(current_time)?);
+    let scaled_price = Decimal::from_scaled(auction.get_price(current_time)?);
 
-    let bought_amount = Decimal::from_token_amount(sell_amount)?
-        .mul(&price)?
+    let raw_bought_amount = Decimal::from_token_amount(raw_sell_amount)?
+        .mul(&scaled_price)?
         .to_token_amount(Rounding::Floor)?
         .0;
 
-    check_condition!(bought_amount <= max_buy_amount, SlippageExceeded);
+    check_condition!(raw_bought_amount <= raw_max_buy_amount, SlippageExceeded);
 
-    let folio_token_total_supply = folio.get_total_supply(folio_token_mint.supply)?;
+    let scaled_folio_token_total_supply = folio.get_total_supply(folio_token_mint.supply)?;
 
     // Sell related logic
-    let sell_balance = ctx.accounts.folio_sell_token_account.amount;
+    let raw_sell_balance = ctx.accounts.folio_sell_token_account.amount;
 
-    let min_sell_balance = match Decimal::from_scaled(auction.sell_limit.spot)
-        .mul(&folio_token_total_supply)?
+    let raw_min_sell_balance = match Decimal::from_scaled(auction.sell_limit.spot)
+        .mul(&scaled_folio_token_total_supply)?
         .div(&Decimal::ONE_E18)?
         .to_token_amount(Rounding::Ceiling)?
         .0
     {
-        min_sell_balance if sell_balance > min_sell_balance => sell_balance - min_sell_balance,
+        raw_min_sell_balance if raw_sell_balance > raw_min_sell_balance => {
+            raw_sell_balance - raw_min_sell_balance
+        }
         _ => 0,
     };
 
-    check_condition!(sell_amount <= min_sell_balance, InsufficientBalance);
+    check_condition!(raw_sell_amount <= raw_min_sell_balance, InsufficientBalance);
 
     let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
     folio_basket.add_tokens_to_basket(&vec![auction.buy])?;
@@ -172,24 +174,24 @@ pub fn handler(
             },
             &[signer_seeds],
         ),
-        sell_amount,
+        raw_sell_amount,
         ctx.accounts.auction_sell_token_mint.decimals,
     )?;
 
     emit!(AuctionBid {
         auction_id: auction.id,
-        sell_amount,
-        bought_amount,
+        sell_amount: raw_sell_amount,
+        bought_amount: raw_bought_amount,
     });
 
     // Check if we sold out all the tokens of the sell mint
     ctx.accounts.folio_sell_token_account.reload()?;
-    let sell_balance = ctx.accounts.folio_sell_token_account.amount;
-    if sell_balance <= min_sell_balance {
+    let raw_sell_balance = ctx.accounts.folio_sell_token_account.amount;
+    if raw_sell_balance <= raw_min_sell_balance {
         auction.end = current_time;
         // cannot update sellEnds/buyEnds due to possibility of parallel auctions
 
-        if sell_balance == 0 {
+        if raw_sell_balance == 0 {
             folio_basket.remove_tokens_from_basket(&vec![auction.sell])?;
         }
     }
@@ -198,7 +200,7 @@ pub fn handler(
     if with_callback {
         ctx.accounts.folio_buy_token_account.reload()?; // Reload to make sure
 
-        let folio_buy_balance_before = ctx.accounts.folio_buy_token_account.amount;
+        let raw_folio_buy_balance_before = ctx.accounts.folio_buy_token_account.amount;
 
         cpi_call(ctx.remaining_accounts, callback_data)?;
 
@@ -209,9 +211,9 @@ pub fn handler(
             ctx.accounts
                 .folio_buy_token_account
                 .amount
-                .checked_sub(folio_buy_balance_before)
+                .checked_sub(raw_folio_buy_balance_before)
                 .ok_or(ErrorCode::MathOverflow)?
-                >= bought_amount,
+                >= raw_bought_amount,
             InsufficientBid
         );
     } else {
@@ -225,20 +227,20 @@ pub fn handler(
                     mint: ctx.accounts.auction_buy_token_mint.to_account_info(),
                 },
             ),
-            bought_amount,
+            raw_bought_amount,
             ctx.accounts.auction_buy_token_mint.decimals,
         )?;
     }
 
     // Validate max buy balance
-    let max_buy_balance = Decimal::from_scaled(auction.buy_limit.spot)
-        .mul(&folio_token_total_supply)?
+    let raw_max_buy_balance = Decimal::from_scaled(auction.buy_limit.spot)
+        .mul(&scaled_folio_token_total_supply)?
         .to_token_amount(Rounding::Floor)?
         .0;
 
     ctx.accounts.folio_buy_token_account.reload()?;
     check_condition!(
-        ctx.accounts.folio_buy_token_account.amount <= max_buy_balance,
+        ctx.accounts.folio_buy_token_account.amount <= raw_max_buy_balance,
         ExcessiveBid
     );
 

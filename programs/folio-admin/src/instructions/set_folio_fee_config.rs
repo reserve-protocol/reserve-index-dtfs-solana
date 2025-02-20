@@ -9,6 +9,17 @@ use shared::constants::{
 };
 use shared::errors::ErrorCode;
 
+/// Set the Folio fee config.
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `rent` - The rent sysvar.
+/// * `admin` - The admin account (mut, signer).
+/// * `dao_fee_config` - The DAO fee config account (PDA) (not mut, not signer).
+/// * `folio_token_mint` - The folio token mint account (not mut, not signer).
+/// * `folio` - The folio account (PDA) (not mut, not signer).
+/// * `folio_fee_config` - The folio fee config account (PDA) (init_if_needed, not signer).
+
 #[derive(Accounts)]
 pub struct SetFolioFeeConfig<'info> {
     pub system_program: Program<'info, System>,
@@ -46,27 +57,44 @@ pub struct SetFolioFeeConfig<'info> {
 }
 
 impl SetFolioFeeConfig<'_> {
-    pub fn validate(&self, fee_numerator: &Option<u128>, fee_floor: &Option<u128>) -> Result<()> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * Admin account is the authorized admin.
+    /// * Fee numerator is less than or equal to the max DAO fee.
+    /// * Fee floor is less than or equal to the max fee floor.
+    pub fn validate(
+        &self,
+        scaled_fee_numerator: &Option<u128>,
+        scaled_fee_floor: &Option<u128>,
+    ) -> Result<()> {
         check_condition!(self.admin.key() == ADMIN, Unauthorized);
 
-        if let Some(fee_numerator) = fee_numerator {
-            check_condition!(*fee_numerator <= MAX_DAO_FEE, InvalidFeeNumerator);
+        if let Some(scaled_fee_numerator) = scaled_fee_numerator {
+            check_condition!(*scaled_fee_numerator <= MAX_DAO_FEE, InvalidFeeNumerator);
         }
 
-        if let Some(fee_floor) = fee_floor {
-            check_condition!(*fee_floor <= MAX_FEE_FLOOR, InvalidFeeFloor);
+        if let Some(scaled_fee_floor) = scaled_fee_floor {
+            check_condition!(*scaled_fee_floor <= MAX_FEE_FLOOR, InvalidFeeFloor);
         }
 
         Ok(())
     }
 }
 
+/// Set the Folio fee config.
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
+/// * `scaled_fee_numerator` - The fee numerator of the Folio, scaled in D18.
+/// * `scaled_fee_floor` - The fee floor of the Folio, scaled in D18.
 pub fn handler(
     ctx: Context<SetFolioFeeConfig>,
-    fee_numerator: Option<u128>,
-    fee_floor: Option<u128>,
+    scaled_fee_numerator: Option<u128>,
+    scaled_fee_floor: Option<u128>,
 ) -> Result<()> {
-    ctx.accounts.validate(&fee_numerator, &fee_floor)?;
+    ctx.accounts
+        .validate(&scaled_fee_numerator, &scaled_fee_floor)?;
 
     let folio_fee_config = &mut ctx.accounts.folio_fee_config;
 
@@ -74,8 +102,8 @@ pub fn handler(
         folio_fee_config,
         &ctx.accounts.dao_fee_config,
         ctx.bumps.folio_fee_config,
-        fee_numerator,
-        fee_floor,
+        scaled_fee_numerator,
+        scaled_fee_floor,
     )?;
 
     Ok(())

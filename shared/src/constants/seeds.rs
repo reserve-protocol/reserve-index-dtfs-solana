@@ -1,3 +1,5 @@
+//! Seeds for the program derived addresses.
+
 pub const ACTOR_SEEDS: &[u8] = b"actor";
 pub const PROGRAM_REGISTRAR_SEEDS: &[u8] = b"program_registrar";
 pub const FOLIO_SEEDS: &[u8] = b"folio";

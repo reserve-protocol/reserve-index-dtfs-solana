@@ -1,3 +1,8 @@
+//! Error codes for the program.
+//!
+//! Custom error for Anchr programs start at 6000. i.e. here Unauthorized error would be 6000 and
+//! InvalidProgramCount would be 6001.
+
 use anchor_lang::prelude::*;
 
 #[error_code]
@@ -240,6 +245,11 @@ pub enum ErrorCode {
     InvalidHoldingTokenAccount,
 }
 
+/// Check a condition and return an error if it is not met.
+///
+/// # Arguments
+/// * `condition` - The condition to check.
+/// * `error` - The error to return if the condition is not met.
 #[macro_export]
 macro_rules! check_condition {
     ($condition:expr, $error:expr) => {

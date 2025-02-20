@@ -19,7 +19,7 @@ impl UserRewardInfo {
         folio: &Pubkey,
         reward_token: &Pubkey,
         reward_info: &Account<RewardInfo>,
-        user_balance: u64,
+        raw_user_balance: u64,
     ) -> Result<()> {
         if account_user_reward_info.data_len() == 0 {
             {
@@ -56,7 +56,7 @@ impl UserRewardInfo {
                 let mut new_account_user_reward_info: Account<UserRewardInfo> =
                     Account::<UserRewardInfo>::try_from_unchecked(account_user_reward_info)?;
 
-                new_account_user_reward_info.accrue_rewards(reward_info, user_balance)?;
+                new_account_user_reward_info.accrue_rewards(reward_info, raw_user_balance)?;
 
                 // Serialize updated struct
                 let mut data = account_user_reward_info.try_borrow_mut_data()?;
@@ -69,7 +69,7 @@ impl UserRewardInfo {
 
             check_condition!(account_user_reward_info.bump == context_bump, InvalidBump);
 
-            account_user_reward_info.accrue_rewards(reward_info, user_balance)?;
+            account_user_reward_info.accrue_rewards(reward_info, raw_user_balance)?;
 
             // Serialize updated struct
             let account_user_reward_info_account_info = account_user_reward_info.to_account_info();
@@ -84,15 +84,18 @@ impl UserRewardInfo {
     pub fn accrue_rewards(
         &mut self,
         reward_info: &RewardInfo,
-        user_governance_balance: u64, //D9
+        raw_user_governance_balance: u64,
     ) -> Result<()> {
         // D18+decimals{reward/share}
-        let (delta_result, overflow) = reward_info
+        let (scaled_delta_result, overflow) = reward_info
             .reward_index
             .overflowing_sub(self.last_reward_index);
 
-        if !overflow && delta_result != 0u128 {
-            self.calculate_and_update_accrued_rewards(user_governance_balance, delta_result)?;
+        if !overflow && scaled_delta_result != 0u128 {
+            self.calculate_and_update_accrued_rewards(
+                raw_user_governance_balance,
+                scaled_delta_result,
+            )?;
 
             self.last_reward_index = reward_info.reward_index;
         };
@@ -102,24 +105,20 @@ impl UserRewardInfo {
 
     pub fn calculate_and_update_accrued_rewards(
         &mut self,
-        user_governance_balance: u64, // D9
-        delta_result: u128,           // D18
+        raw_user_governance_balance: u64,
+        scaled_delta_result: u128,
     ) -> Result<()> {
-        // Token balances always in D9, but we want to calculate accrued rewards in D18 for precision
-        let user_balance_decimal = Decimal::from_token_amount(user_governance_balance)?;
-
-        // When we calculate accrue rewards, the total rewards already has the mint decimals
-        // So we dont need to do anything with the decimals
+        let scaled_user_balance_decimal = Decimal::from_token_amount(raw_user_governance_balance)?;
 
         // Accumulate rewards by multiplying user tokens by index and adding on unclaimed
         // {reward} = {share} * D18+decimals{reward/share} / D18
-        let supplier_delta = user_balance_decimal
-            .mul(&Decimal::from_scaled(delta_result))?
+        let scaled_supplier_delta = scaled_user_balance_decimal
+            .mul(&Decimal::from_scaled(scaled_delta_result))?
             .div(&Decimal::ONE_E18)?;
 
         self.accrued_rewards = self
             .accrued_rewards
-            .checked_add(supplier_delta.to_scaled(Rounding::Floor)?)
+            .checked_add(scaled_supplier_delta.to_scaled(Rounding::Floor)?)
             .ok_or(ErrorCode::MathOverflow)?;
 
         Ok(())

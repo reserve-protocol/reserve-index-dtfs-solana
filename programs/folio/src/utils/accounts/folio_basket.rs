@@ -157,8 +157,11 @@ impl FolioBasket {
         Ok(())
     }
 
-    pub fn get_clean_token_balance(token_balance: u64, token_amounts: &TokenAmount) -> Result<u64> {
-        token_balance
+    pub fn get_clean_token_balance(
+        raw_token_balance: u64,
+        token_amounts: &TokenAmount,
+    ) -> Result<u64> {
+        raw_token_balance
             // Since can't be rolled back, we need to act as if those have already been withdrawn
             .checked_sub(token_amounts.amount_for_redeeming)
             .ok_or(ErrorCode::MathOverflow)?
@@ -174,11 +177,11 @@ impl FolioBasket {
             .count() as u8
     }
 
-    pub fn get_migrate_balance(&self, token_balance: u64, mint: &Pubkey) -> Result<u64> {
+    pub fn get_migrate_balance(&self, raw_token_balance: u64, mint: &Pubkey) -> Result<u64> {
         let token_amount = self.token_amounts.iter().find(|ta| ta.mint == *mint);
 
         if let Some(token_amount) = token_amount {
-            FolioBasket::get_clean_token_balance(token_balance, token_amount)
+            FolioBasket::get_clean_token_balance(raw_token_balance, token_amount)
         } else {
             Err(error!(TokenMintNotInOldFolioBasket))
         }

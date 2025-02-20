@@ -31,10 +31,10 @@ impl OpenAuction<'_> {
         &self,
         folio: &Folio,
         auction: &Auction,
-        sell_limit: u128,
-        buy_limit: u128,
-        start_price: u128,
-        end_price: u128,
+        scaled_sell_limit: u128,
+        scaled_buy_limit: u128,
+        scaled_start_price: u128,
+        scaled_end_price: u128,
     ) -> Result<()> {
         folio.validate_folio(
             &self.folio.key(),
@@ -48,10 +48,10 @@ impl OpenAuction<'_> {
 
         // Validate parameters
         auction.validate_auction_opening_from_auction_launcher(
-            start_price,
-            end_price,
-            sell_limit,
-            buy_limit,
+            scaled_start_price,
+            scaled_end_price,
+            scaled_sell_limit,
+            scaled_buy_limit,
         )?;
 
         Ok(())
@@ -60,10 +60,10 @@ impl OpenAuction<'_> {
 
 pub fn handler(
     ctx: Context<OpenAuction>,
-    sell_limit: u128,
-    buy_limit: u128,
-    start_price: u128,
-    end_price: u128,
+    scaled_sell_limit: u128,
+    scaled_buy_limit: u128,
+    scaled_start_price: u128,
+    scaled_end_price: u128,
 ) -> Result<()> {
     let folio = &mut ctx.accounts.folio.load_mut()?;
     let auction = &mut ctx.accounts.auction.load_mut()?;
@@ -71,16 +71,16 @@ pub fn handler(
     ctx.accounts.validate(
         folio,
         auction,
-        sell_limit,
-        buy_limit,
-        start_price,
-        end_price,
+        scaled_sell_limit,
+        scaled_buy_limit,
+        scaled_start_price,
+        scaled_end_price,
     )?;
 
-    auction.sell_limit.spot = sell_limit;
-    auction.buy_limit.spot = buy_limit;
-    auction.prices.start = start_price;
-    auction.prices.end = end_price;
+    auction.sell_limit.spot = scaled_sell_limit;
+    auction.buy_limit.spot = scaled_buy_limit;
+    auction.prices.start = scaled_start_price;
+    auction.prices.end = scaled_end_price;
 
     let current_time = Clock::get()?.unix_timestamp as u64;
 

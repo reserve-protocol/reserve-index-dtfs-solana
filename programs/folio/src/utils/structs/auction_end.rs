@@ -8,5 +8,7 @@ use bytemuck::{Pod, Zeroable};
 #[derive(Default)]
 pub struct AuctionEnd {
     pub mint: Pubkey,
+
+    /// Scaled in seconds
     pub end_time: u64,
 }

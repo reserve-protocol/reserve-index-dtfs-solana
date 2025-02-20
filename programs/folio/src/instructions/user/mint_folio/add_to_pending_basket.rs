@@ -13,6 +13,8 @@ use crate::state::{Folio, FolioBasket, UserPendingBasket};
 use crate::utils::account_util::next_account;
 use crate::utils::structs::{FolioStatus, TokenAmount};
 
+const EXPECTED_REMAINING_ACCOUNTS_LENGTH: usize = 3;
+
 #[derive(Accounts)]
 pub struct AddToPendingBasket<'info> {
     pub system_program: Program<'info, System>,
@@ -64,7 +66,7 @@ impl AddToPendingBasket<'_> {
 
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, AddToPendingBasket<'info>>,
-    amounts: Vec<u64>,
+    raw_amounts: Vec<u64>,
 ) -> Result<()> {
     ctx.accounts.validate()?;
 
@@ -75,21 +77,19 @@ pub fn handler<'info>(
     let token_program_id = ctx.accounts.token_program.key();
     let user = ctx.accounts.user.to_account_info();
 
-    // Remaining accounts need to be divisible by 3
     check_condition!(
-        remaining_accounts.len() % 3 == 0,
+        remaining_accounts.len() % EXPECTED_REMAINING_ACCOUNTS_LENGTH == 0,
         InvalidNumberOfRemainingAccounts
     );
 
-    // Remaining accounts divisible by 3 needs to be equal to length of amounts
     check_condition!(
-        remaining_accounts.len() / 3 == amounts.len(),
+        remaining_accounts.len() / EXPECTED_REMAINING_ACCOUNTS_LENGTH == raw_amounts.len(),
         InvalidNumberOfRemainingAccounts
     );
 
     let mut added_mints: Vec<TokenAmount> = vec![];
 
-    for amount in amounts {
+    for raw_amount in raw_amounts {
         let token_mint = next_account(
             &mut remaining_accounts_iter,
             false,
@@ -127,13 +127,13 @@ pub fn handler<'info>(
 
         token_interface::transfer_checked(
             CpiContext::new(cpi_program, cpi_accounts),
-            amount,
+            raw_amount,
             mint.decimals,
         )?;
 
         added_mints.push(TokenAmount {
             mint: token_mint.key(),
-            amount_for_minting: amount,
+            amount_for_minting: raw_amount,
             amount_for_redeeming: 0,
         });
     }

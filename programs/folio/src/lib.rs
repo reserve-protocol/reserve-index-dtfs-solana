@@ -1,3 +1,53 @@
+//! Folio Program
+//!
+//! This program is used to
+//!     - Create, update, and manage folios.
+//!     - Accumulate and distribute fees.
+//!     - Conduct auctions.
+//!     - Buy into and redeem from folios.
+//!     - Migrate between different folio versions.
+//!     - Reward token distribution.
+//!
+//! ** Also has a `declare_id` with a feature flag "dev" to allow for easy local testing between
+//! ** different versions of the program.
+//!
+//! # Auction lifecycle:
+//! * `approveAuction` then `openAuction` then `bid` then `[optional] closeAuction`
+//!
+//! Auctions will attempt to close themselves once the sell token's balance reaches the sellLimit. However, they can
+//! also be closed by *any* of the 3 roles, if it is discovered one of the exchange rates has been set incorrectly.
+//!
+//! # Instructions
+//!
+//! * `init_folio` - Initialize a folio.
+//! * `resize_folio` - Resize a folio (data size).
+//! * `update_folio` - Update a folio.
+//! * `init_or_update_actor` - Initialize or update an actor.
+//! * `remove_actor` - Remove an actor with the possibility to close the actor account.
+//! * `add_to_basket` - Add tokens to the basket of a Folio, as well as mint the initial shares of the Folio.
+//! * `remove_from_basket` - Remove tokens from the basket of a Folio.
+//! * `kill_folio` - Kill a folio, which means prevent any further minting.
+//! * `start_folio_migration` - Start a folio migration, which means moving the folio to a new version of the folio program.
+//! * `migrate_folio_tokens` - Migrate the tokens of a folio to the new version of the folio in the new folio program.
+//! * `add_to_pending_basket` - Add tokens to the pending basket of a user trying to mint shares of a folio.
+//! * `remove_from_pending_basket` - Remove tokens from the pending basket of a user trying to mint shares of a folio.
+//! * `mint_folio_token` - Mint shares of the folio token to a user.
+//! * `burn_folio_token` - Burn shares of the folio token from a user (to redeem).
+//! * `redeem_from_pending_basket` - Redeem tokens from the pending basket of a user redeeming shares of a folio.
+//! * `close_user_pending_token_amount` - Close the pending token amount account of a user (to get back rent).
+//! * `poke_folio` - Poke a folio, which means update dao pending fee shares as well as fee recipients pending fee shares.
+//! * `distribute_fees` - Creates a fee distribution account that will be used to distribute fees to the fee recipients, also distributes the fee to the DAO.
+//! * `crank_fee_distribution` - Crank the fee distribution, which means distributing the fees to the fee recipients of a folio.
+//! * `approve_auction` - Approve an auction.
+//! * `open_auction` - Open an auction.
+//! * `close_auction` - Close an auction.
+//! * `open_auction_permissionless` - Open an auction permissionlessly (after a delay, if not done by allowed actors).
+//! * `bid` - Bid in an auction.
+//! * `init_or_set_reward_ratio` - Initialize or set the reward ratio of a folio.
+//! * `add_reward_token` - Add a tracked reward token to a folio.
+//! * `remove_reward_token` - Remove a tracked reward token from a folio.
+//! * `claim_rewards` - Claim rewards from a folio tokens, which means transferring the rewards accrued by a user to the user.
+//! * `accrue_rewards` - Accrue rewards to a folio, meaning updating accrued rewards.
 #![allow(clippy::too_many_arguments)]
 use anchor_lang::prelude::*;
 
@@ -27,8 +77,8 @@ pub mod folio {
     #[allow(clippy::too_many_arguments)]
     pub fn init_folio(
         ctx: Context<InitFolio>,
-        tvl_fee: u128,
-        mint_fee: u128,
+        scaled_tvl_fee: u128,
+        scaled_mint_fee: u128,
         auction_delay: u64,
         auction_length: u64,
         name: String,
@@ -38,8 +88,8 @@ pub mod folio {
     ) -> Result<()> {
         init_folio::handler(
             ctx,
-            tvl_fee,
-            mint_fee,
+            scaled_tvl_fee,
+            scaled_mint_fee,
             auction_delay,
             auction_length,
             name,
@@ -56,8 +106,8 @@ pub mod folio {
     #[allow(clippy::too_many_arguments)]
     pub fn update_folio(
         ctx: Context<UpdateFolio>,
-        tvl_fee: Option<u128>,
-        mint_fee: Option<u128>,
+        scaled_tvl_fee: Option<u128>,
+        scaled_mint_fee: Option<u128>,
         auction_delay: Option<u64>,
         auction_length: Option<u64>,
         fee_recipients_to_add: Vec<FeeRecipient>,
@@ -66,8 +116,8 @@ pub mod folio {
     ) -> Result<()> {
         update_folio::handler(
             ctx,
-            tvl_fee,
-            mint_fee,
+            scaled_tvl_fee,
+            scaled_mint_fee,
             auction_delay,
             auction_length,
             fee_recipients_to_add,
@@ -94,9 +144,9 @@ pub mod folio {
     pub fn add_to_basket<'info>(
         ctx: Context<'_, '_, 'info, 'info, AddToBasket<'info>>,
         amounts: Vec<u64>,
-        initial_shares: Option<u64>,
+        raw_initial_shares: Option<u64>,
     ) -> Result<()> {
-        add_to_basket::handler(ctx, amounts, initial_shares)
+        add_to_basket::handler(ctx, amounts, raw_initial_shares)
     }
 
     pub fn remove_from_basket<'info>(
@@ -130,37 +180,37 @@ pub mod folio {
      */
     pub fn add_to_pending_basket<'info>(
         ctx: Context<'_, '_, 'info, 'info, AddToPendingBasket<'info>>,
-        amounts: Vec<u64>,
+        raw_amounts: Vec<u64>,
     ) -> Result<()> {
-        add_to_pending_basket::handler(ctx, amounts)
+        add_to_pending_basket::handler(ctx, raw_amounts)
     }
 
     pub fn remove_from_pending_basket<'info>(
         ctx: Context<'_, '_, 'info, 'info, RemoveFromPendingBasket<'info>>,
-        amounts: Vec<u64>,
+        raw_amounts: Vec<u64>,
     ) -> Result<()> {
-        remove_from_pending_basket::handler(ctx, amounts)
+        remove_from_pending_basket::handler(ctx, raw_amounts)
     }
 
     pub fn mint_folio_token<'info>(
         ctx: Context<'_, '_, 'info, 'info, MintFolioToken<'info>>,
-        shares: u64,
+        raw_shares: u64,
     ) -> Result<()> {
-        mint_folio_token::handler(ctx, shares)
+        mint_folio_token::handler(ctx, raw_shares)
     }
 
     pub fn burn_folio_token<'info>(
         ctx: Context<'_, '_, 'info, 'info, BurnFolioToken<'info>>,
-        shares: u64,
+        raw_shares: u64,
     ) -> Result<()> {
-        burn_folio_token::handler(ctx, shares)
+        burn_folio_token::handler(ctx, raw_shares)
     }
 
     pub fn redeem_from_pending_basket<'info>(
         ctx: Context<'_, '_, 'info, 'info, RedeemFromPendingBasket<'info>>,
-        amounts: Vec<u64>,
+        raw_amounts: Vec<u64>,
     ) -> Result<()> {
-        redeem_from_pending_basket::handler(ctx, amounts)
+        redeem_from_pending_basket::handler(ctx, raw_amounts)
     }
 
     pub fn close_user_pending_token_amount<'info>(
@@ -206,12 +256,18 @@ pub mod folio {
 
     pub fn open_auction<'info>(
         ctx: Context<'_, '_, 'info, 'info, OpenAuction<'info>>,
-        sell_limit: u128,
-        buy_limit: u128,
-        start_price: u128,
-        end_price: u128,
+        scaled_sell_limit: u128,
+        scaled_buy_limit: u128,
+        scaled_start_price: u128,
+        scaled_end_price: u128,
     ) -> Result<()> {
-        open_auction::handler(ctx, sell_limit, buy_limit, start_price, end_price)
+        open_auction::handler(
+            ctx,
+            scaled_sell_limit,
+            scaled_buy_limit,
+            scaled_start_price,
+            scaled_end_price,
+        )
     }
 
     pub fn close_auction<'info>(
@@ -228,15 +284,15 @@ pub mod folio {
 
     pub fn bid<'info>(
         ctx: Context<'_, '_, 'info, 'info, Bid<'info>>,
-        sell_amount: u64,
-        max_buy_amount: u64,
+        raw_sell_amount: u64,
+        raw_max_buy_amount: u64,
         with_callback: bool,
         callback_data: Vec<u8>,
     ) -> Result<()> {
         bid::handler(
             ctx,
-            sell_amount,
-            max_buy_amount,
+            raw_sell_amount,
+            raw_max_buy_amount,
             with_callback,
             callback_data,
         )

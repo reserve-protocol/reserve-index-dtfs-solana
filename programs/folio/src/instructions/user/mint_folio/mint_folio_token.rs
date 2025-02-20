@@ -97,7 +97,7 @@ user amount / balance folio * total supply = share
 */
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, MintFolioToken<'info>>,
-    shares: u64,
+    raw_shares: u64,
 ) -> Result<()> {
     let folio_bump = {
         let folio = &mut ctx.accounts.folio.load_mut()?;
@@ -134,7 +134,7 @@ pub fn handler<'info>(
         let folio = &mut ctx.accounts.folio.load_mut()?;
 
         token_amounts_user.to_assets(
-            shares,
+            raw_shares,
             ctx.accounts.folio_token_mint.supply,
             &folio_key,
             &token_program_id,
@@ -143,21 +143,21 @@ pub fn handler<'info>(
             PendingBasketType::MintProcess,
             remaining_accounts,
             current_time,
-            fee_details.fee_numerator,
-            fee_details.fee_denominator,
-            fee_details.fee_floor,
+            fee_details.scaled_fee_numerator,
+            fee_details.scaled_fee_denominator,
+            fee_details.scaled_fee_floor,
         )?;
     }
 
     // Mint folio token to user based on shares
     let fee_shares = ctx.accounts.folio.load_mut()?.calculate_fees_for_minting(
-        shares,
-        fee_details.fee_numerator,
-        fee_details.fee_denominator,
-        fee_details.fee_floor,
+        raw_shares,
+        fee_details.scaled_fee_numerator,
+        fee_details.scaled_fee_denominator,
+        fee_details.scaled_fee_floor,
     )?;
 
-    let folio_token_amount_to_mint = shares
+    let raw_folio_token_amount_to_mint = raw_shares
         .checked_sub(fee_shares.0)
         .ok_or(ErrorCode::MathOverflow)?;
 
@@ -173,7 +173,7 @@ pub fn handler<'info>(
             },
             &[signer_seeds],
         ),
-        folio_token_amount_to_mint,
+        raw_folio_token_amount_to_mint,
     )?;
 
     Ok(())

@@ -54,8 +54,8 @@ impl UpdateFolio<'_> {
 #[allow(clippy::too_many_arguments)]
 pub fn handler(
     ctx: Context<UpdateFolio>,
-    tvl_fee: Option<u128>,
-    mint_fee: Option<u128>,
+    scaled_tvl_fee: Option<u128>,
+    scaled_mint_fee: Option<u128>,
     auction_delay: Option<u64>,
     auction_length: Option<u64>,
     fee_recipients_to_add: Vec<FeeRecipient>,
@@ -72,17 +72,19 @@ pub fn handler(
 
     let mut folio = ctx.accounts.folio.load_mut()?;
 
-    if let Some(tvl_fee) = tvl_fee {
-        check_condition!(tvl_fee <= MAX_TVL_FEE, TVLFeeTooHigh);
+    if let Some(scaled_tvl_fee) = scaled_tvl_fee {
+        check_condition!(scaled_tvl_fee <= MAX_TVL_FEE, TVLFeeTooHigh);
 
-        folio.set_tvl_fee(tvl_fee)?;
+        folio.set_tvl_fee(scaled_tvl_fee)?;
     }
 
-    if let Some(mint_fee) = mint_fee {
-        check_condition!(mint_fee <= MAX_MINT_FEE, InvalidMintFee);
-        folio.mint_fee = mint_fee;
+    if let Some(scaled_mint_fee) = scaled_mint_fee {
+        check_condition!(scaled_mint_fee <= MAX_MINT_FEE, InvalidMintFee);
+        folio.mint_fee = scaled_mint_fee;
 
-        emit!(MintFeeSet { new_fee: mint_fee });
+        emit!(MintFeeSet {
+            new_fee: scaled_mint_fee
+        });
     }
 
     if !fee_recipients_to_add.is_empty() || !fee_recipients_to_remove.is_empty() {

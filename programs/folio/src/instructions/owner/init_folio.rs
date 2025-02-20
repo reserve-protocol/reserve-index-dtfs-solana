@@ -86,15 +86,15 @@ pub struct InitFolio<'info> {
 impl InitFolio<'_> {
     pub fn validate(
         &self,
-        tvl_fee: u128,
-        mint_fee: u128,
+        scaled_tvl_fee: u128,
+        scaled_mint_fee: u128,
         auction_delay: u64,
         auction_length: u64,
         mandate: &str,
     ) -> Result<()> {
-        check_condition!(tvl_fee <= MAX_TVL_FEE, TVLFeeTooHigh);
+        check_condition!(scaled_tvl_fee <= MAX_TVL_FEE, TVLFeeTooHigh);
 
-        check_condition!(mint_fee <= MAX_MINT_FEE, InvalidMintFee);
+        check_condition!(scaled_mint_fee <= MAX_MINT_FEE, InvalidMintFee);
 
         check_condition!(auction_delay <= MAX_AUCTION_DELAY, InvalidAuctionDelay);
         check_condition!(
@@ -130,8 +130,8 @@ impl<'info> CreateMetadataAccount<'info> {
 
 pub fn handler(
     ctx: Context<InitFolio>,
-    tvl_fee: u128,
-    mint_fee: u128,
+    scaled_tvl_fee: u128,
+    scaled_mint_fee: u128,
     auction_delay: u64,
     auction_length: u64,
     name: String,
@@ -139,8 +139,13 @@ pub fn handler(
     uri: String,
     mandate: String,
 ) -> Result<()> {
-    ctx.accounts
-        .validate(tvl_fee, mint_fee, auction_delay, auction_length, &mandate)?;
+    ctx.accounts.validate(
+        scaled_tvl_fee,
+        scaled_mint_fee,
+        auction_delay,
+        auction_length,
+        &mandate,
+    )?;
 
     let folio_token_mint_key = ctx.accounts.folio_token_mint.key();
     {
@@ -148,8 +153,8 @@ pub fn handler(
 
         folio.bump = ctx.bumps.folio;
         folio.folio_token_mint = folio_token_mint_key;
-        folio.set_tvl_fee(tvl_fee)?;
-        folio.mint_fee = mint_fee;
+        folio.set_tvl_fee(scaled_tvl_fee)?;
+        folio.mint_fee = scaled_mint_fee;
         folio.status = FolioStatus::Initializing as u8;
         folio.last_poke = Clock::get()?.unix_timestamp;
         folio.dao_pending_fee_shares = 0;

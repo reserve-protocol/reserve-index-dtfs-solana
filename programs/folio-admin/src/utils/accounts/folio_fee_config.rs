@@ -5,6 +5,16 @@ use shared::errors::ErrorCode;
 use crate::state::{DAOFeeConfig, FolioFeeConfig};
 
 impl FolioFeeConfig {
+    /// Initialize or update the Folio fee config.
+    /// If the Folio fee config is not initialized, it will be initialized with the given fee numerator and fee floor.
+    /// If the Folio fee config is already initialized, it will update the fee numerator and fee floor.
+    ///
+    /// # Arguments
+    /// * `folio_fee_config` - The account info of the FolioFeeConfig account.
+    /// * `dao_fee_config` - The account info of the DAOFeeConfig account.
+    /// * `context_bump` - The bump of the folio fee config account in the context.
+    /// * `fee_numerator` - The fee numerator of the Folio, scaled in D18.
+    /// * `fee_floor` - The fee floor of the Folio, scaled in D18.
     pub fn init_or_update_folio_fee_config(
         folio_fee_config: &mut Account<FolioFeeConfig>,
         dao_fee_config: &DAOFeeConfig,

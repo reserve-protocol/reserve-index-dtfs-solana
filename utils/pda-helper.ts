@@ -272,3 +272,10 @@ export function getGovernanceHoldingPDA(
     SPL_GOVERNANCE_PROGRAM_ID
   )[0];
 }
+
+export function getRealmPDA(name: string) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("governance"), Buffer.from(name)],
+    SPL_GOVERNANCE_PROGRAM_ID
+  )[0];
+}

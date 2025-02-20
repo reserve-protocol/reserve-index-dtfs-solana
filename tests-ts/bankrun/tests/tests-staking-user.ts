@@ -273,7 +273,7 @@ describe("Bankrun - Staking User", () => {
       extraUserToClaimFor: rewardedUser2.publicKey,
     },
     {
-      desc: "(accrue for both users and rewards, does not error out)",
+      desc: "(accrue for both users and rewards, succeeds)",
       expectedError: null,
       rewardInfosAlreadyThere: async () => [
         await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
@@ -313,7 +313,7 @@ describe("Bankrun - Staking User", () => {
     },
     // Testing how long before we get a math overflow
     {
-      desc: "(accrue for both users and rewards, 60 seconds later, does not error out)",
+      desc: "(accrue for both users and rewards, 60 seconds later, succeeds)",
       expectedError: null,
       rewardInfosAlreadyThere: async () => [
         await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
@@ -339,7 +339,7 @@ describe("Bankrun - Staking User", () => {
       ],
     },
     {
-      desc: "(accrue for both users and rewards, 3,600 seconds (1h) later, errors out)",
+      desc: "(accrue for both users and rewards, 3,600 seconds (1h) later, succeeds)",
       expectedError: null,
       rewardInfosAlreadyThere: async () => [
         await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
@@ -365,7 +365,7 @@ describe("Bankrun - Staking User", () => {
       ],
     },
     {
-      desc: "(accrue for both users and rewards, 86,400 seconds (1d) later, errors out)",
+      desc: "(accrue for both users and rewards, 86,400 seconds (1d) later, succeeds)",
       expectedError: null,
       rewardInfosAlreadyThere: async () => [
         await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),

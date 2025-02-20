@@ -170,6 +170,9 @@ pub enum ErrorCode {
     #[msg("Invalid Reward Token")]
     InvalidRewardToken,
 
+    #[msg("Unsupported SPL Token")]
+    UnsupportedSPLToken,
+
     #[msg("Disallowed Reward Token")]
     DisallowedRewardToken,
 

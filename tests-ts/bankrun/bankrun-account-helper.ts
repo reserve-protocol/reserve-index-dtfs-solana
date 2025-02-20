@@ -17,7 +17,6 @@ import {
   getUserPendingBasketPDAWithBump,
   getUserRewardInfoPDA,
   getUserRewardInfoPDAWithBump,
-  getUserTokenRecordRealmsPDA,
   getFolioFeeConfigPDAWithBump,
 } from "../../utils/pda-helper";
 import { createFakeTokenOwnerRecordV2 } from "../../utils/data-helper";
@@ -268,6 +267,121 @@ function getAccountDiscriminator(accountName: string): Buffer {
 /*
 External Accounts
 */
+export function createRealm(
+  context: ProgramTestContext,
+  realmOwner: PublicKey,
+  realm: PublicKey,
+  realmName: string,
+  governanceTokenMint: PublicKey,
+  councilMint: PublicKey = Keypair.generate().publicKey
+) {
+  // Create RealmConfig
+  const config = {
+    legacy1: 0,
+    legacy2: 0,
+    reserved: new Array(6).fill(0),
+    minCommunityWeightToCreateGovernance: BigInt(0),
+    communityMintMaxVoterWeightSource: { type: 0, value: BigInt(0) }, // Assuming default source
+    councilMint,
+  };
+
+  // Create RealmV2
+  const realmData = {
+    accountType: 16, // Realm V2
+    communityMint: governanceTokenMint,
+    config: config,
+    reserved: new Array(6).fill(0),
+    legacy1: 0,
+    authority: realmOwner,
+    name: realmName,
+    reservedV2: new Array(128).fill(0),
+  };
+
+  const realmBuffer = Buffer.alloc(304);
+  let offset = 0;
+
+  realmBuffer.writeUInt8(realmData.accountType, offset);
+  offset += 1;
+
+  governanceTokenMint.toBuffer().copy(realmBuffer, offset);
+  offset += 32;
+
+  realmBuffer.writeUInt8(realmData.config.legacy1, offset);
+  offset += 1;
+
+  realmBuffer.writeUInt8(realmData.config.legacy2, offset);
+  offset += 1;
+
+  realmData.config.reserved.forEach((value) => {
+    realmBuffer.writeUInt8(value, offset);
+    offset += 1;
+  });
+
+  realmBuffer.writeBigUInt64LE(
+    realmData.config.minCommunityWeightToCreateGovernance,
+    offset
+  );
+  offset += 8;
+
+  realmBuffer.writeUInt8(
+    realmData.config.communityMintMaxVoterWeightSource.type,
+    offset
+  );
+  offset += 1;
+  realmBuffer.writeBigUInt64LE(
+    realmData.config.communityMintMaxVoterWeightSource.value,
+    offset
+  );
+  offset += 8;
+
+  // Write council_mint option
+  if (councilMint) {
+    realmBuffer.writeUInt8(1, offset); // Some
+    offset += 1;
+    councilMint.toBuffer().copy(realmBuffer, offset);
+    offset += 32;
+  } else {
+    realmBuffer.writeUInt8(0, offset); // None
+    offset += 1;
+  }
+
+  realmData.reserved.forEach((value) => {
+    realmBuffer.writeUInt8(value, offset);
+    offset += 1;
+  });
+
+  realmBuffer.writeUint16LE(realmData.legacy1, offset);
+  offset += 2;
+
+  // Write authority option
+  if (realmData.authority) {
+    realmBuffer.writeUInt8(1, offset); // Some
+    offset += 1;
+    realmData.authority.toBuffer().copy(realmBuffer, offset);
+    offset += 32;
+  } else {
+    realmBuffer.writeUInt8(0, offset); // None
+    offset += 1;
+  }
+
+  // Write name
+  const nameBuffer = Buffer.from(realmData.name);
+  realmBuffer.writeUInt32LE(nameBuffer.length, offset);
+  offset += 4;
+  nameBuffer.copy(realmBuffer, offset);
+  offset += nameBuffer.length;
+
+  realmBuffer.fill(0, offset, offset + 128);
+  offset += 128;
+
+  context.setAccount(realm, {
+    lamports: 1_000_000_000,
+    data: realmBuffer,
+    owner: SPL_GOVERNANCE_PROGRAM_ID,
+    executable: false,
+  });
+}
+
 export function createGovernanceAccount(
   context: ProgramTestContext,
   userTokenRecordPda: PublicKey,
@@ -485,15 +599,18 @@ export async function createAndSetFolio(
 export async function createAndSetActor(
   ctx: ProgramTestContext,
   program: Program<Folio>,
-  actorKeypair: Keypair,
+  actorKeypair: Keypair | PublicKey,
   folio: PublicKey,
   roles: number
 ) {
-  const actorPDAWithBump = getActorPDAWithBump(actorKeypair.publicKey, folio);
+  const actorKeypairToUse =
+    actorKeypair instanceof Keypair ? actorKeypair.publicKey : actorKeypair;
+
+  const actorPDAWithBump = getActorPDAWithBump(actorKeypairToUse, folio);
 
   const actor = {
     bump: actorPDAWithBump[1],
-    authority: actorKeypair.publicKey,
+    authority: actorKeypairToUse,
     folio: folio,
     roles: roles,
   };
@@ -818,7 +935,7 @@ export async function createAndSetFolioRewardTokens(
   };
 
   // Manual encoding for fee recipients
-  const buffer = Buffer.alloc(1992);
+  const buffer = Buffer.alloc(328);
   let offset = 0;
 
   // Encode discriminator
@@ -1328,8 +1445,6 @@ export async function buildRemainingAccountsForAccruesRewards(
   context: ProgramTestContext,
   callerKeypair: Keypair,
   folio: PublicKey,
-  folioTokenMint: PublicKey,
-  folioOwner: PublicKey, // Is the realm
   rewardTokens: PublicKey[],
   extraUser: PublicKey = callerKeypair.publicKey
 ): Promise<AccountMeta[]> {
@@ -1362,30 +1477,11 @@ export async function buildRemainingAccountsForAccruesRewards(
       isWritable: true,
     });
 
-    remainingAccounts.push({
-      pubkey: getUserTokenRecordRealmsPDA(
-        folioOwner,
-        folioTokenMint,
-        callerKeypair.publicKey
-      ),
-      isSigner: false,
-      isWritable: false,
-    });
-
     if (extraUser.toString() !== callerKeypair.publicKey.toString()) {
       remainingAccounts.push({
         pubkey: getUserRewardInfoPDA(folio, token, extraUser),
         isSigner: false,
         isWritable: true,
-      });
-      remainingAccounts.push({
-        pubkey: getUserTokenRecordRealmsPDA(
-          folioOwner,
-          folioTokenMint,
-          extraUser
-        ),
-        isSigner: false,
-        isWritable: false,
       });
     }
   }

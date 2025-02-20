@@ -3,10 +3,13 @@ use anchor_spl::token_interface::{Mint, TokenAccount};
 use shared::check_condition;
 use shared::constants::{GOVERNANCE_SEEDS, SPL_GOVERNANCE_PROGRAM_ID};
 use shared::errors::ErrorCode;
-use spl_governance::state::realm::get_governing_token_holding_address;
 
 pub struct GovernanceUtil;
-
+/*
+All of the deserializing, etc is done manually rather than using the spl-governance crate
+This is because of dependencies issues with the solana version of the program.
+It's fairly straightforward to replicate the logic here.
+*/
 impl GovernanceUtil {
     pub fn get_governance_account_balance(
         token_owner_record_governance_account: &AccountInfo,
@@ -30,19 +33,26 @@ impl GovernanceUtil {
         );
 
         let data_governance_account = token_owner_record_governance_account.try_borrow_data()?;
-        let governance_account_parsed =
-            spl_governance::state::token_owner_record::TokenOwnerRecordV2::deserialize(
-                &mut &data_governance_account[..],
-            )?;
 
-        Ok(governance_account_parsed.governing_token_deposit_amount)
-    }
+        // Skip GovernanceAccountType (1 byte)
+        // Skip realm (32 bytes)
+        // Skip governing_token_mint (32 bytes)
+        // Skip governing_token_owner (32 bytes)
+        // Total to skip: 97 bytes
 
-    pub fn folio_owner_is_realm(realm: &AccountInfo) -> Result<()> {
-        let realm_account_data = realm.try_borrow_data()?;
-        spl_governance::state::realm::RealmV2::deserialize(&mut &realm_account_data[..])?;
+        let start_index = 97;
 
-        Ok(())
+        if data_governance_account.len() < start_index + 8 {
+            return Err(ErrorCode::InvalidAccountData.into());
+        }
+
+        let deposit_amount = u64::from_le_bytes(
+            data_governance_account[start_index..start_index + 8]
+                .try_into()
+                .unwrap(),
+        );
+
+        Ok(deposit_amount)
     }
 
     pub fn get_realm_staked_balance_and_mint_decimals(
@@ -50,11 +60,16 @@ impl GovernanceUtil {
         governing_token_mint: &AccountInfo,
         holding_token_account_info: &AccountInfo,
     ) -> Result<(u64, u8)> {
-        let holding_pda = get_governing_token_holding_address(
+        let governing_token_mint_key = governing_token_mint.key();
+        let holding_pda = Pubkey::find_program_address(
+            &[
+                GOVERNANCE_SEEDS,
+                realm.as_ref(),
+                governing_token_mint_key.as_ref(),
+            ],
             &SPL_GOVERNANCE_PROGRAM_ID,
-            realm,
-            governing_token_mint.key,
-        );
+        )
+        .0;
 
         check_condition!(
             holding_token_account_info.key() == holding_pda,

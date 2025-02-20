@@ -3,7 +3,7 @@
 const { tmpLedgerDir } = require("@metaplex-foundation/amman");
 const path = require("path");
 
-const programsRemoteDeployDir = path.join(__dirname, "tests/programs");
+const programsRemoteDeployDir = path.join(__dirname, "tests-ts/programs");
 const localProgram = path.join(__dirname, "target/deploy");
 
 const programs = [
@@ -14,7 +14,7 @@ const programs = [
   },
   {
     label: "SPL Governance",
-    programId: "GovER5Lthms3bLBqWub97yVrMmEogzX7xNjdXpPPCVZw",
+    programId: "HwXcHGabc19PxzYFVSfKvuaDSNpbLGL8fhVtkcTyEymj",
     deployPath: path.join(programsRemoteDeployDir, `governance.so`),
   },
   {

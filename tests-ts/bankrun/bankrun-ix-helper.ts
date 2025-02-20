@@ -33,7 +33,9 @@ import { Folio } from "../../target/types/folio";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { getComputeLimitInstruction } from "../../utils/program-helper";
 import {
+  FOLIO_PROGRAM_ID,
   OTHER_ADMIN_KEY,
+  SPL_GOVERNANCE_PROGRAM_ID,
   TOKEN_METADATA_PROGRAM_ID,
 } from "../../utils/constants";
 import {
@@ -42,9 +44,11 @@ import {
   buildRemainingAccountsForMigrateFolioTokens,
   roleToStruct,
   Auction,
+  buildRemainingAccountsForAccruesRewards,
 } from "./bankrun-account-helper";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
 import { FolioAdmin } from "../../target/types/folio_admin";
+import { SplGovernance } from "governance-idl-sdk";
 
 /*
 Folio Admin
@@ -989,6 +993,8 @@ export async function accrueRewards<T extends boolean = true>(
   folio: PublicKey,
   governanceMint: PublicKey,
   governanceHoldingTokenAccount: PublicKey,
+  callerGovernanceTokenAccount: PublicKey,
+  userGovernanceTokenAccount: PublicKey,
   extraUser: PublicKey = callerKeypair.publicKey,
   executeTxn: T = true as T,
   remainingAccounts: AccountMeta[] = []
@@ -1009,6 +1015,8 @@ export async function accrueRewards<T extends boolean = true>(
       folioRewardTokens: getFolioRewardTokensPDA(folio),
       governanceTokenMint: governanceMint,
       governanceStakedTokenAccount: governanceHoldingTokenAccount,
+      callerGovernanceTokenAccount,
+      userGovernanceTokenAccount,
       user: extraUser ?? callerKeypair.publicKey,
     })
     .remainingAccounts(remainingAccounts)
@@ -1373,4 +1381,172 @@ export async function migrateFolioTokens<T extends boolean = true>(
   }
 
   return { ix: migrateFolioTokens, extraSigners: [] } as any;
+}
+
+/*
+Governance instructions
+*/
+
+function getGovernanceClient(programFolio: Program<Folio>) {
+  return new SplGovernance(
+    programFolio.provider.connection as any,
+    SPL_GOVERNANCE_PROGRAM_ID
+  );
+}
+
+async function buildGovernanceAccrueRewardsRemainingAccounts(
+  context: ProgramTestContext,
+  userKeypair: Keypair,
+  folioOwner: PublicKey,
+  folio: PublicKey,
+  governanceTokenMint: PublicKey,
+  rewardTokens: PublicKey[],
+  withSystemProgram: boolean = true
+) {
+  const remainingAccounts: AccountMeta[] = [];
+
+  /* Order is
+   *
+   * system_program (if needed)
+   * folio_program_info
+   * folio_owner
+   * actor
+   * folio
+   * folio_reward_tokens
+   * governance_token_mint
+   * reward token accounts
+   */
+
+  if (withSystemProgram) {
+    remainingAccounts.push({
+      pubkey: SystemProgram.programId,
+      isSigner: false,
+      isWritable: false,
+    });
+  }
+
+  remainingAccounts.push({
+    pubkey: FOLIO_PROGRAM_ID,
+    isSigner: false,
+    isWritable: false,
+  });
+
+  remainingAccounts.push({
+    pubkey: folioOwner,
+    isSigner: false,
+    isWritable: false,
+  });
+
+  remainingAccounts.push({
+    pubkey: getActorPDA(folioOwner, folio),
+    isSigner: false,
+    isWritable: false,
+  });
+
+  remainingAccounts.push({
+    pubkey: folio,
+    isSigner: false,
+    isWritable: false,
+  });
+
+  remainingAccounts.push({
+    pubkey: getFolioRewardTokensPDA(folio),
+    isSigner: false,
+    isWritable: false,
+  });
+
+  remainingAccounts.push({
+    pubkey: governanceTokenMint,
+    isSigner: false,
+    isWritable: false,
+  });
+
+  remainingAccounts.push(
+    ...(await buildRemainingAccountsForAccruesRewards(
+      context,
+      userKeypair,
+      folio,
+      rewardTokens
+    ))
+  );
+
+  return remainingAccounts;
+}
+
+export async function depositLiquidityToGovernance(
+  context: ProgramTestContext,
+  programFolio: Program<Folio>,
+  userKeypair: Keypair,
+  realm: PublicKey, // is folio owner
+  folioPDA: PublicKey,
+  governanceTokenMint: PublicKey,
+  userATA: PublicKey,
+  rewardTokens: PublicKey[],
+  amount: BN
+): Promise<BanksTransactionResultWithMeta> {
+  const depositIx = await getGovernanceClient(
+    programFolio
+  ).depositGoverningTokensInstruction(
+    realm,
+    governanceTokenMint,
+    userATA,
+    userKeypair.publicKey,
+    userKeypair.publicKey,
+    userKeypair.publicKey,
+    amount
+  );
+
+  depositIx.keys.push(
+    ...(await buildGovernanceAccrueRewardsRemainingAccounts(
+      context,
+      userKeypair,
+      realm,
+      folioPDA,
+      governanceTokenMint,
+      rewardTokens,
+      false
+    ))
+  );
+
+  return createAndProcessTransaction(context.banksClient, userKeypair, [
+    ...getComputeLimitInstruction(700_000),
+    depositIx,
+  ]);
+}
+
+export async function withdrawLiquidityFromGovernance(
+  context: ProgramTestContext,
+  programFolio: Program<Folio>,
+  userKeypair: Keypair,
+  realm: PublicKey, // is folio owner
+  folioPDA: PublicKey,
+  governanceTokenMint: PublicKey,
+  userATA: PublicKey,
+  rewardTokens: PublicKey[]
+): Promise<BanksTransactionResultWithMeta> {
+  const withdrawIx = await getGovernanceClient(
+    programFolio
+  ).withdrawGoverningTokensInstruction(
+    realm,
+    governanceTokenMint,
+    userATA,
+    userKeypair.publicKey
+  );
+
+  withdrawIx.keys.push(
+    ...(await buildGovernanceAccrueRewardsRemainingAccounts(
+      context,
+      userKeypair,
+      realm,
+      folioPDA,
+      governanceTokenMint,
+      rewardTokens,
+      true
+    ))
+  );
+
+  return createAndProcessTransaction(context.banksClient, userKeypair, [
+    ...getComputeLimitInstruction(800_000),
+    withdrawIx,
+  ]);
 }

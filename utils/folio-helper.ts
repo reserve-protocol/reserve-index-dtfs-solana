@@ -28,6 +28,7 @@ import {
   getUserPendingBasketPDA,
   getGovernanceHoldingPDA,
   getFolioFeeConfigPDA,
+  getUserTokenRecordRealmsPDA,
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -956,15 +957,23 @@ export async function accrueRewards(
         folioOwner,
         governanceMint
       ),
+      callerGovernanceTokenAccount: getUserTokenRecordRealmsPDA(
+        folioOwner,
+        governanceMint,
+        callerKeypair.publicKey
+      ),
       user: extraUser,
+      userGovernanceTokenAccount: getUserTokenRecordRealmsPDA(
+        folioOwner,
+        governanceMint,
+        extraUser
+      ),
     })
     .remainingAccounts(
       await buildRemainingAccountsForAccruesRewards(
         connection,
         callerKeypair,
         folio,
-        folioTokenMint,
-        folioOwner,
         rewardTokens,
         extraUser
       )

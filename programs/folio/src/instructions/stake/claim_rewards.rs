@@ -60,10 +60,6 @@ impl ClaimRewards<'_> {
             None,
         )?;
 
-        // Validated via the other pdas
-        // Validate that the folio owner is a realm
-        //GovernanceUtil::folio_owner_is_realm(&self.folio_owner)?;
-
         Ok(())
     }
 }

@@ -7,12 +7,12 @@ use anchor_lang::prelude::*;
 use anchor_spl::associated_token::{self};
 use anchor_spl::token_interface::{TokenAccount, TokenInterface};
 use shared::check_condition;
-use shared::constants::{ACTOR_SEEDS, SPL_GOVERNANCE_PROGRAM_ID};
+use shared::constants::ACTOR_SEEDS;
 use shared::constants::{FOLIO_REWARD_TOKENS_SEEDS, REWARD_INFO_SEEDS, USER_REWARD_INFO_SEEDS};
 use shared::errors::ErrorCode;
 
-const REMAINING_ACCOUNT_DIVIDER_FOR_CALLER: usize = 5;
-const REMAINING_ACCOUNT_DIVIDER_FOR_USER: usize = 7;
+const REMAINING_ACCOUNT_DIVIDER_FOR_CALLER: usize = 4;
+const REMAINING_ACCOUNT_DIVIDER_FOR_USER: usize = 5;
 
 #[derive(Accounts)]
 pub struct AccrueRewards<'info> {
@@ -49,9 +49,17 @@ pub struct AccrueRewards<'info> {
     #[account()]
     pub governance_staked_token_account: UncheckedAccount<'info>,
 
-    /// CHECK: User's token account
+    /// CHECK: Caller's token account of governance token
+    #[account()]
+    pub caller_governance_token_account: UncheckedAccount<'info>,
+
+    /// CHECK: User's token account (could be the same as the caller's)
     #[account()]
     pub user: UncheckedAccount<'info>,
+
+    /// CHECK: User's governance token account (could be the same as the caller's)
+    #[account()]
+    pub user_governance_token_account: UncheckedAccount<'info>,
     /*
     Remaining accounts are
 
@@ -59,9 +67,7 @@ pub struct AccrueRewards<'info> {
     - Reward info for the token mint (mut)
     - Fee recipient token account (needs to be the FOLIO TOKEN REWARDS' token account, not the DAO's)
     - User reward info for CALLER (mut)
-    - User governance account for staked amount
     - User reward info for USER **IF USER IS NOT CALLER** (mut)
-    - User governance account for staked amount **IF USER IS NOT CALLER**
      */
 }
 
@@ -74,24 +80,21 @@ impl AccrueRewards<'_> {
             Some(vec![FolioStatus::Initializing, FolioStatus::Initialized]),
         )?;
 
-        // Leaving here to show it's not something I forgot, but it's already validateed when we get the deposit balances
-        // for the users claiming.
-        //
-        // Validate that the folio owner is a realm
-        // GovernanceUtil::folio_owner_is_realm(&self.folio_owner)?;
-
         Ok(())
     }
 }
 
-// This might need to be called multiple times if there are a lot of reward tokens
-// And because of the intense CU requirements, we might need to do it for a small subset of reward tokens
+// This cant be called multiple times, needs to be atomic
 pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) -> Result<()> {
     let folio_key = ctx.accounts.folio.key();
     let folio_reward_tokens_key = ctx.accounts.folio_reward_tokens.key();
+    let governance_token_mint_key = ctx.accounts.governance_token_mint.key();
+
     let caller_key = ctx.accounts.caller.key();
     let user_key = ctx.accounts.user.key();
+
     let token_program_id = ctx.accounts.token_program.key();
+
     let current_time = Clock::get()?.unix_timestamp as u64;
 
     // The folio owner is the realm (DAO)
@@ -99,8 +102,6 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
 
     let folio = ctx.accounts.folio.load()?;
     ctx.accounts.validate(&folio)?;
-
-    let folio_token_mint = folio.folio_token_mint;
 
     let folio_reward_tokens = ctx.accounts.folio_reward_tokens.load()?;
 
@@ -117,7 +118,6 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
         REMAINING_ACCOUNT_DIVIDER_FOR_USER
     };
 
-    // Either REMAINING_ACCOUNT_DIVIDER_FOR_CALLER if user == caller, or REMAINING_ACCOUNT_DIVIDER_FOR_USER if user != caller
     check_condition!(
         ctx.remaining_accounts.len() % remaining_account_divider == 0,
         InvalidNumberOfRemainingAccounts
@@ -138,23 +138,18 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
             true,
             &FolioProgram::id(),
         )?;
+        // Folio token rewards' token account
         let fee_recipient_token_account = next_account(
             &mut remaining_accounts_iter,
             false,
             false,
             &token_program_id,
-        )?; // Folio token rewards' token account
+        )?;
         let caller_reward_info = next_account(
             &mut remaining_accounts_iter,
             false,
             true,
             &FolioProgram::id(),
-        )?;
-        let caller_governance_account = next_account(
-            &mut remaining_accounts_iter,
-            false,
-            false,
-            &SPL_GOVERNANCE_PROGRAM_ID,
         )?;
 
         // Check all the pdas
@@ -214,9 +209,9 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
 
         // Init if needed and accrue rewards on user reward info
         let caller_governance_account_balance = GovernanceUtil::get_governance_account_balance(
-            caller_governance_account,
+            &ctx.accounts.caller_governance_token_account,
             &realm_key,
-            &folio_token_mint,
+            &governance_token_mint_key,
             &caller_key,
         )?;
 
@@ -240,12 +235,6 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
                 true,
                 &FolioProgram::id(),
             )?;
-            let user_governance_account = next_account(
-                &mut remaining_accounts_iter,
-                false,
-                false,
-                &SPL_GOVERNANCE_PROGRAM_ID,
-            )?;
 
             let expected_pda_for_user = Pubkey::find_program_address(
                 &[
@@ -264,9 +253,9 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
 
             // Create the user reward info if it doesn't exist and accrue rewards on user reward info
             let user_governance_account_balance = GovernanceUtil::get_governance_account_balance(
-                user_governance_account,
+                &ctx.accounts.user_governance_token_account,
                 &realm_key,
-                &folio_token_mint,
+                &governance_token_mint_key,
                 &user_key,
             )?;
 

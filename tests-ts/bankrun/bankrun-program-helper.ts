@@ -20,7 +20,10 @@ import idlFolioAdmin from "../../target/idl/folio_admin.json";
 import { BankrunProvider } from "anchor-bankrun";
 import * as assert from "assert";
 import { AnchorError } from "@coral-xyz/anchor";
-import { TOKEN_METADATA_PROGRAM_ID } from "../../utils/constants";
+import {
+  SPL_GOVERNANCE_PROGRAM_ID,
+  TOKEN_METADATA_PROGRAM_ID,
+} from "../../utils/constants";
 import { FolioAdmin } from "../../target/types/folio_admin";
 import { Folio as FolioSecond } from "../../target/types/second_folio";
 export async function getConnectors() {
@@ -32,10 +35,14 @@ export async function getConnectors() {
     ).toString()
   );
 
-  // Copy metadata program to target
+  // Copy metadata program to target as well as governance program
   await fs.copyFile(
     path.join(__dirname, "../programs/metadata.so"),
     path.join(__dirname, "../../target/deploy/metadata.so")
+  );
+  await fs.copyFile(
+    path.join(__dirname, "../programs/governance.so"),
+    path.join(__dirname, "../../target/deploy/governance.so")
   );
 
   const context = await startAnchor(
@@ -48,6 +55,7 @@ export async function getConnectors() {
         programId: new PublicKey(idlSecondFolio.address),
       },
       { name: "metadata", programId: TOKEN_METADATA_PROGRAM_ID },
+      { name: "governance", programId: SPL_GOVERNANCE_PROGRAM_ID },
     ],
     []
   );

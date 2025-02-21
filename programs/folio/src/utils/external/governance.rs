@@ -11,6 +11,7 @@ This is because of dependencies issues with the solana version of the program.
 It's fairly straightforward to replicate the logic here.
 */
 impl GovernanceUtil {
+    #[cfg(not(tarpaulin_include))]
     pub fn get_governance_account_balance(
         token_owner_record_governance_account: &AccountInfo,
         realm: &Pubkey,
@@ -55,6 +56,7 @@ impl GovernanceUtil {
         Ok(deposit_amount)
     }
 
+    #[cfg(not(tarpaulin_include))]
     pub fn get_realm_staked_balance_and_mint_decimals(
         realm: &Pubkey,
         governing_token_mint: &AccountInfo,

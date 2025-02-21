@@ -95,6 +95,95 @@ mod tests {
     }
 
     #[test]
+    fn test_add_token_amounts_new_mint_redeem() {
+        let mut pending = UserPendingBasket::default();
+        let token = TokenAmount {
+            mint: Pubkey::new_unique(),
+            amount_for_minting: 0,
+            amount_for_redeeming: 100,
+        };
+
+        let result = pending.add_token_amounts_to_folio(
+            &vec![token],
+            true,
+            PendingBasketType::RedeemProcess,
+        );
+
+        assert!(result.is_ok());
+        assert_eq!(pending.token_amounts[0], token);
+        assert_eq!(pending.token_amounts[1], TokenAmount::default());
+    }
+
+    #[test]
+    fn test_add_token_amounts_existing_mint_redeem() {
+        let mut pending = UserPendingBasket::default();
+        let token = TokenAmount {
+            mint: Pubkey::new_unique(),
+            amount_for_minting: 0,
+            amount_for_redeeming: 100,
+        };
+        pending.token_amounts[0] = token;
+
+        let add_amount = TokenAmount {
+            mint: token.mint,
+            amount_for_minting: 0,
+            amount_for_redeeming: 50,
+        };
+
+        let result = pending.add_token_amounts_to_folio(
+            &vec![add_amount],
+            true,
+            PendingBasketType::RedeemProcess,
+        );
+
+        assert!(result.is_ok());
+        assert_eq!(pending.token_amounts[0].amount_for_redeeming, 150);
+    }
+
+    #[test]
+    fn test_add_token_amounts_exceed_max_redeem() {
+        let mut pending = UserPendingBasket::default();
+        let tokens: Vec<TokenAmount> = (0..65)
+            .map(|_| TokenAmount {
+                mint: Pubkey::new_unique(),
+                amount_for_minting: 0,
+                amount_for_redeeming: 100,
+            })
+            .collect();
+
+        let result =
+            pending.add_token_amounts_to_folio(&tokens, true, PendingBasketType::RedeemProcess);
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            ErrorCode::InvalidAddedTokenMints.into()
+        );
+    }
+
+    #[test]
+    fn test_add_token_amounts_cant_add_new_mints_redeem() {
+        let mut pending = UserPendingBasket::default();
+        let token = TokenAmount {
+            mint: Pubkey::new_unique(),
+            amount_for_minting: 0,
+            amount_for_redeeming: 100,
+        };
+
+        let result = pending.add_token_amounts_to_folio(
+            &vec![token],
+            false,
+            PendingBasketType::RedeemProcess,
+        );
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            ErrorCode::InvalidAddedTokenMints.into()
+        );
+    }
+
+    #[test]
     fn test_remove_token_amounts_existing() {
         let mut pending = UserPendingBasket::default();
         let token = TokenAmount {
@@ -120,6 +209,32 @@ mod tests {
 
         assert!(result.is_ok());
         assert_eq!(pending.token_amounts[0].amount_for_minting, 50);
+    }
+
+    #[test]
+    fn test_remove_token_amounts_existing_redeem() {
+        let mut pending = UserPendingBasket::default();
+        let token = TokenAmount {
+            mint: Pubkey::new_unique(),
+            amount_for_minting: 0,
+            amount_for_redeeming: 100,
+        };
+        pending.token_amounts[0] = token;
+
+        let remove_amount = TokenAmount {
+            mint: token.mint,
+            amount_for_minting: 0,
+            amount_for_redeeming: 50,
+        };
+
+        let result = pending.remove_token_amounts_from_folio(
+            &vec![remove_amount],
+            true,
+            PendingBasketType::RedeemProcess,
+        );
+
+        assert!(result.is_ok());
+        assert_eq!(pending.token_amounts[0].amount_for_redeeming, 50);
     }
 
     #[test]

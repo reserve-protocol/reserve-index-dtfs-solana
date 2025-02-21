@@ -10,6 +10,7 @@ use crate::events::BasketTokenRemoved;
 use crate::state::FolioBasket;
 
 impl FolioBasket {
+    #[cfg(not(tarpaulin_include))]
     pub fn process_init_if_needed(
         account_loader_folio_basket: &mut AccountLoader<FolioBasket>,
         context_bump: u8,

@@ -10,6 +10,7 @@ use shared::constants::USER_REWARD_INFO_SEEDS;
 use shared::errors::ErrorCode;
 
 impl UserRewardInfo {
+    #[cfg(not(tarpaulin_include))]
     pub fn process_init_if_needed<'info>(
         account_user_reward_info: &'info AccountInfo<'info>,
         system_program: &AccountInfo<'info>,

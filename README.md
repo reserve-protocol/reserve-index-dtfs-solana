@@ -3,6 +3,20 @@ scaled_VAR = in d18
 raw_VAR  = in d9
 prefix not in state properties so we match solidity or not in events
 
+governance with governance acc and realms and rewards etc
+
+
+# Coverage
+
+cargo tarpaulin --workspace \
+--exclude-files \
+"programs/*/src/instructions/*" \
+"programs/*/src/external/*" \
+"programs/*/src/**/events.rs" \
+"programs/*/src/**/state.rs" \
+"programs/*/src/lib.rs" \
+"programs/*/src/**/errors.rs" \
+--out Html
 
 # Initial setup
 

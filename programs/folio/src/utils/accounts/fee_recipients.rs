@@ -7,6 +7,7 @@ use shared::errors::ErrorCode;
 use shared::{check_condition, constants::MAX_FEE_RECIPIENTS};
 
 impl FeeRecipients {
+    #[cfg(not(tarpaulin_include))]
     pub fn process_init_if_needed(
         account_loader_fee_recipients: &mut AccountLoader<FeeRecipients>,
         context_bump: u8,

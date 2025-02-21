@@ -10,6 +10,7 @@ test-ledger
 .idea
 .env
 .cursorrules
+tarpaulin-report.html
 
 # TypeScript build output
 **/*.js

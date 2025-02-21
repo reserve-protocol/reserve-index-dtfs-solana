@@ -14,6 +14,7 @@ pub struct CreateMetadataAccount<'info> {
 }
 
 impl Metaplex {
+    #[cfg(not(tarpaulin_include))]
     pub fn create_metadata_account(
         ctx: &CreateMetadataAccount,
         name: String,

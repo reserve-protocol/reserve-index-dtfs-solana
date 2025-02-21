@@ -7,6 +7,7 @@ use shared::constants::{LN_2, MAX_REWARD_HALF_LIFE, MIN_REWARD_HALF_LIFE};
 use shared::errors::ErrorCode;
 
 impl FolioRewardTokens {
+    #[cfg(not(tarpaulin_include))]
     pub fn process_init_if_needed(
         account_loader_folio_reward_tokens: &mut AccountLoader<FolioRewardTokens>,
         context_bump: u8,

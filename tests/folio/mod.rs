@@ -1,10 +1,11 @@
 pub mod test_actor;
+pub mod test_auction;
 pub mod test_fee_distribution;
 pub mod test_fee_recipients;
+pub mod test_fixed_size_string;
 pub mod test_folio;
 pub mod test_folio_basket;
-
-pub mod test_auction;
+pub mod test_folio_status;
 pub mod test_math_util;
 pub mod test_reward_info;
 pub mod test_reward_token;

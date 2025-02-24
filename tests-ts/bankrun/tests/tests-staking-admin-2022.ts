@@ -1,6 +1,6 @@
 import { BN, Program } from "@coral-xyz/anchor";
 import { BankrunProvider } from "anchor-bankrun";
-import { Keypair, PublicKey } from "@solana/web3.js";
+import { Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
 import {
   BanksClient,
   BanksTransactionResultWithMeta,
@@ -47,6 +47,10 @@ import {
   getAssociatedTokenAddressSync,
   TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
+import {
+  executeGovernanceInstruction,
+  setupGovernanceAccounts,
+} from "../bankrun-governance-helper";
 describe("Bankrun - Staking Admin SPL 2022", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
@@ -60,12 +64,14 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
   let payerKeypair: Keypair;
   let adminKeypair: Keypair;
 
-  let folioOwnerKeypair: Keypair;
+  let folioOwnerPDA: PublicKey;
   let folioTokenMint: Keypair;
   let folioPDA: PublicKey;
 
   const REWARD_TOKEN_MINT = Keypair.generate();
   let rewardTokenATA: PublicKey;
+
+  const GOVERNANCE_MINT = Keypair.generate();
 
   const DEFAULT_PARAMS: {
     mintExtension: ExtensionType;
@@ -91,6 +97,12 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
   ];
 
   async function initBaseCase(mintExtension: ExtensionType) {
+    ({ folioOwnerPDA } = await setupGovernanceAccounts(
+      context,
+      adminKeypair,
+      GOVERNANCE_MINT.publicKey
+    ));
+
     await createAndSetDaoFeeConfig(
       context,
       programFolioAdmin,
@@ -107,7 +119,7 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
     await createAndSetActor(
       context,
       programFolio,
-      folioOwnerKeypair,
+      folioOwnerPDA,
       folioPDA,
       Role.Owner
     );
@@ -139,6 +151,24 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
     );
   }
 
+  async function getGovernanceTxn(
+    instruction: () => Promise<{
+      ix: TransactionInstruction;
+      extraSigners: any[];
+    }>
+  ) {
+    const { ix } = await instruction();
+
+    return executeGovernanceInstruction(
+      context,
+      // Can be any keypair that acts as executor
+      adminKeypair,
+      folioOwnerPDA,
+      GOVERNANCE_MINT.publicKey,
+      [ix]
+    );
+  }
+
   before(async () => {
     ({ keys, programFolioAdmin, programFolio, provider, context } =
       await getConnectors());
@@ -149,12 +179,10 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
 
     adminKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.admin));
 
-    folioOwnerKeypair = Keypair.generate();
     folioTokenMint = Keypair.generate();
 
     await airdrop(context, payerKeypair.publicKey, 1000);
     await airdrop(context, adminKeypair.publicKey, 1000);
-    await airdrop(context, folioOwnerKeypair.publicKey, 1000);
 
     folioPDA = getFolioPDA(folioTokenMint.publicKey);
   });
@@ -190,16 +218,19 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
 
             await travelFutureSlot(context);
 
-            txnResult = await addRewardToken<true>(
-              context,
-              banksClient,
-              programFolio,
-              folioOwnerKeypair,
-              folioPDA,
-              REWARD_TOKEN_MINT.publicKey,
-              MAX_REWARD_HALF_LIFE,
-              true,
-              rewardTokenATA
+            txnResult = await getGovernanceTxn(async () =>
+              addRewardToken<false>(
+                context,
+                banksClient,
+                programFolio,
+                adminKeypair,
+                folioOwnerPDA,
+                folioPDA,
+                REWARD_TOKEN_MINT.publicKey,
+                MAX_REWARD_HALF_LIFE,
+                false,
+                rewardTokenATA
+              )
             );
           });
 

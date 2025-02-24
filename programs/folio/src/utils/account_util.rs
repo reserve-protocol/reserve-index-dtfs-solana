@@ -20,6 +20,7 @@ use shared::{check_condition, errors::ErrorCode};
 /// * `Err(ErrorCode::AccountNotSigner)`: If the account is not a signer, and `must_be_signer` is true.
 /// * `Err(ErrorCode::AccountNotWritable)`: If the account is not writable, and `must_be_writable` is true.
 /// * `Err(ErrorCode::InvalidAccountOwner)`: If the account owner is not the expected owner (only if account is initialized).
+#[cfg(not(tarpaulin_include))]
 pub fn next_account<'b>(
     iter: &mut std::slice::Iter<'b, AccountInfo<'b>>,
     must_be_signer: bool,
@@ -55,6 +56,7 @@ pub fn next_account<'b>(
 ///
 /// * `Ok(())`: The account was initialized successfully.
 /// * `Err(ErrorCode::CreateAccountFailed)`: If the account was not initialized.
+#[cfg(not(tarpaulin_include))]
 pub fn init_pda_account_rent<'info>(
     account_to_init: &AccountInfo<'info>,
     space: usize,

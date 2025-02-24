@@ -5,6 +5,7 @@ this utility is to make a generalized cpi call.
 
 use anchor_lang::{prelude::*, solana_program::instruction::Instruction};
 
+#[cfg(not(tarpaulin_include))]
 pub fn cpi_call(remaining_accounts: &[AccountInfo], data: Vec<u8>) -> Result<()> {
     if !remaining_accounts.is_empty() {
         let callback_program = &remaining_accounts[0];

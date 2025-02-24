@@ -18,9 +18,7 @@ import {
   createAndSetRewardInfo,
   createAndSetUserRewardInfo,
   closeAccount,
-  createGovernanceHoldingAccount,
   Role,
-  createRealm,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
 import {
@@ -43,7 +41,6 @@ import {
   getFolioPDA,
   getFolioRewardTokensPDA,
   getGovernanceHoldingPDA,
-  getRealmPDA,
   getRewardInfoPDA,
   getUserRewardInfoPDA,
 } from "../../../utils/pda-helper";
@@ -54,6 +51,10 @@ import {
   depositLiquidityToGovernance,
   withdrawLiquidityFromGovernance,
 } from "../bankrun-ix-helper";
+import {
+  createGovernanceHoldingAccount,
+  setupGovernanceAccounts,
+} from "../bankrun-governance-helper";
 
 /**
  * This  file is specifically for the case where the governance program will call
@@ -75,7 +76,8 @@ describe("Bankrun - Governance staking user", () => {
   let payerKeypair: Keypair;
   let adminKeypair: Keypair;
 
-  let folioOwnerPublicKey: PublicKey;
+  let realmPDA: PublicKey;
+  let folioOwnerPDA: PublicKey;
   let folioTokenMint: Keypair;
   let folioPDA: PublicKey;
 
@@ -226,6 +228,12 @@ describe("Bankrun - Governance staking user", () => {
     // LN2 / min reward ratio available (so LN 2 / 1 day)
     rewardRatio: BN = new BN(8_022_536_812_037)
   ) {
+    ({ folioOwnerPDA, realmPDA } = await setupGovernanceAccounts(
+      context,
+      adminKeypair,
+      GOVERNANCE_MINT.publicKey
+    ));
+
     await createAndSetDaoFeeConfig(
       context,
       programFolioAdmin,
@@ -248,7 +256,7 @@ describe("Bankrun - Governance staking user", () => {
     await createAndSetActor(
       context,
       programFolio,
-      folioOwnerPublicKey,
+      folioOwnerPDA,
       folioPDA,
       Role.Owner
     );
@@ -327,27 +335,17 @@ describe("Bankrun - Governance staking user", () => {
     initToken(
       context,
       // We don't care about who owns it
-      folioOwnerPublicKey,
+      folioOwnerPDA,
       GOVERNANCE_MINT.publicKey,
       DEFAULT_DECIMALS,
       new BN(0)
     );
 
-    // The realm is the folio owner
-    await createRealm(
-      context,
-      // Don't really care about who owns the realm for the purpose of the test
-      adminKeypair.publicKey,
-      folioOwnerPublicKey,
-      REALM_NAME,
-      GOVERNANCE_MINT.publicKey
-    );
-
     createGovernanceHoldingAccount(
       context,
-      folioOwnerPublicKey,
+      realmPDA,
       GOVERNANCE_MINT.publicKey,
-      getGovernanceHoldingPDA(folioOwnerPublicKey, GOVERNANCE_MINT.publicKey),
+      getGovernanceHoldingPDA(realmPDA, GOVERNANCE_MINT.publicKey),
       // As if there's already 200 staked by some other user
       new BN(200).mul(D9)
     );
@@ -375,13 +373,10 @@ describe("Bankrun - Governance staking user", () => {
     payerKeypair = provider.wallet.payer;
 
     adminKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.admin));
-
-    folioOwnerPublicKey = getRealmPDA(REALM_NAME);
     folioTokenMint = Keypair.generate();
 
     await airdrop(context, payerKeypair.publicKey, 1000);
     await airdrop(context, adminKeypair.publicKey, 1000);
-    await airdrop(context, folioOwnerPublicKey, 1000);
     await airdrop(context, rewardedUser1.publicKey, 1000);
 
     folioPDA = getFolioPDA(folioTokenMint.publicKey);
@@ -457,7 +452,8 @@ describe("Bankrun - Governance staking user", () => {
               context,
               programFolio,
               rewardedUser1,
-              folioOwnerPublicKey, // Realm
+              realmPDA,
+              folioOwnerPDA,
               folioPDA,
               GOVERNANCE_MINT.publicKey,
               userGoverningMintATA,
@@ -484,7 +480,8 @@ describe("Bankrun - Governance staking user", () => {
               context,
               programFolio,
               rewardedUser1,
-              folioOwnerPublicKey,
+              realmPDA,
+              folioOwnerPDA,
               folioPDA,
               GOVERNANCE_MINT.publicKey,
               userGoverningMintATA,

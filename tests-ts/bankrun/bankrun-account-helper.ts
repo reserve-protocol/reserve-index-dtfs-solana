@@ -19,7 +19,6 @@ import {
   getUserRewardInfoPDAWithBump,
   getFolioFeeConfigPDAWithBump,
 } from "../../utils/pda-helper";
-import { createFakeTokenOwnerRecordV2 } from "../../utils/data-helper";
 import * as crypto from "crypto";
 import { Folio } from "../../target/types/folio";
 import { BN, Program } from "@coral-xyz/anchor";
@@ -29,7 +28,6 @@ import {
   MAX_CONCURRENT_AUCTIONS,
   MAX_AUCTION_LENGTH,
   MAX_AUCTION_DELAY,
-  SPL_GOVERNANCE_PROGRAM_ID,
   MAX_FOLIO_TOKEN_AMOUNTS,
   MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
   MAX_REWARD_TOKENS,
@@ -40,8 +38,6 @@ import {
   MAX_PADDED_STRING_LENGTH,
 } from "../../utils/constants";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
-import { ACCOUNT_SIZE, TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import { AccountLayout } from "@solana/spl-token";
 
 export enum Role {
   Owner = 0b00000001, // 1
@@ -267,178 +263,6 @@ function getAccountDiscriminator(accountName: string): Buffer {
 /*
 External Accounts
 */
-export function createRealm(
-  context: ProgramTestContext,
-  realmOwner: PublicKey,
-  realm: PublicKey,
-  realmName: string,
-  governanceTokenMint: PublicKey,
-  councilMint: PublicKey = Keypair.generate().publicKey
-) {
-  // Create RealmConfig
-  const config = {
-    legacy1: 0,
-    legacy2: 0,
-    reserved: new Array(6).fill(0),
-    minCommunityWeightToCreateGovernance: BigInt(0),
-    communityMintMaxVoterWeightSource: { type: 0, value: BigInt(0) }, // Assuming default source
-    councilMint,
-  };
-
-  // Create RealmV2
-  const realmData = {
-    accountType: 16, // Realm V2
-    communityMint: governanceTokenMint,
-    config: config,
-    reserved: new Array(6).fill(0),
-    legacy1: 0,
-    authority: realmOwner,
-    name: realmName,
-    reservedV2: new Array(128).fill(0),
-  };
-
-  const realmBuffer = Buffer.alloc(304);
-  let offset = 0;
-
-  realmBuffer.writeUInt8(realmData.accountType, offset);
-  offset += 1;
-
-  governanceTokenMint.toBuffer().copy(realmBuffer, offset);
-  offset += 32;
-
-  realmBuffer.writeUInt8(realmData.config.legacy1, offset);
-  offset += 1;
-
-  realmBuffer.writeUInt8(realmData.config.legacy2, offset);
-  offset += 1;
-
-  realmData.config.reserved.forEach((value) => {
-    realmBuffer.writeUInt8(value, offset);
-    offset += 1;
-  });
-
-  realmBuffer.writeBigUInt64LE(
-    realmData.config.minCommunityWeightToCreateGovernance,
-    offset
-  );
-  offset += 8;
-
-  realmBuffer.writeUInt8(
-    realmData.config.communityMintMaxVoterWeightSource.type,
-    offset
-  );
-  offset += 1;
-  realmBuffer.writeBigUInt64LE(
-    realmData.config.communityMintMaxVoterWeightSource.value,
-    offset
-  );
-  offset += 8;
-
-  // Write council_mint option
-  if (councilMint) {
-    realmBuffer.writeUInt8(1, offset); // Some
-    offset += 1;
-    councilMint.toBuffer().copy(realmBuffer, offset);
-    offset += 32;
-  } else {
-    realmBuffer.writeUInt8(0, offset); // None
-    offset += 1;
-  }
-
-  realmData.reserved.forEach((value) => {
-    realmBuffer.writeUInt8(value, offset);
-    offset += 1;
-  });
-
-  realmBuffer.writeUint16LE(realmData.legacy1, offset);
-  offset += 2;
-
-  // Write authority option
-  if (realmData.authority) {
-    realmBuffer.writeUInt8(1, offset); // Some
-    offset += 1;
-    realmData.authority.toBuffer().copy(realmBuffer, offset);
-    offset += 32;
-  } else {
-    realmBuffer.writeUInt8(0, offset); // None
-    offset += 1;
-  }
-
-  // Write name
-  const nameBuffer = Buffer.from(realmData.name);
-  realmBuffer.writeUInt32LE(nameBuffer.length, offset);
-  offset += 4;
-  nameBuffer.copy(realmBuffer, offset);
-  offset += nameBuffer.length;
-
-  realmBuffer.fill(0, offset, offset + 128);
-  offset += 128;
-
-  context.setAccount(realm, {
-    lamports: 1_000_000_000,
-    data: realmBuffer,
-    owner: SPL_GOVERNANCE_PROGRAM_ID,
-    executable: false,
-  });
-}
-
-export function createGovernanceAccount(
-  context: ProgramTestContext,
-  userTokenRecordPda: PublicKey,
-  depositAmount: number
-) {
-  const governanceAccountData = createFakeTokenOwnerRecordV2(
-    depositAmount,
-    Keypair.generate().publicKey,
-    Keypair.generate().publicKey,
-    Keypair.generate().publicKey,
-    Keypair.generate().publicKey
-  );
-
-  context.setAccount(userTokenRecordPda, {
-    lamports: 1_000_000_000,
-    data: governanceAccountData,
-    owner: SPL_GOVERNANCE_PROGRAM_ID,
-    executable: false,
-  });
-}
-
-/*
-This is a token account that holds all the staked governance tokens for a realm,
-is just a normal token account where the owner is the realm and the mint is the governance token
-*/
-export function createGovernanceHoldingAccount(
-  context: ProgramTestContext,
-  governanceOwner: PublicKey,
-  governanceTokenMint: PublicKey,
-  governanceHoldingPda: PublicKey,
-  balance: BN
-) {
-  const tokenAccData = Buffer.alloc(ACCOUNT_SIZE);
-  AccountLayout.encode(
-    {
-      mint: governanceTokenMint,
-      owner: governanceOwner,
-      amount: BigInt(balance.toString()),
-      delegateOption: 0,
-      delegate: PublicKey.default,
-      delegatedAmount: BigInt(0),
-      state: 1,
-      isNativeOption: 0,
-      isNative: BigInt(0),
-      closeAuthorityOption: 0,
-      closeAuthority: PublicKey.default,
-    },
-    tokenAccData
-  );
-
-  context.setAccount(governanceHoldingPda, {
-    lamports: 1_000_000_000,
-    data: tokenAccData,
-    owner: TOKEN_PROGRAM_ID,
-    executable: false,
-  });
-}
 
 export async function closeAccount(
   ctx: ProgramTestContext,

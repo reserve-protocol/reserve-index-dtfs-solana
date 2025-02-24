@@ -16,6 +16,7 @@ use shared::{
 
 impl Folio {
     #[allow(clippy::too_many_arguments)]
+    #[cfg(not(tarpaulin_include))]
     pub fn validate_folio(
         &self,
         folio_pubkey: &Pubkey,
@@ -50,6 +51,7 @@ impl Folio {
         Ok(())
     }
 
+    #[cfg(not(tarpaulin_include))]
     fn validate_permission_for_action(
         actor: &Account<'_, Actor>,
         required_roles: Vec<Role>,

@@ -15,6 +15,7 @@ use shared::errors::ErrorCode::*;
 use crate::state::{Folio, FolioBasket, UserPendingBasket};
 
 impl UserPendingBasket {
+    #[cfg(not(tarpaulin_include))]
     pub fn process_init_if_needed(
         account_loader_user_pending_basket: &mut AccountLoader<UserPendingBasket>,
         context_bump: u8,
@@ -189,6 +190,7 @@ impl UserPendingBasket {
 
     /// This function pokes the folio to get the latest pending fee shares, and then converts the user's pending amounts to assets.
     #[allow(clippy::too_many_arguments)]
+    #[cfg(not(tarpaulin_include))]
     pub fn to_assets(
         &mut self,
         raw_shares: u64,

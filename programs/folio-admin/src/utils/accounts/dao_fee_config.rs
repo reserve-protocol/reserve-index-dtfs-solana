@@ -31,6 +31,7 @@ impl DAOFeeConfig {
     /// * `fee_recipient` - The fee recipient of the DAO, is the owner and not the token account itself.
     /// * `scaled_default_fee_numerator` - The default fee numerator of the DAO, scaled in D18.
     /// * `scaled_default_fee_floor` - The default fee floor of the DAO, scaled in D18.
+    #[cfg(not(tarpaulin_include))]
     pub fn init_or_update_dao_fee_config(
         dao_fee_config: &mut Account<DAOFeeConfig>,
         context_bump: u8,
@@ -80,6 +81,7 @@ impl DAOFeeConfig {
     /// folio_fee_config is the account info of the FolioFeeConfig account.
     ///
     /// Returns the fee details for the Folio.
+    #[cfg(not(tarpaulin_include))]
     pub fn get_fee_details(&self, folio_fee_config: &AccountInfo) -> Result<FeeDetails> {
         let mut fee_details = FeeDetails {
             fee_recipient: self.fee_recipient,

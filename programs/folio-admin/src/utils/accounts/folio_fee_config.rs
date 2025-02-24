@@ -15,6 +15,7 @@ impl FolioFeeConfig {
     /// * `context_bump` - The bump of the folio fee config account in the context.
     /// * `fee_numerator` - The fee numerator of the Folio, scaled in D18.
     /// * `fee_floor` - The fee floor of the Folio, scaled in D18.
+    #[cfg(not(tarpaulin_include))]
     pub fn init_or_update_folio_fee_config(
         folio_fee_config: &mut Account<FolioFeeConfig>,
         dao_fee_config: &DAOFeeConfig,

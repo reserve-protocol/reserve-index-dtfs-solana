@@ -1,6 +1,6 @@
 import { BN, Program } from "@coral-xyz/anchor";
 import { BankrunProvider } from "anchor-bankrun";
-import { Keypair, PublicKey } from "@solana/web3.js";
+import { Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
 import {
   BanksClient,
   BanksTransactionResultWithMeta,
@@ -49,9 +49,13 @@ import {
   assertNotValidRoleTestCase,
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
-
 import * as assert from "assert";
+
 import { FolioAdmin } from "../../../target/types/folio_admin";
+import {
+  executeGovernanceInstruction,
+  setupGovernanceAccounts,
+} from "../bankrun-governance-helper";
 describe("Bankrun - Staking Admin", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
@@ -65,7 +69,9 @@ describe("Bankrun - Staking Admin", () => {
   let payerKeypair: Keypair;
   let adminKeypair: Keypair;
 
-  let folioOwnerKeypair: Keypair;
+  // Is a spl governance account
+  let folioOwnerPDA: PublicKey;
+
   let folioTokenMint: Keypair;
   let folioPDA: PublicKey;
 
@@ -77,6 +83,8 @@ describe("Bankrun - Staking Admin", () => {
   let userKeypair: Keypair;
 
   const REWARD_TOKEN_MINTS = [Keypair.generate(), Keypair.generate()];
+
+  const GOVERNANCE_MINT = Keypair.generate();
 
   const DEFAULT_PARAMS: {
     customFolioTokenMint: Keypair | null;
@@ -235,6 +243,12 @@ describe("Bankrun - Staking Admin", () => {
     customFolioTokenMint: Keypair | null = null,
     customFolioTokenSupply: BN = new BN(0)
   ) {
+    ({ folioOwnerPDA } = await setupGovernanceAccounts(
+      context,
+      adminKeypair,
+      GOVERNANCE_MINT.publicKey
+    ));
+
     await createAndSetDaoFeeConfig(
       context,
       programFolioAdmin,
@@ -263,7 +277,7 @@ describe("Bankrun - Staking Admin", () => {
     await createAndSetActor(
       context,
       programFolio,
-      folioOwnerKeypair,
+      folioOwnerPDA,
       folioPDA,
       Role.Owner
     );
@@ -271,7 +285,6 @@ describe("Bankrun - Staking Admin", () => {
     // Init the reward tokens
     for (const rewardTokenMint of REWARD_TOKEN_MINTS) {
       initToken(context, folioPDA, rewardTokenMint, DEFAULT_DECIMALS);
-
       await resetTokenBalance(
         context,
         rewardTokenMint.publicKey,
@@ -296,13 +309,11 @@ describe("Bankrun - Staking Admin", () => {
 
     adminKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.admin));
 
-    folioOwnerKeypair = Keypair.generate();
     folioTokenMint = Keypair.generate();
     userKeypair = Keypair.generate();
 
     await airdrop(context, payerKeypair.publicKey, 1000);
     await airdrop(context, adminKeypair.publicKey, 1000);
-    await airdrop(context, folioOwnerKeypair.publicKey, 1000);
     await airdrop(context, feeRecipient.publicKey, 1000);
     await airdrop(context, userKeypair.publicKey, 1000);
 
@@ -311,40 +322,63 @@ describe("Bankrun - Staking Admin", () => {
     await initBaseCase();
   });
 
+  async function getGovernanceTxn(
+    instruction: () => Promise<{
+      ix: TransactionInstruction;
+      extraSigners: any[];
+    }>
+  ) {
+    const { ix } = await instruction();
+
+    return executeGovernanceInstruction(
+      context,
+      // Can be any keypair that acts as executor
+      adminKeypair,
+      folioOwnerPDA,
+      GOVERNANCE_MINT.publicKey,
+      [ix]
+    );
+  }
+
   describe("General Tests", () => {
     const generalIxAddRewardToken = () =>
-      addRewardToken<true>(
-        context,
-        banksClient,
-        programFolio,
-        folioOwnerKeypair,
-        folioPDA,
-        REWARD_TOKEN_MINTS[0].publicKey,
-        new BN(0),
-
-        true
+      getGovernanceTxn(() =>
+        addRewardToken<false>(
+          context,
+          banksClient,
+          programFolio,
+          adminKeypair,
+          folioOwnerPDA,
+          folioPDA,
+          REWARD_TOKEN_MINTS[0].publicKey,
+          new BN(0),
+          false
+        )
       );
-
     const generalIxRemoveRewardToken = () =>
-      removeRewardToken<true>(
-        banksClient,
-        programFolio,
-        folioOwnerKeypair,
-        folioPDA,
-        REWARD_TOKEN_MINTS[0].publicKey,
-
-        true
+      getGovernanceTxn(() =>
+        removeRewardToken<false>(
+          banksClient,
+          programFolio,
+          adminKeypair,
+          folioOwnerPDA,
+          folioPDA,
+          REWARD_TOKEN_MINTS[0].publicKey,
+          false
+        )
       );
 
     const generalIxInitOrSetRewardRatio = () =>
-      initOrSetRewardRatio<true>(
-        banksClient,
-        programFolio,
-        folioOwnerKeypair,
-        folioPDA,
-        new BN(0),
-
-        true
+      getGovernanceTxn(() =>
+        initOrSetRewardRatio<false>(
+          banksClient,
+          programFolio,
+          adminKeypair,
+          folioOwnerPDA,
+          folioPDA,
+          new BN(0),
+          false
+        )
       );
 
     beforeEach(async () => {
@@ -356,7 +390,7 @@ describe("Bankrun - Staking Admin", () => {
         await assertNotValidRoleTestCase(
           context,
           programFolio,
-          folioOwnerKeypair,
+          folioOwnerPDA,
           folioPDA,
           generalIxAddRewardToken
         );
@@ -367,7 +401,6 @@ describe("Bankrun - Staking Admin", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-
           generalIxAddRewardToken,
           FolioStatus.Killed
         );
@@ -376,7 +409,6 @@ describe("Bankrun - Staking Admin", () => {
           context,
           programFolio,
           folioTokenMint.publicKey,
-
           generalIxAddRewardToken,
           FolioStatus.Migrating
         );
@@ -399,7 +431,7 @@ describe("Bankrun - Staking Admin", () => {
         await assertNotValidRoleTestCase(
           context,
           programFolio,
-          folioOwnerKeypair,
+          folioOwnerPDA,
           folioPDA,
           generalIxRemoveRewardToken
         );
@@ -431,7 +463,7 @@ describe("Bankrun - Staking Admin", () => {
         await assertNotValidRoleTestCase(
           context,
           programFolio,
-          folioOwnerKeypair,
+          folioOwnerPDA,
           folioPDA,
           generalIxInitOrSetRewardRatio
         );
@@ -501,17 +533,19 @@ describe("Bankrun - Staking Admin", () => {
 
             await travelFutureSlot(context);
 
-            txnResult = await addRewardToken<true>(
-              context,
-              banksClient,
-              programFolio,
-              folioOwnerKeypair,
-              folioPDA,
-              rewardToken,
-              rewardPeriod,
-
-              true,
-              await rewardTokenATA()
+            txnResult = await getGovernanceTxn(async () =>
+              addRewardToken<false>(
+                context,
+                banksClient,
+                programFolio,
+                adminKeypair,
+                folioOwnerPDA,
+                folioPDA,
+                rewardToken,
+                rewardPeriod,
+                false,
+                await rewardTokenATA()
+              )
             );
           });
 
@@ -594,14 +628,16 @@ describe("Bankrun - Staking Admin", () => {
 
             await travelFutureSlot(context);
 
-            txnResult = await removeRewardToken<true>(
-              banksClient,
-              programFolio,
-              folioOwnerKeypair,
-              folioPDA,
-              rewardToken,
-
-              true
+            txnResult = await getGovernanceTxn(async () =>
+              removeRewardToken<false>(
+                banksClient,
+                programFolio,
+                adminKeypair,
+                folioOwnerPDA,
+                folioPDA,
+                rewardToken,
+                false
+              )
             );
           });
 
@@ -683,14 +719,16 @@ describe("Bankrun - Staking Admin", () => {
 
             await travelFutureSlot(context);
 
-            txnResult = await initOrSetRewardRatio<true>(
-              banksClient,
-              programFolio,
-              folioOwnerKeypair,
-              folioPDA,
-              rewardPeriod,
-
-              true
+            txnResult = await getGovernanceTxn(async () =>
+              initOrSetRewardRatio<false>(
+                banksClient,
+                programFolio,
+                adminKeypair,
+                folioOwnerPDA,
+                folioPDA,
+                rewardPeriod,
+                false
+              )
             );
           });
 

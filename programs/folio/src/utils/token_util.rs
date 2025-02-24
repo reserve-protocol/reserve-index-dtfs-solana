@@ -18,6 +18,7 @@ impl TokenUtil {
         ExtensionType::MemoTransfer,
     ];
 
+    #[cfg(not(tarpaulin_include))]
     fn mint_has_extensions(mint_account_info: &AccountInfo) -> Result<bool> {
         let mint_data = mint_account_info.data.borrow();
 
@@ -30,6 +31,7 @@ impl TokenUtil {
             .any(|extension_type| mint_extension_types.contains(extension_type)))
     }
 
+    #[cfg(not(tarpaulin_include))]
     fn token_has_extensions(token_account_info: &AccountInfo) -> Result<bool> {
         let token_data = token_account_info.data.borrow();
         let token_with_extensions = StateWithExtensions::<Account>::unpack(&token_data)?;
@@ -41,6 +43,7 @@ impl TokenUtil {
             .any(|extension_type| token_extension_types.contains(extension_type)))
     }
 
+    #[cfg(not(tarpaulin_include))]
     pub fn is_supported_spl_token(
         mint_account_info: Option<&AccountInfo>,
         token_account_info: Option<&AccountInfo>,

@@ -5,15 +5,22 @@ use crate::utils::TokenUtil;
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount};
 use shared::check_condition;
-use shared::constants::{ACTOR_SEEDS, FOLIO_REWARD_TOKENS_SEEDS, REWARD_INFO_SEEDS};
+use shared::constants::{
+    ACTOR_SEEDS, FOLIO_REWARD_TOKENS_SEEDS, REWARD_INFO_SEEDS, SPL_GOVERNANCE_PROGRAM_ID,
+};
 use shared::errors::ErrorCode;
 
 #[derive(Accounts)]
 pub struct AddRewardToken<'info> {
     pub system_program: Program<'info, System>,
 
+    /// The executor
     #[account(mut)]
-    pub folio_owner: Signer<'info>,
+    pub executor: Signer<'info>,
+
+    /// CHECK: Is the PDA of the governance account that represents the folio owner (should be signer)
+    #[account(signer)]
+    pub folio_owner: UncheckedAccount<'info>,
 
     #[account(
         seeds = [ACTOR_SEEDS, folio_owner.key().as_ref(), folio.key().as_ref()],
@@ -25,7 +32,7 @@ pub struct AddRewardToken<'info> {
     pub folio: AccountLoader<'info, Folio>,
 
     #[account(init_if_needed,
-        payer = folio_owner,
+        payer = executor,
         space = FolioRewardTokens::SIZE,
         seeds = [FOLIO_REWARD_TOKENS_SEEDS, folio.key().as_ref()],
         bump
@@ -36,7 +43,7 @@ pub struct AddRewardToken<'info> {
     pub reward_token: Box<InterfaceAccount<'info, Mint>>,
 
     #[account(init_if_needed,
-        payer = folio_owner,
+        payer = executor,
         space = RewardInfo::SIZE,
         seeds = [REWARD_INFO_SEEDS, folio.key().as_ref(), reward_token.key().as_ref()],
         bump
@@ -79,6 +86,12 @@ impl AddRewardToken<'_> {
                 Some(&self.reward_token_account.to_account_info())
             )?,
             UnsupportedSPLToken
+        );
+
+        // Validate that the caller is the governance account that represents the folio owner
+        check_condition!(
+            self.folio_owner.owner == &SPL_GOVERNANCE_PROGRAM_ID,
+            InvalidGovernanceAccount
         );
 
         Ok(())

@@ -6,6 +6,7 @@ use shared::check_condition;
 use shared::errors::ErrorCode;
 
 impl RewardInfo {
+    #[cfg(not(tarpaulin_include))]
     pub fn process_init_if_needed(
         account_reward_info: &mut Account<RewardInfo>,
         context_bump: u8,

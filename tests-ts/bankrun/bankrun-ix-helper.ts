@@ -436,7 +436,6 @@ export async function addToBasket<T extends boolean = true>(
         ? OTHER_ADMIN_KEY.publicKey
         : folioOwnerKeypair.publicKey,
       actor: getActorPDA(folioOwnerKeypair.publicKey, folio),
-
       folio: folio,
       folioTokenMint,
       ownerFolioTokenAccount: await getOrCreateAtaAddress(
@@ -474,7 +473,6 @@ export async function removeFromBasket<T extends boolean = true>(
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
   tokensToRemove: PublicKey[],
-
   executeTxn: T = true as T
 ): Promise<
   T extends true
@@ -511,7 +509,6 @@ export async function addToPendingBasket<T extends boolean = true>(
   userKeypair: Keypair,
   folio: PublicKey,
   tokens: { mint: PublicKey; amount: BN }[],
-
   executeTxn: T = true as T,
   remainingAccounts: AccountMeta[] = []
 ): Promise<
@@ -560,7 +557,6 @@ export async function removeFromPendingBasket<T extends boolean = true>(
   userKeypair: Keypair,
   folio: PublicKey,
   tokens: { mint: PublicKey; amount: BN }[],
-
   executeTxn: T = true as T,
   remainingAccounts: AccountMeta[] = []
 ): Promise<
@@ -609,7 +605,6 @@ export async function mintFolioToken<T extends boolean = true>(
   folioTokenMint: PublicKey,
   tokens: { mint: PublicKey; amount: BN }[],
   shares: BN,
-
   executeTxn: T = true as T,
   remainingAccounts: AccountMeta[] = []
 ) {
@@ -657,7 +652,6 @@ export async function burnFolioToken<T extends boolean = true>(
   folioTokenMint: PublicKey,
   amountToBurn: BN,
   tokens: { mint: PublicKey; amount: BN }[],
-
   executeTxn: T = true as T,
   remainingAccounts: AccountMeta[] = []
 ) {
@@ -704,7 +698,6 @@ export async function redeemFromPendingBasket<T extends boolean = true>(
   userKeypair: Keypair,
   folio: PublicKey,
   tokens: { mint: PublicKey; amount: BN }[],
-
   executeTxn: T = true as T,
   remainingAccounts: AccountMeta[] = []
 ) {
@@ -748,7 +741,6 @@ export async function pokeFolio<T extends boolean = true>(
   userKeypair: Keypair,
   folioPDA: PublicKey,
   folioTokenMint: PublicKey,
-
   executeTxn: T = true as T
 ): Promise<
   T extends true
@@ -782,7 +774,6 @@ export async function distributeFees<T extends boolean = true>(
   folioTokenMint: PublicKey,
   daoFeeRecipient: PublicKey,
   index: BN,
-
   executeTxn: T = true as T
 ): Promise<
   T extends true
@@ -825,7 +816,6 @@ export async function crankFeeDistribution<T extends boolean = true>(
   feeDistributionIndex: BN,
   indices: BN[],
   feeRecipients: PublicKey[],
-
   executeTxn: T = true as T,
   remainingAccounts: AccountMeta[] = []
 ): Promise<
@@ -869,11 +859,16 @@ export async function crankFeeDistribution<T extends boolean = true>(
   return { ix: crankFeeDistribution, extraSigners: [] } as any;
 }
 
+/*
+Expected to be called via the spl governance program
+*/
 export async function addRewardToken<T extends boolean = true>(
   context: ProgramTestContext,
   client: BanksClient,
   programFolio: Program<Folio>,
-  ownerKeypair: Keypair,
+  executor: Keypair,
+  // Is a governance account
+  folioOwner: PublicKey,
   folio: PublicKey,
   rewardToken: PublicKey,
   rewardPeriod: BN,
@@ -888,9 +883,9 @@ export async function addRewardToken<T extends boolean = true>(
     .addRewardToken(rewardPeriod)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
-      folioOwner: ownerKeypair.publicKey,
-
-      actor: getActorPDA(ownerKeypair.publicKey, folio),
+      executor: executor.publicKey,
+      folioOwner: folioOwner,
+      actor: getActorPDA(folioOwner, folio),
       folio,
       folioRewardTokens: getFolioRewardTokensPDA(folio),
       rewardTokenRewardInfo: getRewardInfoPDA(folio, rewardToken),
@@ -906,7 +901,7 @@ export async function addRewardToken<T extends boolean = true>(
     .instruction();
 
   if (executeTxn) {
-    return createAndProcessTransaction(client, ownerKeypair, [
+    return createAndProcessTransaction(client, executor, [
       ...getComputeLimitInstruction(800_000),
       addRewardToken,
     ]) as any;
@@ -915,10 +910,15 @@ export async function addRewardToken<T extends boolean = true>(
   return { ix: addRewardToken, extraSigners: [] } as any;
 }
 
+/*
+Expected to be called via the spl governance program
+*/
 export async function removeRewardToken<T extends boolean = true>(
   client: BanksClient,
   programFolio: Program<Folio>,
-  ownerKeypair: Keypair,
+  executor: Keypair,
+  // Is a governance account
+  folioOwner: PublicKey,
   folio: PublicKey,
   rewardTokenToRemove: PublicKey,
 
@@ -932,9 +932,9 @@ export async function removeRewardToken<T extends boolean = true>(
     .removeRewardToken()
     .accountsPartial({
       systemProgram: SystemProgram.programId,
-      folioOwner: ownerKeypair.publicKey,
-
-      actor: getActorPDA(ownerKeypair.publicKey, folio),
+      executor: executor.publicKey,
+      folioOwner: folioOwner,
+      actor: getActorPDA(folioOwner, folio),
       folio,
       folioRewardTokens: getFolioRewardTokensPDA(folio),
       rewardTokenToRemove,
@@ -942,7 +942,7 @@ export async function removeRewardToken<T extends boolean = true>(
     .instruction();
 
   if (executeTxn) {
-    return createAndProcessTransaction(client, ownerKeypair, [
+    return createAndProcessTransaction(client, executor, [
       removeRewardToken,
     ]) as any;
   }
@@ -950,13 +950,17 @@ export async function removeRewardToken<T extends boolean = true>(
   return { ix: removeRewardToken, extraSigners: [] } as any;
 }
 
+/*
+Expected to be called via the spl governance program
+*/
 export async function initOrSetRewardRatio<T extends boolean = true>(
   client: BanksClient,
   programFolio: Program<Folio>,
-  ownerKeypair: Keypair,
+  executor: Keypair,
+  // Is a governance account
+  folioOwner: PublicKey,
   folio: PublicKey,
   rewardPeriod: BN,
-
   executeTxn: T = true as T
 ): Promise<
   T extends true
@@ -967,16 +971,16 @@ export async function initOrSetRewardRatio<T extends boolean = true>(
     .initOrSetRewardRatio(rewardPeriod)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
-      folioOwner: ownerKeypair.publicKey,
-
-      actor: getActorPDA(ownerKeypair.publicKey, folio),
+      executor: executor.publicKey,
+      folioOwner: folioOwner,
+      actor: getActorPDA(folioOwner, folio),
       folio,
       folioRewardTokens: getFolioRewardTokensPDA(folio),
     })
     .instruction();
 
   if (executeTxn) {
-    return createAndProcessTransaction(client, ownerKeypair, [
+    return createAndProcessTransaction(client, executor, [
       initOrSetRewardRatio,
     ]) as any;
   }
@@ -988,6 +992,8 @@ export async function accrueRewards<T extends boolean = true>(
   client: BanksClient,
   programFolio: Program<Folio>,
   callerKeypair: Keypair,
+  realm: PublicKey,
+  // Is a governance account
   folioOwner: PublicKey,
   folio: PublicKey,
   governanceMint: PublicKey,
@@ -1006,8 +1012,9 @@ export async function accrueRewards<T extends boolean = true>(
     .accrueRewards()
     .accountsPartial({
       systemProgram: SystemProgram.programId,
-      caller: callerKeypair.publicKey,
       tokenProgram: TOKEN_PROGRAM_ID,
+      caller: callerKeypair.publicKey,
+      realm,
       folioOwner,
       actor: getActorPDA(folioOwner, folio),
       folio,
@@ -1476,7 +1483,8 @@ export async function depositLiquidityToGovernance(
   context: ProgramTestContext,
   programFolio: Program<Folio>,
   userKeypair: Keypair,
-  realm: PublicKey, // is folio owner
+  realm: PublicKey,
+  folioOwnerPDA: PublicKey,
   folioPDA: PublicKey,
   governanceTokenMint: PublicKey,
   userATA: PublicKey,
@@ -1499,7 +1507,7 @@ export async function depositLiquidityToGovernance(
     ...(await buildGovernanceAccrueRewardsRemainingAccounts(
       context,
       userKeypair,
-      realm,
+      folioOwnerPDA,
       folioPDA,
       governanceTokenMint,
       rewardTokens,
@@ -1517,7 +1525,8 @@ export async function withdrawLiquidityFromGovernance(
   context: ProgramTestContext,
   programFolio: Program<Folio>,
   userKeypair: Keypair,
-  realm: PublicKey, // is folio owner
+  realm: PublicKey,
+  folioOwnerPDA: PublicKey,
   folioPDA: PublicKey,
   governanceTokenMint: PublicKey,
   userATA: PublicKey,
@@ -1536,7 +1545,7 @@ export async function withdrawLiquidityFromGovernance(
     ...(await buildGovernanceAccrueRewardsRemainingAccounts(
       context,
       userKeypair,
-      realm,
+      folioOwnerPDA,
       folioPDA,
       governanceTokenMint,
       rewardTokens,

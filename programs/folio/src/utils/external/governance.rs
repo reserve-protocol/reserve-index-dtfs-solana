@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount};
 use shared::check_condition;
+use shared::constants::GOVERNANCE_ACCOUNT_SEEDS;
 use shared::constants::{GOVERNANCE_SEEDS, SPL_GOVERNANCE_PROGRAM_ID};
 use shared::errors::ErrorCode;
 
@@ -85,5 +86,45 @@ impl GovernanceUtil {
         let token_account = TokenAccount::try_deserialize(&mut &token_account_data[..])?;
 
         Ok((token_account.amount, mint.decimals))
+    }
+
+    #[cfg(not(tarpaulin_include))]
+    pub fn validate_realm_is_valid(
+        realm: &AccountInfo,
+        // Usuaully folio owner
+        governance_account: &AccountInfo,
+    ) -> Result<()> {
+        let realm_key = realm.key();
+
+        // Get the governance seeds from the data of the governance account
+        let data = governance_account.try_borrow_data()?;
+
+        // Skip GovernanceAccountType (1 byte)
+        // Skip realm (32 bytes)
+        // Total to skip: 33 bytes
+        let start_index = 33;
+
+        if data.len() < start_index + 32 {
+            return Err(ErrorCode::InvalidAccountData.into());
+        }
+
+        let governance_seed =
+            Pubkey::new_from_array(data[start_index..start_index + 32].try_into().unwrap());
+
+        let (governance_account_pda, _) = Pubkey::find_program_address(
+            &[
+                GOVERNANCE_ACCOUNT_SEEDS,
+                realm_key.as_ref(),
+                governance_seed.as_ref(),
+            ],
+            &SPL_GOVERNANCE_PROGRAM_ID,
+        );
+
+        check_condition!(
+            governance_account.key() == governance_account_pda,
+            InvalidGovernanceAccount
+        );
+
+        Ok(())
     }
 }

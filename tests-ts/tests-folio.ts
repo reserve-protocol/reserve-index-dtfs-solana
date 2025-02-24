@@ -1323,9 +1323,14 @@ describe("Folio Tests", () => {
     );
   });
 
-  it("should allow user to add reward token", async () => {
+  /*
+   Skipping because it's tedious to create a realm and go through the spl governance process
+   (tested via bankrun instead)
+   */
+  it.skip("should allow user to add reward token", async () => {
     await addRewardToken(
       connection,
+      new Keypair(), // TODO
       folioOwnerKeypair,
       folioPDA,
       rewardTokenMints[0].mint.publicKey,
@@ -1346,9 +1351,14 @@ describe("Folio Tests", () => {
     assert.notEqual(folioRewardTokens.bump, 0);
   });
 
-  it("should allow user to init or set reward ratio", async () => {
+  /*
+   Skipping because it's tedious to create a realm and go through the spl governance process
+   (tested via bankrun instead)
+   */
+  it.skip("should allow user to init or set reward ratio", async () => {
     await initOrSetRewardRatio(
       connection,
+      new Keypair(), // TODO
       folioOwnerKeypair,
       folioPDA,
       new BN(86400)
@@ -1365,9 +1375,14 @@ describe("Folio Tests", () => {
     );
   });
 
-  it("should allow user to remove reward token", async () => {
+  /*
+   Skipping because it's tedious to create a realm and go through the spl governance process
+   (tested via bankrun instead)
+   */
+  it.skip("should allow user to remove reward token", async () => {
     await removeRewardToken(
       connection,
+      new Keypair(), // TODO
       folioOwnerKeypair,
       folioPDA,
       rewardTokenMints[0].mint.publicKey
@@ -1385,11 +1400,15 @@ describe("Folio Tests", () => {
     );
   });
 
-  // When we have the realms integration it'll be easier to test this, for now mocking isn't worth it (tested in bankrun)
+  /*
+   Skipping because it's tedious to create a realm and go through the spl governance process 
+   (tested via bankrun instead)
+   */
   it.skip("should allow user to accrue rewards, after adding 1 more reward tokens", async () => {
     // Adding the tokens
     await addRewardToken(
       connection,
+      new Keypair(), // TODO
       folioOwnerKeypair,
       folioPDA,
       rewardTokenMints[1].mint.publicKey,
@@ -1423,9 +1442,9 @@ describe("Folio Tests", () => {
     await accrueRewards(
       connection,
       userKeypair,
+      Keypair.generate().publicKey, // TODO
       folioOwnerKeypair.publicKey,
       folioPDA,
-      folioTokenMint.publicKey,
       [rewardTokenMints[1].mint.publicKey],
       // Here set governance as same as folio token mint, since it doesn't really matter
       folioTokenMint.publicKey,
@@ -1449,9 +1468,9 @@ describe("Folio Tests", () => {
     await accrueRewards(
       connection,
       userKeypair,
+      Keypair.generate().publicKey, // TODO
       folioOwnerKeypair.publicKey,
       folioPDA,
-      folioTokenMint.publicKey,
       [rewardTokenMints[1].mint.publicKey],
       // Here set governance as same as folio token mint, since it doesn't really matter
       folioTokenMint.publicKey,
@@ -1504,7 +1523,10 @@ describe("Folio Tests", () => {
     );
   });
 
-  // Skipping because rewards would need the clock to move forward too much (would be too long)
+  /*
+   Skipping because it's tedious to create a realm and go through the spl governance process 
+   (tested via bankrun instead)
+   */
   it.skip("should allow user to claim rewards", async () => {
     const rewardInfoPDA = getRewardInfoPDA(
       folioPDA,

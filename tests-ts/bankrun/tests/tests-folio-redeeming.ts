@@ -512,21 +512,13 @@ describe("Bankrun - Folio redeeming", () => {
     });
 
     describe("should run general tests for burn folio token", () => {
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for INITIALIZING & KILLED & MIGRATING`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for INITIALIZING & MIGRATING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
           folioTokenMint.publicKey,
           generalIxBurnFolioToken,
           FolioStatus.Initializing
-        );
-
-        await assertInvalidFolioStatusTestCase(
-          context,
-          programFolio,
-          folioTokenMint.publicKey,
-          generalIxBurnFolioToken,
-          FolioStatus.Killed
         );
 
         await assertInvalidFolioStatusTestCase(

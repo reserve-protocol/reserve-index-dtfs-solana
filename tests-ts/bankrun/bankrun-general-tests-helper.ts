@@ -46,7 +46,7 @@ export async function assertNonAdminTestCase(
 export async function assertNotValidRoleTestCase(
   context: ProgramTestContext,
   programFolio: Program<Folio>,
-  actorKeypair: Keypair,
+  actorKeypair: Keypair | PublicKey,
   folioPDA: PublicKey,
   executeTxn: () => Promise<BanksTransactionResultWithMeta>,
   // By default (the test case the most often is not owner, so we set something not owner)

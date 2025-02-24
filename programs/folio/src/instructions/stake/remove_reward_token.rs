@@ -4,16 +4,21 @@ use crate::utils::structs::{FolioStatus, Role};
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::Mint;
 use shared::check_condition;
-use shared::constants::ACTOR_SEEDS;
 use shared::constants::FOLIO_REWARD_TOKENS_SEEDS;
+use shared::constants::{ACTOR_SEEDS, SPL_GOVERNANCE_PROGRAM_ID};
 use shared::errors::ErrorCode;
 
 #[derive(Accounts)]
 pub struct RemoveRewardToken<'info> {
     pub system_program: Program<'info, System>,
 
+    /// The executor
     #[account(mut)]
-    pub folio_owner: Signer<'info>,
+    pub executor: Signer<'info>,
+
+    /// CHECK: Is the PDA of the governance account that represents the folio owner (should be signer)
+    #[account(signer)]
+    pub folio_owner: UncheckedAccount<'info>,
 
     #[account(
         seeds = [ACTOR_SEEDS, folio_owner.key().as_ref(), folio.key().as_ref()],
@@ -46,6 +51,12 @@ impl RemoveRewardToken<'_> {
         check_condition!(
             self.reward_token_to_remove.key() != folio.folio_token_mint,
             InvalidRewardToken
+        );
+
+        // Validate that the caller is the governance account that represents the folio owner
+        check_condition!(
+            self.folio_owner.owner == &SPL_GOVERNANCE_PROGRAM_ID,
+            InvalidGovernanceAccount
         );
 
         Ok(())

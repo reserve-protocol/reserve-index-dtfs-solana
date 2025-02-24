@@ -14,6 +14,7 @@ pub const FOLIO_REWARD_TOKENS_SEEDS: &[u8] = b"folio_reward_tokens";
 pub const REWARD_INFO_SEEDS: &[u8] = b"reward_info";
 pub const USER_REWARD_INFO_SEEDS: &[u8] = b"user_reward_info";
 pub const GOVERNANCE_SEEDS: &[u8] = b"governance";
+pub const GOVERNANCE_ACCOUNT_SEEDS: &[u8] = b"account-governance";
 
 // Metaplex
 pub const METADATA_SEEDS: &[u8] = b"metadata";

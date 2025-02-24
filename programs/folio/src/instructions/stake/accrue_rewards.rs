@@ -22,6 +22,10 @@ pub struct AccrueRewards<'info> {
     #[account(mut)]
     pub caller: Signer<'info>,
 
+    /// CHECK: Is the realm related to the folio owner
+    #[account()]
+    pub realm: UncheckedAccount<'info>,
+
     /// CHECK: Folio owner
     #[account()]
     pub folio_owner: UncheckedAccount<'info>,
@@ -80,6 +84,9 @@ impl AccrueRewards<'_> {
             Some(vec![FolioStatus::Initializing, FolioStatus::Initialized]),
         )?;
 
+        // Validate that the caller is the realm governance account that represents the folio owner
+        GovernanceUtil::validate_realm_is_valid(&self.realm, &self.folio_owner)?;
+
         Ok(())
     }
 }
@@ -97,8 +104,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
 
     let current_time = Clock::get()?.unix_timestamp as u64;
 
-    // The folio owner is the realm (DAO)
-    let realm_key = ctx.accounts.folio_owner.key();
+    let realm_key = ctx.accounts.realm.key();
 
     let folio = ctx.accounts.folio.load()?;
     ctx.accounts.validate(&folio)?;

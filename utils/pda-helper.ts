@@ -244,14 +244,14 @@ export function getUserRewardInfoPDAWithBump(
 }
 
 export function getUserTokenRecordRealmsPDA(
-  folioOwner: PublicKey, // Is the realm
+  realm: PublicKey,
   governanceTokenMint: PublicKey,
   user: PublicKey
 ) {
   return PublicKey.findProgramAddressSync(
     [
       Buffer.from("governance"),
-      folioOwner.toBuffer(),
+      realm.toBuffer(),
       governanceTokenMint.toBuffer(),
       user.toBuffer(),
     ],
@@ -276,6 +276,20 @@ export function getGovernanceHoldingPDA(
 export function getRealmPDA(name: string) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("governance"), Buffer.from(name)],
+    SPL_GOVERNANCE_PROGRAM_ID
+  )[0];
+}
+
+export function getGovernanceAccountPDA(
+  realm: PublicKey,
+  governanceAccount: PublicKey
+) {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("account-governance"),
+      realm.toBuffer(),
+      governanceAccount.toBuffer(),
+    ],
     SPL_GOVERNANCE_PROGRAM_ID
   )[0];
 }

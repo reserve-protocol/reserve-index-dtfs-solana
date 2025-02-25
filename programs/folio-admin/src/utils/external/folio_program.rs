@@ -53,6 +53,11 @@ impl FolioProgram {
         fee_distribution: &AccountInfo<'a>,
         dao_fee_recipient: &AccountInfo<'a>,
     ) -> Result<()> {
+        // Won't distribute the fees if the fee recipients account is not initialized
+        if fee_recipients.data_is_empty() {
+            return Ok(());
+        }
+
         let accounts = vec![
             rent.clone(),
             system_program.clone(),

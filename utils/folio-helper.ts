@@ -168,6 +168,8 @@ export async function updateFolio(
   connection: Connection,
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
+  folioTokenMint: PublicKey,
+  daoFeeRecipient: PublicKey,
   tvlFee: BN | null,
   indexForFeeDistribution: BN | null,
   mintFee: BN | null,
@@ -198,6 +200,43 @@ export async function updateFolio(
       folio: folio,
       feeRecipients: getTVLFeeRecipientsPDA(folio),
     })
+    .remainingAccounts([
+      {
+        pubkey: TOKEN_PROGRAM_ID,
+        isSigner: false,
+        isWritable: false,
+      },
+      {
+        pubkey: getDAOFeeConfigPDA(),
+        isSigner: false,
+        isWritable: false,
+      },
+      {
+        pubkey: getFolioFeeConfigPDA(folio),
+        isSigner: false,
+        isWritable: false,
+      },
+      {
+        pubkey: folioTokenMint,
+        isSigner: false,
+        isWritable: true,
+      },
+      {
+        pubkey: getFeeDistributionPDA(folio, indexForFeeDistribution),
+        isSigner: false,
+        isWritable: true,
+      },
+      {
+        pubkey: await getOrCreateAtaAddress(
+          connection,
+          folioTokenMint,
+          folioOwnerKeypair,
+          daoFeeRecipient
+        ),
+        isSigner: false,
+        isWritable: true,
+      },
+    ])
     .instruction();
 
   await pSendAndConfirmTxn(

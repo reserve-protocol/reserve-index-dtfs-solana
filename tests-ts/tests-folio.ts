@@ -127,7 +127,7 @@ describe("Folio Tests", () => {
   const feeRecipient: PublicKey = Keypair.generate().publicKey;
   const feeNumerator: BN = new BN("500000000000000000"); //50% in D18
 
-  let currentFeeDistributionIndex: BN = new BN(1);
+  let currentFeeDistributionIndex: BN = new BN(0);
 
   function getAndIncreaseCurrentFeeDistributionIndex() {
     const index = currentFeeDistributionIndex;
@@ -334,8 +334,11 @@ describe("Folio Tests", () => {
       connection,
       folioOwnerKeypair,
       folioPDA,
+      folioTokenMint.publicKey,
+      feeRecipient,
       folioBefore.tvlFee.sub(new BN(1)),
-      getAndIncreaseCurrentFeeDistributionIndex(),
+      // Won't get distributed here since fee recipients aren't created
+      currentFeeDistributionIndex,
       null,
       null,
       null,
@@ -358,6 +361,8 @@ describe("Folio Tests", () => {
       connection,
       folioOwnerKeypair,
       folioPDA,
+      folioTokenMint.publicKey,
+      feeRecipient,
       // This will put the tvl fee lower, as we're calling set_tvl_fee which does calculations
       folioBefore.tvlFee,
       getAndIncreaseCurrentFeeDistributionIndex(),
@@ -380,6 +385,8 @@ describe("Folio Tests", () => {
       connection,
       folioOwnerKeypair,
       folioPDA,
+      folioTokenMint.publicKey,
+      feeRecipient,
       null,
       getAndIncreaseCurrentFeeDistributionIndex(),
       null,
@@ -810,8 +817,8 @@ describe("Folio Tests", () => {
       beforeSnapshot,
       afterSnapshot,
       Array.from({ length: 5 }).map((_, i) => [
-        -29.999999976 * 10 ** tokenMints[i].decimals,
-        -29.999999976 * 10 ** tokenMints[i].decimals,
+        -29.999999999 * 10 ** tokenMints[i].decimals,
+        -29.999999999 * 10 ** tokenMints[i].decimals,
       ]),
       [],
       // Receives a bit less than 3 tokens because of the fees
@@ -851,8 +858,8 @@ describe("Folio Tests", () => {
       beforeSnapshot,
       afterSnapshot,
       Array.from({ length: 5 }).map((_, i) => [
-        19.99999998 * 10 ** tokenMints[i].decimals,
-        19.99999998 * 10 ** tokenMints[i].decimals,
+        19.99999999 * 10 ** tokenMints[i].decimals,
+        19.99999999 * 10 ** tokenMints[i].decimals,
       ]),
       [],
       [0, -2],

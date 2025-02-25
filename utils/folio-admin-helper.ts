@@ -13,8 +13,13 @@ import {
   getProgramRegistrarPDA,
   getDAOFeeConfigPDA,
   getFolioFeeConfigPDA,
+  getFeeDistributionPDA,
+  getTVLFeeRecipientsPDA,
 } from "./pda-helper";
 import { FolioAdmin } from "../target/types/folio_admin";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { FOLIO_PROGRAM_ID } from "./constants";
+import { getOrCreateAtaAddress } from "./token-helper";
 
 let folioAdminProgram: Program<FolioAdmin> = null;
 
@@ -71,7 +76,8 @@ export async function setFolioFeeConfig(
   folio: PublicKey,
   folioTokenMint: PublicKey,
   feeNumerator: BN,
-  feeFloor: BN
+  feeFloor: BN,
+  daoFeeRecipient: PublicKey
 ) {
   const folioAdminProgram = getFolioAdminProgram(connection, adminKeypair);
 
@@ -80,11 +86,21 @@ export async function setFolioFeeConfig(
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
+      tokenProgram: TOKEN_PROGRAM_ID,
       admin: adminKeypair.publicKey,
       daoFeeConfig: getDAOFeeConfigPDA(),
       folioTokenMint: folioTokenMint,
       folio: folio,
       folioFeeConfig: getFolioFeeConfigPDA(folio),
+      folioProgram: FOLIO_PROGRAM_ID,
+      feeRecipients: getTVLFeeRecipientsPDA(folio),
+      feeDistribution: getFeeDistributionPDA(folio, new BN(1)),
+      daoFeeRecipient: await getOrCreateAtaAddress(
+        connection,
+        folioTokenMint,
+        adminKeypair,
+        daoFeeRecipient
+      ),
     })
     .instruction();
 

@@ -104,9 +104,10 @@ pub mod folio {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn update_folio(
-        ctx: Context<UpdateFolio>,
+    pub fn update_folio<'info>(
+        ctx: Context<'_, '_, 'info, 'info, UpdateFolio<'info>>,
         scaled_tvl_fee: Option<u128>,
+        index_for_fee_distribution: Option<u64>,
         scaled_mint_fee: Option<u128>,
         auction_delay: Option<u64>,
         auction_length: Option<u64>,
@@ -117,6 +118,7 @@ pub mod folio {
         update_folio::handler(
             ctx,
             scaled_tvl_fee,
+            index_for_fee_distribution,
             scaled_mint_fee,
             auction_delay,
             auction_length,

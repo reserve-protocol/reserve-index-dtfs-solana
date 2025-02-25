@@ -92,6 +92,16 @@ impl DAOFeeConfig {
 
         if !folio_fee_config.data_is_empty() {
             let folio_fee_config_data = folio_fee_config.try_borrow_mut_data()?;
+
+            // Check if initialized
+            let mut disc_bytes = [0u8; 8];
+            disc_bytes.copy_from_slice(&folio_fee_config_data[..8]);
+            let discriminator = u64::from_le_bytes(disc_bytes);
+
+            if discriminator == 0 {
+                return Ok(fee_details);
+            }
+
             let folio_fee_config =
                 FolioFeeConfig::try_deserialize(&mut &folio_fee_config_data[..])?;
 

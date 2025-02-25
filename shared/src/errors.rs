@@ -109,6 +109,9 @@ pub enum ErrorCode {
     #[msg("Invalid Fee Distribution")]
     InvalidFeeDistribution,
 
+    #[msg("Missing Fee Distribution Index")]
+    MissingFeeDistributionIndex,
+
     #[msg("Invalid Auction Delay")]
     InvalidAuctionDelay,
 

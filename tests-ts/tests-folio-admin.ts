@@ -72,7 +72,8 @@ describe("Folio Admin Tests", () => {
       getFolioPDA(folioTokenMint.publicKey),
       folioTokenMint.publicKey,
       feeNumerator.sub(new BN(1)),
-      MAX_FEE_FLOOR.sub(new BN(1))
+      MAX_FEE_FLOOR.sub(new BN(1)),
+      feeRecipient
     );
 
     const folioFeeConfigPDA = getFolioFeeConfigPDA(

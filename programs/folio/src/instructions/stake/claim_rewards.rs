@@ -2,7 +2,7 @@ use crate::program::Folio as FolioProgram;
 use crate::state::{Actor, Folio, FolioRewardTokens, RewardInfo, UserRewardInfo};
 use crate::utils::account_util::next_account;
 use crate::utils::structs::Role;
-use crate::utils::{Decimal, Rounding};
+use crate::utils::{Decimal, FolioProgramInternal, Rounding};
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::{self};
 use anchor_spl::token_interface;
@@ -13,6 +13,7 @@ use shared::constants::{FOLIO_REWARD_TOKENS_SEEDS, REWARD_INFO_SEEDS, USER_REWAR
 use shared::errors::ErrorCode;
 
 const REMAINING_ACCOUNTS_DIVIDER: usize = 5;
+const REMAINING_ACCOUNTS_UPPER_INDEX_FOR_ACCRUE_REWARDS: usize = 4;
 
 #[derive(Accounts)]
 pub struct ClaimRewards<'info> {
@@ -40,6 +41,25 @@ pub struct ClaimRewards<'info> {
         bump,
     )]
     pub folio_reward_tokens: AccountLoader<'info, FolioRewardTokens>,
+
+    /*
+    Required accounts for the accrue rewards instruction
+     */
+    /// CHECK: Is the realm related to the folio owner
+    #[account()]
+    pub realm: UncheckedAccount<'info>,
+
+    /// CHECK: the governance's token mint (community mint)
+    #[account()]
+    pub governance_token_mint: UncheckedAccount<'info>,
+
+    /// CHECK: the governance's token account of all tokens staked
+    #[account()]
+    pub governance_staked_token_account: UncheckedAccount<'info>,
+
+    /// CHECK: Caller's token account of governance token
+    #[account()]
+    pub caller_governance_token_account: UncheckedAccount<'info>,
     /*
     Remaining accounts are
 
@@ -64,9 +84,6 @@ impl ClaimRewards<'_> {
     }
 }
 
-/*
-In the solana version, we won't call accrue rewards on claim, as it'll implode the CU.
-*/
 pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -> Result<()> {
     let folio_reward_tokens_key = ctx.accounts.folio_reward_tokens.key();
     let folio_key = ctx.accounts.folio.key();
@@ -76,6 +93,30 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
     let folio = ctx.accounts.folio.load()?;
     ctx.accounts.validate(&folio)?;
 
+    check_condition!(
+        ctx.remaining_accounts.len() % REMAINING_ACCOUNTS_DIVIDER == 0,
+        InvalidNumberOfRemainingAccounts
+    );
+
+    // Accrue the rewards before
+    FolioProgramInternal::accrue_rewards(
+        &ctx.accounts.system_program,
+        &ctx.accounts.token_program,
+        &ctx.accounts.realm,
+        &ctx.accounts.folio,
+        &ctx.accounts.actor,
+        &ctx.accounts.folio_owner,
+        &ctx.accounts.governance_token_mint,
+        &ctx.accounts.governance_staked_token_account,
+        &ctx.accounts.user,
+        &ctx.accounts.caller_governance_token_account,
+        &ctx.accounts.folio_reward_tokens,
+        // Only the first 4 accounts are needed for the accrue rewards instruction, the last one is for claim only
+        &ctx.remaining_accounts[0..REMAINING_ACCOUNTS_UPPER_INDEX_FOR_ACCRUE_REWARDS],
+        true,
+    )?;
+
+    // Proceed with the claim rewards
     let folio_reward_tokens = ctx.accounts.folio_reward_tokens.load()?;
 
     let folio_reward_tokens_seeds = &[
@@ -85,11 +126,6 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
     ];
 
     let signer_seeds = &[&folio_reward_tokens_seeds[..]];
-
-    check_condition!(
-        ctx.remaining_accounts.len() % REMAINING_ACCOUNTS_DIVIDER == 0,
-        InvalidNumberOfRemainingAccounts
-    );
 
     let mut remaining_accounts_iter = ctx.remaining_accounts.iter();
 

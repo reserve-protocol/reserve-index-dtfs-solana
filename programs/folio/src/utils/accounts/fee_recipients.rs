@@ -12,7 +12,7 @@ impl FeeRecipients {
         account_loader_fee_recipients: &mut AccountLoader<FeeRecipients>,
         context_bump: u8,
         folio: &Pubkey,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         let account_info_fee_recipients = account_loader_fee_recipients.to_account_info();
 
         let data = account_info_fee_recipients.try_borrow_mut_data()?;
@@ -30,12 +30,14 @@ impl FeeRecipients {
             fee_recipients.folio = *folio;
             fee_recipients.distribution_index = 0;
             fee_recipients.fee_recipients = [FeeRecipient::default(); MAX_FEE_RECIPIENTS];
+
+            return Ok(true);
         } else {
             let account_bump = account_loader_fee_recipients.load()?.bump;
             check_condition!(account_bump == context_bump, InvalidBump);
         }
 
-        Ok(())
+        Ok(false)
     }
 
     pub fn update_fee_recipients(

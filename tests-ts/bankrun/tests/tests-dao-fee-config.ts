@@ -15,6 +15,7 @@ import {
 import { setDaoFeeConfig, setFolioFeeConfig } from "../bankrun-ix-helper";
 import {
   getDAOFeeConfigPDA,
+  getFeeDistributionPDA,
   getFolioFeeConfigPDA,
   getFolioPDA,
 } from "../../../utils/pda-helper";
@@ -23,10 +24,16 @@ import {
   assertNonAdminTestCase,
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
-import { createAndSetDaoFeeConfig } from "../bankrun-account-helper";
+import {
+  closeAccount,
+  createAndSetDaoFeeConfig,
+  createAndSetFeeRecipients,
+  createAndSetFolio,
+} from "../bankrun-account-helper";
 import { FolioAdmin } from "../../../target/types/folio_admin";
 import { MAX_DAO_FEE, MAX_FEE_FLOOR } from "../../../utils/constants";
-import { initToken } from "../bankrun-token-helper";
+import { getOrCreateAtaAddress, initToken } from "../bankrun-token-helper";
+import { Folio } from "../../../target/types/folio";
 
 describe("Bankrun - Dao Fee Config Tests", () => {
   let context: ProgramTestContext;
@@ -34,6 +41,8 @@ describe("Bankrun - Dao Fee Config Tests", () => {
   let banksClient: BanksClient;
 
   let programFolioAdmin: Program<FolioAdmin>;
+  let programFolio: Program<Folio>;
+
   let keys: any;
 
   let payerKeypair: Keypair;
@@ -114,7 +123,8 @@ describe("Bankrun - Dao Fee Config Tests", () => {
   ];
 
   before(async () => {
-    ({ keys, programFolioAdmin, provider, context } = await getConnectors());
+    ({ keys, programFolioAdmin, programFolio, provider, context } =
+      await getConnectors());
 
     banksClient = context.banksClient;
 
@@ -125,10 +135,10 @@ describe("Bankrun - Dao Fee Config Tests", () => {
     await airdrop(context, payerKeypair.publicKey, 1000);
     await airdrop(context, adminKeypair.publicKey, 1000);
 
-    // Create token for folio token mint
-    initToken(context, adminKeypair.publicKey, FOLIO_TOKEN_MINT);
-
     folioPDA = getFolioPDA(FOLIO_TOKEN_MINT);
+
+    // Create token for folio token mint
+    initToken(context, folioPDA, FOLIO_TOKEN_MINT);
 
     daoFeeConfigPDA = getDAOFeeConfigPDA();
 
@@ -156,6 +166,7 @@ describe("Bankrun - Dao Fee Config Tests", () => {
         FOLIO_TOKEN_MINT,
         DEFAULT_PARAMS.expectedFeeNumerator,
         DEFAULT_PARAMS.expectedFeeFloor,
+        DEFAULT_PARAMS.expectedFeeRecipient,
         false
       );
 
@@ -181,119 +192,148 @@ describe("Bankrun - Dao Fee Config Tests", () => {
     });
   });
 
-  TEST_CASES_SET_DAO_FEE_CONFIG.forEach(
-    ({ desc, expectedError, getKeypair, ...restOfParams }) => {
-      describe(`When ${desc}`, () => {
-        const {
-          existsBefore,
-          expectedFeeRecipient,
-          expectedFeeNumerator,
-          expectedFeeFloor,
-        } = {
-          ...DEFAULT_PARAMS,
-          ...restOfParams,
-        };
+  describe("Set DAO Fee Config", () => {
+    TEST_CASES_SET_DAO_FEE_CONFIG.forEach(
+      ({ desc, expectedError, getKeypair, ...restOfParams }) => {
+        describe(`When ${desc}`, () => {
+          const {
+            existsBefore,
+            expectedFeeRecipient,
+            expectedFeeNumerator,
+            expectedFeeFloor,
+          } = {
+            ...DEFAULT_PARAMS,
+            ...restOfParams,
+          };
 
-        let txnResult: BanksTransactionResultWithMeta;
+          let txnResult: BanksTransactionResultWithMeta;
 
-        before(async () => {
-          if (existsBefore) {
+          before(async () => {
+            if (existsBefore) {
+              await createAndSetDaoFeeConfig(
+                context,
+                programFolioAdmin,
+                expectedFeeRecipient,
+                expectedFeeNumerator
+              );
+              await travelFutureSlot(context);
+            }
+
+            txnResult = await setDaoFeeConfig<true>(
+              banksClient,
+              programFolioAdmin,
+              getKeypair(),
+              expectedFeeRecipient,
+              expectedFeeNumerator,
+              expectedFeeFloor
+            );
+          });
+
+          if (expectedError) {
+            it("should fail with expected error", () => {
+              assertError(txnResult, expectedError);
+            });
+          } else {
+            it("should succeed", async () => {
+              await travelFutureSlot(context);
+
+              const daoFeeConfig =
+                await programFolioAdmin.account.daoFeeConfig.fetch(
+                  daoFeeConfigPDA
+                );
+              assert.equal(
+                daoFeeConfig.feeRecipient.toBase58(),
+                expectedFeeRecipient.toBase58()
+              );
+              assert.equal(
+                daoFeeConfig.defaultFeeNumerator.toString(),
+                expectedFeeNumerator.toString()
+              );
+            });
+          }
+        });
+      }
+    );
+  });
+
+  describe("Set Folio Fee Config", () => {
+    TEST_CASES_SET_FOLIO_FEE_CONFIG.forEach(
+      ({ desc, expectedError, getKeypair, ...restOfParams }) => {
+        describe(`When ${desc}`, () => {
+          const {
+            expectedFeeRecipient,
+            expectedFeeNumerator,
+            expectedFeeFloor,
+          } = {
+            ...DEFAULT_PARAMS,
+            ...restOfParams,
+          };
+
+          let txnResult: BanksTransactionResultWithMeta;
+
+          before(async () => {
+            await airdrop(context, expectedFeeRecipient, 1000);
+
             await createAndSetDaoFeeConfig(
               context,
               programFolioAdmin,
               expectedFeeRecipient,
               expectedFeeNumerator
             );
+
+            await createAndSetFeeRecipients(
+              context,
+              programFolio,
+              folioPDA,
+              []
+            );
+
+            await createAndSetFolio(context, programFolio, FOLIO_TOKEN_MINT);
+
+            await closeAccount(
+              context,
+              getFeeDistributionPDA(folioPDA, new BN(1))
+            );
+
             await travelFutureSlot(context);
+
+            txnResult = await setFolioFeeConfig<true>(
+              banksClient,
+              programFolioAdmin,
+              getKeypair(),
+              folioPDA,
+              FOLIO_TOKEN_MINT,
+              expectedFeeNumerator,
+              expectedFeeFloor,
+              await getOrCreateAtaAddress(
+                context,
+                FOLIO_TOKEN_MINT,
+                expectedFeeRecipient
+              )
+            );
+          });
+
+          if (expectedError) {
+            it("should fail with expected error", () => {
+              assertError(txnResult, expectedError);
+            });
+          } else {
+            it("should succeed", async () => {
+              await travelFutureSlot(context);
+
+              const folioFeeConfig =
+                await programFolioAdmin.account.folioFeeConfig.fetch(
+                  folioFeeConfigPDA
+                );
+              assert.equal(
+                folioFeeConfig.feeNumerator.eq(expectedFeeNumerator),
+                true
+              );
+              assert.equal(folioFeeConfig.feeFloor.eq(expectedFeeFloor), true);
+            });
           }
-
-          txnResult = await setDaoFeeConfig<true>(
-            banksClient,
-            programFolioAdmin,
-            getKeypair(),
-            expectedFeeRecipient,
-            expectedFeeNumerator,
-            expectedFeeFloor
-          );
         });
-
-        if (expectedError) {
-          it("should fail with expected error", () => {
-            assertError(txnResult, expectedError);
-          });
-        } else {
-          it("should succeed", async () => {
-            await travelFutureSlot(context);
-
-            const daoFeeConfig =
-              await programFolioAdmin.account.daoFeeConfig.fetch(
-                daoFeeConfigPDA
-              );
-            assert.equal(
-              daoFeeConfig.feeRecipient.toBase58(),
-              expectedFeeRecipient.toBase58()
-            );
-            assert.equal(
-              daoFeeConfig.defaultFeeNumerator.toString(),
-              expectedFeeNumerator.toString()
-            );
-          });
-        }
-      });
-    }
-  );
-
-  TEST_CASES_SET_FOLIO_FEE_CONFIG.forEach(
-    ({ desc, expectedError, getKeypair, ...restOfParams }) => {
-      describe(`When ${desc}`, () => {
-        const { expectedFeeRecipient, expectedFeeNumerator, expectedFeeFloor } =
-          {
-            ...DEFAULT_PARAMS,
-            ...restOfParams,
-          };
-
-        let txnResult: BanksTransactionResultWithMeta;
-
-        before(async () => {
-          await createAndSetDaoFeeConfig(
-            context,
-            programFolioAdmin,
-            expectedFeeRecipient,
-            expectedFeeNumerator
-          );
-          await travelFutureSlot(context);
-
-          txnResult = await setFolioFeeConfig<true>(
-            banksClient,
-            programFolioAdmin,
-            getKeypair(),
-            folioPDA,
-            FOLIO_TOKEN_MINT,
-            expectedFeeNumerator,
-            expectedFeeFloor
-          );
-        });
-
-        if (expectedError) {
-          it("should fail with expected error", () => {
-            assertError(txnResult, expectedError);
-          });
-        } else {
-          it("should succeed", async () => {
-            await travelFutureSlot(context);
-
-            const folioFeeConfig =
-              await programFolioAdmin.account.folioFeeConfig.fetch(
-                folioFeeConfigPDA
-              );
-            assert.equal(
-              folioFeeConfig.feeNumerator.eq(expectedFeeNumerator),
-              true
-            );
-            assert.equal(folioFeeConfig.feeFloor.eq(expectedFeeFloor), true);
-          });
-        }
-      });
-    }
-  );
+      }
+    );
+  });
 });

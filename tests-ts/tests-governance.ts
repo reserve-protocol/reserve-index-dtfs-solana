@@ -27,7 +27,11 @@ import {
 } from "../utils/external/governance-helper";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
-describe("DAO / Realm Tests", () => {
+/*
+Skipping now, these tests were only to show functionality of the Governance program,
+but now we're using the Bankrun tests to test the Governance program custom functionalities.
+*/
+describe.skip("DAO / Realm Tests", () => {
   let connection: Connection;
   let keys: any;
 

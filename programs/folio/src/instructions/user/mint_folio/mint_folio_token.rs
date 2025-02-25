@@ -99,6 +99,7 @@ pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, MintFolioToken<'info>>,
     raw_shares: u64,
 ) -> Result<()> {
+    // Folio is poked via the to_assets function
     let folio_bump = {
         let folio = &mut ctx.accounts.folio.load_mut()?;
         ctx.accounts.validate(folio)?;

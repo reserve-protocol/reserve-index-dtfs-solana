@@ -14,7 +14,11 @@ import {
   travelFutureSlot,
 } from "../bankrun-program-helper";
 
-import { getTVLFeeRecipientsPDA, getFolioPDA } from "../../../utils/pda-helper";
+import {
+  getTVLFeeRecipientsPDA,
+  getFolioPDA,
+  getFeeDistributionPDA,
+} from "../../../utils/pda-helper";
 import { updateFolio } from "../bankrun-ix-helper";
 import {
   createAndSetFolio,
@@ -22,6 +26,8 @@ import {
   createAndSetActor,
   FeeRecipient,
   createAndSetFeeRecipients,
+  createAndSetDaoFeeConfig,
+  closeAccount,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
 import {
@@ -40,6 +46,8 @@ import {
 import { MAX_AUCTION_LENGTH } from "../../../utils/constants";
 import { MAX_AUCTION_DELAY } from "../../../utils/constants";
 import { MAX_TVL_FEE } from "../../../utils/constants";
+import { FolioAdmin } from "../../../target/types/folio_admin";
+import { initToken } from "../bankrun-token-helper";
 
 describe("Bankrun - Update folio", () => {
   let context: ProgramTestContext;
@@ -47,6 +55,7 @@ describe("Bankrun - Update folio", () => {
   let banksClient: BanksClient;
 
   let programFolio: Program<Folio>;
+  let programFolioAdmin: Program<FolioAdmin>;
 
   let keys: any;
 
@@ -200,6 +209,13 @@ describe("Bankrun - Update folio", () => {
   ];
 
   async function initBaseCase() {
+    await createAndSetDaoFeeConfig(
+      context,
+      programFolioAdmin,
+      FEE_RECIPIENT_KEYPAIR.publicKey,
+      new BN(1)
+    );
+
     await createAndSetFolio(context, programFolio, folioTokenMint.publicKey);
 
     await createAndSetActor(
@@ -209,10 +225,15 @@ describe("Bankrun - Update folio", () => {
       folioPDA,
       Role.Owner
     );
+
+    initToken(context, folioPDA, folioTokenMint.publicKey);
+
+    closeAccount(context, getFeeDistributionPDA(folioPDA, new BN(1)));
   }
 
   before(async () => {
-    ({ keys, programFolio, provider, context } = await getConnectors());
+    ({ keys, programFolio, programFolioAdmin, provider, context } =
+      await getConnectors());
 
     banksClient = context.banksClient;
 
@@ -235,10 +256,14 @@ describe("Bankrun - Update folio", () => {
   describe("General Tests", () => {
     const generalIxUpdateFolio = () =>
       updateFolio<true>(
+        context,
         banksClient,
         programFolio,
         folioOwnerKeypair,
         folioPDA,
+        folioTokenMint.publicKey,
+        FEE_RECIPIENT_KEYPAIR.publicKey,
+        null,
         null,
         null,
         null,
@@ -300,11 +325,15 @@ describe("Bankrun - Update folio", () => {
             .tvlFee;
 
           txnResult = await updateFolio<true>(
+            context,
             banksClient,
             programFolio,
             folioOwnerKeypair,
             folioPDA,
+            folioTokenMint.publicKey,
+            FEE_RECIPIENT_KEYPAIR.publicKey,
             tvlFee,
+            new BN(1),
             mintFee,
             auctionDelay,
             auctionLength,

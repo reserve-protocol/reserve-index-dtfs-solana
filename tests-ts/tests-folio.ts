@@ -127,6 +127,14 @@ describe("Folio Tests", () => {
   const feeRecipient: PublicKey = Keypair.generate().publicKey;
   const feeNumerator: BN = new BN("500000000000000000"); //50% in D18
 
+  let currentFeeDistributionIndex: BN = new BN(1);
+
+  function getAndIncreaseCurrentFeeDistributionIndex() {
+    const index = currentFeeDistributionIndex;
+    currentFeeDistributionIndex = currentFeeDistributionIndex.add(new BN(1));
+    return index;
+  }
+
   before(async () => {
     ({ connection, programFolio, programFolioAdmin, keys } =
       await getConnectors());
@@ -327,6 +335,7 @@ describe("Folio Tests", () => {
       folioOwnerKeypair,
       folioPDA,
       folioBefore.tvlFee.sub(new BN(1)),
+      getAndIncreaseCurrentFeeDistributionIndex(),
       null,
       null,
       null,
@@ -351,6 +360,7 @@ describe("Folio Tests", () => {
       folioPDA,
       // This will put the tvl fee lower, as we're calling set_tvl_fee which does calculations
       folioBefore.tvlFee,
+      getAndIncreaseCurrentFeeDistributionIndex(),
       null,
       null,
       null,
@@ -371,6 +381,7 @@ describe("Folio Tests", () => {
       folioOwnerKeypair,
       folioPDA,
       null,
+      getAndIncreaseCurrentFeeDistributionIndex(),
       null,
       null,
       null,

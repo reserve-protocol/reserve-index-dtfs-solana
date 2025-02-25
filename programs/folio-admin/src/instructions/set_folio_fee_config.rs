@@ -1,6 +1,7 @@
 use crate::state::{DAOFeeConfig, FolioFeeConfig};
+use crate::utils::FolioProgram;
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::Mint;
+use anchor_spl::token_interface::{Mint, TokenInterface};
 use shared::check_condition;
 use shared::constants::common::ADMIN;
 use shared::constants::{
@@ -24,6 +25,7 @@ use shared::errors::ErrorCode;
 pub struct SetFolioFeeConfig<'info> {
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
+    pub token_program: Interface<'info, TokenInterface>,
 
     #[account(mut)]
     pub admin: Signer<'info>,
@@ -35,11 +37,11 @@ pub struct SetFolioFeeConfig<'info> {
     pub dao_fee_config: Account<'info, DAOFeeConfig>,
 
     /// CHECK: Folio token mint
-    #[account()]
+    #[account(mut)]
     pub folio_token_mint: Box<InterfaceAccount<'info, Mint>>,
 
     /// CHECK: Folio account
-    #[account(
+    #[account(mut,
         seeds = [FOLIO_SEEDS, folio_token_mint.key().as_ref()],
         bump,
         seeds::program = FOLIO_PROGRAM_ID,
@@ -54,6 +56,25 @@ pub struct SetFolioFeeConfig<'info> {
         bump
     )]
     pub folio_fee_config: Account<'info, FolioFeeConfig>,
+
+    /*
+    Specific accounts for the distribute fees instruction
+     */
+    /// CHECK: Folio program account
+    #[account(address = FOLIO_PROGRAM_ID, executable)]
+    pub folio_program: UncheckedAccount<'info>,
+
+    /// CHECK: Fee recipients account, checks done on the folio program
+    #[account(mut)]
+    pub fee_recipients: UncheckedAccount<'info>,
+
+    /// CHECK: Fee distribution account, checks done on the folio program
+    #[account(mut)]
+    pub fee_distribution: UncheckedAccount<'info>,
+
+    /// CHECK: DAO fee recipient account, checks done on the folio program
+    #[account(mut)]
+    pub dao_fee_recipient: UncheckedAccount<'info>,
 }
 
 impl SetFolioFeeConfig<'_> {
@@ -95,6 +116,22 @@ pub fn handler(
 ) -> Result<()> {
     ctx.accounts
         .validate(&scaled_fee_numerator, &scaled_fee_floor)?;
+
+    // Distribute the accumulated fees to the fee recipients first
+    FolioProgram::distribute_fees_cpi(
+        &ctx.accounts.folio_program.to_account_info(),
+        &ctx.accounts.rent.to_account_info(),
+        &ctx.accounts.system_program.to_account_info(),
+        &ctx.accounts.token_program.to_account_info(),
+        &ctx.accounts.admin.to_account_info(),
+        &ctx.accounts.dao_fee_config.to_account_info(),
+        &ctx.accounts.folio_fee_config.to_account_info(),
+        &ctx.accounts.folio.to_account_info(),
+        &ctx.accounts.folio_token_mint.to_account_info(),
+        &ctx.accounts.fee_recipients.to_account_info(),
+        &ctx.accounts.fee_distribution.to_account_info(),
+        &ctx.accounts.dao_fee_recipient.to_account_info(),
+    )?;
 
     let folio_fee_config = &mut ctx.accounts.folio_fee_config;
 

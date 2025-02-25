@@ -169,6 +169,7 @@ export async function updateFolio(
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
   tvlFee: BN | null,
+  indexForFeeDistribution: BN | null,
   mintFee: BN | null,
   auctionDelay: BN | null,
   auctionLength: BN | null,
@@ -181,6 +182,7 @@ export async function updateFolio(
   const updateFolio = await folioProgram.methods
     .updateFolio(
       tvlFee,
+      indexForFeeDistribution,
       mintFee,
       auctionDelay,
       auctionLength,

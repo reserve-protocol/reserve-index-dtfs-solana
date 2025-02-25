@@ -18,6 +18,9 @@ import {
   getUserRewardInfoPDA,
   getUserRewardInfoPDAWithBump,
   getFolioFeeConfigPDAWithBump,
+  getDAOFeeConfigPDA,
+  getFolioFeeConfigPDA,
+  getFeeDistributionPDA,
 } from "../../utils/pda-helper";
 import * as crypto from "crypto";
 import { Folio } from "../../target/types/folio";
@@ -38,6 +41,7 @@ import {
   MAX_PADDED_STRING_LENGTH,
 } from "../../utils/constants";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 export enum Role {
   Owner = 0b00000001, // 1
@@ -1223,6 +1227,52 @@ export function getInvalidRemainingAccounts(size: number): AccountMeta[] {
       isSigner: false,
       isWritable: false,
     }));
+}
+
+export async function buildRemainingAccountsForUpdateFolio(
+  context: ProgramTestContext,
+  folio: PublicKey,
+  folioTokenMint: PublicKey,
+  daoFeeRecipient: PublicKey
+): Promise<AccountMeta[]> {
+  const remainingAccounts: AccountMeta[] = [
+    {
+      pubkey: TOKEN_PROGRAM_ID,
+      isSigner: false,
+      isWritable: false,
+    },
+    {
+      pubkey: getDAOFeeConfigPDA(),
+      isSigner: false,
+      isWritable: false,
+    },
+    {
+      pubkey: getFolioFeeConfigPDA(folio),
+      isSigner: false,
+      isWritable: false,
+    },
+    {
+      pubkey: folioTokenMint,
+      isSigner: false,
+      isWritable: true,
+    },
+    {
+      pubkey: getFeeDistributionPDA(folio, new BN(1)),
+      isSigner: false,
+      isWritable: true,
+    },
+    {
+      pubkey: await getOrCreateAtaAddress(
+        context,
+        folioTokenMint,
+        daoFeeRecipient
+      ),
+      isSigner: false,
+      isWritable: true,
+    },
+  ];
+
+  return remainingAccounts;
 }
 
 export async function buildRemainingAccounts(

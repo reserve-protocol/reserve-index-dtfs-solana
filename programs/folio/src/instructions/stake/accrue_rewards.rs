@@ -75,63 +75,80 @@ pub struct AccrueRewards<'info> {
      */
 }
 
-impl AccrueRewards<'_> {
-    pub fn validate(&self, folio: &Folio) -> Result<()> {
-        folio.validate_folio(
-            &self.folio.key(),
-            Some(&self.actor),
-            Some(vec![Role::Owner]),
-            Some(vec![FolioStatus::Initializing, FolioStatus::Initialized]),
-        )?;
+pub fn validate<'info>(
+    folio: &AccountLoader<'info, Folio>,
+    actor: &Account<'info, Actor>,
+    realm: &AccountInfo<'info>,
+    folio_owner: &AccountInfo<'info>,
+) -> Result<()> {
+    folio.load()?.validate_folio(
+        &folio.key(),
+        Some(actor),
+        Some(vec![Role::Owner]),
+        Some(vec![FolioStatus::Initializing, FolioStatus::Initialized]),
+    )?;
 
-        // Validate that the caller is the realm governance account that represents the folio owner
-        GovernanceUtil::validate_realm_is_valid(&self.realm, &self.folio_owner)?;
+    // Validate that the caller is the realm governance account that represents the folio owner
+    GovernanceUtil::validate_realm_is_valid(realm, folio_owner)?;
 
-        Ok(())
-    }
+    Ok(())
 }
 
-// This cant be called multiple times, needs to be atomic
-pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) -> Result<()> {
-    let folio_key = ctx.accounts.folio.key();
-    let folio_reward_tokens_key = ctx.accounts.folio_reward_tokens.key();
-    let governance_token_mint_key = ctx.accounts.governance_token_mint.key();
+pub fn accrue_rewards<'info>(
+    system_program: &AccountInfo<'info>,
+    token_program: &AccountInfo<'info>,
+    realm: &AccountInfo<'info>,
+    folio: &AccountLoader<'info, Folio>,
+    actor: &Account<'info, Actor>,
+    folio_owner: &AccountInfo<'info>,
+    governance_token_mint: &AccountInfo<'info>,
+    governance_staked_token_account: &AccountInfo<'info>,
+    caller: &AccountInfo<'info>,
+    caller_governance_token_account: &AccountInfo<'info>,
+    user: &AccountInfo<'info>,
+    user_governance_token_account: &AccountInfo<'info>,
+    folio_reward_tokens: &AccountLoader<'info, FolioRewardTokens>,
+    remaining_accounts: &'info [AccountInfo<'info>],
+    // Claim rewards has this remaining account as mutable, so we need to pass it in, to pass our check
+    fee_recipient_token_account_is_mutable: bool,
+) -> Result<()> {
+    validate(folio, actor, realm, folio_owner)?;
 
-    let caller_key = ctx.accounts.caller.key();
-    let user_key = ctx.accounts.user.key();
+    let caller_key = caller.key();
+    let user_key = user.key();
+    let folio_reward_tokens_key = folio_reward_tokens.key();
 
-    let token_program_id = ctx.accounts.token_program.key();
+    let folio_key = folio.key();
+
+    let governance_token_mint_key = governance_token_mint.key();
+    let token_program_id = token_program.key();
+    let realm_key = realm.key();
 
     let current_time = Clock::get()?.unix_timestamp as u64;
 
-    let realm_key = ctx.accounts.realm.key();
-
-    let folio = ctx.accounts.folio.load()?;
-    ctx.accounts.validate(&folio)?;
-
-    let folio_reward_tokens = ctx.accounts.folio_reward_tokens.load()?;
+    let folio_reward_tokens = folio_reward_tokens.load()?;
 
     let (raw_governance_staked_token_account_balance, governance_token_decimals) =
         GovernanceUtil::get_realm_staked_balance_and_mint_decimals(
             &realm_key,
-            &ctx.accounts.governance_token_mint,
-            &ctx.accounts.governance_staked_token_account,
+            governance_token_mint,
+            governance_staked_token_account,
         )?;
 
-    let remaining_account_divider = if ctx.accounts.user.key() == ctx.accounts.caller.key() {
+    let remaining_account_divider = if user.key() == caller.key() {
         REMAINING_ACCOUNT_DIVIDER_FOR_CALLER
     } else {
         REMAINING_ACCOUNT_DIVIDER_FOR_USER
     };
 
     check_condition!(
-        ctx.remaining_accounts.len() % remaining_account_divider == 0,
+        remaining_accounts.len() % remaining_account_divider == 0,
         InvalidNumberOfRemainingAccounts
     );
 
-    let mut remaining_accounts_iter = ctx.remaining_accounts.iter();
+    let mut remaining_accounts_iter = remaining_accounts.iter();
 
-    for _ in 0..ctx.remaining_accounts.len() / remaining_account_divider {
+    for _ in 0..remaining_accounts.len() / remaining_account_divider {
         let reward_token = next_account(
             &mut remaining_accounts_iter,
             false,
@@ -148,7 +165,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
         let fee_recipient_token_account = next_account(
             &mut remaining_accounts_iter,
             false,
-            false,
+            fee_recipient_token_account_is_mutable,
             &token_program_id,
         )?;
         let caller_reward_info = next_account(
@@ -215,7 +232,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
 
         // Init if needed and accrue rewards on user reward info
         let raw_caller_governance_account_balance = GovernanceUtil::get_governance_account_balance(
-            &ctx.accounts.caller_governance_token_account,
+            caller_governance_token_account,
             &realm_key,
             &governance_token_mint_key,
             &caller_key,
@@ -223,9 +240,9 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
 
         UserRewardInfo::process_init_if_needed(
             caller_reward_info,
-            &ctx.accounts.system_program,
-            &ctx.accounts.caller,
-            ctx.accounts.caller.key,
+            system_program,
+            caller,
+            &caller_key,
             expected_pda_for_caller.1,
             &folio_key,
             &reward_token.key(),
@@ -261,7 +278,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
 
             let raw_user_governance_account_balance =
                 GovernanceUtil::get_governance_account_balance(
-                    &ctx.accounts.user_governance_token_account,
+                    user_governance_token_account,
                     &realm_key,
                     &governance_token_mint_key,
                     &user_key,
@@ -269,8 +286,8 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
 
             UserRewardInfo::process_init_if_needed(
                 user_reward_info,
-                &ctx.accounts.system_program,
-                &ctx.accounts.caller,
+                system_program,
+                caller,
                 &user_key,
                 expected_pda_for_user.1,
                 &folio_key,
@@ -285,6 +302,29 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) 
         let reward_info_data = &mut **reward_info_account_info.try_borrow_mut_data()?;
         reward_info.try_serialize(&mut &mut reward_info_data[..])?;
     }
+
+    Ok(())
+}
+
+// This cant be called multiple times, needs to be atomic
+pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) -> Result<()> {
+    accrue_rewards(
+        &ctx.accounts.system_program,
+        &ctx.accounts.token_program,
+        &ctx.accounts.realm,
+        &ctx.accounts.folio,
+        &ctx.accounts.actor,
+        &ctx.accounts.folio_owner,
+        &ctx.accounts.governance_token_mint,
+        &ctx.accounts.governance_staked_token_account,
+        &ctx.accounts.caller,
+        &ctx.accounts.caller_governance_token_account,
+        &ctx.accounts.user,
+        &ctx.accounts.user_governance_token_account,
+        &ctx.accounts.folio_reward_tokens,
+        ctx.remaining_accounts,
+        false,
+    )?;
 
     Ok(())
 }

@@ -38,6 +38,8 @@ import {
 import {
   getFolioPDA,
   getFolioRewardTokensPDA,
+  getGovernanceHoldingPDA,
+  getUserTokenRecordRealmsPDA,
 } from "../../../utils/pda-helper";
 import {
   addRewardToken,
@@ -53,6 +55,8 @@ import * as assert from "assert";
 
 import { FolioAdmin } from "../../../target/types/folio_admin";
 import {
+  createGovernanceHoldingAccount,
+  createGovernanceTokenRecord,
   executeGovernanceInstruction,
   setupGovernanceAccounts,
 } from "../bankrun-governance-helper";
@@ -84,6 +88,7 @@ describe("Bankrun - Staking Admin", () => {
 
   const REWARD_TOKEN_MINTS = [Keypair.generate(), Keypair.generate()];
 
+  let realmPDA: PublicKey;
   const GOVERNANCE_MINT = Keypair.generate();
 
   const DEFAULT_PARAMS: {
@@ -243,7 +248,7 @@ describe("Bankrun - Staking Admin", () => {
     customFolioTokenMint: Keypair | null = null,
     customFolioTokenSupply: BN = new BN(0)
   ) {
-    ({ folioOwnerPDA } = await setupGovernanceAccounts(
+    ({ folioOwnerPDA, realmPDA } = await setupGovernanceAccounts(
       context,
       adminKeypair,
       GOVERNANCE_MINT.publicKey
@@ -297,6 +302,35 @@ describe("Bankrun - Staking Admin", () => {
         rewardedUser2.publicKey
       );
     }
+
+    // Governance accounts
+    initToken(
+      context,
+      // We don't care about who owns it
+      adminKeypair.publicKey,
+      GOVERNANCE_MINT.publicKey,
+      DEFAULT_DECIMALS,
+      new BN(0)
+    );
+
+    createGovernanceHoldingAccount(
+      context,
+      // We don't care about who owns it
+      adminKeypair.publicKey,
+      GOVERNANCE_MINT.publicKey,
+      getGovernanceHoldingPDA(realmPDA, GOVERNANCE_MINT.publicKey),
+      new BN(0)
+    );
+
+    createGovernanceTokenRecord(
+      context,
+      getUserTokenRecordRealmsPDA(
+        realmPDA,
+        GOVERNANCE_MINT.publicKey,
+        new PublicKey(userKeypair.publicKey)
+      ),
+      0
+    );
   }
 
   before(async () => {
@@ -376,6 +410,14 @@ describe("Bankrun - Staking Admin", () => {
           adminKeypair,
           folioOwnerPDA,
           folioPDA,
+          realmPDA,
+          GOVERNANCE_MINT.publicKey,
+          getGovernanceHoldingPDA(realmPDA, GOVERNANCE_MINT.publicKey),
+          getUserTokenRecordRealmsPDA(
+            realmPDA,
+            GOVERNANCE_MINT.publicKey,
+            new PublicKey(userKeypair.publicKey)
+          ),
           new BN(0),
           false
         )
@@ -726,6 +768,14 @@ describe("Bankrun - Staking Admin", () => {
                 adminKeypair,
                 folioOwnerPDA,
                 folioPDA,
+                realmPDA,
+                GOVERNANCE_MINT.publicKey,
+                getGovernanceHoldingPDA(realmPDA, GOVERNANCE_MINT.publicKey),
+                getUserTokenRecordRealmsPDA(
+                  realmPDA,
+                  GOVERNANCE_MINT.publicKey,
+                  new PublicKey(userKeypair.publicKey)
+                ),
                 rewardPeriod,
                 false
               )

@@ -1246,8 +1246,15 @@ describe("Bankrun - Staking User", () => {
             rewardedUser1,
             folioOwnerPDA,
             folioPDA,
+            realmPDA,
+            GOVERNANCE_MINT.publicKey,
+            getGovernanceHoldingPDA(realmPDA, GOVERNANCE_MINT.publicKey),
+            getUserTokenRecordRealmsPDA(
+              realmPDA,
+              GOVERNANCE_MINT.publicKey,
+              new PublicKey(rewardedUser1.publicKey)
+            ),
             rewardsTokenToClaim,
-
             true,
             remainingAccountsToUse
           );

@@ -1,6 +1,8 @@
 use crate::state::{Actor, Folio, FolioRewardTokens};
 use crate::utils::structs::{FolioStatus, Role};
+use crate::utils::FolioProgramInternal;
 use anchor_lang::prelude::*;
+use anchor_spl::token_interface::TokenInterface;
 use shared::check_condition;
 use shared::constants::{ACTOR_SEEDS, FOLIO_REWARD_TOKENS_SEEDS, SPL_GOVERNANCE_PROGRAM_ID};
 use shared::errors::ErrorCode;
@@ -8,6 +10,7 @@ use shared::errors::ErrorCode;
 #[derive(Accounts)]
 pub struct InitOrSetRewardRatio<'info> {
     pub system_program: Program<'info, System>,
+    pub token_program: Interface<'info, TokenInterface>,
 
     /// The executor
     #[account(mut)]
@@ -33,6 +36,25 @@ pub struct InitOrSetRewardRatio<'info> {
         bump
     )]
     pub folio_reward_tokens: AccountLoader<'info, FolioRewardTokens>,
+
+    /*
+    Required accounts for the accrue rewards instruction
+     */
+    /// CHECK: Is the realm related to the folio owner
+    #[account()]
+    pub realm: UncheckedAccount<'info>,
+
+    /// CHECK: the governance's token mint (community mint)
+    #[account()]
+    pub governance_token_mint: UncheckedAccount<'info>,
+
+    /// CHECK: the governance's token account of all tokens staked
+    #[account()]
+    pub governance_staked_token_account: UncheckedAccount<'info>,
+
+    /// CHECK: Caller's token account of governance token
+    #[account()]
+    pub caller_governance_token_account: UncheckedAccount<'info>,
 }
 
 impl InitOrSetRewardRatio<'_> {
@@ -61,6 +83,23 @@ pub fn handler<'info>(
     let folio_key = ctx.accounts.folio.key();
     let folio = ctx.accounts.folio.load()?;
     ctx.accounts.validate(&folio)?;
+
+    // Accrue the rewards before
+    FolioProgramInternal::accrue_rewards(
+        &ctx.accounts.system_program,
+        &ctx.accounts.token_program,
+        &ctx.accounts.realm,
+        &ctx.accounts.folio,
+        &ctx.accounts.actor,
+        &ctx.accounts.folio_owner,
+        &ctx.accounts.governance_token_mint,
+        &ctx.accounts.governance_staked_token_account,
+        &ctx.accounts.executor,
+        &ctx.accounts.caller_governance_token_account,
+        &ctx.accounts.folio_reward_tokens,
+        ctx.remaining_accounts,
+        false,
+    )?;
 
     FolioRewardTokens::process_init_if_needed(
         &mut ctx.accounts.folio_reward_tokens,

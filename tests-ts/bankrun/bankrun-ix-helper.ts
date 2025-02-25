@@ -45,6 +45,7 @@ import {
   roleToStruct,
   Auction,
   buildRemainingAccountsForAccruesRewards,
+  buildRemainingAccountsForUpdateFolio,
 } from "./bankrun-account-helper";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
 import { FolioAdmin } from "../../target/types/folio_admin";
@@ -91,6 +92,7 @@ export async function setFolioFeeConfig<T extends boolean = true>(
   folioTokenMint: PublicKey,
   feeNumerator: BN,
   feeFloor: BN,
+  feeRecipient: PublicKey,
   executeTxn: T = true as T
 ): Promise<
   T extends true
@@ -102,16 +104,24 @@ export async function setFolioFeeConfig<T extends boolean = true>(
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
+      tokenProgram: TOKEN_PROGRAM_ID,
       admin: !executeTxn ? OTHER_ADMIN_KEY.publicKey : adminKeypair.publicKey,
       daoFeeConfig: getDAOFeeConfigPDA(),
       folioTokenMint: folioTokenMint,
       folio: folio,
       folioFeeConfig: getFolioFeeConfigPDA(folio),
+      folioProgram: FOLIO_PROGRAM_ID,
+      feeRecipients: getTVLFeeRecipientsPDA(folio),
+      feeDistribution: getFeeDistributionPDA(folio, new BN(1)),
+      daoFeeRecipient: feeRecipient,
     })
     .instruction();
 
   if (executeTxn) {
-    return createAndProcessTransaction(client, adminKeypair, [ix]) as any;
+    return createAndProcessTransaction(client, adminKeypair, [
+      ...getComputeLimitInstruction(1_200_000),
+      ix,
+    ]) as any;
   }
 
   return { ix, extraSigners: [] } as any;
@@ -278,11 +288,15 @@ export async function resizeFolio<T extends boolean = true>(
 }
 
 export async function updateFolio<T extends boolean = true>(
+  context: ProgramTestContext,
   client: BanksClient,
   programFolio: Program<Folio>,
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
+  folioTokenMint: PublicKey,
+  daoFeeRecipient: PublicKey,
   tvlFee: BN | null,
+  indexForFeeDistribution: BN | null,
   mintFee: BN | null,
   auctionDelay: BN | null,
   auctionLength: BN | null,
@@ -298,6 +312,7 @@ export async function updateFolio<T extends boolean = true>(
   const updateFolio = await programFolio.methods
     .updateFolio(
       tvlFee,
+      indexForFeeDistribution,
       mintFee,
       auctionDelay,
       auctionLength,
@@ -312,10 +327,17 @@ export async function updateFolio<T extends boolean = true>(
         ? OTHER_ADMIN_KEY.publicKey
         : folioOwnerKeypair.publicKey,
       actor: getActorPDA(folioOwnerKeypair.publicKey, folio),
-
       folio: folio,
       feeRecipients: getTVLFeeRecipientsPDA(folio),
     })
+    .remainingAccounts(
+      await buildRemainingAccountsForUpdateFolio(
+        context,
+        folio,
+        folioTokenMint,
+        daoFeeRecipient
+      )
+    )
     .instruction();
 
   if (executeTxn) {
@@ -960,6 +982,10 @@ export async function initOrSetRewardRatio<T extends boolean = true>(
   // Is a governance account
   folioOwner: PublicKey,
   folio: PublicKey,
+  realm: PublicKey,
+  governanceTokenMint: PublicKey,
+  governanceStakedTokenAccount: PublicKey,
+  callerGovernanceTokenAccount: PublicKey,
   rewardPeriod: BN,
   executeTxn: T = true as T
 ): Promise<
@@ -971,11 +997,16 @@ export async function initOrSetRewardRatio<T extends boolean = true>(
     .initOrSetRewardRatio(rewardPeriod)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
       executor: executor.publicKey,
       folioOwner: folioOwner,
       actor: getActorPDA(folioOwner, folio),
       folio,
       folioRewardTokens: getFolioRewardTokensPDA(folio),
+      realm,
+      governanceTokenMint,
+      governanceStakedTokenAccount,
+      callerGovernanceTokenAccount,
     })
     .instruction();
 
@@ -1045,6 +1076,10 @@ export async function claimRewards<T extends boolean = true>(
   userKeypair: Keypair,
   folioOwner: PublicKey,
   folio: PublicKey,
+  realm: PublicKey,
+  governanceTokenMint: PublicKey,
+  governanceStakedTokenAccount: PublicKey,
+  callerGovernanceTokenAccount: PublicKey,
   rewardTokens: PublicKey[],
   executeTxn: T = true as T,
   remainingAccounts: AccountMeta[] = []
@@ -1059,11 +1094,14 @@ export async function claimRewards<T extends boolean = true>(
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,
-
       folioOwner,
       actor: getActorPDA(folioOwner, folio),
       folio,
       folioRewardTokens: getFolioRewardTokensPDA(folio),
+      realm,
+      governanceTokenMint,
+      governanceStakedTokenAccount,
+      callerGovernanceTokenAccount,
     })
     .remainingAccounts(
       remainingAccounts.length > 0

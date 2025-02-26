@@ -1,3 +1,5 @@
+//! Tests for the RewardToken state
+
 #[cfg(test)]
 mod tests {
 

@@ -1,3 +1,5 @@
+//! Tests for the Folio state
+
 #[cfg(test)]
 mod tests {
     use anchor_lang::prelude::*;
@@ -111,8 +113,10 @@ mod tests {
 
     #[test]
     fn test_calculate_fees_for_minting_basic() {
-        let mut folio = Folio::default();
-        folio.mint_fee = 50_000_000_000_000_000; // 5% mint fee (0.05 * D18)
+        let mut folio = Folio {
+            mint_fee: 50_000_000_000_000_000, // 5% mint fee (0.05 * D18)
+            ..Folio::default()
+        };
 
         let result = folio
             .calculate_fees_for_minting(
@@ -135,8 +139,10 @@ mod tests {
 
     #[test]
     fn test_calculate_fees_for_minting_floor_kicks_in() {
-        let mut folio = Folio::default();
-        folio.mint_fee = 1_000_000_000_000_000; // 0.1% mint fee (0.001 * D18)
+        let mut folio = Folio {
+            mint_fee: 1_000_000_000_000_000, // 0.1% mint fee (0.001 * D18)
+            ..Folio::default()
+        };
 
         let result = folio
             .calculate_fees_for_minting(
@@ -155,8 +161,10 @@ mod tests {
 
     #[test]
     fn test_calculate_fees_for_minting_large_amount() {
-        let mut folio = Folio::default();
-        folio.mint_fee = 100_000_000_000_000_000; // 10% mint fee
+        let mut folio = Folio {
+            mint_fee: 100_000_000_000_000_000, // 10% mint fee
+            ..Folio::default()
+        };
 
         let result = folio
             .calculate_fees_for_minting(
@@ -179,8 +187,10 @@ mod tests {
 
     #[test]
     fn test_calculate_fees_for_minting_zero_mint_fee() {
-        let mut folio = Folio::default();
-        folio.mint_fee = 0;
+        let mut folio = Folio {
+            mint_fee: 0,
+            ..Folio::default()
+        };
 
         let result = folio
             .calculate_fees_for_minting(
@@ -199,8 +209,10 @@ mod tests {
 
     #[test]
     fn test_calculate_fees_for_minting_small_amount() {
-        let mut folio = Folio::default();
-        folio.mint_fee = 50_000_000_000_000_000; // 5% mint fee
+        let mut folio = Folio {
+            mint_fee: 50_000_000_000_000_000, // 5% mint fee
+            ..Folio::default()
+        };
 
         let result = folio
             .calculate_fees_for_minting(
@@ -227,8 +239,10 @@ mod tests {
 
     #[test]
     fn test_calculate_fees_for_minting_accumulation() {
-        let mut folio = Folio::default();
-        folio.mint_fee = 50_000_000_000_000_000; // 5% mint fee
+        let mut folio = Folio {
+            mint_fee: 50_000_000_000_000_000, // 5% mint fee
+            ..Folio::default()
+        };
 
         // First mint
         folio
@@ -263,11 +277,11 @@ mod tests {
 
     #[test]
     fn test_get_total_supply() {
-        let mut folio = Folio::default();
-
-        // Set some pending fees
-        folio.dao_pending_fee_shares = 1_000_000_000_000_000_000; // 1.0 * D18
-        folio.fee_recipients_pending_fee_shares = 2_000_000_000_000_000_000; // 2.0 * D18
+        let folio = Folio {
+            dao_pending_fee_shares: 1_000_000_000_000_000_000, // 1.0 * D18
+            fee_recipients_pending_fee_shares: 2_000_000_000_000_000_000, // 2.0 * D18
+            ..Folio::default()
+        };
 
         // Test with 10 tokens in circulation
         let result = folio.get_total_supply(10_000_000_000).unwrap(); // 10.0 * D9
@@ -295,9 +309,11 @@ mod tests {
 
     #[test]
     fn test_poke_zero_elapsed() {
-        let mut folio = Folio::default();
-        folio.last_poke = 1000;
-        folio.tvl_fee = 3_340_959_957; // 10% annual
+        let mut folio = Folio {
+            last_poke: 1000,
+            tvl_fee: 3_340_959_957, // 10% annual
+            ..Folio::default()
+        };
 
         let result = folio.poke(
             1_000_000_000,             // 1.0 token supply
@@ -314,11 +330,13 @@ mod tests {
 
     #[test]
     fn test_poke_with_existing_pending_fees() {
-        let mut folio = Folio::default();
-        folio.last_poke = 0;
-        folio.tvl_fee = 3_340_959_957; // 10% annual
-        folio.dao_pending_fee_shares = 1_000_000_000_000_000_000; // 1.0 existing DAO fees
-        folio.fee_recipients_pending_fee_shares = 2_000_000_000_000_000_000; // 2.0 existing recipient fees
+        let mut folio = Folio {
+            last_poke: 0,
+            tvl_fee: 3_340_959_957,                            // 10% annual
+            dao_pending_fee_shares: 1_000_000_000_000_000_000, // 1.0 existing DAO fees
+            fee_recipients_pending_fee_shares: 2_000_000_000_000_000_000, // 2.0 existing recipient fees
+            ..Folio::default()
+        };
 
         let result = folio.poke(
             1_000_000_000,             // 1.0 token supply
@@ -335,8 +353,10 @@ mod tests {
 
     #[test]
     fn test_poke_multiple_times() {
-        let mut folio = Folio::default();
-        folio.tvl_fee = 3_340_959_957; // 10% annual
+        let mut folio = Folio {
+            tvl_fee: 3_340_959_957, // 10% annual
+            ..Folio::default()
+        };
 
         // First poke
         folio
@@ -369,9 +389,11 @@ mod tests {
 
     #[test]
     fn test_poke_long_time_elapsed() {
-        let mut folio = Folio::default();
-        folio.last_poke = 0;
-        folio.tvl_fee = 3_340_959_957; // 10% annual
+        let mut folio = Folio {
+            last_poke: 0,
+            tvl_fee: 3_340_959_957, // 10% annual
+            ..Folio::default()
+        };
 
         let one_day = 86400;
         let result = folio.poke(
@@ -390,8 +412,10 @@ mod tests {
 
     #[test]
     fn test_get_pending_fee_shares_basic() {
-        let mut folio = Folio::default();
-        folio.tvl_fee = 3_340_959_957; // 10% annual
+        let folio = Folio {
+            tvl_fee: 3_340_959_957, // 10% annual
+            ..Folio::default()
+        };
 
         let (fee_recipients, dao_shares) = folio
             .get_pending_fee_shares(
@@ -410,8 +434,10 @@ mod tests {
 
     #[test]
     fn test_get_pending_fee_shares_fee_floor_kicks_in() {
-        let mut folio = Folio::default();
-        folio.tvl_fee = 33_409_599; // Very low TVL fee
+        let folio = Folio {
+            tvl_fee: 33_409_599, // Very low TVL fee
+            ..Folio::default()
+        };
 
         let (fee_recipients, dao_shares) = folio
             .get_pending_fee_shares(
@@ -443,8 +469,10 @@ mod tests {
 
     #[test]
     fn test_get_pending_fee_shares_zero_supply() {
-        let mut folio = Folio::default();
-        folio.tvl_fee = 3_340_959_957u128; // 10% annual
+        let folio = Folio {
+            tvl_fee: 3_340_959_957u128, // 10% annual
+            ..Folio::default()
+        };
 
         let (fee_recipients, dao_shares) = folio
             .get_pending_fee_shares(
@@ -462,8 +490,10 @@ mod tests {
 
     #[test]
     fn test_get_pending_fee_shares_with_existing_fees() {
-        let mut folio = Folio::default();
-        folio.tvl_fee = 3_340_959_957; // 10% annual
+        let mut folio = Folio {
+            tvl_fee: 3_340_959_957, // 10% annual
+            ..Folio::default()
+        };
 
         // Set initial pending fees
         let initial_dao_fees = 1_000_000_000_000_000_000u128; // 1.0

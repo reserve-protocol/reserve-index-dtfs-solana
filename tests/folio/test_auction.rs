@@ -1,3 +1,5 @@
+//! Tests for the Auction state
+
 #[cfg(test)]
 mod tests {
 
@@ -37,8 +39,6 @@ mod tests {
             end: 500,
         };
         let ttl = 3600;
-
-        let auction = setup_auction();
 
         assert!(Auction::validate_auction_approve(&sell_limit, &buy_limit, &prices, ttl).is_ok());
 

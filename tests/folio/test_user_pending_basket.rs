@@ -1,3 +1,5 @@
+//! Tests for the UserPendingBasket state
+
 #[cfg(test)]
 mod tests {
     use anchor_lang::prelude::Pubkey;

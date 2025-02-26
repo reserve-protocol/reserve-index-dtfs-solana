@@ -1,3 +1,4 @@
+//! Test module for the ProgramRegistrar struct.
 #[cfg(test)]
 mod tests {
     use anchor_lang::prelude::*;

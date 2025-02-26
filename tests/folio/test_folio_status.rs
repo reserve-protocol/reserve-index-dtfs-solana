@@ -1,3 +1,5 @@
+//! Tests for the FolioStatus enum
+
 #[cfg(test)]
 mod tests {
     use folio::utils::FolioStatus;
@@ -19,7 +21,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "Invalid enum value")]
     fn test_folio_status_from_invalid_u8() {
-        FolioStatus::from(4);
+        let _ = FolioStatus::from(4);
     }
 
     #[test]

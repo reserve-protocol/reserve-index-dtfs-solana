@@ -1,3 +1,4 @@
+//! Tests for the RewardInfo state
 #[cfg(test)]
 mod tests {
     use folio::{state::RewardInfo, utils::Decimal};

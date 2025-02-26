@@ -8,6 +8,16 @@ use shared::constants::FOLIO_REWARD_TOKENS_SEEDS;
 use shared::constants::{ACTOR_SEEDS, SPL_GOVERNANCE_PROGRAM_ID};
 use shared::errors::ErrorCode;
 
+/// Remove a tracked reward token from the folio.
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `executor` - The executor account (mut, signer).
+/// * `folio_owner` - The folio owner account (PDA) (not mut, signer) (spl governance account).
+/// * `actor` - The actor account of the Folio Owner (PDA) (not mut, not signer).
+/// * `folio` - The folio account (PDA) (not mut, not signer).
+/// * `folio_reward_tokens` - The folio reward tokens account (PDA) (mut, not signer).
+/// * `reward_token_to_remove` - The reward token mint to remove (not mut, not signer).
 #[derive(Accounts)]
 pub struct RemoveRewardToken<'info> {
     pub system_program: Program<'info, System>,
@@ -40,6 +50,13 @@ pub struct RemoveRewardToken<'info> {
 }
 
 impl RemoveRewardToken<'_> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * Folio is valid PDA and valid status
+    /// * Actor is the folio owner's actor
+    /// * Reward token to be removed is not the folio token mint
+    /// * Folio owner is a PDA that belongs to the SPL Governance program
     pub fn validate(&self, folio: &Folio) -> Result<()> {
         folio.validate_folio(
             &self.folio.key(),
@@ -63,6 +80,10 @@ impl RemoveRewardToken<'_> {
     }
 }
 
+/// Remove a tracked reward token from the folio.
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
 pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, RemoveRewardToken<'info>>) -> Result<()> {
     let folio = ctx.accounts.folio.load()?;
     ctx.accounts.validate(&folio)?;

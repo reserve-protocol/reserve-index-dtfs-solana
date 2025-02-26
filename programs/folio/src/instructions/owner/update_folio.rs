@@ -15,6 +15,7 @@ use shared::constants::{
 use shared::errors::ErrorCode;
 use shared::{check_condition, constants::ACTOR_SEEDS};
 
+/// Index of the accounts in the remaining accounts.
 enum IndexPerAccount {
     TokenProgram,
     DAOFeeConfig,
@@ -24,6 +25,26 @@ enum IndexPerAccount {
     DAOFeeRecipient,
 }
 
+/// Update Folio (one or multiple different fields of the folio)
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `rent` - The rent sysvar.
+/// * `folio_owner` - The folio owner account (mut, signer).
+/// * `actor` - The actor account (PDA) of the Folio owner (not mut, not signer).
+/// * `folio` - The folio account (PDA) (mut, not signer).
+/// * `fee_recipients` - The fee recipients account (PDA) (init if needed, not signer).
+///
+/// * `remaining_accounts` - The remaining accounts will be used if we need to also distribute the fees. Modifying certain fields on the folio will require distributing the fees.
+///
+/// Order is
+///
+/// - Token program
+/// - DAO fee config
+/// - Folio fee config
+/// - Folio token mint (mut)
+/// - Fee Distribution (mut)
+/// - DAO fee recipient (mut)
 #[derive(Accounts)]
 pub struct UpdateFolio<'info> {
     pub system_program: Program<'info, System>,
@@ -64,6 +85,10 @@ pub struct UpdateFolio<'info> {
 }
 
 impl UpdateFolio<'_> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * Actor is the owner of the folio.
     pub fn validate(&self) -> Result<()> {
         {
             let folio = self.folio.load()?;
@@ -80,6 +105,11 @@ impl UpdateFolio<'_> {
 }
 
 impl<'info> UpdateFolio<'info> {
+    /// Distribute fees if needed.
+    ///
+    /// # Arguments
+    /// * `remaining_accounts` - The remaining accounts contains the extra accounts required to distribute the fees.
+    /// * `index_for_fee_distribution` - The index of the next fee distribution account to create.
     pub fn distribute_fees(
         &self,
         remaining_accounts: &'info [AccountInfo<'info>],
@@ -108,7 +138,8 @@ impl<'info> UpdateFolio<'info> {
                     &remaining_accounts[IndexPerAccount::FolioTokenMint as usize],
                 )?);
 
-            // Create the fee distribution account (since the distribute fees init it)
+            // Create the fee distribution account (since the distribute fees init it, but we're skipping the anchor's context by
+            // calling the function directly)
             let folio_key = self.folio.key();
             let index_for_fee_distribution_parsed =
                 index_for_fee_distribution.unwrap().to_le_bytes();
@@ -168,6 +199,18 @@ impl<'info> UpdateFolio<'info> {
     }
 }
 
+/// Update Folio
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
+/// * `scaled_tvl_fee` - The TVL fee if we want to update it. [trigger fee distribution]
+/// * `index_for_fee_distribution` - The index of the next fee distribution account to create if we're updating a field that will trigger a fee distribution.
+/// * `scaled_mint_fee` - The mint fee if we want to update it. [trigger fee distribution]
+/// * `auction_delay` - The auction delay if we want to update it.
+/// * `auction_length` - The auction length if we want to update it.
+/// * `fee_recipients_to_add` - The fee recipients to add. [trigger fee distribution]
+/// * `fee_recipients_to_remove` - The fee recipients to remove. [trigger fee distribution]
+/// * `mandate` - The mandate if we want to update it.
 #[allow(clippy::too_many_arguments)]
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, UpdateFolio<'info>>,

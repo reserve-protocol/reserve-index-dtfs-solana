@@ -9,6 +9,6 @@ use bytemuck::{Pod, Zeroable};
 pub struct AuctionEnd {
     pub mint: Pubkey,
 
-    /// Scaled in seconds
+    /// timestamp of latest ongoing auction {s}
     pub end_time: u64,
 }

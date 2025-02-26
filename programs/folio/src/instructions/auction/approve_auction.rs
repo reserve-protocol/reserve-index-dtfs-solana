@@ -12,6 +12,19 @@ use shared::{
     errors::ErrorCode,
 };
 
+/// Approve an auction.
+/// Auction Approver only.
+///
+/// # Arguments
+/// * `auction_id` - The id of the auction to approve.
+/// * `system_program` - The system program.
+/// * `rent` - The rent sysvar.
+/// * `auction_approver` - The account that is approving the auction (mut, signer).
+/// * `actor` - The actor account (PDA) (not mut, not signer).
+/// * `folio` - The folio account (PDA) (mut, not signer).
+/// * `auction` - The auction account (PDA) (init, not signer).
+/// * `buy_mint` - The buy token mint account.
+/// * `sell_mint` - The sell token mint account.
 #[derive(Accounts)]
 #[instruction(auction_id: u64)]
 pub struct ApproveAuction<'info> {
@@ -39,14 +52,24 @@ pub struct ApproveAuction<'info> {
     )]
     pub auction: AccountLoader<'info, Auction>,
 
+    /// The token to buy, from the perspective of the Folio
     #[account()]
     pub buy_mint: Box<InterfaceAccount<'info, Mint>>,
 
+    /// The token to sell, from the perspective of the Folio
     #[account()]
     pub sell_mint: Box<InterfaceAccount<'info, Mint>>,
 }
 
 impl ApproveAuction<'_> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * Folio has the correct status & actor has the correct role.
+    /// * Auction id is valid (current auction id + 1 == auction id).
+    /// * Buy and sell mints are different.
+    /// * Auction approve parameters are valid.
+    /// * Buy mint is a supported SPL token (mean it doesn't have any forbidden extensions).
     pub fn validate(
         &self,
         folio: &Folio,
@@ -78,6 +101,17 @@ impl ApproveAuction<'_> {
     }
 }
 
+/// Approve an auction.
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
+/// * `auction_id` - The id of the auction to approve.
+/// * `sell_limit` - D18{sellTok/share} min ratio of sell token to shares allowed, inclusive
+/// * `buy_limit` - D18{buyTok/share} max balance-ratio to shares allowed, exclusive
+/// * `prices` - D18{buyTok/sellTok} Price range
+/// * `ttl` - How long a auction can exist in an APPROVED state until it can no longer be OPENED
+///           (once opened, it always finishes).
+///           Must be longer than auctionDelay if intended to be permissionlessly available.
 pub fn handler(
     ctx: Context<ApproveAuction>,
     auction_id: u64,

@@ -1,3 +1,5 @@
+//! Tests for the Role state
+
 #[cfg(test)]
 mod tests {
 

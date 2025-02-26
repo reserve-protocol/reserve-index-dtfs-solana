@@ -15,6 +15,16 @@ use shared::errors::ErrorCode::*;
 use crate::state::{Folio, FolioBasket, UserPendingBasket};
 
 impl UserPendingBasket {
+    /// Process the init if needed, meaning we initialize the account if it's not initialized yet and if it already is
+    /// we check if the bump is correct.
+    ///
+    /// # Arguments
+    /// * `account_loader_user_pending_basket` - The account loader for the UserPendingBasket account.
+    /// * `context_bump` - The bump of the account provided in the anchor context.
+    /// * `owner` - The owner of the UserPendingBasket account.
+    /// * `folio` - The folio the UserPendingBasket account belongs to.
+    /// * `added_token_amounts` - The token amounts to add to the UserPendingBasket account.
+    /// * `can_add_new_mints` - Whether we can add new mints to the UserPendingBasket account.
     #[cfg(not(tarpaulin_include))]
     pub fn process_init_if_needed(
         account_loader_user_pending_basket: &mut AccountLoader<UserPendingBasket>,
@@ -64,6 +74,12 @@ impl UserPendingBasket {
         Ok(())
     }
 
+    /// Add token amounts to the pending basket of the user. If can add new mints it mean it won't error out if the mint is not in the basket yet.
+    ///
+    /// # Arguments
+    /// * `token_amounts` - The token amounts to add to the pending basket.
+    /// * `can_add_new_mints` - Whether we can add new mints to the pending basket.
+    /// * `pending_basket_type` - The type of pending basket, wether it's for minting or redeeming.
     pub fn add_token_amounts_to_folio(
         &mut self,
         token_amounts: &Vec<TokenAmount>,
@@ -132,6 +148,12 @@ impl UserPendingBasket {
         Ok(())
     }
 
+    /// Remove token amounts from the pending basket of the user. If needs to validate mint existence it means it will error out if the mint is not in the basket.
+    ///
+    /// # Arguments
+    /// * `token_amounts` - The token amounts to remove from the pending basket.
+    /// * `needs_to_validate_mint_existence` - Whether we need to validate the mint existence within the basket.
+    /// * `pending_basket_type` - The type of pending basket, wether it's for minting or redeeming.
     pub fn remove_token_amounts_from_folio(
         &mut self,
         token_amounts: &Vec<TokenAmount>,
@@ -167,6 +189,10 @@ impl UserPendingBasket {
         Ok(())
     }
 
+    /// Reorder the token amounts in the pending basket of the user to match the order of the mints in the ordering vector.
+    ///
+    /// # Arguments
+    /// * `ordering_vec` - The ordering vector to reorder the token amounts.
     pub fn reorder_token_amounts(&mut self, ordering_vec: &[TokenAmount]) -> Result<()> {
         self.token_amounts.sort_by_key(|ta| {
             ordering_vec
@@ -178,17 +204,36 @@ impl UserPendingBasket {
         Ok(())
     }
 
+    /// Check if the pending basket of the user is empty. Meaning all the token amounts are 0.
+    ///
+    /// # Returns
+    /// * `bool` - Whether the pending basket of the user is empty.
     pub fn is_empty(&self) -> bool {
         self.token_amounts
             .iter()
             .all(|ta| ta.amount_for_minting == 0 && ta.amount_for_redeeming == 0)
     }
 
+    /// Reset the pending basket of the user to default. Meaning all the token amounts are set to 0 and the mint is set to the default pubkey.
     pub fn reset(&mut self) {
         self.token_amounts = [TokenAmount::default(); MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS];
     }
 
-    /// This function pokes the folio to get the latest pending fee shares, and then converts the user's pending amounts to assets.
+    /// This function pokes the folio to get the latest pending fee shares, and then calculates the user's pending amounts in shares.
+    ///
+    /// # Arguments
+    /// * `raw_shares` - The shares to convert to assets. (the amount of shares the user wants to redeem or mint) (D9).
+    /// * `raw_folio_token_supply` - The folio token supply of the folio token mint (D9).
+    /// * `folio_key` - The key of the folio.
+    /// * `token_program_id` - The token program id.
+    /// * `folio_basket` - The basket of the folio.
+    /// * `folio` - The folio.
+    /// * `pending_basket_type` - The type of pending basket, wether it's for minting or redeeming.
+    /// * `included_tokens` - The tokens currently being processed (sent as remaining accounts).
+    /// * `current_time` - The current time.
+    /// * `scaled_dao_fee_numerator` - The numerator of the DAO fee (D18).
+    /// * `scaled_dao_fee_denominator` - The denominator of the DAO fee (D18).
+    /// * `scaled_dao_fee_floor` - The floor of the DAO fee (D18).
     #[allow(clippy::too_many_arguments)]
     #[cfg(not(tarpaulin_include))]
     pub fn to_assets(
@@ -201,7 +246,6 @@ impl UserPendingBasket {
         folio: &mut RefMut<'_, Folio>,
         pending_basket_type: PendingBasketType,
         included_tokens: &&[AccountInfo<'_>],
-        // Also pokes the folio, to make sure we get the latest fee shares
         current_time: i64,
         scaled_dao_fee_numerator: u128,
         scaled_dao_fee_denominator: u128,
@@ -235,7 +279,7 @@ impl UserPendingBasket {
 
             check_condition!(raw_user_amount.mint == related_mint.mint, MintMismatch);
 
-            // Get token balance for folio
+            // Get token balance for folio of the token currently being processed
             let data = folio_token_account.try_borrow_data()?;
             let folio_token_account = TokenAccount::try_deserialize(&mut &data[..])?;
 
@@ -269,6 +313,15 @@ impl UserPendingBasket {
         Ok(())
     }
 
+    /// Calculate the user's pending amount in shares for minting. This will be removed from the amount_for_minting, so that we take the pending amount
+    /// of the user and calculate how many shares of the folio mint token they would get.
+    ///
+    /// # Arguments
+    /// * `raw_user_amount` - The user's pending amount for minting (D9).
+    /// * `raw_related_mint_amount` - The folio's amount for minting (D9).
+    /// * `scaled_total_supply_folio_token` - The total supply of the folio mint token (D9).
+    /// * `scaled_folio_token_balance` - The balance of the folio in folio mint token (D9).
+    /// * `raw_shares` - The shares to convert to assets. (the amount of shares the user wants to mint) (D9).
     pub fn to_assets_for_minting(
         raw_user_amount: &mut TokenAmount,
         raw_related_mint_amount: &mut TokenAmount,
@@ -292,7 +345,7 @@ impl UserPendingBasket {
             .div(scaled_total_supply_folio_token)?
             .to_token_amount(Rounding::Ceiling)?;
 
-        // Remove from both pending amounts
+        // Remove from pending amounts in both the folio's basket and the user's pending basket
         raw_user_amount.amount_for_minting = raw_user_amount
             .amount_for_minting
             .checked_sub(raw_user_amount_taken.0)
@@ -305,6 +358,15 @@ impl UserPendingBasket {
         Ok(())
     }
 
+    /// Calculate the user's pending amount in shares for redeeming. This will be added to the amount_fo_redeeming, so that the user can redeem them
+    /// in multiple steps if needed.
+    ///
+    /// # Arguments
+    /// * `raw_user_amount` - The user's pending amount for redeeming (D9).
+    /// * `raw_related_mint_amount` - The folio's amount for redeeming (D9).
+    /// * `scaled_total_supply_folio_token` - The total supply of the folio mint token (D9).
+    /// * `scaled_folio_token_balance` - The balance of the folio in folio mint token (D9).
+    /// * `raw_shares` - The shares to convert to assets. (the amount of shares the user wants to redeem) (D9).
     pub fn to_assets_for_redeeming(
         raw_user_amount: &mut TokenAmount,
         raw_related_mint_amount: &mut TokenAmount,
@@ -317,7 +379,7 @@ impl UserPendingBasket {
             .div(scaled_total_supply_folio_token)?
             .to_token_amount(Rounding::Floor)?;
 
-        // Add to both pending amounts for redeeming
+        // Add to pending amounts in both the folio's basket and the user's pending basket
         raw_user_amount.amount_for_redeeming = raw_user_amount
             .amount_for_redeeming
             .checked_add(raw_amount_to_give_to_user.0)

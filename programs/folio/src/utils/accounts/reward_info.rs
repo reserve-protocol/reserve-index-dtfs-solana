@@ -6,6 +6,15 @@ use shared::check_condition;
 use shared::errors::ErrorCode;
 
 impl RewardInfo {
+    /// Process the init if needed, meaning we initialize the account if it's not initialized yet and if it already is
+    /// we check if the bump is correct.
+    ///
+    /// # Arguments
+    /// * `account_reward_info` - The account to process the init for.
+    /// * `context_bump` - The bump of the account provided in the anchor context.
+    /// * `folio` - The folio the reward info belongs to.
+    /// * `reward_token` - The reward token.
+    /// * `raw_last_known_balance` - The last known balance of the reward token in the token account of FolioRewardTokens.
     #[cfg(not(tarpaulin_include))]
     pub fn process_init_if_needed(
         account_reward_info: &mut Account<RewardInfo>,
@@ -31,11 +40,18 @@ impl RewardInfo {
         Ok(())
     }
 
+    /// Accrue rewards for the "global" reward info account.
+    ///
+    /// # Arguments
+    /// * `scaled_folio_reward_ratio` - The folio reward ratio (D18).
+    /// * `raw_current_reward_token_balance` - The current balance of the reward token of the FolioRewardTokens account (D9).
+    /// * `raw_current_staked_token_balance` - The current total staked balance of the governing mint token in the Realm (D9).
+    /// * `current_token_decimals` - The decimals of the staked token.
+    /// * `current_time` - The current time (seconds).
     pub fn accrue_rewards(
         &mut self,
         scaled_folio_reward_ratio: u128,
         raw_current_reward_token_balance: u64,
-        // Represent the supply of tokens that are staked in the governance account
         raw_current_staked_token_balance: u64,
         current_token_decimals: u8,
         current_time: u64,
@@ -63,7 +79,7 @@ impl RewardInfo {
 
         let scaled_handout_percentage = Decimal::ONE_E18
             .sub(&scaled_pow_result)?
-            .sub(&Decimal::ONE)?;
+            .sub(&Decimal::ONE)?; // rounds down
 
         // {reward} = {reward} * D18{1} / D18
         let scaled_tokens_to_handout = Decimal::from_scaled(scaled_unaccounted_balance)
@@ -88,6 +104,12 @@ impl RewardInfo {
         Ok(())
     }
 
+    /// Calculate the delta index for the reward index.
+    ///
+    /// # Arguments
+    /// * `scaled_tokens_to_handout` - The tokens to handout (D18).
+    /// * `raw_current_reward_token_supply` - The current balance of the reward token of the FolioRewardTokens account (D9).
+    /// * `current_token_decimals` - The decimals of the reward token.
     pub fn calculate_delta_index(
         &mut self,
         scaled_tokens_to_handout: &Decimal,
@@ -110,6 +132,7 @@ impl RewardInfo {
             .div(&scaled_current_reward_token_supply)? // D45 / decimals i.e. D9 = 36
             .div(&Decimal::ONE_E18)?; // Scale back down to D18 (D36 / D18)
 
+        // D18+decimals{reward/share} += D18+decimals{reward/share}
         self.reward_index = self
             .reward_index
             .checked_add(scaled_delta_index.to_scaled(Rounding::Ceiling)?)

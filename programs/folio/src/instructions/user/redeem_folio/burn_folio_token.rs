@@ -14,6 +14,22 @@ use shared::constants::{
 use shared::errors::ErrorCode;
 use shared::{check_condition, constants::PendingBasketType};
 
+/// Burn folio tokens from a user's folio token account.
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `token_program` - The token program.
+/// * `associated_token_program` - The associated token program.
+/// * `user` - The user account (mut, signer).
+/// * `dao_fee_config` - The DAO fee config account (PDA) (not mut, not signer).
+/// * `folio_fee_config` - The folio fee config account (PDA) (not mut, not signer).
+/// * `folio` - The folio account (PDA) (mut, not signer).
+/// * `folio_token_mint` - The folio token mint account (PDA) (mut, not signer).
+/// * `folio_basket` - The folio basket account (PDA) (mut, not signer).
+/// * `user_pending_basket` - The user pending basket account (PDA) (mut, not signer).
+/// * `user_folio_token_account` - The user folio token account (PDA) (mut, not signer).
+///
+/// * `remaining_accounts` - The remaining accounts will represent the token accounts of the Folio
 #[derive(Accounts)]
 pub struct BurnFolioToken<'info> {
     pub system_program: Program<'info, System>,
@@ -70,6 +86,11 @@ pub struct BurnFolioToken<'info> {
 }
 
 impl BurnFolioToken<'_> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * Folio is valid PDA and initialized or killed.
+    /// * Folio token mint is the same as the one in the folio.
     pub fn validate(&self, folio: &Folio) -> Result<()> {
         folio.validate_folio(
             &self.folio.key(),
@@ -87,9 +108,14 @@ impl BurnFolioToken<'_> {
     }
 }
 
-/// This function is used when the user wants to burn his folio token shares and withdraw the underlying tokens.
+/// Burn folio tokens from a user's folio token account. This is the first step of the redeeming process.
+/// This can only be called once atomically, as it will burn the folio token from the user's folio token account and requires ALL the token balances
+/// of the Folio's token accounts to be able to properly calculate the amount of shares the user can have.
+/// This action can't be rolled back.
 ///
-/// shares: u64: is in token amount, which we consider D9
+/// # Arguments
+/// * `ctx` - The context of the instruction.
+/// * `raw_shares` - The amount of shares the user wants to burn (D9).
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, BurnFolioToken<'info>>,
     raw_shares: u64,
@@ -129,6 +155,7 @@ pub fn handler<'info>(
         let folio = &mut ctx.accounts.folio.load_mut()?;
         let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
 
+        // Folio is poked via the to_assets function, so don't need to poke it here
         token_amounts_user.to_assets(
             raw_shares,
             ctx.accounts.folio_token_mint.supply,

@@ -3,6 +3,13 @@ use anchor_lang::prelude::*;
 use shared::errors::ErrorCode;
 use shared::{check_condition, constants::USER_PENDING_BASKET_SEEDS};
 
+/// Close the user's pending basket.
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `user` - The user account (mut, signer).
+/// * `folio` - The folio account (PDA) (not mut, not signer).
+/// * `user_pending_basket` - The user pending basket account (PDA) (mut, not signer).
 #[derive(Accounts)]
 pub struct CloseUserPendingTokenAmount<'info> {
     pub system_program: Program<'info, System>,
@@ -21,6 +28,10 @@ pub struct CloseUserPendingTokenAmount<'info> {
 }
 
 impl CloseUserPendingTokenAmount<'_> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * Folio is valid PDA
     pub fn validate(&self) -> Result<()> {
         self.folio.load()?.validate_folio(
             &self.folio.key(),
@@ -34,6 +45,10 @@ impl CloseUserPendingTokenAmount<'_> {
     }
 }
 
+/// Close the user's pending basket. This is used to get the rent back from creating a pending basket for the user
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, CloseUserPendingTokenAmount<'info>>,
 ) -> Result<()> {

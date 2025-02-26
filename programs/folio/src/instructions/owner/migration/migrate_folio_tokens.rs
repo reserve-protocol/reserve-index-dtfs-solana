@@ -18,6 +18,24 @@ use shared::{
 
 const REMAINING_ACCOUT_DIVIDER: usize = 3;
 
+/// Migrate Folio Tokens
+/// Permissionless
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `token_program` - The token program.
+/// * `user` - The user account (mut, signer).
+/// * `program_registrar` - The program registrar account (not mut, not signer).
+/// * `new_folio_program` - The new folio program (executable).
+/// * `old_folio` - The old folio account (PDA) (not mut, not signer).
+/// * `old_folio_basket` - The old folio basket account (PDA) (mut, not signer).
+/// * `new_folio` - The new folio account (mut, not signer).
+/// * `folio_token_mint` - The folio token mint account (mut, not signer).
+///
+/// * `remaining_accounts` - The remaining accounts will be the token accounts of the folio that are being transferred from the old folio to the new one.
+///         - Token Mint
+///         - Sender Token Account (needs to be owned by old folio) (mut)
+///         - Recipient Token Account (needs to be owned by new folio) (mut)
 #[derive(Accounts)]
 pub struct MigrateFolioTokens<'info> {
     pub system_program: Program<'info, System>,
@@ -67,6 +85,14 @@ pub struct MigrateFolioTokens<'info> {
 }
 
 impl MigrateFolioTokens<'_> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * Old folio has the correct status.
+    /// * Token mint is the same as the one on the old folio.
+    /// * New folio program is in the registrar.
+    /// * New folio is owned by the new folio program.
+    /// * New folio program is not the same as the old folio program.
     pub fn validate(&self, old_folio: &Folio) -> Result<()> {
         // Validate old folio
         old_folio.validate_folio(
@@ -106,6 +132,10 @@ impl MigrateFolioTokens<'_> {
     }
 }
 
+/// Migrate Folio Tokens. This will be called once the migration has been initiated by the Folio owner.
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
 pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'info>>) -> Result<()> {
     let old_folio_key = ctx.accounts.old_folio.key();
     let new_folio_key = ctx.accounts.new_folio.key();
@@ -132,9 +162,9 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
     let folio_signer = &[&folio_signer_seeds[..]];
 
     /*
-    Transfer the folio tokens (from the folio basket), we will remove the pending amounts, as we'll let user
-    be able to take them back, on the old folio program, rather than the new one for simplicity and security.
-     */
+    Transfer the folio tokens (from the folio basket), won't transfer the pending amounts, as those users
+    will be able to take them back, on the old folio program, rather than the new one for simplicity and security.
+    */
     check_condition!(
         ctx.remaining_accounts.len() % REMAINING_ACCOUT_DIVIDER == 0,
         InvalidNumberOfRemainingAccounts
@@ -176,7 +206,6 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
             InvalidRecipientTokenAccount
         );
 
-        // Validate the token mint is in the old folio basket
         let mint_decimals = {
             let data = token_mint.try_borrow_data()?;
             Mint::try_deserialize(&mut &data[..])?.decimals

@@ -1,3 +1,5 @@
+//! Tests for the FixedSizeString struct
+
 #[cfg(test)]
 mod tests {
     use folio::utils::{FixedSizeString, MAX_PADDED_STRING_LENGTH};

@@ -1,7 +1,9 @@
 use anchor_lang::prelude::*;
 
+/// Utility struct for the metaplex program.
 pub struct Metaplex {}
 
+/// Create metadata account instruction.
 pub struct CreateMetadataAccount<'info> {
     pub metadata: AccountInfo<'info>,
     pub mint: AccountInfo<'info>,
@@ -14,6 +16,14 @@ pub struct CreateMetadataAccount<'info> {
 }
 
 impl Metaplex {
+    /// Create a metadata account for a token mint.
+    ///
+    /// # Arguments
+    /// * `ctx` - The create metadata account context.
+    /// * `name` - The name of the token.
+    /// * `symbol` - The symbol of the token.
+    /// * `uri` - The uri of the token.
+    /// * `signers_seeds` - The signers seeds of the update authority.
     #[cfg(not(tarpaulin_include))]
     pub fn create_metadata_account(
         ctx: &CreateMetadataAccount,

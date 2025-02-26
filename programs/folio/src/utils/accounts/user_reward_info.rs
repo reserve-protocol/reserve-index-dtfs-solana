@@ -10,6 +10,19 @@ use shared::constants::USER_REWARD_INFO_SEEDS;
 use shared::errors::ErrorCode;
 
 impl UserRewardInfo {
+    /// Process the init if needed, meaning we initialize the account if it's not initialized yet and if it already is
+    /// we check if the bump is correct. If initialization is needed, the PDA will be created via a CPI.
+    ///
+    /// # Arguments
+    /// * `account_user_reward_info` - The account info of the UserRewardInfo account.
+    /// * `system_program` - The system program account info.
+    /// * `payer` - The payer of the UserRewardInfo account initialization.
+    /// * `for_user` - The user the UserRewardInfo account will be initialized for.
+    /// * `context_bump` - The bump of the account provided in the anchor context.
+    /// * `folio` - The folio the UserRewardInfo account belongs to.
+    /// * `reward_token` - The reward token the UserRewardInfo account will track.
+    /// * `reward_info` - The reward info account.
+    /// * `raw_user_balance` - The balance of the user's governance token that is staked in the Realm (D9).
     #[cfg(not(tarpaulin_include))]
     pub fn process_init_if_needed<'info>(
         account_user_reward_info: &'info AccountInfo<'info>,
@@ -59,7 +72,7 @@ impl UserRewardInfo {
 
                 new_account_user_reward_info.accrue_rewards(reward_info, raw_user_balance)?;
 
-                // Serialize updated struct
+                // Serialize back the updated struct
                 let mut data = account_user_reward_info.try_borrow_mut_data()?;
                 let mut writer = std::io::Cursor::new(&mut data[..]);
                 new_account_user_reward_info.try_serialize(&mut writer)?;
@@ -72,7 +85,7 @@ impl UserRewardInfo {
 
             account_user_reward_info.accrue_rewards(reward_info, raw_user_balance)?;
 
-            // Serialize updated struct
+            // Serialize back the updated struct
             let account_user_reward_info_account_info = account_user_reward_info.to_account_info();
             let mut data = account_user_reward_info_account_info.try_borrow_mut_data()?;
             let mut writer = std::io::Cursor::new(&mut data[..]);
@@ -82,6 +95,11 @@ impl UserRewardInfo {
         Ok(())
     }
 
+    /// Accrue rewards for the user's reward info account.
+    ///
+    /// # Arguments
+    /// * `reward_info` - The user reward info account.
+    /// * `raw_user_governance_balance` - The balance of the user's governance token that is staked in the Realm (D9).
     pub fn accrue_rewards(
         &mut self,
         reward_info: &RewardInfo,
@@ -104,6 +122,11 @@ impl UserRewardInfo {
         Ok(())
     }
 
+    /// Calculate the accrued rewards for the user and update the user's reward info account.
+    ///
+    /// # Arguments
+    /// * `raw_user_governance_balance` - The balance of the user's governance token that is staked in the Realm (D9).
+    /// * `scaled_delta_result` - The delta result of the reward index (D18).
     pub fn calculate_and_update_accrued_rewards(
         &mut self,
         raw_user_governance_balance: u64,

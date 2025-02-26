@@ -6,6 +6,15 @@ use crate::{
 use anchor_lang::prelude::*;
 use shared::constants::ACTOR_SEEDS;
 
+/// Close an auction.
+/// Auction Approver, Auction Launcher, or Owner.
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `auction_actor` - The actor account (mut, signer).
+/// * `actor` - The actor account (PDA) (not mut, not signer).
+/// * `folio` - The folio account (PDA) (mut, not signer).
+/// * `auction` - The auction account (PDA) (mut, not signer).
 #[derive(Accounts)]
 pub struct CloseAuction<'info> {
     pub system_program: Program<'info, System>,
@@ -27,6 +36,11 @@ pub struct CloseAuction<'info> {
 }
 
 impl CloseAuction<'_> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * Folio has the correct status and actor has the correct role.
+    /// * Auction is valid.
     pub fn validate(&self, folio: &Folio, auction: &Auction) -> Result<()> {
         folio.validate_folio(
             &self.folio.key(),
@@ -45,6 +59,11 @@ impl CloseAuction<'_> {
     }
 }
 
+/// Close an auction.
+/// An auction can be closed from anywhere in its lifecycle, and cannot be restarted
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
 pub fn handler(ctx: Context<CloseAuction>) -> Result<()> {
     let folio = &mut ctx.accounts.folio.load_mut()?;
     let auction = &mut ctx.accounts.auction.load_mut()?;

@@ -13,6 +13,23 @@ use shared::errors::ErrorCode;
 
 const EXPECTED_REMAINING_ACCOUNTS_LENGTH: usize = 3;
 
+/// Add a token to the folio's basket.
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `token_program` - The token program.
+/// * `associated_token_program` - The associated token program.
+/// * `folio_owner` - The folio owner account (mut, signer).
+/// * `actor` - The actor account (PDA) of the Folio owner (mut, not signer).
+/// * `folio` - The folio account (PDA) (mut, not signer).
+/// * `folio_basket` - The folio basket account (PDA) (init, not signer).
+/// * `folio_token_mint` - The folio token mint account (mut, not signer).
+/// * `owner_folio_token_account` - The owner's folio token account (mut, not signer).
+///
+/// * `remaining_accounts` - The remaining accounts will be the token accounts of the tokens to add to the basket.
+///         - Token Mint
+///         - Sender Token Account (needs to be owned by owner) (mut)
+///         - Recipient Token Account (needs to be owned by folio) (this is expected to be the ATA and already exist, to save on compute) (mut)
 #[derive(Accounts)]
 pub struct AddToBasket<'info> {
     pub system_program: Program<'info, System>,
@@ -57,6 +74,11 @@ pub struct AddToBasket<'info> {
 }
 
 impl AddToBasket<'_> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * Folio has the correct status.
+    /// * Actor is the owner of the folio.
     pub fn validate(&self, folio: &Folio) -> Result<()> {
         folio.validate_folio(
             &self.folio.key(),
@@ -69,6 +91,11 @@ impl AddToBasket<'_> {
     }
 }
 
+/// Mint Initial Shares. Used to mint the initial shares to the owner when the folio is created.
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
+/// * `raw_initial_shares` - The initial shares to mint (D9).
 fn mint_initial_shares<'info>(
     ctx: &Context<'_, '_, 'info, 'info, AddToBasket<'info>>,
     raw_initial_shares: Option<u64>,
@@ -78,6 +105,7 @@ fn mint_initial_shares<'info>(
     {
         let folio = ctx.accounts.folio.load()?;
 
+        // Can only mint the initial shares once
         if folio.status == FolioStatus::Initializing as u8 {
             let bump = folio.bump;
             let signer_seeds = &[FOLIO_SEEDS, token_mint_key.as_ref(), &[bump]];
@@ -108,10 +136,14 @@ fn mint_initial_shares<'info>(
     Ok(())
 }
 
-/*
-Initial shares should only be non null for  the first time the folio is "finalized", meaning first time the owner
-creates the folio and is done adding the initial list of tokens for the folio.
-*/
+/// Add tokens to the folio's basket, but also mint initial shares if needed.
+/// Initial shares should only be non null for  the first time the folio is "finalized", meaning first time the owner
+/// creates the folio and is done adding the initial list of tokens for the folio.
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
+/// * `raw_amounts` - The amounts of the tokens to add to the basket from the Folio's owner folio token account.
+/// * `raw_initial_shares` - The initial shares to mint (D9).
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, AddToBasket<'info>>,
     raw_amounts: Vec<u64>,

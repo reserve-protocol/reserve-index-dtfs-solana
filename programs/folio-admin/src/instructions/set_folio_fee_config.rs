@@ -15,12 +15,16 @@ use shared::errors::ErrorCode;
 /// # Arguments
 /// * `system_program` - The system program.
 /// * `rent` - The rent sysvar.
+/// * `token_program` - The token program.
 /// * `admin` - The admin account (mut, signer).
 /// * `dao_fee_config` - The DAO fee config account (PDA) (not mut, not signer).
-/// * `folio_token_mint` - The folio token mint account (not mut, not signer).
-/// * `folio` - The folio account (PDA) (not mut, not signer).
+/// * `folio_token_mint` - The folio token mint account (mut, not signer).
+/// * `folio` - The folio account (PDA) (mut, not signer).
 /// * `folio_fee_config` - The folio fee config account (PDA) (init_if_needed, not signer).
-
+/// * `folio_program` - The folio program account (CHECK: executable).
+/// * `fee_recipients` - The folio fee recipients account (mut).
+/// * `fee_distribution` - The folio fee distribution account (mut).
+/// * `dao_fee_recipient` - The DAO fee recipient account's token account (mut).
 #[derive(Accounts)]
 pub struct SetFolioFeeConfig<'info> {
     pub system_program: Program<'info, System>,

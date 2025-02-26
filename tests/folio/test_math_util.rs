@@ -1,3 +1,4 @@
+//! Tests for the math utilities
 #[cfg(test)]
 mod tests {
     use folio::utils::{Decimal, IntoU256, Rounding};

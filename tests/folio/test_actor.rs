@@ -1,3 +1,4 @@
+//! Tests for the Actor state
 #[cfg(test)]
 mod tests {
 

@@ -7,6 +7,16 @@ use shared::errors::ErrorCode;
 use shared::{check_condition, constants::MAX_FEE_RECIPIENTS};
 
 impl FeeRecipients {
+    /// Process the init if needed, meaning we initialize the account if it's not initialized yet and if it already is
+    /// we check if the bump is correct.
+    ///
+    /// # Arguments
+    /// * `account_loader_fee_recipients` - The account loader for the fee recipients.
+    /// * `context_bump` - The bump of the account provided in the anchor context.
+    /// * `folio` - The folio the fee recipients belong to.
+    ///
+    /// # Returns
+    /// * `bool` - True if the account was initialized, false otherwise.
     #[cfg(not(tarpaulin_include))]
     pub fn process_init_if_needed(
         account_loader_fee_recipients: &mut AccountLoader<FeeRecipients>,
@@ -40,6 +50,11 @@ impl FeeRecipients {
         Ok(false)
     }
 
+    /// Update the fee recipients list.
+    ///
+    /// # Arguments
+    /// * `fee_recipients_to_add` - The fee recipients to add.
+    /// * `fee_recipients_to_remove` - The fee recipients to remove.
     pub fn update_fee_recipients(
         &mut self,
         fee_recipients_to_add: Vec<FeeRecipient>,
@@ -48,6 +63,7 @@ impl FeeRecipients {
         let mut new_recipients = [FeeRecipient::default(); MAX_FEE_RECIPIENTS];
         let mut add_index = 0;
 
+        // Filter out the default pubkey fee recipients as well as the fee recipients to remove
         for fee_recipient in self.fee_recipients.iter() {
             if !fee_recipients_to_remove.contains(&fee_recipient.recipient)
                 && fee_recipient.recipient != Pubkey::default()
@@ -65,6 +81,7 @@ impl FeeRecipients {
             }
         }
 
+        // Add the filtered fee recipients to add to the new recipients list
         for new_recipient in filtered_fee_recipients_to_add {
             check_condition!(add_index < MAX_FEE_RECIPIENTS, InvalidFeeRecipientCount);
             new_recipients[add_index] = new_recipient;
@@ -81,6 +98,8 @@ impl FeeRecipients {
         self.validate_fee_recipient_total_portions()
     }
 
+    /// Validate the fee recipient total portions.
+    /// Total portions must be 100% (in D18).
     pub fn validate_fee_recipient_total_portions(&self) -> Result<()> {
         check_condition!(
             self.fee_recipients.iter().map(|r| r.portion).sum::<u128>()
@@ -89,5 +108,17 @@ impl FeeRecipients {
         );
 
         Ok(())
+    }
+
+    /// Check if the fee recipients are empty.
+    ///
+    /// # Returns
+    /// * `bool` - True if the fee recipients are empty, false otherwise.
+    pub fn is_empty(&self) -> bool {
+        let default_pubkey = Pubkey::default();
+
+        self.fee_recipients
+            .iter()
+            .all(|r| r.recipient == default_pubkey)
     }
 }

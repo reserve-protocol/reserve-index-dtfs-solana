@@ -1,15 +1,18 @@
-/*
-Not really a callback, but it's related to when a bid is being sent and the user wants to have a middle "step". So
-this utility is to make a generalized cpi call.
-*/
-
 use anchor_lang::{prelude::*, solana_program::instruction::Instruction};
 
+const CALLBACK_PROGRAM_ID_INDEX: usize = 0;
+
+/// Utility function to make a generalized CPI call to a program during a bid.
+///
+///
+/// # Arguments
+/// * `remaining_accounts` - The accounts expected by the callback program. Callback program id should always be the first remaining account in the list.
+/// * `data` - The data expected by the callback program.
 #[cfg(not(tarpaulin_include))]
 pub fn cpi_call(remaining_accounts: &[AccountInfo], data: Vec<u8>) -> Result<()> {
     if !remaining_accounts.is_empty() {
-        let callback_program = &remaining_accounts[0];
-        let callback_accounts = &remaining_accounts[1..];
+        let callback_program = &remaining_accounts[CALLBACK_PROGRAM_ID_INDEX];
+        let callback_accounts = &remaining_accounts[CALLBACK_PROGRAM_ID_INDEX + 1..];
 
         let callback_accounts_metas: Vec<anchor_lang::prelude::AccountMeta> = callback_accounts
             .iter()

@@ -15,6 +15,18 @@ use shared::{
     constants::{ACTOR_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS},
 };
 
+/// Start Folio Migration
+/// Folio owner
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `token_program` - The token program.
+/// * `folio_owner` - The folio owner account (mut, signer).
+/// * `program_registrar` - The program registrar account (not mut, not signer).
+/// * `new_folio_program` - The new folio program (executable).
+/// * `old_folio` - The old folio account (PDA) (mut, not signer).
+/// * `new_folio` - The new folio account (mut, not signer).
+/// * `folio_token_mint` - The folio token mint account (mut, not signer).
 #[derive(Accounts)]
 pub struct StartFolioMigration<'info> {
     pub system_program: Program<'info, System>,
@@ -55,6 +67,14 @@ pub struct StartFolioMigration<'info> {
 }
 
 impl StartFolioMigration<'_> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * Old folio has the correct status and is owned by the folio owner.
+    /// * Token mint is the same as the one on the old folio.
+    /// * New folio program is in the registrar.
+    /// * New folio is owned by the new folio program.
+    /// * New folio program is not the same as the old folio program.
     pub fn validate(&self, old_folio: &Folio) -> Result<()> {
         // Validate old folio, make sure the owner is the one calling the instruction
         old_folio.validate_folio(
@@ -94,6 +114,11 @@ impl StartFolioMigration<'_> {
     }
 }
 
+/// Start Folio Migration. This will be called to initiate the migration process.
+/// The start of the migration process will transfer the mint and freeze authority to the new folio.
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
 pub fn handler(ctx: Context<StartFolioMigration>) -> Result<()> {
     let old_folio_bump: u8;
     {
@@ -139,7 +164,7 @@ pub fn handler(ctx: Context<StartFolioMigration>) -> Result<()> {
         Some(ctx.accounts.new_folio.key()),
     )?;
 
-    // No need to transfer tokens of the folio token mint, as we're minting / burning, never holding them.
+    // No need to transfer tokens of the folio token mint, as the folio is minting / burning, never holding them.
 
     Ok(())
 }

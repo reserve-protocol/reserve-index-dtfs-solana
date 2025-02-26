@@ -15,6 +15,24 @@ use crate::utils::structs::{FolioStatus, TokenAmount};
 
 const EXPECTED_REMAINING_ACCOUNTS_LENGTH: usize = 3;
 
+/// Add tokens to the user's pending basket.
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `rent` - The rent sysvar.
+/// * `token_program` - The token program.
+/// * `user` - The user account (mut, signer).
+/// * `folio` - The folio account (PDA) (not mut, not signer).
+/// * `folio_basket` - The folio basket account (PDA) (mut, not signer).
+/// * `user_pending_basket` - The user pending basket account (PDA) (init if needed, not signer).
+///
+/// * `remaining_accounts` - The remaining accounts will represent the tokens being added to the pending basket.
+///
+/// Order is
+///
+/// - Token Mint (read)
+/// - Sender Token Account (needs to be owned by user) (mut)
+/// - Recipient Token Account (needs to be owned by folio) (this is expected to be the ATA and already exist, to save on compute) (mut)
 #[derive(Accounts)]
 pub struct AddToPendingBasket<'info> {
     pub system_program: Program<'info, System>,
@@ -51,6 +69,10 @@ pub struct AddToPendingBasket<'info> {
 }
 
 impl AddToPendingBasket<'_> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * Folio is initialized.
     pub fn validate(&self) -> Result<()> {
         let folio = self.folio.load()?;
         folio.validate_folio(
@@ -64,6 +86,13 @@ impl AddToPendingBasket<'_> {
     }
 }
 
+/// Add tokens to the user's pending basket. This is used during the process of minting a folio token. This can be called multiple times
+/// to add all the required tokens to mint (the required tokens are specified in the folio's basket).
+/// This action can be rolled back, hence why it's in the pending basket. Only when the mint_folio_token instruction is called, will it not be allowed to roll back.
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
+/// * `raw_amounts` - The amounts of the tokens to add to the pending basket, in the same order as the remaining accounts.
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, AddToPendingBasket<'info>>,
     raw_amounts: Vec<u64>,

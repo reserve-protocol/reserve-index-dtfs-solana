@@ -1,6 +1,10 @@
 use anchor_lang::prelude::*;
 use bytemuck::{Pod, Zeroable};
 
+/// A token amount with a mint and an amount for minting and redeeming.
+///
+/// Amount for minting is used when the user is trying to mint a folio token (or any action related to minting a folio token).
+/// Amount for redeeming is used when the user is trying to redeem a folio token (or any action related to redeeming a folio token).
 #[derive(
     AnchorSerialize,
     AnchorDeserialize,

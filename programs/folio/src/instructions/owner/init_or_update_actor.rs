@@ -3,6 +3,16 @@ use crate::utils::structs::Role;
 use anchor_lang::prelude::*;
 use shared::constants::ACTOR_SEEDS;
 
+/// Initialize or Update Actor
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `rent` - The rent sysvar.
+/// * `folio_owner` - The folio owner account (mut, signer).
+/// * `folio_owner_actor` - The folio owner actor account (PDA) (not mut, not signer).
+/// * `new_actor_authority` - The new actor authority account (not mut, not signer).
+/// * `new_actor` - The new actor account (PDA) for the new actor authority (init, not signer).
+/// * `folio` - The folio account (PDA) (not mut, not signer).
 #[derive(Accounts)]
 pub struct InitOrUpdateActor<'info> {
     pub system_program: Program<'info, System>,
@@ -37,6 +47,10 @@ pub struct InitOrUpdateActor<'info> {
 }
 
 impl InitOrUpdateActor<'_> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * Folio owner actor is an owner of the folio.
     pub fn validate(&self) -> Result<()> {
         let folio = &self.folio.load()?;
 
@@ -51,6 +65,11 @@ impl InitOrUpdateActor<'_> {
     }
 }
 
+/// Initialize or Update Actor
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
+/// * `role` - The role to add or give to the actor.
 pub fn handler(ctx: Context<InitOrUpdateActor>, role: Role) -> Result<()> {
     ctx.accounts.validate()?;
 

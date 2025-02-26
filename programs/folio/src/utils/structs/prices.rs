@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use bytemuck::{Pod, Zeroable};
 
+/// Prices for the Folio when there is an auction.
 #[derive(
     AnchorSerialize,
     AnchorDeserialize,
@@ -17,9 +18,9 @@ use bytemuck::{Pod, Zeroable};
 #[repr(C)]
 /// Scaled in D18
 pub struct Prices {
-    /// Scaled in D18
+    /// D18{buyTok/sellTok}
     pub start: u128,
 
-    /// Scaled in D18
+    /// D18{buyTok/sellTok}
     pub end: u128,
 }

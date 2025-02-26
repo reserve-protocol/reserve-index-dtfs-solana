@@ -7,6 +7,20 @@ use shared::check_condition;
 use shared::constants::{ACTOR_SEEDS, FOLIO_REWARD_TOKENS_SEEDS, SPL_GOVERNANCE_PROGRAM_ID};
 use shared::errors::ErrorCode;
 
+/// Initialize or set the reward ratio for the folio.
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `token_program` - The token program.
+/// * `executor` - The executor account (mut, signer).
+/// * `folio_owner` - The folio owner account (PDA) (not mut, signer) (spl governance account).
+/// * `actor` - The actor account of the Folio Owner (PDA) (not mut, not signer).
+/// * `folio` - The folio account (PDA) (not mut, not signer).
+/// * `folio_reward_tokens` - The folio reward tokens account (PDA) (init if needed, not mut, not signer).
+/// * `realm` - The realm account (PDA) (not mut, not signer).
+/// * `governance_token_mint` - The governance token mint (community mint) (PDA) (not mut, not signer).
+/// * `governance_staked_token_account` - The governance staked token account of all tokens staked in the Realm (PDA) (not mut, not signer).
+/// * `caller_governance_token_account` - The caller's token account of governance token (PDA) (not mut, not signer).
 #[derive(Accounts)]
 pub struct InitOrSetRewardRatio<'info> {
     pub system_program: Program<'info, System>,
@@ -58,6 +72,12 @@ pub struct InitOrSetRewardRatio<'info> {
 }
 
 impl InitOrSetRewardRatio<'_> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * Folio is valid PDA and valid status
+    /// * Actor is the folio owner's actor
+    /// * Folio owner is a PDA that belongs to the SPL Governance program
     pub fn validate(&self, folio: &Folio) -> Result<()> {
         folio.validate_folio(
             &self.folio.key(),
@@ -76,6 +96,12 @@ impl InitOrSetRewardRatio<'_> {
     }
 }
 
+/// Initialize or set the reward ratio for the folio.
+/// Will call the accrue rewards instruction.
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
+/// * `reward_period` - The reward period (reward's half life).
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, InitOrSetRewardRatio<'info>>,
     reward_period: u64,

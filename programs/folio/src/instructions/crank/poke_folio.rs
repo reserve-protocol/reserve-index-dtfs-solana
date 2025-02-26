@@ -9,6 +9,15 @@ use shared::errors::ErrorCode;
 use crate::state::Folio;
 use folio_admin::ID as FOLIO_ADMIN_PROGRAM_ID;
 
+/// Poke Folio
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `user` - The user account (mut, signer).
+/// * `dao_fee_config` - The DAO fee config account (not mut, not signer).
+/// * `folio_fee_config` - The folio fee config account (not mut, not signer).
+/// * `folio` - The folio account (PDA) (mut, not signer).
+/// * `folio_token_mint` - The folio token mint account (mut, not signer).
 #[derive(Accounts)]
 pub struct PokeFolio<'info> {
     pub system_program: Program<'info, System>,
@@ -39,6 +48,11 @@ pub struct PokeFolio<'info> {
 }
 
 impl PokeFolio<'_> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * Folio has the correct status.
+    /// * Provided folio token mint account is the same as the one on the folio account.
     pub fn validate(&self, folio: &Folio) -> Result<()> {
         folio.validate_folio(
             &self.folio.key(),
@@ -56,6 +70,10 @@ impl PokeFolio<'_> {
     }
 }
 
+/// Poke Folio to update the pending fees for both the DAO and the fee recipients.
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
 pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, PokeFolio<'info>>) -> Result<()> {
     let folio = &mut ctx.accounts.folio.load_mut()?;
 

@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 
+/// Status of the Folio.
 #[derive(
     AnchorSerialize, AnchorDeserialize, Default, Clone, Copy, PartialEq, Eq, Debug, InitSpace,
 )]
@@ -16,6 +17,13 @@ pub enum FolioStatus {
 }
 
 impl From<u8> for FolioStatus {
+    /// Converts a u8 to a FolioStatus.
+    ///
+    /// # Arguments
+    /// * `value`: The u8 value to convert.
+    ///
+    /// # Returns
+    /// * `FolioStatus`: The FolioStatus.
     fn from(value: u8) -> Self {
         match value {
             0 => FolioStatus::Initializing,
@@ -28,6 +36,13 @@ impl From<u8> for FolioStatus {
 }
 
 impl FolioStatus {
+    /// Tries to convert a u8 to a FolioStatus.
+    ///
+    /// # Arguments
+    /// * `value`: The u8 value to convert.
+    ///
+    /// # Returns
+    /// * `Option<FolioStatus>`: The FolioStatus.
     pub fn try_from(value: u8) -> Option<Self> {
         match value {
             0 => Some(FolioStatus::Initializing),

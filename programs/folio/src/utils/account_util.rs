@@ -50,7 +50,7 @@ pub fn next_account<'b>(
 /// * `payer`: The payer of the rent for the account.
 /// * `owner_program_id`: The program id of the owner of the account.
 /// * `system_program`: The system program.
-/// * `pda_signers_seeds`: The seeds to sign the transaction with.
+/// * `pda_signers_seeds`: The seeds to sign the transaction with (seeds of the accouunt_to_init).
 ///
 /// # Returns
 ///

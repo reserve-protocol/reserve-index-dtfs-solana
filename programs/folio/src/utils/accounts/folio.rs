@@ -15,6 +15,17 @@ use shared::{
 };
 
 impl Folio {
+    /// Validate the folio.
+    /// Checks done will be:
+    /// - PDA validation
+    /// - Role validation if needed
+    /// - Status validation if needed
+    ///
+    /// # Arguments
+    /// * `folio_pubkey` - The pubkey of the folio.
+    /// * `actor` - The actor account that is performing the action.
+    /// * `required_roles` - The required roles for the action, can be ANY of the ones provided.
+    /// * `expected_statuses` - The expected statuses for the folio, can be ANY of the ones provided.
     #[allow(clippy::too_many_arguments)]
     #[cfg(not(tarpaulin_include))]
     pub fn validate_folio(
@@ -51,6 +62,11 @@ impl Folio {
         Ok(())
     }
 
+    /// Validate the permission for an action by using the roles.
+    ///
+    /// # Arguments
+    /// * `actor` - The actor account that is performing the action.
+    /// * `required_roles` - The required roles for the action, can be ANY of the ones provided.
     #[cfg(not(tarpaulin_include))]
     fn validate_permission_for_action(
         actor: &Account<'_, Actor>,
@@ -70,6 +86,10 @@ impl Folio {
         Ok(())
     }
 
+    /// Set TVL fee by annual percentage. Different from how it is stored!
+    ///
+    /// # Arguments
+    /// * `scaled_new_fee_annually` - The new TVL fee D18{1}.
     pub fn set_tvl_fee(&mut self, scaled_new_fee_annually: u128) -> Result<()> {
         check_condition!(scaled_new_fee_annually <= MAX_TVL_FEE, TVLFeeTooHigh);
 
@@ -104,7 +124,17 @@ impl Folio {
         Ok(())
     }
 
-    /// Returns the total number of shares to remove from the mint, and updates the ones on the folio
+    /// Returns the total number of shares to remove from the user's mint action (the fees),
+    /// and updates the pending fee amounts on the folio.
+    ///
+    /// # Arguments
+    /// * `raw_user_shares` - The number of shares the user is minting (D9).
+    /// * `scaled_dao_fee_numerator` - The numerator of the DAO fee (D18).
+    /// * `scaled_dao_fee_denominator` - The denominator of the DAO fee (D18).
+    /// * `scaled_dao_fee_floor` - The floor of the DAO fee (D18).
+    ///
+    /// # Returns
+    /// * `TokenResult` - The number of shares to remove from the user's mint action (the total fees, in D9).
     pub fn calculate_fees_for_minting(
         &mut self,
         raw_user_shares: u64,
@@ -119,6 +149,7 @@ impl Folio {
         let scaled_dao_fee_denominator = Decimal::from_scaled(scaled_dao_fee_denominator);
         let scaled_dao_fee_floor = Decimal::from_scaled(scaled_dao_fee_floor);
 
+        // {share} = {share} * D18{1} / D18
         let mut scaled_total_fee_shares = scaled_user_shares
             .mul(&scaled_mint_fee)?
             .add(&Decimal::ONE_E18)?
@@ -131,6 +162,7 @@ impl Folio {
             .sub(&Decimal::ONE)?
             .div(&scaled_dao_fee_denominator)?;
 
+        // ensure DAO's portion of fees is at least the DAO feeFloor
         let scaled_min_dao_shares = scaled_user_shares
             .mul(&scaled_dao_fee_floor)?
             .add(&Decimal::ONE_E18)?
@@ -141,10 +173,12 @@ impl Folio {
             scaled_dao_fee_shares = scaled_min_dao_shares;
         }
 
+        // 100% to DAO, if necessary
         if scaled_total_fee_shares < scaled_dao_fee_shares {
             scaled_total_fee_shares = scaled_dao_fee_shares.clone();
         }
 
+        // defer fee handouts until distributeFees()
         self.dao_pending_fee_shares = self
             .dao_pending_fee_shares
             .checked_add(scaled_dao_fee_shares.to_scaled(Rounding::Floor)?)
@@ -159,10 +193,17 @@ impl Folio {
             )
             .ok_or(ErrorCode::MathOverflow)?;
 
-        // Returning in D9
         scaled_total_fee_shares.to_token_amount(Rounding::Ceiling)
     }
 
+    /// Poke the folio, meaning we update the pending fee shares for both the DAO and the fee recipients.
+    ///
+    /// # Arguments
+    /// * `raw_folio_token_supply` - The total supply of the folio token (D9).
+    /// * `current_time` - The current time (seconds).
+    /// * `scaled_dao_fee_numerator` - The numerator of the DAO fee (D18).
+    /// * `scaled_dao_fee_denominator` - The denominator of the DAO fee (D18).
+    /// * `scaled_dao_fee_floor` - The floor of the DAO fee (D18).
     pub fn poke(
         &mut self,
         raw_folio_token_supply: u64,
@@ -199,8 +240,14 @@ impl Folio {
         Ok(())
     }
 
+    /// Get the total supply of the folio, including the pending fee shares, as they're technically part of the supply.
+    ///
+    /// # Arguments
+    /// * `raw_folio_token_supply` - The total supply of the folio token (D9).
+    ///
+    /// # Returns
+    /// * `Decimal` - The total supply of the folio, including the pending fees (D18).
     pub fn get_total_supply(&self, raw_folio_token_supply: u64) -> Result<Decimal> {
-        // Total supply is in D9, since it's the default decimal mint for our folio token
         let scaled_total_supply = Decimal::from_token_amount(raw_folio_token_supply)?;
 
         scaled_total_supply
@@ -210,6 +257,14 @@ impl Folio {
             ))
     }
 
+    /// Get the pending fee shares for both the DAO and the fee recipients.
+    ///
+    /// # Arguments
+    /// * `raw_folio_token_supply` - The total supply of the folio token (D9).
+    /// * `current_time` - The current time (seconds).
+    /// * `scaled_dao_fee_numerator` - The numerator of the DAO fee (D18).
+    /// * `scaled_dao_fee_denominator` - The denominator of the DAO fee (D18).
+    /// * `scaled_dao_fee_floor` - The floor of the DAO fee (D18).
     pub fn get_pending_fee_shares(
         &self,
         raw_folio_token_supply: u64,
@@ -223,14 +278,16 @@ impl Folio {
 
         let elapsed = (current_time - self.last_poke) as u64;
 
-        // Calculate fee floor
+        // convert annual percentage to per-second for comparison with stored tvlFee
+        // = 1 - (1 - feeFloor) ^ (1 / 31536000)
+        // D18{1/s} = D18{1} - D18{1} * D18{1} ^ D18{1/s}
         let scaled_one_minus_fee_floor =
             Decimal::ONE_E18.sub(&Decimal::from_scaled(scaled_dao_fee_floor))?;
 
         let scaled_fee_floor =
             Decimal::ONE_E18.sub(&scaled_one_minus_fee_floor.nth_root(YEAR_IN_SECONDS)?)?;
 
-        // Use higher of fee floor or TVL fee
+        // Use higher of fee floor or TVL fee  D18{1/s}
         let scaled_tvl_fee = Decimal::from_scaled(self.tvl_fee);
         let scaled_tvl_fee_to_use = if scaled_fee_floor > scaled_tvl_fee {
             scaled_fee_floor.clone()
@@ -238,7 +295,7 @@ impl Folio {
             scaled_tvl_fee
         };
 
-        // Calculate fee shares
+        // Calculate fee shares {share} += {share} * D18 / D18{1/s} ^ {s} - {share}
         let scaled_one_minus_tvl_fee = Decimal::ONE_E18.sub(&scaled_tvl_fee_to_use)?;
         let scaled_denominator = scaled_one_minus_tvl_fee.pow(elapsed)?;
         let scaled_fee_shares = scaled_total_supply_with_pending_fees
@@ -246,7 +303,7 @@ impl Folio {
             .div(&scaled_denominator)?
             .sub(&scaled_total_supply_with_pending_fees)?;
 
-        // Calculate correction
+        // Calculate correction D18{1} = D18{1/s} * D18 / D18{1/s}
         let scaled_correction = scaled_fee_floor
             .mul(&Decimal::ONE_E18)?
             .add(&scaled_tvl_fee_to_use)?
@@ -260,7 +317,7 @@ impl Folio {
             .sub(&Decimal::ONE)?
             .div(&Decimal::from_scaled(scaled_dao_fee_denominator))?;
 
-        // Calculate DAO shares
+        // Calculate DAO shares {share} = {share} * D18{1} / D18
         let scaled_dao_shares = if scaled_correction > scaled_dao_ratio {
             scaled_fee_shares
                 .mul(&scaled_correction)?
@@ -275,12 +332,21 @@ impl Folio {
                 .div(&Decimal::from_scaled(scaled_dao_fee_denominator))?
         };
 
-        // Calculate fee recipient shares
+        // Calculate fee recipient shares {share} = {share} - {share}
         let scaled_fee_recipient_shares = scaled_fee_shares.sub(&scaled_dao_shares)?;
 
         Ok((scaled_fee_recipient_shares, scaled_dao_shares))
     }
 
+    /// Get the auction end for the mints. The auction ends are the timestamp {s} of the latest ongoing auction (sell or buy).
+    ///
+    /// # Arguments
+    /// * `sell_mint` - The mint of the sell auction.
+    /// * `buy_mint` - The mint of the buy auction.
+    ///
+    /// # Returns
+    /// * `Option<&AuctionEnd>` - The auction end for the sell auction if it exists.
+    /// * `Option<&AuctionEnd>` - The auction end for the buy auction if it exists.
     pub fn get_auction_end_for_mints(
         &self,
         sell_mint: &Pubkey,
@@ -306,6 +372,13 @@ impl Folio {
         Ok((sell_auction, buy_auction))
     }
 
+    /// Set the auction end for the mints.
+    ///
+    /// # Arguments
+    /// * `sell_mint` - The mint of the sell auction.
+    /// * `buy_mint` - The mint of the buy auction.
+    /// * `end_time_sell` - The end time of the sell auction {s}.
+    /// * `end_time_buy` - The end time of the buy auction {s}.
     pub fn set_auction_end_for_mints(
         &mut self,
         sell_mint: &Pubkey,

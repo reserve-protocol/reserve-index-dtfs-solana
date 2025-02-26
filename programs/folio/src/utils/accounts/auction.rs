@@ -1,18 +1,21 @@
-use std::cell::RefMut;
-use std::cmp::max;
-
 use crate::program::Folio as FolioProgram;
 use crate::state::{Auction, Folio};
+use crate::utils::math_util::Decimal;
+use crate::utils::structs::AuctionStatus;
 use crate::utils::{AuctionEnd, BasketRange, Prices, Rounding};
 use anchor_lang::prelude::*;
 use shared::constants::{MAX_PRICE_RANGE, MAX_RATE, MAX_TTL};
 use shared::errors::ErrorCode;
-
-use crate::utils::math_util::Decimal;
-use crate::utils::structs::AuctionStatus;
 use shared::{check_condition, constants::AUCTION_SEEDS};
+use std::cell::RefMut;
+use std::cmp::max;
 
 impl Auction {
+    /// Validate the auction PDA.
+    ///
+    /// # Arguments
+    /// * `auction_pubkey` - The pubkey of the auction.
+    /// * `folio_pubkey` - The pubkey of the folio.
     pub fn validate_auction(&self, auction_pubkey: &Pubkey, folio_pubkey: &Pubkey) -> Result<()> {
         let auction_id = self.id.to_le_bytes();
 
@@ -27,6 +30,13 @@ impl Auction {
         Ok(())
     }
 
+    /// Validate the auction approve action.
+    ///
+    /// # Arguments
+    /// * `scaled_sell_limit` - The basket range for the sell limit (D18).
+    /// * `scaled_buy_limit` - The basket range for the buy limit (D18).
+    /// * `scaled_prices` - The prices of the auction (D18).
+    /// * `ttl` - The time to live of the auction (seconds).
     pub fn validate_auction_approve(
         scaled_sell_limit: &BasketRange,
         scaled_buy_limit: &BasketRange,
@@ -55,6 +65,13 @@ impl Auction {
         Ok(())
     }
 
+    /// Validate the auction open action, done by the auction launcher.
+    ///
+    /// # Arguments
+    /// * `scaled_start_price` - The scaled start price of the auction (D18).
+    /// * `scaled_end_price` - The scaled end price of the auction (D18).
+    /// * `scaled_sell_limit` - The scaled sell limit of the auction (D18).
+    /// * `scaled_buy_limit` - The scaled buy limit of the auction (D18).
     pub fn validate_auction_opening_from_auction_launcher(
         &self,
         scaled_start_price: u128,
@@ -82,6 +99,14 @@ impl Auction {
         Ok(())
     }
 
+    /// Get the status of the auction.
+    ///
+    /// # Arguments
+    /// * `current_time` - The current on-chain time (seconds).
+    ///
+    /// # Returns
+    /// * `Some(AuctionStatus)` - The status of the auction.
+    /// * `None` - If no status can be determined.
     pub fn try_get_status(&self, current_time: u64) -> Option<AuctionStatus> {
         if self.start == 0 && self.end == 0 {
             Some(AuctionStatus::APPROVED)
@@ -94,6 +119,11 @@ impl Auction {
         }
     }
 
+    /// Open the auction.
+    ///
+    /// # Arguments
+    /// * `folio` - The folio.
+    /// * `current_time` - The current on-chain time (seconds).
     pub fn open_auction(&mut self, folio: &mut RefMut<'_, Folio>, current_time: u64) -> Result<()> {
         let auction_status = self.try_get_status(current_time);
 
@@ -102,7 +132,7 @@ impl Auction {
             AuctionCannotBeOpened
         );
 
-        // do not open auctions that have timed out from ttl
+        // Do not open auctions that have timed out from ttl
         check_condition!(current_time <= self.launch_timeout, AuctionTimeout);
 
         // get the auction ends for the mints to see if there are any collisions
@@ -160,6 +190,11 @@ impl Auction {
         Ok(())
     }
 
+    /// Calculate the k value for the auction. Used to avoid recomputing k on every bid.
+    /// k = ln(P_0 / P_t) / t
+    ///
+    /// # Arguments
+    /// * `auction_length` - The length of the auction (seconds).
     pub fn calculate_k(&mut self, auction_length: u64) -> Result<()> {
         let scaled_price_ratio = Decimal::from_scaled(self.prices.start)
             .mul(&Decimal::ONE_E18)?
@@ -174,7 +209,17 @@ impl Auction {
         Ok(())
     }
 
+    /// Get the price of the auction at a given time.
+    /// P_t = P_0 * e ^ -kt
+    /// D18{buyTok/sellTok} = D18{buyTok/sellTok} * D18{1} / D18
+    ///
+    /// # Arguments
+    /// * `current_time` - The current on-chain time (seconds).
+    ///
+    /// # Returns
+    /// * `u128` - The price of the auction at the given time (D18{buyTok/sellTok}).
     pub fn get_price(&self, current_time: u64) -> Result<u128> {
+        // ensure auction is ongoing
         check_condition!(
             current_time >= self.start && current_time <= self.end,
             AuctionNotOngoing

@@ -5,6 +5,14 @@ use crate::state::Actor;
 use shared::errors::ErrorCode;
 
 impl Actor {
+    /// Process the init if needed, meaning we initialize the account if it's not initialized yet and if it already is
+    /// we check if the bump is correct.
+    ///
+    /// # Arguments
+    /// * `account_bump` - The bump of the account.
+    /// * `context_bump` - The bump of the account provided in the anchor context.
+    /// * `authority` - The authority of the actor.
+    /// * `folio` - The folio the actor belongs to.
     pub fn process_init_if_needed(
         &mut self,
         account_bump: u8,
@@ -25,6 +33,8 @@ impl Actor {
         Ok(())
     }
 
+    /// Reset the actor.
+    /// This will set the roles to 0, and the authority and folio to the default pubkey.
     pub fn reset(&mut self) {
         self.roles = 0;
         self.authority = Pubkey::default();

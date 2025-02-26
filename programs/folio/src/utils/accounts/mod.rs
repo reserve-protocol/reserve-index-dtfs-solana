@@ -1,3 +1,4 @@
+//! Implementations for the accounts of the Folio program (the state).
 pub mod actor;
 pub mod auction;
 pub mod fee_distribution;

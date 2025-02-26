@@ -1,3 +1,4 @@
+//! Structs for the Folio program. Often used within an account.
 pub mod auction_end;
 pub mod auction_status;
 pub mod basket_range;

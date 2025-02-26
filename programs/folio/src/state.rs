@@ -260,10 +260,12 @@ impl Default for UserPendingBasket {
 
 /// This is used to track an auction's state.
 ///
-/// Auction states:
-///   - APPROVED: start == 0 && end == 0
-///   - OPEN: Clock.unix_timestamp >= start && Clock.unix_timestamp <= end
-///   - CLOSED: Clock.unix_timestamp > end
+/// Rebalancing
+///   APPROVED -> OPEN -> CLOSED
+///   - Approved auctions have a delay before they can be opened, that AUCTION_LAUNCHER can bypass
+///   - Multiple auctions can be open at once, though a token cannot be bought and sold simultaneously
+///   - Multiple bids can be executed against the same auction
+///   - All auctions are dutch auctions with the same price curve, but it's possible to pass startPrice = endPrice
 ///
 /// zero_copy
 /// PDA Seeds ["auction", folio pubkey, auction id]

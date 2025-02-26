@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use bytemuck::{Pod, Zeroable};
 
+/// A fee recipient for the Folio.
 #[derive(
     AnchorSerialize,
     AnchorDeserialize,
@@ -15,8 +16,9 @@ use bytemuck::{Pod, Zeroable};
 )]
 #[repr(C)]
 pub struct FeeRecipient {
+    /// The recipient of the fee.
     pub recipient: Pubkey,
 
-    /// Scaled in D18
+    /// The portion of the fee to be sent to the recipient, scaled in D18.
     pub portion: u128,
 }

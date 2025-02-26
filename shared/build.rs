@@ -1,3 +1,8 @@
+//! Build script for the shared module.
+//!
+//! # Constants (provided via the build script that uses .env file)
+//! * ADMIN - The admin of the program.
+//! * SPL_GOVERNANCE_PROGRAM_ID - The program id of the SPL Governance program.
 use std::env;
 use std::fs;
 use std::path::Path;

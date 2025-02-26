@@ -78,7 +78,8 @@ impl DAOFeeConfig {
     /// Get the fee details for a given Folio.
     /// If the Folio has its own fee config set, it will use that one, otherwise it will use the default one in DAOFeeConfig.
     ///
-    /// folio_fee_config is the account info of the FolioFeeConfig account.
+    /// # Arguments
+    /// * `folio_fee_config` - The account info of the FolioFeeConfig account.
     ///
     /// Returns the fee details for the Folio.
     #[cfg(not(tarpaulin_include))]
@@ -93,7 +94,7 @@ impl DAOFeeConfig {
         if !folio_fee_config.data_is_empty() {
             let folio_fee_config_data = folio_fee_config.try_borrow_mut_data()?;
 
-            // Check if initialized
+            // Check if initialized (data length could be > 0, but the fields aren't initialized)
             let mut disc_bytes = [0u8; 8];
             disc_bytes.copy_from_slice(&folio_fee_config_data[..8]);
             let discriminator = u64::from_le_bytes(disc_bytes);

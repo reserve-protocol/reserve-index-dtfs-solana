@@ -4,13 +4,25 @@ use anchor_lang::{
 };
 use shared::check_condition;
 use shared::errors::ErrorCode;
+
+/// Utility struct to interact with the Folio program.
 pub struct FolioProgram {}
 
 impl FolioProgram {
+    /// The size of the instruction discriminator in Anchor.
     const INSTRUCTION_DISCRIMINATOR_SIZE: usize = 8;
+
+    /// The name of the distribute fees function in the Folio program
     const DISTRIBUTE_FEES_FUNCTION_NAME: &'static str = "distribute_fees";
 
+    /// Get the instruction discriminator for a given instruction name.
+    ///
+    /// # Arguments
+    /// * `instruction_name` - The name of the instruction.
+    ///
+    /// Returns the instruction discriminator.
     fn get_instruction_discriminator(instruction_name: &str) -> [u8; 8] {
+        // Anchor's instruction discriminator is a hash of the instruction name prepended with "global:"
         let preimage = format!("global:{}", instruction_name);
 
         let mut hasher = hash::Hasher::default();
@@ -26,11 +38,19 @@ impl FolioProgram {
         discriminator
     }
 
+    /// Get the next index for the fee distribution. Next index is the current index within the fee recipients account + 1.
+    ///
+    /// # Arguments
+    /// * `fee_recipients` - The fee recipients account.
+    ///
+    /// Returns the next index.
     fn get_next_index(fee_recipients: &AccountInfo) -> Result<u64> {
         let fee_recipients_data = fee_recipients.try_borrow_data()?;
 
-        // Skip 8 bytes for discriminator
-        // Skip 8 bytes for bump and padding
+        /*
+        Skip 8 bytes for discriminator
+        Skip 8 bytes for bump and padding
+        */
         check_condition!(fee_recipients_data.len() >= 24, InvalidFeeRecipient);
 
         let next_index = u64::from_le_bytes(fee_recipients_data[16..24].try_into().unwrap());
@@ -38,6 +58,21 @@ impl FolioProgram {
         Ok(next_index.checked_add(1).unwrap())
     }
 
+    /// CPI from the folio admin program to the folio program to distribute the fees.
+    ///
+    /// # Arguments
+    /// * `folio_program` - The folio program account.
+    /// * `rent` - The rent account.
+    /// * `system_program` - The system program account.
+    /// * `token_program` - The token program account.
+    /// * `user` - The user account.
+    /// * `dao_fee_config` - The DAO fee config account.
+    /// * `folio_fee_config` - The folio fee config account.
+    /// * `folio` - The folio account.
+    /// * `folio_token_mint` - The folio token mint account.
+    /// * `fee_recipients` - The fee recipients account.
+    /// * `fee_distribution` - The fee distribution account.
+    /// * `dao_fee_recipient` - The DAO fee recipient account.
     #[allow(clippy::too_many_arguments)]
     pub fn distribute_fees_cpi<'a>(
         folio_program: &AccountInfo<'a>,
@@ -53,7 +88,7 @@ impl FolioProgram {
         fee_distribution: &AccountInfo<'a>,
         dao_fee_recipient: &AccountInfo<'a>,
     ) -> Result<()> {
-        // Won't distribute the fees if the fee recipients account is not initialized
+        // Won't distribute the fees if the fee recipients account is not initialized (since it's initialized on update_folio instruction)
         if fee_recipients.data_is_empty() {
             return Ok(());
         }
@@ -89,6 +124,7 @@ impl FolioProgram {
         let mut data =
             FolioProgram::get_instruction_discriminator(Self::DISTRIBUTE_FEES_FUNCTION_NAME)
                 .to_vec();
+
         data.extend_from_slice(&Self::get_next_index(fee_recipients)?.to_le_bytes());
 
         let instruction = Instruction {

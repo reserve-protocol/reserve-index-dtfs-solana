@@ -14,6 +14,33 @@ use shared::errors::ErrorCode;
 const REMAINING_ACCOUNT_DIVIDER_FOR_CALLER: usize = 4;
 const REMAINING_ACCOUNT_DIVIDER_FOR_USER: usize = 5;
 
+/// Accrue rewards for the rewards tokens of the caller (and potentially the user if they are different)
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `token_program` - The token program.
+/// * `caller` - The caller account (mut, signer).
+/// * `realm` - The realm account (PDA) (not mut, not signer).
+/// * `folio_owner` - The folio owner account (PDA) (not mut, not signer).
+/// * `actor` - The actor account of the Folio Owner (PDA) (not mut, not signer).
+/// * `folio` - The folio account (PDA) (not mut, not signer).
+/// * `folio_reward_tokens` - The folio reward tokens account (PDA) (not mut, not signer).
+/// * `governance_token_mint` - The governance token mint (community mint) (PDA) (not mut, not signer).
+/// * `governance_staked_token_account` - The governance staked token account of all tokens staked in the Realm (PDA) (not mut, not signer).
+/// * `caller_governance_token_account` - The caller's governance token account representing his staked balance in the Realm (PDA) (not mut, not signer).
+/// * `user` - The user account (PDA) (not mut, not signer).
+/// * `user_governance_token_account` - The user's governance token account representing his staked balance in the Realm (PDA) (not mut, not signer).
+///
+/// * `remaining_accounts` - The remaining accounts will represent the rewards tokens to accrue rewards for.
+///
+/// Order is
+///
+/// - Reward token mint
+/// - Reward info for the token mint (mut)
+/// - Fee recipient token account (needs to be the FOLIO TOKEN REWARDS' token account, not the DAO's)
+/// - User reward info for CALLER (mut)
+/// - User reward info for USER **IF USER IS NOT CALLER** (mut)
+
 #[derive(Accounts)]
 pub struct AccrueRewards<'info> {
     pub system_program: Program<'info, System>,
@@ -75,6 +102,12 @@ pub struct AccrueRewards<'info> {
      */
 }
 
+/// Validate the instruction.
+///
+/// # Checks
+/// * Folio is valid PDA and valid status
+/// * The actor provided is the folio owner's actor
+/// * Realm is the one that owns the Folio Owner's governance account
 pub fn validate<'info>(
     folio: &AccountLoader<'info, Folio>,
     actor: &Account<'info, Actor>,
@@ -94,6 +127,26 @@ pub fn validate<'info>(
     Ok(())
 }
 
+/// Accrue rewards for the rewards tokens of the caller (and potentially the user if they are different)
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `token_program` - The token program.
+/// * `realm` - The realm account
+/// * `folio` - The folio account
+/// * `actor` - The actor account of the Folio Owner
+/// * `folio_owner` - The folio owner account
+/// * `governance_token_mint` - The governance token mint (community mint)
+/// * `governance_staked_token_account` - The governance staked token account of all tokens staked in the Realm
+/// * `caller` - The caller account
+/// * `caller_governance_token_account` - The caller's governance token account representing his staked balance in the Realm
+/// * `user` - The user account
+/// * `user_governance_token_account` - The user's governance token account representing his staked balance in the Realm
+/// * `folio_reward_tokens` - The folio reward tokens account
+/// * `remaining_accounts` - The remaining accounts will represent the rewards tokens to accrue rewards for.
+/// * `fee_recipient_token_account_is_mutable` - Whether the fee recipient token account is mutable. This is needed because the next_account function
+///                                            needs to know if the account is mutable or not, so it can check if the account is valid, but accrue rewards is called from multiple different instructions, some
+///                                            that do require the fee recipient to be mutable, some don't.
 pub fn accrue_rewards<'info>(
     system_program: &AccountInfo<'info>,
     token_program: &AccountInfo<'info>,
@@ -128,6 +181,7 @@ pub fn accrue_rewards<'info>(
 
     let folio_reward_tokens = folio_reward_tokens.load()?;
 
+    // Get the total balance of staked governance tokens in the Realm
     let (raw_governance_staked_token_account_balance, governance_token_decimals) =
         GovernanceUtil::get_realm_staked_balance_and_mint_decimals(
             &realm_key,
@@ -275,7 +329,6 @@ pub fn accrue_rewards<'info>(
             );
 
             // Create the user reward info if it doesn't exist and accrue rewards on user reward info
-
             let raw_user_governance_account_balance =
                 GovernanceUtil::get_governance_account_balance(
                     user_governance_token_account,
@@ -306,7 +359,12 @@ pub fn accrue_rewards<'info>(
     Ok(())
 }
 
-// This cant be called multiple times, needs to be atomic
+/// Accrue rewards for the rewards tokens of the caller (and potentially the user if they are different).
+/// This cannot be called multiple times, it needs to be atomic. Hence why there is a maximum number of
+/// reward tokens that can be tracked.
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
 pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>) -> Result<()> {
     accrue_rewards(
         &ctx.accounts.system_program,

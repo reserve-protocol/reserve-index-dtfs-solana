@@ -3,6 +3,15 @@ use crate::utils::structs::Role;
 use anchor_lang::prelude::*;
 use shared::constants::ACTOR_SEEDS;
 
+/// Resize Folio's account size on chain.
+///
+/// # Arguments
+/// * `new_size` - The new size of the folio account.
+/// * `system_program` - The system program.
+/// * `rent` - The rent sysvar.
+/// * `folio_owner` - The folio owner account (mut, signer).
+/// * `actor` - The actor account (PDA) of the Folio owner (not mut, not signer).
+/// * `folio` - The folio account (PDA) (mut, not signer).
 #[derive(Accounts)]
 #[instruction(new_size: u64)]
 pub struct ResizeFolio<'info> {
@@ -28,6 +37,10 @@ pub struct ResizeFolio<'info> {
 }
 
 impl ResizeFolio<'_> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * Actor is the owner of the folio.
     pub fn validate(&self) -> Result<()> {
         let folio = self.folio.load()?;
         folio.validate_folio(
@@ -41,6 +54,11 @@ impl ResizeFolio<'_> {
     }
 }
 
+/// Resize Folio's account size on chain.
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
+/// * `new_size` - The new size of the folio account.
 pub fn handler(ctx: Context<ResizeFolio>, _new_size: u64) -> Result<()> {
     ctx.accounts.validate()?;
 

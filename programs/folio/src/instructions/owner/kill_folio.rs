@@ -4,6 +4,13 @@ use crate::utils::structs::{FolioStatus, Role};
 use anchor_lang::prelude::*;
 use shared::constants::ACTOR_SEEDS;
 
+/// Kill Folio
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `folio_owner` - The folio owner account (mut, signer).
+/// * `actor` - The actor account (PDA) of the Folio owner (not mut, not signer).
+/// * `folio` - The folio account (PDA) (mut, not signer).
 #[derive(Accounts)]
 pub struct KillFolio<'info> {
     pub system_program: Program<'info, System>,
@@ -22,6 +29,11 @@ pub struct KillFolio<'info> {
 }
 
 impl KillFolio<'_> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * Folio is initialized or initializing.
+    /// * Actor is the owner of the folio.
     pub fn validate(&self, folio: &Folio) -> Result<()> {
         folio.validate_folio(
             &self.folio.key(),
@@ -34,6 +46,10 @@ impl KillFolio<'_> {
     }
 }
 
+/// Kill Folio
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
 pub fn handler(ctx: Context<KillFolio>) -> Result<()> {
     let folio = &mut ctx.accounts.folio.load_mut()?;
 

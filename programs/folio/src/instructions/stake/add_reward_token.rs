@@ -10,6 +10,18 @@ use shared::constants::{
 };
 use shared::errors::ErrorCode;
 
+/// Add a tracked reward token to the folio.
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `executor` - The executor account (mut, signer).
+/// * `folio_owner` - The folio owner account (PDA) (not mut, signer) (spl governance account).
+/// * `actor` - The actor account of the Folio Owner (PDA) (not mut, not signer).
+/// * `folio` - The folio account (PDA) (not mut, not signer).
+/// * `folio_reward_tokens` - The folio reward tokens account (PDA) (init if needed, not signer).
+/// * `reward_token` - The reward token mint (not mut, not signer).
+/// * `reward_token_reward_info` - The reward token reward info account (init if needed, not signer).
+/// * `reward_token_account` - The reward token account (not mut, not signer).
 #[derive(Accounts)]
 pub struct AddRewardToken<'info> {
     pub system_program: Program<'info, System>,
@@ -55,6 +67,16 @@ pub struct AddRewardToken<'info> {
 }
 
 impl AddRewardToken<'_> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * Folio is valid PDA and valid status
+    /// * Actor is the folio owner's actor
+    /// * Reward token is not the folio token mint
+    /// * Reward token account is the correct mint
+    /// * Reward token account is owned by the folio reward tokens account
+    /// * Reward token is a supported SPL token
+    /// * Folio owner is a PDA that belongs to the SPL Governance program
     pub fn validate(&self, folio: &Folio) -> Result<()> {
         folio.validate_folio(
             &self.folio.key(),
@@ -98,6 +120,11 @@ impl AddRewardToken<'_> {
     }
 }
 
+/// Add a tracked reward token to the folio.
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
+/// * `reward_period` - The reward period (reward's half life).
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, AddRewardToken<'info>>,
     reward_period: u64,

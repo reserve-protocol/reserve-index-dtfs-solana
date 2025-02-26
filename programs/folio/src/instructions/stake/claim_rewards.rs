@@ -15,6 +15,30 @@ use shared::errors::ErrorCode;
 const REMAINING_ACCOUNTS_DIVIDER: usize = 5;
 const REMAINING_ACCOUNTS_UPPER_INDEX_FOR_ACCRUE_REWARDS: usize = 4;
 
+/// Claim rewards for a user.
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `token_program` - The token program.
+/// * `user` - The user account (mut, signer).
+/// * `folio_owner` - The folio owner account (PDA) (not mut, not signer).
+/// * `actor` - The actor account of the Folio Owner (PDA) (not mut, not signer).
+/// * `folio` - The folio account (PDA) (not mut, not signer).
+/// * `folio_reward_tokens` - The folio reward tokens account (PDA) (not mut, not signer).
+/// * `realm` - The realm account (PDA) (not mut, not signer).
+/// * `governance_token_mint` - The governance token mint (community mint) (PDA) (not mut, not signer).
+/// * `governance_staked_token_account` - The governance staked token account of all tokens staked in the Realm (PDA) (not mut, not signer).
+/// * `caller_governance_token_account` - The caller's token account of governance token (PDA) (not mut, not signer).
+///
+/// Remaining accounts are to represent the reward tokens to claim rewards for.
+///
+/// Order is
+///
+/// - Reward token mint
+/// - Reward info for the token mint (mut)
+/// - Fee recipient reward token account (mut) (to send) (it is not the DAO's token account, it's the folio token rewards' token account)
+/// - User reward info (mut)
+/// - User reward token account (mut) (to receive)
 #[derive(Accounts)]
 pub struct ClaimRewards<'info> {
     pub system_program: Program<'info, System>,
@@ -72,6 +96,11 @@ pub struct ClaimRewards<'info> {
 }
 
 impl ClaimRewards<'_> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * Folio is valid PDA
+    /// * Actor is the folio owner's actor
     pub fn validate(&self, folio: &Folio) -> Result<()> {
         folio.validate_folio(
             &self.folio.key(),
@@ -84,6 +113,12 @@ impl ClaimRewards<'_> {
     }
 }
 
+/// Claim rewards for a user.
+/// Also calls the accrue rewards instruction BEFORE doing the claim, so that the user claims the maximum of rewards available at the
+/// current time.
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
 pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -> Result<()> {
     let folio_reward_tokens_key = ctx.accounts.folio_reward_tokens.key();
     let folio_key = ctx.accounts.folio.key();
@@ -211,7 +246,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
             .checked_mul(D9_U128)
             .ok_or(ErrorCode::MathOverflow)?;
 
-        // Add the amount withot dust as claimed
+        // Add the amount without dust as claimed
         reward_info.total_claimed = reward_info
             .total_claimed
             .checked_add(scaled_claimable_rewards_without_dust)
@@ -229,7 +264,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
         // be 0 as a u64, we don't want to update the other fields while not giving anything, so we'll error out.
         check_condition!(raw_claimable_rewards.0 > 0, NoRewardsToClaim);
 
-        // Send the rewards to the user
+        // Send the reward to the user
         let cpi_accounts = TransferChecked {
             from: fee_recipient_token_account.to_account_info(),
             to: user_reward_token_account.to_account_info(),

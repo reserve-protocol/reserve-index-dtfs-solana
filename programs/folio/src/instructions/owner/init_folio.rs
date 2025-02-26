@@ -20,6 +20,19 @@ use shared::{
 use crate::utils::structs::{AuctionEnd, FolioStatus, Role};
 use shared::errors::ErrorCode;
 
+/// Initialize a new Folio
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `rent` - The rent sysvar.
+/// * `token_program` - The token program.
+/// * `associated_token_program` - The associated token program.
+/// * `folio_owner` - The folio owner account (mut, signer).
+/// * `folio` - The folio account (PDA) (init, not signer).
+/// * `folio_token_mint` - The folio token mint account (init, not signer).
+/// * `actor` - The actor account (PDA) of the Folio owner (init, not signer).
+/// * `token_metadata_program` - The token metadata program (not mut, not signer).
+/// * `metadata` - The metadata account (mut, not signer).
 #[derive(Accounts)]
 pub struct InitFolio<'info> {
     pub system_program: Program<'info, System>,
@@ -84,6 +97,14 @@ pub struct InitFolio<'info> {
 }
 
 impl InitFolio<'_> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * TVL fee is less than or equal to the max TVL fee.
+    /// * Mint fee is less than or equal to the max mint fee.
+    /// * Auction delay is less than or equal to the max auction delay.
+    /// * Auction length is between the min and max auction length.
+    /// * Mandate is less than or equal to the max mandate length.
     pub fn validate(
         &self,
         scaled_tvl_fee: u128,
@@ -112,6 +133,13 @@ impl InitFolio<'_> {
 }
 
 impl<'info> CreateMetadataAccount<'info> {
+    /// Create a CreateMetadataAccount instruction from an InitFolio context.
+    ///
+    /// # Arguments
+    /// * `ctx` - The context of the instruction.
+    ///
+    /// # Returns
+    /// * A CreateMetadataAccount instruction.
     pub fn from_init_folio(
         ctx: &Context<InitFolio<'info>>,
     ) -> Result<CreateMetadataAccount<'info>> {
@@ -128,6 +156,18 @@ impl<'info> CreateMetadataAccount<'info> {
     }
 }
 
+/// Initialize a new Folio
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
+/// * `scaled_tvl_fee` - The TVL fee (D18).
+/// * `scaled_mint_fee` - The mint fee (D18).
+/// * `auction_delay` - The auction delay (seconds).
+/// * `auction_length` - The auction length (seconds).
+/// * `name` - The name of the folio.
+/// * `symbol` - The symbol of the folio.
+/// * `uri` - The URI of the folio.
+/// * `mandate` - The mandate of the folio.
 pub fn handler(
     ctx: Context<InitFolio>,
     scaled_tvl_fee: u128,

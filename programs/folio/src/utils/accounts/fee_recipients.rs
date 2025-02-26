@@ -109,4 +109,16 @@ impl FeeRecipients {
 
         Ok(())
     }
+
+    /// Check if the fee recipients are empty.
+    ///
+    /// # Returns
+    /// * `bool` - True if the fee recipients are empty, false otherwise.
+    pub fn is_empty(&self) -> bool {
+        let default_pubkey = Pubkey::default();
+
+        self.fee_recipients
+            .iter()
+            .all(|r| r.recipient == default_pubkey)
+    }
 }

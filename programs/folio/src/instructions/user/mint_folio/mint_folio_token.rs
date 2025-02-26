@@ -17,6 +17,22 @@ use shared::{
     constants::{DAO_FEE_CONFIG_SEEDS, FOLIO_SEEDS},
 };
 
+/// Mint folio tokens to a user based on the shares they have.
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `token_program` - The token program.
+/// * `associated_token_program` - The associated token program.
+/// * `user` - The user account (mut, signer).
+/// * `dao_fee_config` - The DAO fee config account (PDA) (not mut, not signer).
+/// * `folio_fee_config` - The folio fee config account (PDA) (not mut, not signer).
+/// * `folio` - The folio account (PDA) (mut, not signer).
+/// * `folio_token_mint` - The folio token mint account (PDA) (mut, not signer).
+/// * `folio_basket` - The folio basket account (PDA) (mut, not signer).
+/// * `user_pending_basket` - The user pending basket account (PDA) (mut, not signer).
+/// * `user_folio_token_account` - The user folio token account (PDA) (mut, not signer).
+///
+/// * `remaining_accounts` - The remaining accounts will represent the folio token accounts of the Folio
 #[derive(Accounts)]
 pub struct MintFolioToken<'info> {
     pub system_program: Program<'info, System>,
@@ -73,6 +89,11 @@ pub struct MintFolioToken<'info> {
 }
 
 impl MintFolioToken<'_> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * Folio is valid PDA and initialized.
+    /// * Folio token mint is the same as the one in the folio.
     pub fn validate(&self, folio: &Folio) -> Result<()> {
         folio.validate_folio(
             &self.folio.key(),
@@ -95,11 +116,21 @@ impl MintFolioToken<'_> {
 user amount = share * balance folio / total supply
 user amount / balance folio * total supply = share
 */
+/// Mint folio tokens to a user based on the shares they have. This is the final step of the minting process.
+/// This can only be called once atomically, as it will mint the folio token to the user and requires ALL the token balances
+/// of the Folio's token accounts to be able to properly calculate the amount of shares the user can have.
+///
+/// Since the amount of shares to mint is provided by the user, they technically do not need to "mint" the max amount of shares they
+/// are allowed to (based on their pending basket). If they don't mint the maximum, the non-used amounts will stay in the user's
+/// pending basket.
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
+/// * `raw_shares` - The amount of shares the user wants to mint (D9).
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, MintFolioToken<'info>>,
     raw_shares: u64,
 ) -> Result<()> {
-    // Folio is poked via the to_assets function
     let folio_bump = {
         let folio = &mut ctx.accounts.folio.load_mut()?;
         ctx.accounts.validate(folio)?;
@@ -134,6 +165,7 @@ pub fn handler<'info>(
     {
         let folio = &mut ctx.accounts.folio.load_mut()?;
 
+        // Folio is poked via the to_assets function, so don't need to poke it here
         token_amounts_user.to_assets(
             raw_shares,
             ctx.accounts.folio_token_mint.supply,

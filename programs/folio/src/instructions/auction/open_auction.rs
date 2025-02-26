@@ -6,6 +6,15 @@ use crate::{
 use anchor_lang::prelude::*;
 use shared::constants::ACTOR_SEEDS;
 
+/// Open an auction
+/// Auction Launcher only.
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `auction_launcher` - The auction launcher account (mut, signer).
+/// * `actor` - The actor account (PDA) (not mut, not signer).
+/// * `folio` - The folio account (PDA) (mut, not signer).
+/// * `auction` - The auction account (PDA) (mut, not signer).
 #[derive(Accounts)]
 pub struct OpenAuction<'info> {
     pub system_program: Program<'info, System>,
@@ -27,6 +36,12 @@ pub struct OpenAuction<'info> {
 }
 
 impl OpenAuction<'_> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * Folio has the correct status and actor has the correct role.
+    /// * Auction is valid.
+    /// * Auction parameters are valid.
     pub fn validate(
         &self,
         folio: &Folio,
@@ -58,6 +73,14 @@ impl OpenAuction<'_> {
     }
 }
 
+/// Open an auction
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
+/// * `scaled_sell_limit` - D18{sellTok/share} min ratio of sell token to shares allowed, inclusive
+/// * `scaled_buy_limit` - D18{buyTok/share} max balance-ratio to shares allowed, exclusive
+/// * `scaled_start_price` - D18{buyTok/sellTok} Price range
+/// * `scaled_end_price` - D18{buyTok/sellTok} Price range
 pub fn handler(
     ctx: Context<OpenAuction>,
     scaled_sell_limit: u128,
@@ -65,6 +88,12 @@ pub fn handler(
     scaled_start_price: u128,
     scaled_end_price: u128,
 ) -> Result<()> {
+    // auction launcher can:
+    //   - select a sell limit within the approved range
+    //   - select a buy limit within the approved range
+    //   - raise starting price by up to 100x
+    //   - raise ending price arbitrarily (can cause auction not to clear, same as closing auction)
+
     let folio = &mut ctx.accounts.folio.load_mut()?;
     let auction = &mut ctx.accounts.auction.load_mut()?;
 

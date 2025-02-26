@@ -15,6 +15,24 @@ use crate::state::{Folio, FolioBasket, UserPendingBasket};
 
 const EXPECTED_REMAINING_ACCOUNTS_LENGTH: usize = 3;
 
+/// Redeem tokens from the user's pending basket.
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `rent` - The rent sysvar.
+/// * `token_program` - The token program.
+/// * `user` - The user account (mut, signer).
+/// * `folio` - The folio account (PDA) (not mut, not signer).
+/// * `folio_basket` - The folio basket account (PDA) (mut, not signer).
+/// * `user_pending_basket` - The user pending basket account (PDA) (mut, not signer).
+///
+/// * `remaining_accounts` - The remaining accounts will represent the tokens being redeemed from the pending basket.
+///
+/// Order is
+///
+/// - Token Mint (read)
+/// - Sender Token Account (needs to be owned by folio) (mut)
+/// - Recipient Token Account (needs to be owned by user) (mut)
 #[derive(Accounts)]
 pub struct RedeemFromPendingBasket<'info> {
     pub system_program: Program<'info, System>,
@@ -49,6 +67,10 @@ pub struct RedeemFromPendingBasket<'info> {
 }
 
 impl RedeemFromPendingBasket<'_> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * Folio is valid PDA
     pub fn validate(&self) -> Result<()> {
         let folio = self.folio.load()?;
         folio.validate_folio(
@@ -63,10 +85,14 @@ impl RedeemFromPendingBasket<'_> {
     }
 }
 
-/// This function is so that the user can remove from his pending basket related to redeeming of the folio token.
-/// This is used after the user has "burned" his folio token shares and now wants to withdraw the underlying tokens.
+/// Redeem tokens from the user's pending basket. This is used after the user has "burned/redeemed"
+/// his folio token shares and now wants to withdraw the underlying tokens from his pending basket.
+/// This can multiple times, as the user can redeem different tokens at different times. User doesn't have to redeem all the balance within
+/// his pending basket, but can redeem some or all of it.
 ///
-/// amounts: Vec<u64>: is in token amount, which we consider D9
+/// # Arguments
+/// * `ctx` - The context of the instruction.
+/// * `raw_amounts` - The amounts of the tokens to redeem from the pending basket, in the same order as the remaining accounts.
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, RedeemFromPendingBasket<'info>>,
     raw_amounts: Vec<u64>,
@@ -148,6 +174,8 @@ pub fn handler<'info>(
         });
     }
 
+    // Don't need to validate mint existence, as the folio might not have this mint anymore, but the user should
+    // still be able to remove the amount his own pending token amounts.
     let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
     folio_basket.remove_token_amounts_from_folio(
         &removed_mints,

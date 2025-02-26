@@ -17,6 +17,21 @@ use shared::errors::ErrorCode;
 use crate::events::ProtocolFeePaid;
 use crate::state::{FeeDistribution, FeeRecipients, Folio};
 
+/// Distribute Fees
+///
+/// # Arguments
+/// * `index` - The index of the next fee distribution account to create.
+/// * `rent` - The rent sysvar.
+/// * `system_program` - The system program.
+/// * `token_program` - The token program.
+/// * `user` - The user account (mut, signer).
+/// * `dao_fee_config` - The DAO fee config account (not mut, not signer).
+/// * `folio_fee_config` - The folio fee config account (not mut, not signer).
+/// * `folio` - The folio account (PDA) (mut, not signer).
+/// * `folio_token_mint` - The folio token mint account (mut, not signer).
+/// * `fee_recipients` - The fee recipients account (PDA) (mut, not signer).
+/// * `fee_distribution` - The fee distribution account (PDA) (init, not signer).
+/// * `dao_fee_recipient` - The DAO fee recipient token account (mut, not signer).
 #[derive(Accounts)]
 #[instruction(index: u64)]
 pub struct DistributeFees<'info> {
@@ -42,9 +57,6 @@ pub struct DistributeFees<'info> {
     )]
     pub folio_fee_config: UncheckedAccount<'info>,
 
-    /*
-    Specific for the instruction
-     */
     #[account(mut)]
     pub folio: AccountLoader<'info, Folio>,
 
@@ -70,6 +82,12 @@ pub struct DistributeFees<'info> {
     pub dao_fee_recipient: Box<InterfaceAccount<'info, TokenAccount>>,
 }
 
+/// Validate the instruction.
+///
+/// # Checks
+/// * Folio has the correct status.
+/// * Fee recipients distribution index is the next index to distribute to.
+/// * Provided folio token mint account is the same as the one on the folio account.
 pub fn validate<'info>(
     folio: &AccountLoader<'info, Folio>,
     fee_recipients: &FeeRecipients,
@@ -98,6 +116,19 @@ pub fn validate<'info>(
     Ok(())
 }
 
+/// Distribute Fees.
+///
+/// # Arguments
+/// * `token_program` - The token program.
+/// * `user` - The user account.
+/// * `dao_fee_config` - The DAO fee config account.
+/// * `folio_fee_config` - The folio fee config account.
+/// * `folio` - The folio account.
+/// * `folio_token_mint` - The folio token mint account.
+/// * `fee_recipients` - The fee recipients account.
+/// * `fee_distribution` - The fee distribution account.
+/// * `dao_fee_recipient` - The DAO fee recipient token account.
+/// * `index` - The index of the next fee distribution account to create.
 pub fn distribute_fees<'info>(
     token_program: &AccountInfo<'info>,
     user: &AccountInfo<'info>,
@@ -119,7 +150,7 @@ pub fn distribute_fees<'info>(
 
         let fee_details = dao_fee_config.get_fee_details(folio_fee_config)?;
 
-        // Validate token account
+        // Validate token account for the DAO fee recipient
         check_condition!(
             dao_fee_recipient.key()
                 == get_associated_token_address_with_program_id(
@@ -130,7 +161,7 @@ pub fn distribute_fees<'info>(
             InvalidDaoFeeRecipient
         );
 
-        // Update fees by poking
+        // Update pending fees by poking to get latest fees
         let current_time = Clock::get()?.unix_timestamp;
         folio.poke(
             folio_token_mint.supply,
@@ -141,15 +172,32 @@ pub fn distribute_fees<'info>(
         )?;
     }
 
-    // Mint fees to dao recipient
+    // Mint pending fees to dao recipient
     let raw_dao_pending_fee_shares: u64;
+
     let scaled_fee_recipients_pending_fee_shares_minus_dust: u128;
+
+    let has_fee_recipients: bool;
 
     {
         let folio_key = folio.key();
         let loaded_folio = folio.load()?;
         let fee_recipients = fee_recipients.load()?;
         let token_mint_key = folio_token_mint.key();
+
+        has_fee_recipients = !fee_recipients.fee_recipients.is_empty();
+
+        // We scale down as token units and bring back in D18, to get the amount
+        // minus the dust that we can split
+        let raw_fee_recipients_pending_fee_shares: u64 =
+            Decimal::from_scaled(loaded_folio.fee_recipients_pending_fee_shares)
+                .to_token_amount(Rounding::Floor)?
+                .0;
+
+        scaled_fee_recipients_pending_fee_shares_minus_dust =
+            (raw_fee_recipients_pending_fee_shares as u128)
+                .checked_mul(D9_U128)
+                .ok_or(ErrorCode::MathOverflow)?;
 
         raw_dao_pending_fee_shares = Decimal::from_scaled(loaded_folio.dao_pending_fee_shares)
             .to_token_amount(Rounding::Floor)?
@@ -170,43 +218,41 @@ pub fn distribute_fees<'info>(
                 cpi_accounts,
                 &[signer_seeds],
             ),
-            raw_dao_pending_fee_shares,
+            raw_dao_pending_fee_shares
+                .checked_add(raw_fee_recipients_pending_fee_shares)
+                .ok_or(ErrorCode::MathOverflow)?,
         )?;
 
-        // We scale down as token units and bring back in D18, to get the amount
-        // minus the dust that we can split
-        scaled_fee_recipients_pending_fee_shares_minus_dust =
-            (Decimal::from_scaled(loaded_folio.fee_recipients_pending_fee_shares)
-                .to_token_amount(Rounding::Floor)?
-                .0 as u128)
-                .checked_mul(D9_U128)
-                .ok_or(ErrorCode::MathOverflow)?;
+        // Create new fee distribution for other recipients if there are any
+        if has_fee_recipients {
+            let fee_distribution_loaded = &mut fee_distribution.load_init()?;
 
-        // Create new fee distribution for other recipients
-        let fee_distribution_loaded = &mut fee_distribution.load_init()?;
+            let (fee_distribution_derived_key, bump) = Pubkey::find_program_address(
+                &[
+                    FEE_DISTRIBUTION_SEEDS,
+                    folio_key.as_ref(),
+                    index.to_le_bytes().as_slice(),
+                ],
+                &ID,
+            );
 
-        let (fee_distribution_derived_key, bump) = Pubkey::find_program_address(
-            &[
-                FEE_DISTRIBUTION_SEEDS,
-                folio_key.as_ref(),
-                index.to_le_bytes().as_slice(),
-            ],
-            &ID,
-        );
+            // Make the the derived key is the right one
+            check_condition!(
+                fee_distribution_derived_key == fee_distribution.key(),
+                InvalidFeeDistribution
+            );
 
-        // Make the the derived key is the right one
-        check_condition!(
-            fee_distribution_derived_key == fee_distribution.key(),
-            InvalidFeeDistribution
-        );
-
-        fee_distribution_loaded.bump = bump;
-        fee_distribution_loaded.index = index;
-        fee_distribution_loaded.folio = folio_key;
-        fee_distribution_loaded.cranker = user.key();
-        fee_distribution_loaded.amount_to_distribute =
-            scaled_fee_recipients_pending_fee_shares_minus_dust;
-        fee_distribution_loaded.fee_recipients_state = fee_recipients.fee_recipients;
+            fee_distribution_loaded.bump = bump;
+            fee_distribution_loaded.index = index;
+            fee_distribution_loaded.folio = folio_key;
+            fee_distribution_loaded.cranker = user.key();
+            fee_distribution_loaded.amount_to_distribute =
+                scaled_fee_recipients_pending_fee_shares_minus_dust;
+            fee_distribution_loaded.fee_recipients_state = fee_recipients.fee_recipients;
+        } else {
+            // We close it if there are no fee recipients
+            fee_distribution.close(user.to_account_info())?;
+        }
 
         emit!(ProtocolFeePaid {
             recipient: dao_fee_recipient.key(),
@@ -214,9 +260,10 @@ pub fn distribute_fees<'info>(
         });
     }
 
-    // Update folio pending fees
+    // Update folio pending fees based on what was distributed
     {
         let folio = &mut folio.load_mut()?;
+
         folio.dao_pending_fee_shares = folio
             .dao_pending_fee_shares
             .checked_sub(
@@ -227,6 +274,8 @@ pub fn distribute_fees<'info>(
             )
             .ok_or(ErrorCode::MathOverflow)?;
 
+        // Still remove from the fee recipient pending shares even if there are no fee recipients
+        // as it's given to the DAO
         folio.fee_recipients_pending_fee_shares = folio
             .fee_recipients_pending_fee_shares
             .checked_sub(scaled_fee_recipients_pending_fee_shares_minus_dust)
@@ -239,6 +288,12 @@ pub fn distribute_fees<'info>(
     Ok(())
 }
 
+/// Distribute Fees. If fee_recipients are empty, the DAO gets all the fees.
+/// Pending fee shares are already reflected in the total supply, this function only concretizes balances
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
+/// * `index` - The index of the next fee distribution account to create.
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, DistributeFees<'info>>,
     index: u64,

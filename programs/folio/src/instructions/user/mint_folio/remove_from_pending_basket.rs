@@ -14,6 +14,23 @@ use shared::{
 
 const EXPECTED_REMAINING_ACCOUNTS_LENGTH: usize = 3;
 
+/// Remove tokens from the user's pending basket.
+///
+/// # Arguments
+/// * `system_program` - The system program.
+/// * `token_program` - The token program.
+/// * `user` - The user account (mut, signer).
+/// * `folio` - The folio account (PDA) (not mut, not signer).
+/// * `folio_basket` - The folio basket account (PDA) (mut, not signer).
+/// * `user_pending_basket` - The user pending basket account (PDA) (mut, not signer).
+///
+/// * `remaining_accounts` - The remaining accounts will represent the tokens being removed from the pending basket.
+///
+/// Order is
+///
+/// - Token Mint (read)
+/// - Sender Token Account (needs to be owned by folio) (mut)
+/// - Recipient Token Account (needs to be owned by user) (mut)
 #[derive(Accounts)]
 pub struct RemoveFromPendingBasket<'info> {
     pub system_program: Program<'info, System>,
@@ -47,6 +64,10 @@ pub struct RemoveFromPendingBasket<'info> {
 }
 
 impl RemoveFromPendingBasket<'_> {
+    /// Validate the instruction.
+    ///
+    /// # Checks
+    /// * Folio is valid PDA.
     pub fn validate(&self, folio: &Folio) -> Result<()> {
         folio.validate_folio(
             &self.folio.key(),
@@ -60,6 +81,12 @@ impl RemoveFromPendingBasket<'_> {
     }
 }
 
+/// Remove tokens from the user's pending basket. This is used during the process of minting a folio token. It can be called multiple times and
+/// is to "rollback" or take back the tokens that were transferred to the folio but haven't been used to mint the folio token yet.
+///
+/// # Arguments
+/// * `ctx` - The context of the instruction.
+/// * `raw_amounts` - The amounts of the tokens to remove from the pending basket, in the same order as the remaining accounts.
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, RemoveFromPendingBasket<'info>>,
     raw_amounts: Vec<u64>,
@@ -141,7 +168,7 @@ pub fn handler<'info>(
 
     /*
     Don't need to validate mint existence, as the folio might not have this mint anymore, but the user should
-    still be able to remove the amount his own pending token amounts
+    still be able to remove the amount his own pending token amounts.
      */
     ctx.accounts
         .folio_basket

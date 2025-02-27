@@ -65,8 +65,36 @@ jobs:
 
       - name: Build SPL
         run: |
-          set -e
-          ./build-local.sh
+          cd solana-program-library/governance/program
+          cargo build-sbf
+          cd ../../
+
+          # Copy the built program to the correct location
+          mkdir -p ../tests-ts/programs/
+          if [ -f "target/deploy/spl_governance.so" ]; then
+              cp target/deploy/spl_governance.so ../../tests-ts/programs/governance.so
+          elif [ -f "target/sbf-solana-solana/release/spl_governance.so" ]; then
+              cp target/sbf-solana-solana/release/spl_governance.so ../../tests-ts/programs/governance.so
+          fi
+          cd ..
+
+          # Build Folio programs
+          cp utils/keys/folio-2-keypair-local.json target/deploy/folio-keypair.json
+          anchor build -- --features dev
+
+          # Update program IDs
+          sed -i 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt/g' target/idl/folio.json
+          sed -i 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt/g' target/types/folio.ts
+
+          # Rename files for second instance
+          mv target/idl/folio.json target/idl/second_folio.json
+          mv target/types/folio.ts target/types/second_folio.ts
+          mv target/deploy/folio.so target/deploy/second_folio.so
+          mv target/deploy/folio-keypair.json target/deploy/second_folio-keypair.json
+
+          # Build first instance
+          cp utils/keys/folio-keypair-local.json target/deploy/folio-keypair.json
+          anchor build
 
       - name: Upload built programs
         uses: actions/upload-artifact@v4

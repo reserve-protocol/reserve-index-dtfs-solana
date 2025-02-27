@@ -100,15 +100,6 @@ jobs:
           --out Html \
           --output-dir target/tarpaulin
 
-      - name: Upload coverage report
-        if: always()
-        continue-on-error: true
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: target/tarpaulin
-          retention-days: 7
-
       - name: Bankrun Test
         run: |
           export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"

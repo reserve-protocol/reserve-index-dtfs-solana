@@ -46,7 +46,6 @@ import {
   getAuctionPDA,
   getUserPendingBasketPDA,
   getUserRewardInfoPDA,
-  getUserTokenRecordRealmsPDA,
 } from "../utils/pda-helper";
 import {
   DEFAULT_DECIMALS_MUL,
@@ -62,7 +61,6 @@ import {
   FEE_NUMERATOR,
 } from "../utils/constants";
 import { TestHelper } from "../utils/test-helper";
-import { createGovernanceAccounts } from "../utils/data-helper";
 import {
   getOrCreateAtaAddress,
   getTokenBalance,
@@ -156,16 +154,17 @@ describe("Folio Tests", () => {
     auctionApproverKeypair = Keypair.generate();
     auctionLauncherKeypair = Keypair.generate();
 
+    // Governance related tests are skipped for now, tested via Bankrun
     // Inject fake accounts in Amman for governance
-    const userTokenRecordPda = getUserTokenRecordRealmsPDA(
-      folioOwnerKeypair.publicKey,
-      folioTokenMint.publicKey,
-      userKeypair.publicKey
-    );
+    // const userTokenRecordPda = getUserTokenRecordRealmsPDA(
+    //   folioOwnerKeypair.publicKey,
+    //   folioTokenMint.publicKey,
+    //   userKeypair.publicKey
+    // );
 
-    await createGovernanceAccounts(userTokenRecordPda, 1000);
+    // await createGovernanceAccounts(userTokenRecordPda, 1000);
 
-    await wait(10);
+    // await wait(10);
 
     await airdrop(connection, payerKeypair.publicKey, 1000);
     await airdrop(connection, adminKeypair.publicKey, 1000);
@@ -236,27 +235,6 @@ describe("Folio Tests", () => {
       FEE_NUMERATOR,
       MAX_FEE_FLOOR
     );
-  });
-
-  after(async () => {
-    // Seems like anchor is hanging sometimes because of the "mock" governance accounts that update Amman's state,
-    // so we force exit after 1 second.
-
-    // Clear all program references
-    programFolio = null;
-    programFolioAdmin = null;
-
-    // Clear connection
-    if (connection) {
-      // @ts-ignore - force clear internal properties
-      connection._rpcWebSocket.close();
-      connection = null;
-    }
-
-    // Force exit after 1 second
-    setTimeout(() => {
-      process.exit(0);
-    }, 5000);
   });
 
   it("should initialize a folio", async () => {

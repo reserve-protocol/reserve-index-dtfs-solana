@@ -48,7 +48,7 @@ jobs:
 
       - name: Install Solana
         run: |
-          sh -c "$(curl -sSfL https://release.anza.com/v${{ env.SOLANA_VERSION }}/install)"
+          sh -c "$(curl -sSfL https://release.anza.xyz/v${{ env.SOLANA_VERSION }}/install)"
           export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
           echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
           solana --version

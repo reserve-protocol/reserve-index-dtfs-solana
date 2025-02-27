@@ -56,6 +56,15 @@ import {
 import * as assert from "assert";
 import { FolioAdmin } from "../../../target/types/folio_admin";
 
+/**
+ * Tests for folio token redeeming functionality, including:
+ * - Burning folio tokens
+ * - Redeeming from pending baskets
+ * - Balance validation
+ * - Token transfer validation
+ * - Account updates during redemption
+ */
+
 describe("Bankrun - Folio redeeming", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
@@ -532,7 +541,7 @@ describe("Bankrun - Folio redeeming", () => {
     });
   });
 
-  describe("Specific Cases - Burn folio token", () => {
+  describe("Specific Cases - Burn Folio Token", () => {
     TEST_CASES_BURN_FOLIO_TOKEN.forEach(
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {
@@ -756,7 +765,7 @@ describe("Bankrun - Folio redeeming", () => {
     );
   });
 
-  describe("Specific Cases - Redeem from pending basket", () => {
+  describe("Specific Cases - Redeem from Pending Basket", () => {
     TEST_CASES_REDEEM_FROM_PENDING_BASKET.forEach(
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {

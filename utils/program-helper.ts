@@ -24,6 +24,12 @@ import * as assert from "assert";
 import { FolioAdmin } from "../target/types/folio_admin";
 import idlFolioAdmin from "../target/idl/folio_admin.json";
 
+/**
+ * Utility functions for program interaction and transaction management.
+ * Includes helpers for connection setup, transaction sending/confirmation,
+ * and common Solana operations like airdrops and compute budget management.
+ */
+
 export async function getConnectors() {
   let rpcUrl = "";
   let keysFileName = "";
@@ -74,6 +80,10 @@ export async function wait(seconds = 2) {
   await new Promise((f) => setTimeout(f, seconds * 1_000));
 }
 
+/**
+ * Send and confirm a transaction with optional fee payment and additional signers.
+ * Handles transaction creation, signing, and confirmation via the connection directly.
+ */
 export async function cSendAndConfirmTxn(
   connection: Connection,
   txn: TransactionInstruction[],
@@ -126,6 +136,10 @@ export async function cSendAndConfirmTxn(
   }
 }
 
+/**
+ * Send and confirm a transaction with optional fee payment and additional signers.
+ * Handles transaction creation, signing, and confirmation via the program provider.
+ */
 export async function pSendAndConfirmTxn(
   program: anchor.Program<any>,
   txn: TransactionInstruction[],
@@ -186,6 +200,10 @@ export function getComputeLimitInstruction(
   ];
 }
 
+/**
+ * Assert that a function throws an error with a specific error code.
+ * Checks the error logs for the expected error code and fails if not found.
+ */
 export async function assertThrows(
   fn: () => Promise<any>,
   expectedErrorCode: string | number,

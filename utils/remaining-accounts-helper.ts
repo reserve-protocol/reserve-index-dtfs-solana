@@ -7,6 +7,13 @@ import {
 } from "./pda-helper";
 import { getOrCreateAtaAddress } from "./token-helper";
 
+/**
+ * Helper functions for building remaining accounts arrays required for various
+ * Folio program instructions. Handles account setup for rewards, token operations,
+ * and migrations.
+ */
+
+// Builds remaining accounts for basket operations, from adding to basket to removing from basket.
 export async function buildRemainingAccounts(
   connection: Connection,
   payerKeypair: Keypair,

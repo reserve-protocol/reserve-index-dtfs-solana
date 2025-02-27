@@ -55,7 +55,18 @@ import {
 } from "../bankrun-token-helper";
 import { FolioAdmin } from "../../../target/types/folio_admin";
 import { createTransferInstruction, TOKEN_PROGRAM_ID } from "@solana/spl-token";
-describe("Bankrun - Folio migration", () => {
+
+/**
+ * Tests for auction-related functionality in the Folio program, including:
+ * - Auction approval process
+ * - Opening auctions (both permissioned and permissionless)
+ * - Bidding on auctions
+ * - Auction closure
+ * - Price limits and validation
+ * - Token transfers during auctions
+ */
+
+describe("Bankrun - Auction", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
   let banksClient: BanksClient;

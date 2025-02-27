@@ -30,6 +30,15 @@ import {
 } from "../bankrun-general-tests-helper";
 import { FOLIO_PROGRAM_ID } from "../../../utils/constants";
 import { FolioAdmin } from "../../../target/types/folio_admin";
+
+/**
+ * Tests for program registrar functionality, including:
+ * - Initializing program registrar
+ * - Adding/removing programs
+ * - Program limit validation
+ * - Admin permission checks
+ */
+
 describe("Bankrun - Program Registrar", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
@@ -176,103 +185,110 @@ describe("Bankrun - Program Registrar", () => {
     });
   });
 
-  TEST_CASES_INIT.forEach(({ desc, expectedError, ...restOfParams }) => {
-    describe(`Init - When ${desc}`, () => {
-      let txnResult: BanksTransactionResultWithMeta;
-      const {
-        programIdChanges: { addedPrograms },
-        getKeypair,
-      } = { ...DEFAULT_PARAMS, ...restOfParams };
+  describe("Specific Cases - Init Program Registrar", () => {
+    TEST_CASES_INIT.forEach(({ desc, expectedError, ...restOfParams }) => {
+      describe(`When ${desc}`, () => {
+        let txnResult: BanksTransactionResultWithMeta;
+        const {
+          programIdChanges: { addedPrograms },
+          getKeypair,
+        } = { ...DEFAULT_PARAMS, ...restOfParams };
 
-      before(async () => {
-        // Close the account so we can re-init as if it was new
-        await closeAccount(context, getProgramRegistrarPDA());
+        before(async () => {
+          // Close the account so we can re-init as if it was new
+          await closeAccount(context, getProgramRegistrarPDA());
 
-        txnResult = await initProgramRegistrar<true>(
-          banksClient,
-          programFolioAdmin,
-          getKeypair(),
-          addedPrograms[0]
-        );
+          txnResult = await initProgramRegistrar<true>(
+            banksClient,
+            programFolioAdmin,
+            getKeypair(),
+            addedPrograms[0]
+          );
+        });
+
+        if (expectedError) {
+          it("should fail with expected error", () => {
+            assertError(txnResult, expectedError);
+          });
+        } else {
+          it("should succeed", async () => {
+            await travelFutureSlot(context);
+            const programRegistrarPDA = getProgramRegistrarPDA();
+
+            const programRegistrar =
+              await programFolioAdmin.account.programRegistrar.fetch(
+                programRegistrarPDA
+              );
+
+            assert.deepEqual(programRegistrar.acceptedPrograms, [
+              addedPrograms[0],
+              ...Array(MAX_NUMBER_OF_PROGRAMS - 1).fill(PublicKey.default),
+            ]);
+          });
+        }
       });
-
-      if (expectedError) {
-        it("should fail with expected error", () => {
-          assertError(txnResult, expectedError);
-        });
-      } else {
-        it("should succeed", async () => {
-          await travelFutureSlot(context);
-          const programRegistrarPDA = getProgramRegistrarPDA();
-
-          const programRegistrar =
-            await programFolioAdmin.account.programRegistrar.fetch(
-              programRegistrarPDA
-            );
-
-          assert.deepEqual(programRegistrar.acceptedPrograms, [
-            addedPrograms[0],
-            ...Array(MAX_NUMBER_OF_PROGRAMS - 1).fill(PublicKey.default),
-          ]);
-        });
-      }
     });
   });
 
-  TEST_CASES_UPDATE.forEach(({ desc, expectedError, ...restOfParams }) => {
-    describe(`Update - When ${desc}`, () => {
-      let txnResult: BanksTransactionResultWithMeta;
-      const {
-        preAddedPrograms,
-        programIdChanges: { addedPrograms, removedPrograms },
-        getKeypair,
-      } = { ...DEFAULT_PARAMS, ...restOfParams };
+  describe("Specific Cases - Update Program Registrar", () => {
+    TEST_CASES_UPDATE.forEach(({ desc, expectedError, ...restOfParams }) => {
+      describe(`Update - When ${desc}`, () => {
+        let txnResult: BanksTransactionResultWithMeta;
+        const {
+          preAddedPrograms,
+          programIdChanges: { addedPrograms, removedPrograms },
+          getKeypair,
+        } = { ...DEFAULT_PARAMS, ...restOfParams };
 
-      before(async () => {
-        await createAndSetProgramRegistrar(
-          context,
-          programFolioAdmin,
-          preAddedPrograms
-        );
-
-        await travelFutureSlot(context);
-
-        txnResult = await updateProgramRegistrar<true>(
-          banksClient,
-          programFolioAdmin,
-          getKeypair(),
-          addedPrograms.length > 0 ? addedPrograms : removedPrograms,
-          removedPrograms.length > 0
-        );
-      });
-
-      if (expectedError) {
-        it("should fail with expected error", () => {
-          assertError(txnResult, expectedError);
-        });
-      } else {
-        it("should succeed", async () => {
-          await travelFutureSlot(context);
-
-          const programRegistrarPDA = getProgramRegistrarPDA();
-
-          const programRegistrar =
-            await programFolioAdmin.account.programRegistrar.fetch(
-              programRegistrarPDA
-            );
-
-          const expectedPrograms = buildExpectedArray(
-            preAddedPrograms,
-            addedPrograms,
-            removedPrograms,
-            MAX_NUMBER_OF_PROGRAMS,
-            PublicKey.default,
-            (program) => !removedPrograms.includes(program)
+        before(async () => {
+          await createAndSetProgramRegistrar(
+            context,
+            programFolioAdmin,
+            preAddedPrograms
           );
 
-          assert.deepEqual(programRegistrar.acceptedPrograms, expectedPrograms);
+          await travelFutureSlot(context);
+
+          txnResult = await updateProgramRegistrar<true>(
+            banksClient,
+            programFolioAdmin,
+            getKeypair(),
+            addedPrograms.length > 0 ? addedPrograms : removedPrograms,
+            removedPrograms.length > 0
+          );
         });
-      }
+
+        if (expectedError) {
+          it("should fail with expected error", () => {
+            assertError(txnResult, expectedError);
+          });
+        } else {
+          it("should succeed", async () => {
+            await travelFutureSlot(context);
+
+            const programRegistrarPDA = getProgramRegistrarPDA();
+
+            const programRegistrar =
+              await programFolioAdmin.account.programRegistrar.fetch(
+                programRegistrarPDA
+              );
+
+            const expectedPrograms = buildExpectedArray(
+              preAddedPrograms,
+              addedPrograms,
+              removedPrograms,
+              MAX_NUMBER_OF_PROGRAMS,
+              PublicKey.default,
+              (program) => !removedPrograms.includes(program)
+            );
+
+            assert.deepEqual(
+              programRegistrar.acceptedPrograms,
+              expectedPrograms
+            );
+          });
+        }
+      });
     });
   });
 });

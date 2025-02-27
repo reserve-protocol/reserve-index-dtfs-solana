@@ -63,7 +63,7 @@ import {
  * This is different from the case where the user stakes their governance tokens
  * and the FOLIO program is called directly to accrue rewards.
  */
-describe("Bankrun - Governance staking user", () => {
+describe("Bankrun - Governance Staking User", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
   let banksClient: BanksClient;
@@ -87,8 +87,6 @@ describe("Bankrun - Governance staking user", () => {
   let userGoverningMintATA: PublicKey;
 
   const GOVERNANCE_MINT = Keypair.generate();
-
-  const REALM_NAME = "Test Realm";
 
   const REWARD_TOKEN_MINTS = Array.from({ length: MAX_REWARD_TOKENS }, () =>
     Keypair.generate()

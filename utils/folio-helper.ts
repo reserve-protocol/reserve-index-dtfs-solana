@@ -50,6 +50,12 @@ let secondFolioProgram: Program<SecondFolio> = null;
 
 const SKIP_PREFLIGHT = true;
 
+/**
+ * Core helper functions for interacting with the Folio protocol. Includes methods
+ * for initializing folios, managing baskets, handling auctions, rewards, and
+ * migrations. Primary interface for most Folio program operations.
+ */
+
 export function getFolioProgram(
   connection: Connection,
   wallet: Keypair
@@ -68,6 +74,7 @@ export function getFolioProgram(
   return folioProgram;
 }
 
+// To be able to test migrations
 export function getSecondFolioProgram(
   connection: Connection,
   wallet: Keypair
@@ -892,8 +899,8 @@ export async function bid(
 
 /**
  * For now this function expects the signer to be a governance account (folio owner)
- * this doesn't directly work as the governance account is a PDA, to test this we'd need to create the
- * realms, do proposals, etc. so instead it'll be tested with bankrun for now.
+ * this doesn't directly work as the governance account is a PDA owned by the SPL governance program,
+ * to test this we'd need to create the realms, do proposals, etc. so instead it'll be tested with bankrun for now.
  */
 export async function addRewardToken(
   connection: Connection,
@@ -933,8 +940,8 @@ export async function addRewardToken(
 
 /**
  * For now this function expects the signer to be a governance account (folio owner)
- * this doesn't directly work as the governance account is a PDA, to test this we'd need to create the
- * realms, do proposals, etc. so instead it'll be tested with bankrun for now.
+ * this doesn't directly work as the governance account is a PDA owned by the SPL governance program,
+ * to test this we'd need to create the realms, do proposals, etc. so instead it'll be tested with bankrun for now.
  */
 export async function removeRewardToken(
   connection: Connection,
@@ -966,8 +973,8 @@ export async function removeRewardToken(
 
 /**
  * For now this function expects the signer to be a governance account (folio owner)
- * this doesn't directly work as the governance account is a PDA, to test this we'd need to create the
- * realms, do proposals, etc. so instead it'll be tested with bankrun for now.
+ * this doesn't directly work as the governance account is a PDA owned by the SPL governance program,
+ * to test this we'd need to create the realms, do proposals, etc. so instead it'll be tested with bankrun for now.
  */
 export async function initOrSetRewardRatio(
   connection: Connection,

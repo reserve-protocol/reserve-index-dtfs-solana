@@ -46,6 +46,15 @@ import {
 } from "../bankrun-token-helper";
 import { assert } from "chai";
 
+/**
+ * Tests for folio basket functionality, including:
+ * - Adding tokens to baskets
+ * - Removing tokens from baskets
+ * - Basket size limits
+ * - Token validation
+ * - Initial share minting
+ */
+
 describe("Bankrun - Folio basket", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
@@ -218,6 +227,7 @@ describe("Bankrun - Folio basket", () => {
     },
   ];
 
+  // Utility for testing remaining accounts related test cases
   function buildInvalidRemainingAccounts(
     tokens: {
       mint: PublicKey;
@@ -381,10 +391,7 @@ describe("Bankrun - Folio basket", () => {
     });
   });
 
-  /*
-  Then the test cases specific to that instruction
-  */
-  describe("Specific Cases", () => {
+  describe("Specific Cases - Add to Basket", () => {
     TEST_CASES_ADD_TO_BASKET.forEach(
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {
@@ -524,7 +531,9 @@ describe("Bankrun - Folio basket", () => {
         });
       }
     );
+  });
 
+  describe("Specific Cases - Remove from Basket", () => {
     TEST_CASES_REMOVE_FROM_BASKET.forEach(
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {

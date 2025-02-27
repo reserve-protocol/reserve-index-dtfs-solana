@@ -51,6 +51,18 @@ import { getOrCreateAtaAddress } from "./bankrun-token-helper";
 import { FolioAdmin } from "../../target/types/folio_admin";
 import { SplGovernance } from "governance-idl-sdk";
 
+/**
+Helper functions to create the instructions for calling the different programs.
+
+They all follow the same pattern:
+  - Takes in a generic parameter `T` that defaults to `true`, which is used to determine
+    if the function should process the transaction or just build and return it.
+    This works in conjunction with executeTxn: T = true as T
+
+Some of the functions also require more compute units, so we add them as extra instructions
+to the transaction.
+*/
+
 /*
 Folio Admin
 */

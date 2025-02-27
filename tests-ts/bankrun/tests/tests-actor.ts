@@ -28,6 +28,14 @@ import {
 import { addOrUpdateActor, removeActor } from "../bankrun-ix-helper";
 import * as assert from "assert";
 
+/**
+ * Tests for actor-related functionality in the Folio program, including:
+ * - Adding/updating actors with different roles
+ * - Removing actors and their roles
+ * - Role validation and permissions
+ * - Account closure when all roles are removed
+ */
+
 describe("Bankrun - Actor", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
@@ -192,10 +200,7 @@ describe("Bankrun - Actor", () => {
     });
   });
 
-  /*
-  Then the test cases specific to that instruction
-  */
-  describe("Specific Cases init or update actor", () => {
+  describe("Specific Cases - Init or Update Actor", () => {
     TEST_CASES_ADD_OR_UPDATE_ACTOR.forEach(
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {
@@ -252,7 +257,7 @@ describe("Bankrun - Actor", () => {
     );
   });
 
-  describe("Specific Cases remove actor", () => {
+  describe("Specific Cases - Remove Actor", () => {
     TEST_CASES_REMOVE_ACTOR.forEach(
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {

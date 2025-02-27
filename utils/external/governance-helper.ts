@@ -18,6 +18,16 @@ import { getOrCreateAtaAddress } from "../token-helper";
 import { SPL_GOVERNANCE_PROGRAM_ID } from "../constants";
 let governanceClient: SplGovernance = null;
 
+/**
+ * Helper functions for interacting with Solana's SPL Governance program.
+ * Provides utilities for creating and managing DAOs, including realm creation,
+ * proposal management, voting operations, and governance account administration.
+ * Handles the complete lifecycle of governance operations from creation to execution.
+ *
+ * Those functionalities are mainly used as an example on how front-ends, tests, etc. could use these
+ * functions to guide them.
+ */
+
 export function getGovernanceClient(connection: Connection): SplGovernance {
   if (!governanceClient) {
     // @ts-ignore

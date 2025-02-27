@@ -60,6 +60,16 @@ import {
   executeGovernanceInstruction,
   setupGovernanceAccounts,
 } from "../bankrun-governance-helper";
+
+/**
+ * Tests for staking admin functionality, including:
+ * - Adding/removing reward tokens
+ * - Setting reward ratios
+ * - Reward period validation
+ * - Permission checks
+ * - Token validation
+ */
+
 describe("Bankrun - Staking Admin", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
@@ -721,7 +731,7 @@ describe("Bankrun - Staking Admin", () => {
     );
   });
 
-  describe("Specific Cases - Init or set reward ratio", () => {
+  describe("Specific Cases - Init or Set Reward Ratio", () => {
     TEST_INIT_OR_SET_REWARD_RATIO.forEach(
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {

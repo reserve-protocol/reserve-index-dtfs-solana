@@ -3,6 +3,12 @@ import * as borsh from "borsh";
 import { Amman, PersistedAccountInfo } from "@metaplex-foundation/amman-client";
 import { SPL_GOVERNANCE_PROGRAM_ID } from "./constants";
 
+/**
+ * Helper functions for creating and managing token owner record data structures
+ * used in governance operations (SPL-Governance). Provides utilities for serializing and creating
+ * fake token owner records for testing purposes. This is useful for anchor's integration tests via Amman.
+ */
+
 class TokenOwnerRecordV2 {
   accountType: number;
   realm: Uint8Array;

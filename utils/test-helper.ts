@@ -9,6 +9,12 @@ import { Connection } from "@solana/web3.js";
 import { getOrCreateAtaAddress, getTokenBalance } from "./token-helper";
 import * as assert from "assert";
 
+/**
+ * Testing utilities for the Folio protocol. Provides methods for tracking and
+ * verifying account balances, token amounts, and other state changes during
+ * testing operations.
+ */
+
 export class TestHelper {
   constructor(
     private connection: Connection,
@@ -28,14 +34,37 @@ export class TestHelper {
     this.tokenMints = tokenMints;
   }
 
+  /**
+   * Floors a value to the nearest 100.
+   * @param value - The value to floor.
+   * @returns The floored value.
+   */
+  floor(value: number) {
+    return Math.floor(value / 100) * 100;
+  }
+  /**
+   * Sets the user public key for the test helper to know which balances to pull.
+   * @param userPubkey - The public key of the user to set.
+   */
   setUserPubkey(userPubkey: PublicKey) {
     this.userPubkey = userPubkey;
   }
 
+  /**
+   * Sets the token mints for the test helper to know which balances to pull.
+   * @param tokenMints - The token mints to set.
+   */
   setTokenMints(tokenMints: { mint: PublicKey; decimals: number }[]) {
     this.tokenMints = tokenMints;
   }
 
+  /**
+   * Gets the balance snapshot for the test helper.
+   * @param includePendingAmounts - Whether to include pending amounts (basket and pending basket).
+   * @param includeFolioTokenBalances - Whether to include folio token balances (folio token mint).
+   * @param includeTokenBalances - Whether to include token balances (token accounts).
+   * @returns The balance snapshot.
+   */
   async getBalanceSnapshot(
     includePendingAmounts: boolean,
     includeFolioTokenBalances: boolean,
@@ -122,6 +151,17 @@ export class TestHelper {
     };
   }
 
+  /**
+   * Asserts the new balance snapshot for the test helper against the previous balance snapshot.
+   * @param before - The before balance snapshot.
+   * @param after - The after balance snapshot.
+   * @param expectedDifferences - The expected differences for the pending amounts.
+   * @param expectedTokenBalancesDiffs - The expected token balances differences for the Folio token mint.
+   * @param expectedBalancesDifference - The expected balances difference for the token accounts.
+   * @param indices - The indices to check.
+   * @param property - The property to check for pending amounts, wether amountForMinting or amountForRedeeming.
+   * @param isEstimate - Whether to use estimate (will floor the values to the nearest 100).
+   */
   assertBalanceSnapshot(
     before: any,
     after: any,
@@ -141,10 +181,7 @@ export class TestHelper {
           expectedDifferences[index][0];
 
         if (isEstimate) {
-          assert.equal(
-            Math.floor(afterValue / 100) * 100,
-            Math.floor(expectedValue / 100) * 100
-          );
+          assert.equal(this.floor(afterValue), this.floor(expectedValue));
         } else {
           assert.equal(afterValue, expectedValue);
         }
@@ -157,8 +194,8 @@ export class TestHelper {
 
         if (isEstimate) {
           assert.equal(
-            Math.floor(afterFolioValue / 100) * 100,
-            Math.floor(expectedFolioValue / 100) * 100
+            this.floor(afterFolioValue),
+            this.floor(expectedFolioValue)
           );
         } else {
           assert.equal(afterFolioValue, expectedFolioValue);
@@ -175,8 +212,8 @@ export class TestHelper {
 
         if (isEstimate) {
           assert.equal(
-            Math.floor(afterUserValue / 100) * 100,
-            Math.floor(expectedUserValue / 100) * 100
+            this.floor(afterUserValue),
+            this.floor(expectedUserValue)
           );
         } else {
           assert.equal(afterUserValue, expectedUserValue);
@@ -189,8 +226,8 @@ export class TestHelper {
 
         if (isEstimate) {
           assert.equal(
-            Math.floor(afterFolioValue / 100) * 100,
-            Math.floor(expectedFolioValue / 100) * 100
+            this.floor(afterFolioValue),
+            this.floor(expectedFolioValue)
           );
         } else {
           assert.equal(afterFolioValue, expectedFolioValue);
@@ -205,8 +242,8 @@ export class TestHelper {
 
       if (isEstimate) {
         assert.equal(
-          Math.floor(afterFolioValue / 100) * 100,
-          Math.floor(expectedFolioValue / 100) * 100
+          this.floor(afterFolioValue),
+          this.floor(expectedFolioValue)
         );
       } else {
         assert.equal(afterFolioValue, expectedFolioValue);
@@ -217,10 +254,7 @@ export class TestHelper {
         before.userTokenBalance + expectedBalancesDifference[1];
 
       if (isEstimate) {
-        assert.equal(
-          Math.floor(afterUserValue / 100) * 100,
-          Math.floor(expectedUserValue / 100) * 100
-        );
+        assert.equal(this.floor(afterUserValue), this.floor(expectedUserValue));
       } else {
         assert.equal(afterUserValue, expectedUserValue);
       }

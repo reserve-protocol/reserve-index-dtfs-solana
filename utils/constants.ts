@@ -6,8 +6,10 @@ import idlFolioSecond from "../target/idl/second_folio.json";
 
 // Programs
 export const FOLIO_ADMIN_PROGRAM_ID = new PublicKey(idlFolioAdmin.address);
-export const FOLIO_SECOND_PROGRAM_ID = new PublicKey(idlFolioSecond.address);
 export const FOLIO_PROGRAM_ID = new PublicKey(idlFolio.address);
+
+// Another Folio program ID to be able to test migrations
+export const FOLIO_SECOND_PROGRAM_ID = new PublicKey(idlFolioSecond.address);
 export const BPF_LOADER_PROGRAM_ID = new PublicKey(
   "BPFLoaderUpgradeab1e11111111111111111111111"
 );
@@ -62,3 +64,9 @@ export const MAX_PADDED_STRING_LENGTH = 128;
 
 export const MAX_REWARD_HALF_LIFE = new BN(1_209_600);
 export const MIN_REWARD_HALF_LIFE = new BN(86400);
+
+/*
+Constants for variables used in the tests, don't match with anything on the on-chain program's side.
+*/
+export const MAX_TOKENS_IN_BASKET = 16;
+export const FEE_NUMERATOR: BN = new BN("500000000000000000"); // 50% in D18

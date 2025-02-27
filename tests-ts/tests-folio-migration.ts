@@ -16,6 +16,7 @@ import {
   MAX_TVL_FEE,
   MAX_AUCTION_DELAY,
   MAX_MINT_FEE,
+  DEFAULT_DECIMALS,
 } from "../utils/constants";
 import { getMint } from "@solana/spl-token";
 import {
@@ -29,7 +30,7 @@ import {
   mintToken,
 } from "../utils/token-helper";
 
-describe("Folio Tests", () => {
+describe("Folio Migration Tests", () => {
   let connection: Connection;
   let programFolio: Program<Folio>;
   let programSecondFolio: Program<SecondFolio>;
@@ -43,8 +44,8 @@ describe("Folio Tests", () => {
   let folioPDA: PublicKey;
 
   const tokenMints = [
-    { mint: Keypair.generate(), decimals: 9 },
-    { mint: Keypair.generate(), decimals: 9 },
+    { mint: Keypair.generate(), decimals: DEFAULT_DECIMALS },
+    { mint: Keypair.generate(), decimals: DEFAULT_DECIMALS },
   ];
 
   // Folio in the second instance

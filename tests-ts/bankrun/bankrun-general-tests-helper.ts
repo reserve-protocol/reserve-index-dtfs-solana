@@ -15,7 +15,11 @@ import { createAndSetActor } from "./bankrun-account-helper";
 import { Program } from "@coral-xyz/anchor";
 import { Folio } from "../../target/types/folio";
 import { OTHER_ADMIN_KEY } from "../../utils/constants";
-
+/**
+ * General Test Helper functions for running tests for functionalities that
+ * are common to multiple instructions. These include admin key checks, role checks,
+ * folio status checks, etc.
+ */
 export enum GeneralTestCases {
   NotAdmin = "not admin",
   NotRole = "not role",

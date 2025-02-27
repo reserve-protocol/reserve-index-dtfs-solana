@@ -51,6 +51,14 @@ import {
   executeGovernanceInstruction,
   setupGovernanceAccounts,
 } from "../bankrun-governance-helper";
+
+/**
+ * Tests for staking admin functionality with SPL Token 2022, including:
+ * - Adding reward tokens
+ * - Extension validation
+ * - Token program compatibility checks
+ */
+
 describe("Bankrun - Staking Admin SPL 2022", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;

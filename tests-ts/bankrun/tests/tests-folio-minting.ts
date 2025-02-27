@@ -62,7 +62,16 @@ import {
 import * as assert from "assert";
 import { FolioAdmin } from "../../../target/types/folio_admin";
 
-describe("Bankrun - Folio minting", () => {
+/**
+ * Tests for folio token minting functionality, including:
+ * - Adding tokens to pending baskets
+ * - Minting folio tokens
+ * - Fee calculations during minting
+ * - Token validation and limits
+ * - Balance checks
+ */
+
+describe("Bankrun - Folio Minting", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
   let banksClient: BanksClient;
@@ -508,6 +517,7 @@ describe("Bankrun - Folio minting", () => {
     },
   ];
 
+  // Utility for testing remaining accounts related test cases
   function buildInvalidRemainingAccounts(
     tokens: {
       mint: PublicKey;
@@ -749,7 +759,7 @@ describe("Bankrun - Folio minting", () => {
     });
   });
 
-  describe("Specific Cases - Add to pending basket", () => {
+  describe("Specific Cases - Add to Pending Basket", () => {
     TEST_CASES_ADD_TO_PENDING_BASKET.forEach(
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {
@@ -934,7 +944,7 @@ describe("Bankrun - Folio minting", () => {
     );
   });
 
-  describe("Specific Cases - Remove from pending basket", () => {
+  describe("Specific Cases - Remove from Pending Basket", () => {
     TEST_CASES_REMOVE_FROM_PENDING_BASKET.forEach(
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {
@@ -1109,7 +1119,7 @@ describe("Bankrun - Folio minting", () => {
     );
   });
 
-  describe("Specific Cases - Mint folio token", () => {
+  describe("Specific Cases - Mint Folio Token", () => {
     TEST_CASES_MINT_FOLIO_TOKEN.forEach(
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {

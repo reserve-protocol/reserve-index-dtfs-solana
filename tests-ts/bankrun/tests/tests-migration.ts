@@ -48,6 +48,16 @@ import {
 } from "../bankrun-token-helper";
 import { FolioAdmin } from "../../../target/types/folio_admin";
 import { Folio as FolioSecond } from "../../../target/types/second_folio";
+
+/**
+ * Tests for folio migration functionality, including:
+ * - Starting migration process
+ * - Migrating folio tokens
+ * - Program validation
+ * - Token transfer validation
+ * - Account state updates during migration
+ */
+
 describe("Bankrun - Folio migration", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
@@ -450,7 +460,7 @@ describe("Bankrun - Folio migration", () => {
     });
   });
 
-  describe("Specific Cases", () => {
+  describe("Specific Cases - Start Folio Migration", () => {
     TEST_CASES_START_MIGRATION.forEach(
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {
@@ -524,7 +534,9 @@ describe("Bankrun - Folio migration", () => {
         });
       }
     );
+  });
 
+  describe("Specific Cases - Migrate Folio Tokens", () => {
     TEST_CASES_MIGRATE_FOLIO_TOKENS.forEach(
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {

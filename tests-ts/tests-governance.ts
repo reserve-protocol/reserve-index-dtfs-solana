@@ -27,8 +27,8 @@ import {
 } from "../utils/external/governance-helper";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
-/*
-Skipping now, these tests were only to show functionality of the Governance program,
+/**
+Skipping now, these tests were only to show functionality of the SPL Governance program,
 but now we're using the Bankrun tests to test the Governance program custom functionalities.
 */
 describe.skip("DAO / Realm Tests", () => {
@@ -66,10 +66,10 @@ describe.skip("DAO / Realm Tests", () => {
     await airdrop(connection, otherMemberKeypair.publicKey, 1000);
 
     communityTokenMint = Keypair.generate();
-    await initToken(connection, adminKeypair, communityTokenMint, 9);
+    await initToken(connection, adminKeypair, communityTokenMint);
 
     mintToTransfer = Keypair.generate();
-    await initToken(connection, adminKeypair, mintToTransfer, 9);
+    await initToken(connection, adminKeypair, mintToTransfer);
   });
 
   it("Should create a Realm & Governance multisig", async () => {

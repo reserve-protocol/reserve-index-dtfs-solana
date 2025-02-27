@@ -25,6 +25,12 @@ let folioAdminProgram: Program<FolioAdmin> = null;
 
 const SKIP_PREFLIGHT = true;
 
+/**
+ * Folio Admin program helper functions for managing settings including
+ * fee configurations, program registrar, and program updates. Provides methods
+ * to interact with the admin functionality of the Folio protocol.
+ */
+
 export function getFolioAdminProgram(
   connection: Connection,
   wallet: Keypair

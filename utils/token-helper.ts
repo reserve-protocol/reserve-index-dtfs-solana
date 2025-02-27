@@ -14,6 +14,12 @@ import {
 } from "@solana/web3.js";
 import { DEFAULT_DECIMALS } from "./constants";
 
+/**
+ * Helper functions for token operations including initialization, minting,
+ * transfers, and balance checking. Provides utilities for managing SPL tokens
+ * and associated token accounts for both SPL and SPL-Token-2022.
+ */
+
 export async function initToken(
   connection: Connection,
   mintAuthority: Keypair,

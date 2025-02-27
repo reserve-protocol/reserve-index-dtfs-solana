@@ -27,7 +27,13 @@ import {
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
 
-describe("Bankrun - Resize folio", () => {
+/**
+ * Tests for folio resizing functionality, including:
+ * - Resizing folio accounts
+ * - Permission validation
+ * - Size validation
+ */
+describe("Bankrun - Resize Folio", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
   let banksClient: BanksClient;
@@ -119,40 +125,39 @@ describe("Bankrun - Resize folio", () => {
     });
   });
 
-  /*
-  Then the test cases specific to that instruction
-  */
-  TEST_CASES.forEach(({ desc, expectedError, ...restOfParams }) => {
-    describe(`When ${desc}`, () => {
-      let txnResult: BanksTransactionResultWithMeta;
-      const { size } = { ...DEFAULT_PARAMS, ...restOfParams };
+  describe("Specific Cases - Resize Folio", () => {
+    TEST_CASES.forEach(({ desc, expectedError, ...restOfParams }) => {
+      describe(`When ${desc}`, () => {
+        let txnResult: BanksTransactionResultWithMeta;
+        const { size } = { ...DEFAULT_PARAMS, ...restOfParams };
 
-      before(async () => {
-        await initBaseCase();
+        before(async () => {
+          await initBaseCase();
 
-        txnResult = await resizeFolio<true>(
-          banksClient,
-          programFolio,
-          folioOwnerKeypair,
-          folioPDA,
-          new BN(size)
-        );
+          txnResult = await resizeFolio<true>(
+            banksClient,
+            programFolio,
+            folioOwnerKeypair,
+            folioPDA,
+            new BN(size)
+          );
+        });
+
+        if (expectedError) {
+          it("should fail with expected error", () => {
+            assertError(txnResult, expectedError);
+          });
+        } else {
+          it("should succeed", async () => {
+            await travelFutureSlot(context);
+
+            const folioSize =
+              await programFolio.provider.connection.getAccountInfo(folioPDA);
+
+            assert.equal(folioSize.data.byteLength, size);
+          });
+        }
       });
-
-      if (expectedError) {
-        it("should fail with expected error", () => {
-          assertError(txnResult, expectedError);
-        });
-      } else {
-        it("should succeed", async () => {
-          await travelFutureSlot(context);
-
-          const folioSize =
-            await programFolio.provider.connection.getAccountInfo(folioPDA);
-
-          assert.equal(folioSize.data.byteLength, size);
-        });
-      }
     });
   });
 });

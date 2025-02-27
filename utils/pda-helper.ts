@@ -8,11 +8,14 @@ import {
 } from "./constants";
 import BN from "bn.js";
 
+/**
+ * Collection of functions for generating PDAs used
+ * throughout the Folio protocol. Provides consistent PDA derivation for various
+ * protocol accounts and features. Some include the bump when required.
+ */
+
 export function getProgramRegistrarPDA() {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("program_registrar")],
-    FOLIO_ADMIN_PROGRAM_ID
-  )[0];
+  return getProgramRegistrarPDAWithBump()[0];
 }
 
 export function getProgramRegistrarPDAWithBump() {
@@ -26,10 +29,7 @@ export function getFolioPDA(
   folioTokenMint: PublicKey,
   useSecondFolioProgram: boolean = false
 ) {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("folio"), folioTokenMint.toBuffer()],
-    useSecondFolioProgram ? FOLIO_SECOND_PROGRAM_ID : FOLIO_PROGRAM_ID
-  )[0];
+  return getFolioPDAWithBump(folioTokenMint, useSecondFolioProgram)[0];
 }
 
 export function getFolioPDAWithBump(
@@ -61,10 +61,7 @@ export function getActorPDAWithBump(authority: PublicKey, folioPDA: PublicKey) {
 }
 
 export function getDAOFeeConfigPDA() {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("dao_fee_config")],
-    FOLIO_ADMIN_PROGRAM_ID
-  )[0];
+  return getDaoFeeConfigPDAWithBump()[0];
 }
 
 export function getDaoFeeConfigPDAWithBump() {
@@ -75,10 +72,7 @@ export function getDaoFeeConfigPDAWithBump() {
 }
 
 export function getFolioFeeConfigPDA(folio: PublicKey) {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("folio_fee_config"), folio.toBuffer()],
-    FOLIO_ADMIN_PROGRAM_ID
-  )[0];
+  return getFolioFeeConfigPDAWithBump(folio)[0];
 }
 
 export function getFolioFeeConfigPDAWithBump(folio: PublicKey) {
@@ -89,10 +83,7 @@ export function getFolioFeeConfigPDAWithBump(folio: PublicKey) {
 }
 
 export function getTVLFeeRecipientsPDA(folio: PublicKey) {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("fee_recipients"), folio.toBuffer()],
-    FOLIO_PROGRAM_ID
-  )[0];
+  return getTVLFeeRecipientsPDAWithBump(folio)[0];
 }
 
 export function getTVLFeeRecipientsPDAWithBump(folio: PublicKey) {
@@ -103,10 +94,7 @@ export function getTVLFeeRecipientsPDAWithBump(folio: PublicKey) {
 }
 
 export function getFolioBasketPDA(folio: PublicKey) {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("folio_basket"), folio.toBuffer()],
-    FOLIO_PROGRAM_ID
-  )[0];
+  return getFolioBasketPDAWithBump(folio)[0];
 }
 
 export function getFolioBasketPDAWithBump(folio: PublicKey) {
@@ -117,10 +105,7 @@ export function getFolioBasketPDAWithBump(folio: PublicKey) {
 }
 
 export function getUserPendingBasketPDA(folio: PublicKey, user: PublicKey) {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("user_pending_basket"), folio.toBuffer(), user.toBuffer()],
-    FOLIO_PROGRAM_ID
-  )[0];
+  return getUserPendingBasketPDAWithBump(folio, user)[0];
 }
 
 export function getUserPendingBasketPDAWithBump(
@@ -145,14 +130,7 @@ export function getMetadataPDA(mint: PublicKey) {
 }
 
 export function getFeeDistributionPDA(folio: PublicKey, index: BN) {
-  return PublicKey.findProgramAddressSync(
-    [
-      Buffer.from("fee_distribution"),
-      folio.toBuffer(),
-      index.toBuffer("le", 8),
-    ],
-    FOLIO_PROGRAM_ID
-  )[0];
+  return getFeeDistributionPDAWithBump(folio, index)[0];
 }
 
 export function getFeeDistributionPDAWithBump(folio: PublicKey, index: BN) {
@@ -167,10 +145,7 @@ export function getFeeDistributionPDAWithBump(folio: PublicKey, index: BN) {
 }
 
 export function getAuctionPDA(folio: PublicKey, auctionId: BN) {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("auction"), folio.toBuffer(), auctionId.toBuffer("le", 8)],
-    FOLIO_PROGRAM_ID
-  )[0];
+  return getAuctionPDAWithBump(folio, auctionId)[0];
 }
 
 export function getAuctionPDAWithBump(folio: PublicKey, auctionId: BN) {
@@ -181,10 +156,7 @@ export function getAuctionPDAWithBump(folio: PublicKey, auctionId: BN) {
 }
 
 export function getFolioRewardTokensPDA(folio: PublicKey) {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("folio_reward_tokens"), folio.toBuffer()],
-    FOLIO_PROGRAM_ID
-  )[0];
+  return getFolioRewardTokensPDAWithBump(folio)[0];
 }
 
 export function getFolioRewardTokensPDAWithBump(folio: PublicKey) {
@@ -195,10 +167,7 @@ export function getFolioRewardTokensPDAWithBump(folio: PublicKey) {
 }
 
 export function getRewardInfoPDA(folio: PublicKey, rewardToken: PublicKey) {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("reward_info"), folio.toBuffer(), rewardToken.toBuffer()],
-    FOLIO_PROGRAM_ID
-  )[0];
+  return getRewardInfoPDAWithBump(folio, rewardToken)[0];
 }
 
 export function getRewardInfoPDAWithBump(
@@ -216,15 +185,7 @@ export function getUserRewardInfoPDA(
   rewardToken: PublicKey,
   user: PublicKey
 ) {
-  return PublicKey.findProgramAddressSync(
-    [
-      Buffer.from("user_reward_info"),
-      folio.toBuffer(),
-      rewardToken.toBuffer(),
-      user.toBuffer(),
-    ],
-    FOLIO_PROGRAM_ID
-  )[0];
+  return getUserRewardInfoPDAWithBump(folio, rewardToken, user)[0];
 }
 
 export function getUserRewardInfoPDAWithBump(
@@ -243,6 +204,9 @@ export function getUserRewardInfoPDAWithBump(
   );
 }
 
+/*
+SPL Governance related PDAs
+*/
 export function getUserTokenRecordRealmsPDA(
   realm: PublicKey,
   governanceTokenMint: PublicKey,
@@ -289,6 +253,38 @@ export function getGovernanceAccountPDA(
       Buffer.from("account-governance"),
       realm.toBuffer(),
       governanceAccount.toBuffer(),
+    ],
+    SPL_GOVERNANCE_PROGRAM_ID
+  )[0];
+}
+
+export function getProposalPDA(
+  governanceAccount: PublicKey,
+  governingTokenMint: PublicKey,
+  proposalSeed: PublicKey
+): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("governance"),
+      governanceAccount.toBuffer(),
+      governingTokenMint.toBuffer(),
+      proposalSeed.toBuffer(),
+    ],
+    SPL_GOVERNANCE_PROGRAM_ID
+  )[0];
+}
+
+export function getProposalTransactionPDA(
+  proposalPda: PublicKey,
+  optionIndex: number,
+  instructionIndex: number
+): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("proposal-transaction"),
+      proposalPda.toBuffer(),
+      Buffer.from([optionIndex]),
+      Buffer.from([instructionIndex]),
     ],
     SPL_GOVERNANCE_PROGRAM_ID
   )[0];

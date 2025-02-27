@@ -58,6 +58,8 @@ import {
   MAX_FEE_FLOOR,
   EXPECTED_TVL_FEE_WHEN_MAX,
   DEFAULT_DECIMALS_MUL_D18,
+  DEFAULT_DECIMALS,
+  FEE_NUMERATOR,
 } from "../utils/constants";
 import { TestHelper } from "../utils/test-helper";
 import { createGovernanceAccounts } from "../utils/data-helper";
@@ -74,6 +76,12 @@ import {
 } from "@solana/spl-token";
 import { setDaoFeeConfig } from "../utils/folio-admin-helper";
 import { FolioAdmin } from "../target/types/folio_admin";
+
+/**
+ * Tests for the Folio program.
+ * These tests are designed to test the functionality of the Folio program from
+ * initializing the folio to adding tokens to the basket. Auctions to rewards.
+ */
 
 describe("Folio Tests", () => {
   let connection: Connection;
@@ -109,23 +117,22 @@ describe("Folio Tests", () => {
   Tokens that can be included in the folio
   */
   const tokenMints = [
-    { mint: Keypair.generate(), decimals: 9 },
-    { mint: Keypair.generate(), decimals: 9 },
+    { mint: Keypair.generate(), decimals: DEFAULT_DECIMALS },
+    { mint: Keypair.generate(), decimals: DEFAULT_DECIMALS },
     { mint: Keypair.generate(), decimals: 5 },
-    { mint: Keypair.generate(), decimals: 9 },
-    { mint: Keypair.generate(), decimals: 9 },
+    { mint: Keypair.generate(), decimals: DEFAULT_DECIMALS },
+    { mint: Keypair.generate(), decimals: DEFAULT_DECIMALS },
   ];
 
   let buyMint: Keypair;
 
   const rewardTokenMints = [
-    { mint: Keypair.generate(), decimals: 9 },
-    { mint: Keypair.generate(), decimals: 9 },
-    { mint: Keypair.generate(), decimals: 9 },
+    { mint: Keypair.generate(), decimals: DEFAULT_DECIMALS },
+    { mint: Keypair.generate(), decimals: DEFAULT_DECIMALS },
+    { mint: Keypair.generate(), decimals: DEFAULT_DECIMALS },
   ];
 
   const feeRecipient: PublicKey = Keypair.generate().publicKey;
-  const feeNumerator: BN = new BN("500000000000000000"); //50% in D18
 
   let currentFeeDistributionIndex: BN = new BN(0);
 
@@ -194,7 +201,7 @@ describe("Folio Tests", () => {
 
     // Create the token for buy mint
     buyMint = Keypair.generate();
-    await initToken(connection, adminKeypair, buyMint, 9);
+    await initToken(connection, adminKeypair, buyMint);
     await mintToken(
       connection,
       adminKeypair,
@@ -211,7 +218,7 @@ describe("Folio Tests", () => {
     );
 
     for (const rewardTokenMint of rewardTokenMints) {
-      await initToken(connection, adminKeypair, rewardTokenMint.mint, 9);
+      await initToken(connection, adminKeypair, rewardTokenMint.mint);
       await mintToken(
         connection,
         adminKeypair,
@@ -226,14 +233,14 @@ describe("Folio Tests", () => {
       connection,
       adminKeypair,
       feeRecipient,
-      feeNumerator,
+      FEE_NUMERATOR,
       MAX_FEE_FLOOR
     );
   });
 
   after(async () => {
-    // Seems like anchor is hanging sometimes because of the "mock" governance accounts that update Amman, so we
-    // force exit after 1 second
+    // Seems like anchor is hanging sometimes because of the "mock" governance accounts that update Amman's state,
+    // so we force exit after 1 second.
 
     // Clear all program references
     programFolio = null;

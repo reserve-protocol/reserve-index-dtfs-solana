@@ -62,6 +62,15 @@ import {
   setupGovernanceAccounts,
 } from "../bankrun-governance-helper";
 
+/**
+ * Tests for user staking functionality, including:
+ * - Staking tokens
+ * - Reward accrual
+ * - Reward claiming
+ * - Balance validation
+ * - Account state updates
+ */
+
 describe("Bankrun - Staking User", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
@@ -316,7 +325,6 @@ describe("Bankrun - Staking User", () => {
         new BN("53481647955316200"), // User2 (2/3 share)
       ],
     },
-    // Testing how long before we get a math overflow
     {
       desc: "(accrue for both users and rewards, 60 seconds later, succeeds)",
       expectedError: null,
@@ -555,6 +563,7 @@ describe("Bankrun - Staking User", () => {
     return remainingAccounts;
   }
 
+  // Get the reward info and user reward info accounts to assert changes
   async function getRewardsInfoAndUserRewardInfos(
     rewardsTokenToClaim: PublicKey[],
     extraUserToClaimFor: PublicKey

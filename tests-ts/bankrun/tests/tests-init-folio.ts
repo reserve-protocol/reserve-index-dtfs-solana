@@ -26,7 +26,16 @@ import {
 } from "../../../utils/constants";
 import { MAX_AUCTION_LENGTH } from "../../../utils/constants";
 
-describe("Bankrun - Init folio", () => {
+/**
+ * Tests for folio initialization functionality, including:
+ * - Creating new folios
+ * - Setting initial parameters (fees, delays, lengths)
+ * - Mandate validation
+ * - Owner role assignment
+ * - Parameter boundary validation
+ */
+
+describe("Bankrun - Init Folio", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
   let banksClient: BanksClient;
@@ -116,56 +125,58 @@ describe("Bankrun - Init folio", () => {
     await airdrop(context, userKeypair.publicKey, 1000);
   });
 
-  TEST_CASES.forEach(({ desc, expectedError, ...restOfParams }) => {
-    describe(`When ${desc}`, () => {
-      let txnResult: BanksTransactionResultWithMeta;
-      let folioTokenMint: Keypair;
+  describe("Specific Cases - Init Folio", () => {
+    TEST_CASES.forEach(({ desc, expectedError, ...restOfParams }) => {
+      describe(`When ${desc}`, () => {
+        let txnResult: BanksTransactionResultWithMeta;
+        let folioTokenMint: Keypair;
 
-      before(async () => {
-        folioTokenMint = Keypair.generate();
+        before(async () => {
+          folioTokenMint = Keypair.generate();
 
-        txnResult = await initFolio<true>(
-          banksClient,
-          programFolio,
-          folioOwnerKeypair,
-          folioTokenMint,
-          { ...DEFAULT_PARAMS, ...restOfParams } // @ts-ignore
-        );
+          txnResult = await initFolio<true>(
+            banksClient,
+            programFolio,
+            folioOwnerKeypair,
+            folioTokenMint,
+            { ...DEFAULT_PARAMS, ...restOfParams } // @ts-ignore
+          );
+        });
+
+        if (expectedError) {
+          it("should fail with expected error", () => {
+            assertError(txnResult, expectedError);
+          });
+        } else {
+          it("should succeed", async () => {
+            await travelFutureSlot(context);
+
+            const folioPDA = getFolioPDA(folioTokenMint.publicKey);
+
+            const folio = await programFolio.account.folio.fetch(folioPDA);
+
+            assert.notEqual(folio.bump, 0);
+            // should be ~3.34e-9 * 1e18, but with estimation we accept the 0.1% error rate for this max value
+            assert.equal(folio.tvlFee.eq(new BN("3334813116")), true);
+            assert.equal(folio.mintFee.eq(MAX_MINT_FEE), true);
+            assert.deepEqual(folio.folioTokenMint, folioTokenMint.publicKey);
+            assert.equal(folio.auctionDelay.eq(MAX_AUCTION_DELAY), true);
+            assert.equal(folio.auctionLength.eq(MAX_AUCTION_LENGTH), true);
+
+            const ownerActorPDA = getActorPDA(
+              folioOwnerKeypair.publicKey,
+              folioPDA
+            );
+
+            const ownerActor = await programFolio.account.actor.fetch(
+              ownerActorPDA
+            );
+
+            assert.notEqual(ownerActor.bump, 0);
+            assert.deepEqual(ownerActor.authority, folioOwnerKeypair.publicKey);
+          });
+        }
       });
-
-      if (expectedError) {
-        it("should fail with expected error", () => {
-          assertError(txnResult, expectedError);
-        });
-      } else {
-        it("should succeed", async () => {
-          await travelFutureSlot(context);
-
-          const folioPDA = getFolioPDA(folioTokenMint.publicKey);
-
-          const folio = await programFolio.account.folio.fetch(folioPDA);
-
-          assert.notEqual(folio.bump, 0);
-          // should be ~3.34e-9 * 1e18, but with estimation we accept the 0.1% error rate for this max value
-          assert.equal(folio.tvlFee.eq(new BN("3334813116")), true);
-          assert.equal(folio.mintFee.eq(MAX_MINT_FEE), true);
-          assert.deepEqual(folio.folioTokenMint, folioTokenMint.publicKey);
-          assert.equal(folio.auctionDelay.eq(MAX_AUCTION_DELAY), true);
-          assert.equal(folio.auctionLength.eq(MAX_AUCTION_LENGTH), true);
-
-          const ownerActorPDA = getActorPDA(
-            folioOwnerKeypair.publicKey,
-            folioPDA
-          );
-
-          const ownerActor = await programFolio.account.actor.fetch(
-            ownerActorPDA
-          );
-
-          assert.notEqual(ownerActor.bump, 0);
-          assert.deepEqual(ownerActor.authority, folioOwnerKeypair.publicKey);
-        });
-      }
     });
   });
 });

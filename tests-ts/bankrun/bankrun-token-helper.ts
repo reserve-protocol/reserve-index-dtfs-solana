@@ -22,6 +22,11 @@ import { BN } from "@coral-xyz/anchor";
 import { SystemProgram } from "@solana/web3.js";
 import { createAndProcessTransaction } from "./bankrun-program-helper";
 
+/**
+ * Helper functions for token operations in the Bankrun environment.
+ * Handles minting, token creation, and balance management.
+ */
+
 export function initToken(
   context: ProgramTestContext,
   mintAuthority: PublicKey,
@@ -202,6 +207,7 @@ export async function getMintAuthorities(
   };
 }
 
+// Used to get the token balances from a list of mints and owners (for assertions)
 export async function getTokenBalancesFromMints(
   context: ProgramTestContext,
   mints: PublicKey[],
@@ -224,6 +230,7 @@ export async function getTokenBalancesFromMints(
   return balances;
 }
 
+// Used to assert the expected token balance changes after an operation for a list of mints and owners
 export async function assertExpectedBalancesChanges(
   context: ProgramTestContext,
   beforeBalances: { owner: PublicKey; balances: bigint[] }[],
@@ -254,7 +261,7 @@ export async function assertExpectedBalancesChanges(
 }
 
 /*
-SPL 2022
+SPL 2022 related functions
 */
 export async function initToken2022Tx(
   context: ProgramTestContext,

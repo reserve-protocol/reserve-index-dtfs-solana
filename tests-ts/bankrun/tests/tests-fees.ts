@@ -60,6 +60,15 @@ import {
 } from "../bankrun-general-tests-helper";
 import * as assert from "assert";
 
+/**
+ * Tests for fee-related functionality in the Folio program, including:
+ * - Fee distribution to recipients
+ * - Fee accrual and calculation
+ * - Cranking fee distributions
+ * - Fee recipient management
+ * - Pending fee shares tracking
+ */
+
 describe("Bankrun - Fees", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;

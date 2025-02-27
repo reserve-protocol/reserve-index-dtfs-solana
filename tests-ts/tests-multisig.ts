@@ -23,7 +23,15 @@ import {
 } from "../utils/token-helper";
 import * as assert from "assert";
 
-describe("Multisig Tests", () => {
+/**
+ * Tests for the Squads program.
+ * These tests are designed to test the functionality of the Squads program from
+ * creating a multisig to adding members and transferring tokens.
+ *
+ * They are not directly related to the Folio program, but act as examples for
+ * how to use the Squads program.
+ */
+describe("Squads Multisig Tests", () => {
   let connection: Connection;
   let keys: any;
 

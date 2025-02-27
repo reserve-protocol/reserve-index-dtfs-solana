@@ -49,7 +49,15 @@ import { MAX_TVL_FEE } from "../../../utils/constants";
 import { FolioAdmin } from "../../../target/types/folio_admin";
 import { initToken } from "../bankrun-token-helper";
 
-describe("Bankrun - Update folio", () => {
+/**
+ * Tests for folio update functionality, including:
+ * - Updating folio parameters (fees, delays, lengths)
+ * - Updating fee recipients
+ * - Mandate updates
+ * - Permission validation
+ * - Parameter boundary checks
+ */
+describe("Bankrun - Update Folio", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
   let banksClient: BanksClient;
@@ -289,10 +297,7 @@ describe("Bankrun - Update folio", () => {
     });
   });
 
-  /*
-  Then the test cases specific to that instruction
-  */
-  describe("Specific Cases", () => {
+  describe("Specific Cases - Update Folio", () => {
     TEST_CASES.forEach(({ desc, expectedError, ...restOfParams }) => {
       describe(`When ${desc}`, () => {
         let txnResult: BanksTransactionResultWithMeta;

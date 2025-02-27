@@ -35,7 +35,16 @@ import { MAX_DAO_FEE, MAX_FEE_FLOOR } from "../../../utils/constants";
 import { getOrCreateAtaAddress, initToken } from "../bankrun-token-helper";
 import { Folio } from "../../../target/types/folio";
 
-describe("Bankrun - Dao Fee Config Tests", () => {
+/**
+ * Tests for DAO fee configuration functionality, including:
+ * - Setting and updating DAO-wide fee configurations
+ * - Setting and updating folio-specific fee configurations
+ * - Fee numerator and floor validation
+ * - Fee recipient validation
+ * - Admin permission checks
+ */
+
+describe("Bankrun - Dao / Folio Fee Config", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
   let banksClient: BanksClient;
@@ -192,7 +201,7 @@ describe("Bankrun - Dao Fee Config Tests", () => {
     });
   });
 
-  describe("Set DAO Fee Config", () => {
+  describe("Specific Cases - Set DAO Fee Config", () => {
     TEST_CASES_SET_DAO_FEE_CONFIG.forEach(
       ({ desc, expectedError, getKeypair, ...restOfParams }) => {
         describe(`When ${desc}`, () => {
@@ -256,7 +265,7 @@ describe("Bankrun - Dao Fee Config Tests", () => {
     );
   });
 
-  describe("Set Folio Fee Config", () => {
+  describe("Specific Cases - Set Folio Fee Config", () => {
     TEST_CASES_SET_FOLIO_FEE_CONFIG.forEach(
       ({ desc, expectedError, getKeypair, ...restOfParams }) => {
         describe(`When ${desc}`, () => {

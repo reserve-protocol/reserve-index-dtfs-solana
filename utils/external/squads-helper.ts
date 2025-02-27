@@ -7,6 +7,16 @@ import Squads, {
   Wallet,
 } from "@sqds/sdk";
 
+/**
+ * Helper functions for interacting with Squads Protocol's multisig program.
+ * Provides utilities for creating and managing multisig wallets, including
+ * member management, transaction creation, approval flows, and execution.
+ * Simplifies the interaction with Squads' multisignature functionality.
+ *
+ * Those functionalities are mainly used as an example on how front-ends, tests, etc. could use these
+ * functions to guide them.
+ */
+
 // For authority index explanation, see: https://docs.squads.so/main/squads-legacy/development/authorities, will most of the time be 1
 export const DEFAULT_AUTHORITY_INDEX: number = 1;
 export const DEFAULT_INTERNAL_AUTHORITY_INDEX: number = 0; // For squads instructions like add member, etc.

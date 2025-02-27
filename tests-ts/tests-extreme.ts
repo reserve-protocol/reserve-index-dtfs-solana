@@ -16,7 +16,16 @@ import {
   DEFAULT_DECIMALS_MUL,
   MAX_MINT_FEE,
   MAX_FEE_FLOOR,
+  MAX_TOKENS_IN_BASKET,
+  FEE_NUMERATOR,
 } from "../utils/constants";
+
+/**
+ * Extreme tests for the Folio protocol.
+ * These tests are designed to push the limits of the protocol and test its robustness
+ * in relation to the number of tokens that can be included in the folio.
+ * They are not meant to be run on a regular basis and are more like a stress test.
+ */
 
 describe("Extreme Folio Tests", () => {
   let connection: Connection;
@@ -30,16 +39,13 @@ describe("Extreme Folio Tests", () => {
   let folioTokenMint: Keypair;
   let folioPDA: PublicKey;
 
-  /*
-  Tokens that can be included in the folio
-  */
-  const NUMBER_OF_TOKENS = 16;
+  const BATCH_SIZE = 5;
 
   const feeRecipient: PublicKey = Keypair.generate().publicKey;
-  const feeNumerator: BN = new BN("500000000000000000"); //50% in D18
 
-  const tokenMints = Array.from({ length: NUMBER_OF_TOKENS }, () => ({
+  const tokenMints = Array.from({ length: MAX_TOKENS_IN_BASKET }, () => ({
     mint: Keypair.generate(),
+    // To test with different token decimals
     decimals: Math.floor(Math.random() * 10) + 1,
   }));
 
@@ -99,14 +105,14 @@ describe("Extreme Folio Tests", () => {
       );
     }
 
-    // Add data to folio
-    for (let i = 0; i < tokenMints.length; i += 5) {
-      const batch = tokenMints.slice(i, i + 5).map((token) => ({
+    // Add tokens to the folio basket
+    for (let i = 0; i < tokenMints.length; i += BATCH_SIZE) {
+      const batch = tokenMints.slice(i, i + BATCH_SIZE).map((token) => ({
         mint: token.mint.publicKey,
         amount: new BN(100 * 10 ** token.decimals),
       }));
 
-      if (i + 5 < tokenMints.length) {
+      if (i + BATCH_SIZE < tokenMints.length) {
         await addToBasket(
           connection,
           folioOwnerKeypair,
@@ -132,14 +138,14 @@ describe("Extreme Folio Tests", () => {
       connection,
       adminKeypair,
       feeRecipient,
-      feeNumerator,
+      FEE_NUMERATOR,
       MAX_FEE_FLOOR
     );
   });
 
-  it("should allow user to init mint folio tokens and mint folio tokens with all token mints we have", async () => {
-    for (let i = 0; i < tokenMints.length; i += 5) {
-      const batch = tokenMints.slice(i, i + 5).map((token) => ({
+  it("should allow user to init his pending basket and mint folio tokens with all token mints we have", async () => {
+    for (let i = 0; i < tokenMints.length; i += BATCH_SIZE) {
+      const batch = tokenMints.slice(i, i + BATCH_SIZE).map((token) => ({
         mint: token.mint.publicKey,
         amount: new BN(100 * 10 ** token.decimals),
       }));

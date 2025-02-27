@@ -26,6 +26,13 @@ import {
 } from "../../utils/constants";
 import { FolioAdmin } from "../../target/types/folio_admin";
 import { Folio as FolioSecond } from "../../target/types/second_folio";
+
+/**
+ * Utility functions for bankrun environment interaction and transaction management.
+ * Includes helpers for connection setup, transaction sending/confirmation,
+ * and common Solana operations like airdrops and compute budget management.
+ */
+
 export async function getConnectors() {
   const keysFileName = "keys-local.json";
 
@@ -153,6 +160,9 @@ export function assertError(
   assert.fail("Error not found");
 }
 
+// Some test cases expect an error to happen before the transaction is processed,
+// so we need use this function to assert the error (some exampels are transactions that
+// are too big in size, will error before the transaction is sent & processed)
 export function assertPreTransactionError(error: any, expectedError: string) {
   const regex = /Error: (.+):/;
   const matchedLog = error.toString().match(regex);
@@ -172,6 +182,9 @@ export function assertPreTransactionError(error: any, expectedError: string) {
   assert.fail("Error not found");
 }
 
+// Used to build an array with the correct size, adding the preAdded, removing the removed,
+// and filling the rest with the defaultValue to compare what was built in the state on chain
+// vs what is expected to be built (based on test values in the test case)
 export function buildExpectedArray(
   preAdded: any[],
   added: any[],

@@ -12,6 +12,7 @@ const programs = [
     programId: "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s",
     deployPath: path.join(programsRemoteDeployDir, `metadata.so`),
   },
+  // Custom Implementation of SPL Governance
   {
     label: "SPL Governance",
     programId: "HwXcHGabc19PxzYFVSfKvuaDSNpbLGL8fhVtkcTyEymj",

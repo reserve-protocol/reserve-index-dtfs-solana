@@ -43,6 +43,23 @@ import {
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
+/**
+ * Helper functions for creating and setting accounts in the Bankrun environment.
+ * Some of the function use manual serialization (especially for more complex structs),
+ * as it was causing issues when try to let anchor handle it.
+ *
+ * Most of the functions are HIGHLY linked to our program's state structs,
+ * so make sure to update them if the structs change.
+ *
+ * Those changes include:
+ *  - Size of the accounts:
+ *    - i.e.: const buffer = Buffer.alloc(296);
+ *  - Changes in the structs:
+ *    - If the structs change, the account data will not be serialized correctly.
+ *  - Changes in the enums:
+ *    - If the enums change, the account data will not be serialized correctly.
+ */
+
 export enum Role {
   Owner = 0b00000001, // 1
   AuctionApprover = 0b00000010, // 2
@@ -50,7 +67,7 @@ export enum Role {
   BrandManager = 0b00001000, // 8
 }
 
-// For anchor serialization
+// For anchor serialization, anchor's enums are sent using {enumValue: {}}
 export function roleToStruct(role: Role) {
   return {
     [Role.Owner]: { owner: {} },
@@ -256,6 +273,9 @@ export class Auction {
   }
 }
 
+/*
+General Helper functions for creating and setting accounts in the Bankrun environment.
+*/
 function getAccountDiscriminator(accountName: string): Buffer {
   const preimage = `account:${accountName}`;
 
@@ -264,10 +284,7 @@ function getAccountDiscriminator(accountName: string): Buffer {
   return hash.slice(0, 8);
 }
 
-/*
-External Accounts
-*/
-
+// Used to "reset" an account to a state where it looks like it isn't initialized
 export async function closeAccount(
   ctx: ProgramTestContext,
   accountAddress: PublicKey

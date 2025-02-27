@@ -16,12 +16,18 @@ import {
 } from "@solana/spl-token";
 import { createAndProcessTransaction } from "./bankrun-program-helper";
 import { initToken } from "./bankrun-token-helper";
-import { getGovernanceAccountPDA, getRealmPDA } from "../../utils/pda-helper";
+import {
+  getGovernanceAccountPDA,
+  getProposalPDA,
+  getProposalTransactionPDA,
+  getRealmPDA,
+} from "../../utils/pda-helper";
 import { getComputeLimitInstruction } from "../../utils/program-helper";
 
-/*
-Helper functions for creating governance accounts and proposals (data serialization)
-*/
+/**
+ * Helper functions for creating governance accounts and proposals (data serialization)
+ * within the Bankrun environment.
+ */
 function serializeProposalData(
   proposalData: any,
   instructions: TransactionInstruction[]
@@ -230,6 +236,8 @@ function serializeProposalData(
   return buffer;
 }
 
+// Serialize transaction data, for when a DAO want to execute arbitrary instructions
+// via a proposal.
 function serializeTransactionData(
   transactionData: any,
   instructions: TransactionInstruction[]
@@ -303,7 +311,7 @@ function serializeTransactionData(
 }
 
 /*
-Create mocked account helpers
+Helpers for creating mocked account related to the SPL governance program.
 */
 export function createProposalWithInstructions(
   context: ProgramTestContext,
@@ -314,18 +322,16 @@ export function createProposalWithInstructions(
 ) {
   // Create proposal account
   const proposalSeed = Keypair.generate().publicKey;
-  const proposalPda = PublicKey.findProgramAddressSync(
-    [
-      Buffer.from("governance"),
-      governanceAccount.toBuffer(),
-      governingTokenMint.toBuffer(),
-      proposalSeed.toBuffer(),
-    ],
-    SPL_GOVERNANCE_PROGRAM_ID
-  )[0];
+  const proposalPda = getProposalPDA(
+    governanceAccount,
+    governingTokenMint,
+    proposalSeed
+  );
 
   // Create proposal data
   const now = Math.floor(Date.now() / 1000);
+
+  // Some of the times are set to properly mimick time passing
   const proposalData = {
     accountType: 14, // ProposalV2
     governance: governanceAccount,
@@ -355,15 +361,7 @@ export function createProposalWithInstructions(
   };
 
   // Create proposal transaction account
-  const proposalTransactionPda = PublicKey.findProgramAddressSync(
-    [
-      Buffer.from("proposal-transaction"),
-      proposalPda.toBuffer(),
-      Buffer.from([0]), // Option index
-      Buffer.from([0]), // Instruction index
-    ],
-    SPL_GOVERNANCE_PROGRAM_ID
-  )[0];
+  const proposalTransactionPda = getProposalTransactionPDA(proposalPda, 0, 0);
 
   // Create transaction data
   const transactionData = {
@@ -407,6 +405,8 @@ export function createProposalWithInstructions(
   };
 }
 
+// Use to create Governance accounts that would represent Folio Owners, Auction Launchers, etc.
+// Are an authority controlled by the Realm (can have multiple governance account under the Realm)
 export function createGovernanceAccount(
   context: ProgramTestContext,
   realm: PublicKey,
@@ -547,6 +547,7 @@ export function createGovernanceAccount(
   });
 }
 
+// Used to create a "staked" balance for a user in a specific Realm
 export function createGovernanceTokenRecord(
   context: ProgramTestContext,
   userTokenRecordPda: PublicKey,
@@ -683,10 +684,8 @@ export function createRealm(
   });
 }
 
-/*
-  This is a token account that holds all the staked governance tokens for a realm,
-  is just a normal token account where the owner is the realm and the mint is the governance token
-  */
+// This is a token account that holds all the staked governance tokens for a Realm.
+// It is just a normal token account where the owner is the realm and the mint is the governance token
 export function createGovernanceHoldingAccount(
   context: ProgramTestContext,
   governanceOwner: PublicKey,
@@ -720,6 +719,7 @@ export function createGovernanceHoldingAccount(
   });
 }
 
+// Used to execute a proposal, via a proposal transaction.
 export async function executeGovernanceInstruction(
   context: ProgramTestContext,
   executor: Keypair,
@@ -758,10 +758,10 @@ export async function executeGovernanceInstruction(
         isWritable: false,
       });
       ix.keys.forEach((key) => {
-        // Got this little hacky thing to make the governance pda not as signer in the txn
-        // since it'll fail at transaction signature, but we want the governance program
+        // Got this little hacky thing to make the governance PDA not as signer in the transaction
+        // since it'll fail at transaction signature when sending, but we want the governance program
         // to call our program with the governance account as a signer, hence why we disable it
-        // it in the first instruction, but leave it there in the cpi call
+        // in the first instruction, but leave it there in the cpi call.
         if (key.pubkey.equals(governanceAccount)) {
           executeIx.keys.push({
             ...key,
@@ -782,7 +782,7 @@ export async function executeGovernanceInstruction(
   );
 }
 
-// Setup function to help create all governance accounts needed for testing
+// Setup function to help create all governance accounts needed for testing cases
 export async function setupGovernanceAccounts(
   context: ProgramTestContext,
   ownerKeypair: Keypair,

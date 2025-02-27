@@ -16,8 +16,18 @@ import {
   updateProgramRegistrar,
 } from "../utils/folio-admin-helper";
 
-import { FOLIO_ADMIN_PROGRAM_ID, MAX_FEE_FLOOR } from "../utils/constants";
+import {
+  FEE_NUMERATOR,
+  FOLIO_ADMIN_PROGRAM_ID,
+  MAX_FEE_FLOOR,
+} from "../utils/constants";
 import { initToken } from "../utils/token-helper";
+
+/**
+ * Tests for the Folio Admin program.
+ * These tests are designed to test the functionality of the Folio Admin program from
+ * working with the program registrar to setting the fees.
+ */
 
 describe("Folio Admin Tests", () => {
   let connection: Connection;
@@ -30,7 +40,6 @@ describe("Folio Admin Tests", () => {
   const randomProgramId: PublicKey = Keypair.generate().publicKey;
 
   const feeRecipient: PublicKey = Keypair.generate().publicKey;
-  const feeNumerator: BN = new BN("500000000000000000"); //50% in D18
 
   before(async () => {
     ({ connection, programFolioAdmin, keys } = await getConnectors());
@@ -47,7 +56,7 @@ describe("Folio Admin Tests", () => {
       connection,
       adminKeypair,
       feeRecipient,
-      feeNumerator,
+      FEE_NUMERATOR,
       MAX_FEE_FLOOR
     );
 
@@ -59,7 +68,7 @@ describe("Folio Admin Tests", () => {
 
     assert.notEqual(daoFeeConfig.bump, 0);
     assert.deepEqual(daoFeeConfig.feeRecipient, feeRecipient);
-    assert.deepEqual(daoFeeConfig.defaultFeeNumerator.eq(feeNumerator), true);
+    assert.deepEqual(daoFeeConfig.defaultFeeNumerator.eq(FEE_NUMERATOR), true);
   });
 
   it("should set the folio fee config", async () => {
@@ -71,7 +80,7 @@ describe("Folio Admin Tests", () => {
       adminKeypair,
       getFolioPDA(folioTokenMint.publicKey),
       folioTokenMint.publicKey,
-      feeNumerator.sub(new BN(1)),
+      FEE_NUMERATOR.sub(new BN(1)),
       MAX_FEE_FLOOR.sub(new BN(1)),
       feeRecipient
     );
@@ -86,7 +95,7 @@ describe("Folio Admin Tests", () => {
 
     assert.notEqual(folioFeeConfig.bump, 0);
     assert.deepEqual(
-      folioFeeConfig.feeNumerator.eq(feeNumerator.sub(new BN(1))),
+      folioFeeConfig.feeNumerator.eq(FEE_NUMERATOR.sub(new BN(1))),
       true
     );
     assert.deepEqual(

@@ -65,7 +65,8 @@ jobs:
 
       - name: Build SPL
         run: |
-          # Create necessary directories first
+          # First, create all necessary directories from the root of the workspace
+          pwd  # Debug: print current directory
           mkdir -p tests-ts/programs/
 
           # Build SPL Governance
@@ -73,13 +74,17 @@ jobs:
           cargo build-sbf
           cd ../../
 
+          # Debug: print current location and list files
+          pwd
+          ls -la target/deploy/ || ls -la target/sbf-solana-solana/release/
+
           # Copy the built program to the correct location
           if [ -f "target/deploy/spl_governance.so" ]; then
-              cp target/deploy/spl_governance.so ../../../tests-ts/programs/governance.so
+              cp target/deploy/spl_governance.so ../../tests-ts/programs/governance.so
           elif [ -f "target/sbf-solana-solana/release/spl_governance.so" ]; then
-              cp target/sbf-solana-solana/release/spl_governance.so ../../../tests-ts/programs/governance.so
+              cp target/sbf-solana-solana/release/spl_governance.so ../../tests-ts/programs/governance.so
           fi
-          cd ../
+          cd ../../  # Return to root
 
           # Build Folio programs
           mkdir -p target/deploy target/idl target/types

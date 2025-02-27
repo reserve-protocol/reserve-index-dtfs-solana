@@ -14,26 +14,79 @@ env:
   SPL_GOVERNANCE_PROGRAM_ID: HwXcHGabc19PxzYFVSfKvuaDSNpbLGL8fhVtkcTyEymj
 
 jobs:
-  build-and-test:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: "20"
-
-      - name: Install npm dependencies
-        run: |
-          npm install
-          npm install -g @metaplex-foundation/amman
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.83.0"
           components: rustfmt, clippy
+
+      - name: Rust Format Check
+        run: cargo fmt --all -- --check
+
+      - name: Clippy Check
+        run: |
+          cargo clippy -- \
+            -A ambiguous_glob_reexports \
+            -D warnings
+
+  build-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.83.0"
+
+      - name: Install Solana
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/v${{ env.SOLANA_VERSION }}/install)"
+          export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
+          echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+          solana --version
+
+      - name: Checkout SPL
+        uses: actions/checkout@v3
+        with:
+          repository: reserve-protocol/solana-program-library
+          path: solana-program-library
+
+      - name: Cache SPL build
+        uses: actions/cache@v3
+        with:
+          path: solana-program-library/target/
+          key: ${{ runner.os }}-spl-${{ hashFiles('solana-program-library/**/*.rs') }}
+
+      - name: Build SPL
+        run: |
+          set -e
+          ./build-local.sh
+
+      - name: Upload built programs
+        uses: actions/upload-artifact@v3
+        with:
+          name: built-programs
+          path: |
+            tests-ts/programs/*.so
+            target/deploy/*.so
+          retention-days: 1
+
+  unit-tests:
+    needs: [build-dependencies]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.83.0"
 
       - name: Cache dependencies
         uses: actions/cache@v3
@@ -46,32 +99,10 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Install Solana
-        run: |
-          sh -c "$(curl -sSfL https://release.anza.xyz/v${{ env.SOLANA_VERSION }}/install)"
-          export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
-          echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
-          solana --version
-
-      - name: Install Anchor
-        run: |
-          cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
-          avm install ${{ env.ANCHOR_VERSION }}
-          avm use ${{ env.ANCHOR_VERSION }}
-
-      - name: Rust Format Check
-        run: cargo fmt --all -- --check
-
-      - name: Clippy Check
-        run: |
-          cargo clippy -- \
-            -A ambiguous_glob_reexports \
-            -D warnings
-
-      - name: Anchor Build
-        run: |
-          export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
-          anchor build
+      - name: Download built programs
+        uses: actions/download-artifact@v3
+        with:
+          name: built-programs
 
       - name: Create Solana Config Dir
         run: |
@@ -82,11 +113,9 @@ jobs:
         run: cargo test
 
       - name: Install cargo-tarpaulin
-        if: always()
         run: cargo install cargo-tarpaulin
 
       - name: Generate coverage report
-        if: always()
         continue-on-error: true
         run: |
           cargo tarpaulin --workspace \
@@ -100,6 +129,52 @@ jobs:
           --out Html \
           --output-dir target/tarpaulin
 
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: target/tarpaulin
+          retention-days: 7
+
+  integration-tests:
+    needs: [build-dependencies]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+
+      - name: Install npm dependencies
+        run: |
+          npm install
+          npm install -g @metaplex-foundation/amman
+
+      - name: Install Solana
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/v${{ env.SOLANA_VERSION }}/install)"
+          export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
+          echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
+      - name: Install Anchor
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+          avm install ${{ env.ANCHOR_VERSION }}
+          avm use ${{ env.ANCHOR_VERSION }}
+
+      - name: Download built programs
+        uses: actions/download-artifact@v3
+        with:
+          name: built-programs
+
+      - name: Create Solana Config Dir
+        run: |
+          mkdir -p /home/runner/.config/solana
+          solana-keygen new --no-bip39-passphrase -o /home/runner/.config/solana/id.json
+
       - name: Bankrun Test
         run: |
           export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
@@ -109,5 +184,11 @@ jobs:
         run: |
           export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
           amman start &
-          sleep 15  # Give amman time to start
+          AMMAN_PID=$!
+          sleep 15
+
           anchor test --skip-local-validator --skip-deploy --skip-build
+          TEST_EXIT_CODE=$?
+
+          kill $AMMAN_PID
+          exit $TEST_EXIT_CODE

@@ -422,3 +422,212 @@ project/
    - Test complete user flows
    - Verify cross-program interactions
    - Validate real-world scenarios
+
+## Architecture Diagrams
+
+### Core Account Structure
+```mermaid
+classDiagram
+    class Folio {
+        +bump: u8
+        +status: u8
+        +folio_token_mint: Pubkey
+        +tvl_fee: u128
+        +mint_fee: u128
+        +dao_pending_fee_shares: u128
+        +fee_recipients_pending_fee_shares: u128
+        +auction_delay: u64
+        +auction_length: u64
+        +current_auction_id: u64
+        +last_poke: i64
+        +mandate: FixedSizeString
+    }
+
+    class Actor {
+        +bump: u8
+        +authority: Pubkey
+        +folio: Pubkey
+        +roles: u8
+    }
+
+    class FolioBasket {
+        +bump: u8
+        +folio: Pubkey
+        +token_amounts: TokenAmount[]
+    }
+
+    class UserPendingBasket {
+        +bump: u8
+        +owner: Pubkey
+        +folio: Pubkey
+        +token_amounts: TokenAmount[]
+    }
+
+    Folio --> Actor: has many
+    Folio --> FolioBasket: has one
+    Folio --> UserPendingBasket: has many
+```
+
+### Auction System
+```mermaid
+classDiagram
+    class Auction {
+        +bump: u8
+        +id: u64
+        +available_at: u64
+        +launch_timeout: u64
+        +start: u64
+        +end: u64
+        +k: u128
+        +folio: Pubkey
+        +sell: Pubkey
+        +buy: Pubkey
+        +sell_limit: BasketRange
+        +buy_limit: BasketRange
+        +prices: Prices
+    }
+
+    Folio --> Auction: has many
+```
+
+### Fee Management
+```mermaid
+classDiagram
+    class FeeRecipients {
+        +bump: u8
+        +distribution_index: u64
+        +folio: Pubkey
+        +fee_recipients: FeeRecipient[]
+    }
+
+    class FeeDistribution {
+        +bump: u8
+        +index: u64
+        +folio: Pubkey
+        +cranker: Pubkey
+        +amount_to_distribute: u128
+        +fee_recipients_state: FeeRecipient[]
+    }
+
+    class DAOFeeConfig {
+        +bump: u8
+        +fee_recipient: Pubkey
+        +default_fee_numerator: u128
+        +default_fee_floor: u128
+    }
+
+    class FolioFeeConfig {
+        +bump: u8
+        +fee_numerator: u128
+        +fee_floor: u128
+    }
+
+    Folio --> FeeRecipients: has one
+    FeeRecipients --> FeeDistribution: has many
+    DAOFeeConfig --> FolioFeeConfig: configures
+    FolioFeeConfig --> Folio: configures
+```
+
+### Reward System
+```mermaid
+classDiagram
+    class FolioRewardTokens {
+        +bump: u8
+        +folio: Pubkey
+        +reward_ratio: u128
+        +reward_tokens: Pubkey[]
+        +disallowed_token: Pubkey[]
+    }
+
+    class RewardInfo {
+        +bump: u8
+        +folio: Pubkey
+        +folio_reward_token: Pubkey
+        +payout_last_paid: u64
+        +reward_index: u128
+        +balance_accounted: u128
+        +balance_last_known: u128
+        +total_claimed: u128
+    }
+
+    class UserRewardInfo {
+        +bump: u8
+        +folio: Pubkey
+        +folio_reward_token: Pubkey
+        +last_reward_index: u128
+        +accrued_rewards: u128
+    }
+
+    Folio --> FolioRewardTokens: has one
+    FolioRewardTokens --> RewardInfo: has many
+    RewardInfo --> UserRewardInfo: has many
+```
+
+### Program Registry
+```mermaid
+classDiagram
+    class ProgramRegistrar {
+        +bump: u8
+        +accepted_programs: Pubkey[]
+    }
+
+    ProgramRegistrar --> Folio: registers versions
+```
+
+### Core Program Flow
+```mermaid
+sequenceDiagram
+    participant Owner as Folio Owner (DAO)
+    participant Approver as Auction Approver
+    participant Launcher as Auction Launcher
+    participant User
+    participant Folio
+    
+    %% Initialization Flow
+    rect rgb(106, 106, 116)
+        Note over Owner, Folio: Initialization Phase
+        Owner->>Folio: init_folio()
+        Owner->>Folio: init_or_update_actor(AUCTION_APPROVER)
+        Owner->>Folio: init_or_update_actor(AUCTION_LAUNCHER)
+        Owner->>Folio: add_to_basket(initial_tokens)
+    end
+
+    %% Auction Flow
+    rect rgb(91, 81, 81)
+        Note over Approver, Folio: Auction Phase
+        Approver->>Folio: approve_auction(price_range, limits)
+        alt Immediate Launch
+            Launcher->>Folio: open_auction()
+        else After Delay
+            User->>Folio: open_auction_permissionless()
+        end
+        User->>Folio: bid()
+        opt If needed
+            Launcher->>Folio: close_auction()
+        end
+    end
+
+    %% User Operations
+    rect rgb(52, 55, 52)
+        Note over User, Folio: User Operations
+        User->>Folio: add_to_pending_basket()
+        User->>Folio: mint_folio_token()
+        User->>Folio: burn_folio_token()
+        User->>Folio: redeem_from_pending_basket()
+    end
+
+    %% Reward Management
+    rect rgb(42, 36, 36)
+        Note over Owner, Folio: Reward Management
+        Owner->>Folio: add_reward_token()
+        User->>Folio: accrue_rewards()
+        User->>Folio: claim_rewards()
+    end
+
+    %% Fee Management
+    rect rgb(32, 36, 36)
+        Note over User, Folio: Fee Distribution
+        User->>Folio: poke_folio()
+        User->>Folio: distribute_fees()
+        User->>Folio: crank_fee_distribution()
+    end

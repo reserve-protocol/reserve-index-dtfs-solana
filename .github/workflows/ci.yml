@@ -88,13 +88,14 @@ jobs:
           ls -la target/deploy/ || true
           ls -la target/sbf-solana-solana/release/ || true
 
-          # Copy the built program
+          # Copy the built program to the correct location (using absolute paths)
+          WORKSPACE="/home/runner/work/dtfs-solana/dtfs-solana"
           if [ -f "target/deploy/spl_governance.so" ]; then
               echo "Found program in target/deploy"
-              cp target/deploy/spl_governance.so ../../tests-ts/programs/governance.so
+              cp target/deploy/spl_governance.so "$WORKSPACE/tests-ts/programs/governance.so"
           elif [ -f "target/sbf-solana-solana/release/spl_governance.so" ]; then
               echo "Found program in target/sbf-solana-solana/release"
-              cp target/sbf-solana-solana/release/spl_governance.so ../../tests-ts/programs/governance.so
+              cp target/sbf-solana-solana/release/spl_governance.so "$WORKSPACE/tests-ts/programs/governance.so"
           else
               echo "ERROR: Could not find built governance program"
               find . -name "spl_governance.so"
@@ -103,9 +104,9 @@ jobs:
 
           # Verify the copy worked
           echo "Verifying governance.so was copied:"
-          ls -la ../../tests-ts/programs/
+          ls -la "$WORKSPACE/tests-ts/programs/"
 
-          cd ../../
+          cd "$WORKSPACE"
           echo "Back in root:"
           pwd
 

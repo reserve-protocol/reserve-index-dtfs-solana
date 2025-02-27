@@ -65,20 +65,24 @@ jobs:
 
       - name: Build SPL
         run: |
+          # Create necessary directories first
+          mkdir -p tests-ts/programs/
+
+          # Build SPL Governance
           cd solana-program-library/governance/program
           cargo build-sbf
           cd ../../
 
           # Copy the built program to the correct location
-          mkdir -p ../tests-ts/programs/
           if [ -f "target/deploy/spl_governance.so" ]; then
-              cp target/deploy/spl_governance.so ../../tests-ts/programs/governance.so
+              cp target/deploy/spl_governance.so ../../../tests-ts/programs/governance.so
           elif [ -f "target/sbf-solana-solana/release/spl_governance.so" ]; then
-              cp target/sbf-solana-solana/release/spl_governance.so ../../tests-ts/programs/governance.so
+              cp target/sbf-solana-solana/release/spl_governance.so ../../../tests-ts/programs/governance.so
           fi
-          cd ..
+          cd ../
 
           # Build Folio programs
+          mkdir -p target/deploy target/idl target/types
           cp utils/keys/folio-2-keypair-local.json target/deploy/folio-keypair.json
           anchor build -- --features dev
 

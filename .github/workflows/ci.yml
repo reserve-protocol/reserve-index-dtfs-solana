@@ -17,19 +17,8 @@ jobs:
   setup-tools:
     runs-on: ubuntu-latest
     steps:
-      - name: Install Solana
-        run: |
-          sh -c "$(curl -sSfL https://release.anza.xyz/v${{ env.SOLANA_VERSION }}/install)"
-          export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
-          solana --version
-
-      - name: Install Anchor
-        run: |
-          cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
-          avm install ${{ env.ANCHOR_VERSION }}
-          avm use ${{ env.ANCHOR_VERSION }}
-
       - name: Cache Solana and Anchor
+        id: cache-check
         uses: actions/cache@v4
         with:
           path: |
@@ -39,8 +28,21 @@ jobs:
             ~/.avm
           key: ${{ runner.os }}-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
 
+      - name: Install Solana
+        if: steps.cache-check.outputs.cache-hit != 'true'
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/v${{ env.SOLANA_VERSION }}/install)"
+          export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
+          solana --version
+
+      - name: Install Anchor
+        if: steps.cache-check.outputs.cache-hit != 'true'
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+          avm install ${{ env.ANCHOR_VERSION }}
+          avm use ${{ env.ANCHOR_VERSION }}
+
   lint:
-    needs: setup-tools
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -269,13 +271,10 @@ jobs:
           solana-keygen new --no-bip39-passphrase -o /home/runner/.config/solana/id.json
 
       - name: Bankrun Test
-        run: |
-          export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
-          anchor run test-bankrun
+        run: anchor run test-bankrun
 
       - name: Run Amman Tests
         run: |
-          export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
           amman start &
           AMMAN_PID=$!
           sleep 15

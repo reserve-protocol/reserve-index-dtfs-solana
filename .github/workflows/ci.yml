@@ -174,6 +174,8 @@ jobs:
           path: |
             tests-ts/programs/*.so
             target/deploy/*.so
+            target/types/**/*.ts
+            target/idl/*.json
           retention-days: 1
 
   unit-tests:
@@ -204,6 +206,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: built-programs
+          path: .
+
+      - name: List downloaded files
+        run: |
+          echo "Contents of target/types:"
+          ls -R target/types || true
 
       - name: Create Solana Config Dir
         run: |
@@ -264,6 +272,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: built-programs
+          path: .
 
       - name: Create Solana Config Dir
         run: |

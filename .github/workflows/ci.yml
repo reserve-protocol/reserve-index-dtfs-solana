@@ -14,7 +14,33 @@ env:
   SPL_GOVERNANCE_PROGRAM_ID: HwXcHGabc19PxzYFVSfKvuaDSNpbLGL8fhVtkcTyEymj
 
 jobs:
+  setup-tools:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Solana
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/v${{ env.SOLANA_VERSION }}/install)"
+          export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
+          solana --version
+
+      - name: Install Anchor
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+          avm install ${{ env.ANCHOR_VERSION }}
+          avm use ${{ env.ANCHOR_VERSION }}
+
+      - name: Cache Solana and Anchor
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/solana
+            ~/.cargo/bin/anchor
+            ~/.cargo/bin/avm
+            ~/.avm
+          key: ${{ runner.os }}-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
+
   lint:
+    needs: setup-tools
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,6 +61,7 @@ jobs:
             -D warnings
 
   build-dependencies:
+    needs: setup-tools
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,18 +71,18 @@ jobs:
         with:
           toolchain: "1.83.0"
 
-      - name: Install Solana
-        run: |
-          sh -c "$(curl -sSfL https://release.anza.xyz/v${{ env.SOLANA_VERSION }}/install)"
-          export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
-          echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
-          solana --version
+      - name: Restore cached tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/solana
+            ~/.cargo/bin/anchor
+            ~/.cargo/bin/avm
+            ~/.avm
+          key: ${{ runner.os }}-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
 
-      - name: Install Anchor
-        run: |
-          cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
-          avm install ${{ env.ANCHOR_VERSION }}
-          avm use ${{ env.ANCHOR_VERSION }}
+      - name: Add Solana to PATH
+        run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
       - name: Checkout SPL
         uses: actions/checkout@v4
@@ -148,7 +175,7 @@ jobs:
           retention-days: 1
 
   unit-tests:
-    needs: [build-dependencies]
+    needs: [build-dependencies, setup-tools]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -207,7 +234,7 @@ jobs:
           retention-days: 7
 
   integration-tests:
-    needs: [build-dependencies]
+    needs: [build-dependencies, setup-tools]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

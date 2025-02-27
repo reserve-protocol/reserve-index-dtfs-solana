@@ -51,6 +51,12 @@ jobs:
           echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
           solana --version
 
+      - name: Install Anchor
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+          avm install ${{ env.ANCHOR_VERSION }}
+          avm use ${{ env.ANCHOR_VERSION }}
+
       - name: Checkout SPL
         uses: actions/checkout@v4
         with:
@@ -111,6 +117,9 @@ jobs:
           pwd
 
           # Build Folio programs
+          echo "Installing node dependencies for Anchor"
+          npm install
+
           mkdir -p target/deploy target/idl target/types
           cp utils/keys/folio-2-keypair-local.json target/deploy/folio-keypair.json
           anchor build -- --features dev

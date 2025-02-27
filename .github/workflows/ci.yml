@@ -253,7 +253,9 @@ jobs:
       - name: Install npm dependencies
         run: |
           npm install
+          npm install @metaplex-foundation/amman 
           npm install -g @metaplex-foundation/amman
+          npx amman --version  # Verify installation
 
       - name: Restore cached tools
         uses: actions/cache@v4

@@ -185,16 +185,18 @@ jobs:
         with:
           toolchain: "1.83.0"
 
-      - name: Cache dependencies
+      - name: Restore cached tools
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+            ~/.local/share/solana
+            ~/.cargo/bin/anchor
+            ~/.cargo/bin/avm
+            ~/.avm
+          key: ${{ runner.os }}-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
+
+      - name: Add Solana to PATH
+        run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
       - name: Download built programs
         uses: actions/download-artifact@v4
@@ -226,13 +228,6 @@ jobs:
           --out Html \
           --output-dir target/tarpaulin
 
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: target/tarpaulin
-          retention-days: 7
-
   integration-tests:
     needs: [build-dependencies, setup-tools]
     runs-on: ubuntu-latest
@@ -250,17 +245,18 @@ jobs:
           npm install
           npm install -g @metaplex-foundation/amman
 
-      - name: Install Solana
-        run: |
-          sh -c "$(curl -sSfL https://release.anza.xyz/v${{ env.SOLANA_VERSION }}/install)"
-          export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
-          echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+      - name: Restore cached tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/solana
+            ~/.cargo/bin/anchor
+            ~/.cargo/bin/avm
+            ~/.avm
+          key: ${{ runner.os }}-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
 
-      - name: Install Anchor
-        run: |
-          cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
-          avm install ${{ env.ANCHOR_VERSION }}
-          avm use ${{ env.ANCHOR_VERSION }}
+      - name: Add Solana to PATH
+        run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
       - name: Download built programs
         uses: actions/download-artifact@v4

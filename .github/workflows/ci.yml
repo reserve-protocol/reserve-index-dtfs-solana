@@ -100,53 +100,28 @@ jobs:
 
       - name: Build SPL
         run: |
-          # Debug: Show initial workspace
-          echo "Current workspace:"
-          pwd
-          ls -la
-
           # Create directories
           mkdir -p tests-ts/programs
-          echo "Created programs directory:"
-          ls -la tests-ts/programs
 
           # Build SPL Governance
           cd solana-program-library/governance/program
-          echo "Building from:"
-          pwd
           cargo build-sbf
           cd ../../
-
-          echo "After build, in SPL root:"
-          pwd
-          echo "Listing target directories:"
-          ls -la target/deploy/ || true
-          ls -la target/sbf-solana-solana/release/ || true
 
           # Copy the built program to the correct location (using absolute paths)
           WORKSPACE="/home/runner/work/dtfs-solana/dtfs-solana"
           if [ -f "target/deploy/spl_governance.so" ]; then
-              echo "Found program in target/deploy"
               cp target/deploy/spl_governance.so "$WORKSPACE/tests-ts/programs/governance.so"
           elif [ -f "target/sbf-solana-solana/release/spl_governance.so" ]; then
-              echo "Found program in target/sbf-solana-solana/release"
               cp target/sbf-solana-solana/release/spl_governance.so "$WORKSPACE/tests-ts/programs/governance.so"
           else
-              echo "ERROR: Could not find built governance program"
               find . -name "spl_governance.so"
               exit 1
           fi
 
-          # Verify the copy worked
-          echo "Verifying governance.so was copied:"
-          ls -la "$WORKSPACE/tests-ts/programs/"
-
           cd "$WORKSPACE"
-          echo "Back in root:"
-          pwd
 
           # Build Folio programs
-          echo "Installing node dependencies for Anchor"
           npm install
 
           mkdir -p target/deploy target/idl target/types

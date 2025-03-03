@@ -243,10 +243,10 @@ The universal 15 bps fee floor can be lowered by the DAO, as well as set (only l
 2. Development Tools:
    ```bash
    # Install Rust
-   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.83
 
    # Install Solana
-   sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
+   sh -c "$(curl -sSfL https://release.anza.xyz/v2.1.0/install)"
 
    # Configure PATH
    echo 'export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"' >> ~/.zshrc

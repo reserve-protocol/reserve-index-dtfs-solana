@@ -1,0 +1,272 @@
+name: Solana Program CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  SOLANA_VERSION: 2.1.0
+  ANCHOR_VERSION: 0.30.1
+  ADMIN_PUBKEY: AXF3tTrMUD5BLzv5Fmyj63KXwvkuGdxMQemSJHtTag4j
+  SPL_GOVERNANCE_PROGRAM_ID: HwXcHGabc19PxzYFVSfKvuaDSNpbLGL8fhVtkcTyEymj
+
+jobs:
+  setup-tools:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cache Solana and Anchor
+        id: cache-check
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/solana
+            ~/.cargo/bin/anchor
+            ~/.cargo/bin/avm
+            ~/.avm
+          key: ${{ runner.os }}-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
+
+      - name: Install Solana
+        if: steps.cache-check.outputs.cache-hit != 'true'
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/v${{ env.SOLANA_VERSION }}/install)"
+          export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
+          solana --version
+
+      - name: Install Anchor
+        if: steps.cache-check.outputs.cache-hit != 'true'
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+          avm install ${{ env.ANCHOR_VERSION }}
+          avm use ${{ env.ANCHOR_VERSION }}
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.83.0"
+          components: rustfmt, clippy
+
+      - name: Rust Format Check
+        run: cargo fmt --all -- --check
+
+      - name: Clippy Check
+        run: |
+          cargo clippy -- \
+            -A ambiguous_glob_reexports \
+            -D warnings
+
+  build-dependencies:
+    needs: setup-tools
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.83.0"
+
+      - name: Restore cached tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/solana
+            ~/.cargo/bin/anchor
+            ~/.cargo/bin/avm
+            ~/.avm
+          key: ${{ runner.os }}-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
+
+      - name: Add Solana to PATH
+        run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
+      - name: Checkout SPL
+        uses: actions/checkout@v4
+        with:
+          repository: reserve-protocol/solana-program-library
+          path: solana-program-library
+
+      - name: Cache SPL build
+        uses: actions/cache@v4
+        with:
+          path: solana-program-library/target/
+          key: ${{ runner.os }}-spl-${{ hashFiles('solana-program-library/**/*.rs') }}
+
+      - name: Build SPL
+        run: |
+          # Create directories
+          mkdir -p tests-ts/programs
+
+          # Build SPL Governance
+          cd solana-program-library/governance/program
+          cargo build-sbf
+          cd ../../
+
+          # Copy the built program to the correct location (using absolute paths)
+          WORKSPACE="/home/runner/work/dtfs-solana/dtfs-solana"
+          if [ -f "target/deploy/spl_governance.so" ]; then
+              cp target/deploy/spl_governance.so "$WORKSPACE/tests-ts/programs/governance.so"
+          elif [ -f "target/sbf-solana-solana/release/spl_governance.so" ]; then
+              cp target/sbf-solana-solana/release/spl_governance.so "$WORKSPACE/tests-ts/programs/governance.so"
+          else
+              find . -name "spl_governance.so"
+              exit 1
+          fi
+
+          cd "$WORKSPACE"
+
+          # Build Folio programs
+          npm install
+
+          mkdir -p target/deploy target/idl target/types
+          cp utils/keys/folio-2-keypair-local.json target/deploy/folio-keypair.json
+          anchor build -- --features dev
+
+          # Update program IDs
+          sed -i 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt/g' target/idl/folio.json
+          sed -i 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt/g' target/types/folio.ts
+
+          # Rename files for second instance
+          mv target/idl/folio.json target/idl/second_folio.json
+          mv target/types/folio.ts target/types/second_folio.ts
+          mv target/deploy/folio.so target/deploy/second_folio.so
+          mv target/deploy/folio-keypair.json target/deploy/second_folio-keypair.json
+
+          # Build first instance
+          cp utils/keys/folio-keypair-local.json target/deploy/folio-keypair.json
+          anchor build
+
+      - name: Upload built programs
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-programs
+          path: |
+            tests-ts/programs/*.so
+            target/deploy/*.so
+            target/types/**/*.ts
+            target/idl/*.json
+          retention-days: 1
+
+  unit-tests:
+    needs: [build-dependencies, setup-tools]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.83.0"
+
+      - name: Restore cached tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/solana
+            ~/.cargo/bin/anchor
+            ~/.cargo/bin/avm
+            ~/.avm
+          key: ${{ runner.os }}-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
+
+      - name: Add Solana to PATH
+        run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
+      - name: Download built programs
+        uses: actions/download-artifact@v4
+        with:
+          name: built-programs
+          path: .
+
+      - name: List downloaded files
+        run: |
+          echo "Contents of target/types:"
+          ls -R target/types || true
+
+      - name: Create Solana Config Dir
+        run: |
+          mkdir -p /home/runner/.config/solana
+          solana-keygen new --no-bip39-passphrase -o /home/runner/.config/solana/id.json
+
+      - name: Cargo Test
+        run: cargo test
+
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin
+
+      - name: Generate coverage report
+        continue-on-error: true
+        run: |
+          cargo tarpaulin --workspace \
+          --exclude-files \
+          "programs/*/src/instructions/*" \
+          "programs/*/src/external/*" \
+          "programs/*/src/**/events.rs" \
+          "programs/*/src/**/state.rs" \
+          "programs/*/src/lib.rs" \
+          "programs/*/src/**/errors.rs" \
+          --out Html \
+          --output-dir target/tarpaulin
+
+  integration-tests:
+    needs: [build-dependencies, setup-tools]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install npm dependencies
+        run: |
+          npm install
+          npm install @metaplex-foundation/amman 
+          npm install -g @metaplex-foundation/amman
+          npx amman --version  # Verify installation
+
+      - name: Restore cached tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/solana
+            ~/.cargo/bin/anchor
+            ~/.cargo/bin/avm
+            ~/.avm
+          key: ${{ runner.os }}-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
+
+      - name: Add Solana to PATH
+        run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
+      - name: Download built programs
+        uses: actions/download-artifact@v4
+        with:
+          name: built-programs
+          path: .
+
+      - name: Create Solana Config Dir
+        run: |
+          mkdir -p /home/runner/.config/solana
+          solana-keygen new --no-bip39-passphrase -o /home/runner/.config/solana/id.json
+
+      - name: Bankrun Test
+        run: anchor run test-bankrun
+
+      - name: Run Amman Tests
+        run: |
+          amman start &
+          AMMAN_PID=$!
+          sleep 15
+
+          anchor test --skip-local-validator --skip-deploy --skip-build
+          TEST_EXIT_CODE=$?
+
+          kill $AMMAN_PID
+          exit $TEST_EXIT_CODE

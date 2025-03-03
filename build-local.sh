@@ -12,12 +12,12 @@ cd ../.. # Back to solana-program-library, where the governance .so is created
 
 # Copy the built program
 if [ -f "target/deploy/spl_governance.so" ]; then
-    cp target/deploy/spl_governance.so ../dtfs-solana/tests-ts/programs/governance.so
+    cp target/deploy/spl_governance.so ../reserve-index-dtfs-solana/tests-ts/programs/governance.so
 elif [ -f "target/sbf-solana-solana/release/spl_governance.so" ]; then
-    cp target/sbf-solana-solana/release/spl_governance.so ../dtfs-solana/tests-ts/programs/governance.so
+    cp target/sbf-solana-solana/release/spl_governance.so ../reserve-index-dtfs-solana/tests-ts/programs/governance.so
 fi
 
-cd ../dtfs-solana # Back to the solana-dtf repo
+cd ../reserve-index-dtfs-solana # Back to the solana-dtf repo
 
 ########################################################################################
 # Building local will build 2 folio programs 

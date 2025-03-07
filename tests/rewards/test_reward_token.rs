@@ -4,14 +4,15 @@
 mod tests {
 
     use anchor_lang::prelude::Pubkey;
-    use folio::state::FolioRewardTokens;
+    use rewards::state::RewardTokens;
     use shared::constants::{MAX_REWARD_HALF_LIFE, MAX_REWARD_TOKENS, MIN_REWARD_HALF_LIFE};
     use shared::errors::ErrorCode::*;
 
-    fn setup_folio_reward_tokens() -> FolioRewardTokens {
-        FolioRewardTokens {
+    fn setup_reward_tokens() -> RewardTokens {
+        RewardTokens {
             bump: 1,
-            folio: Pubkey::new_unique(),
+            realm: Pubkey::new_unique(),
+            rewards_admin: Pubkey::new_unique(),
             reward_tokens: [Pubkey::default(); MAX_REWARD_TOKENS],
             disallowed_token: [Pubkey::default(); MAX_REWARD_TOKENS],
             reward_ratio: 0,
@@ -21,7 +22,7 @@ mod tests {
 
     #[test]
     fn test_add_reward_token() {
-        let mut reward_tokens = setup_folio_reward_tokens();
+        let mut reward_tokens = setup_reward_tokens();
         let new_token = Pubkey::new_unique();
 
         let result = reward_tokens.add_reward_token(&new_token);
@@ -38,7 +39,7 @@ mod tests {
 
     #[test]
     fn test_add_reward_token_when_full() {
-        let mut reward_tokens = setup_folio_reward_tokens();
+        let mut reward_tokens = setup_reward_tokens();
 
         for i in 0..MAX_REWARD_TOKENS {
             reward_tokens.reward_tokens[i] = Pubkey::new_unique();
@@ -52,7 +53,7 @@ mod tests {
 
     #[test]
     fn test_add_disallowed_reward_token() {
-        let mut reward_tokens = setup_folio_reward_tokens();
+        let mut reward_tokens = setup_reward_tokens();
         let disallowed_token = Pubkey::new_unique();
         reward_tokens.disallowed_token[0] = disallowed_token;
 
@@ -63,7 +64,7 @@ mod tests {
 
     #[test]
     fn test_remove_reward_token() {
-        let mut reward_tokens = setup_folio_reward_tokens();
+        let mut reward_tokens = setup_reward_tokens();
         let token_to_remove = Pubkey::new_unique();
         reward_tokens.reward_tokens[0] = token_to_remove;
 
@@ -75,7 +76,7 @@ mod tests {
 
     #[test]
     fn test_remove_nonexistent_reward_token() {
-        let mut reward_tokens = setup_folio_reward_tokens();
+        let mut reward_tokens = setup_reward_tokens();
         let nonexistent_token = Pubkey::new_unique();
 
         let result = reward_tokens.remove_reward_token(&nonexistent_token);
@@ -85,7 +86,7 @@ mod tests {
 
     #[test]
     fn test_remove_token_disallowed_list_full() {
-        let mut reward_tokens = setup_folio_reward_tokens();
+        let mut reward_tokens = setup_reward_tokens();
         let token_to_remove = Pubkey::new_unique();
         reward_tokens.reward_tokens[0] = token_to_remove;
 
@@ -100,7 +101,7 @@ mod tests {
 
     #[test]
     fn test_set_reward_ratio() {
-        let mut reward_tokens = setup_folio_reward_tokens();
+        let mut reward_tokens = setup_reward_tokens();
 
         let result = reward_tokens.set_reward_ratio(MIN_REWARD_HALF_LIFE);
         // ln(2) / 86400 ~= 8_022_536_812_036
@@ -116,7 +117,7 @@ mod tests {
 
     #[test]
     fn test_set_reward_ratio_invalid_values() {
-        let mut reward_tokens = setup_folio_reward_tokens();
+        let mut reward_tokens = setup_reward_tokens();
 
         let result = reward_tokens.set_reward_ratio(MIN_REWARD_HALF_LIFE - 1);
         assert!(result.is_err());

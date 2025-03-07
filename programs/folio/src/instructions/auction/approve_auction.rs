@@ -1,11 +1,12 @@
 use crate::utils::structs::{BasketRange, FolioStatus, Role};
-use crate::utils::{Prices, TokenUtil};
+use crate::utils::Prices;
 use crate::{
     events::AuctionApproved,
     state::{Actor, Auction, Folio},
 };
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::Mint;
+use shared::utils::TokenUtil;
 use shared::{
     check_condition,
     constants::{ACTOR_SEEDS, AUCTION_SEEDS},

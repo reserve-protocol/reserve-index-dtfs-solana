@@ -214,6 +214,9 @@ pub enum ErrorCode {
     #[msg("Invalid Fee Recipient Token Account")]
     InvalidFeeRecipientTokenAccount,
 
+    #[msg("Invalid Token Rewards Token Account")]
+    InvalidTokenRewardsTokenAccount,
+
     #[msg("Invalid Folio Owner")]
     InvalidFolioOwner,
 

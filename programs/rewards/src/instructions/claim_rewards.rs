@@ -1,16 +1,16 @@
-use crate::program::Folio as FolioProgram;
-use crate::state::{Actor, Folio, FolioRewardTokens, RewardInfo, UserRewardInfo};
-use crate::utils::account_util::next_account;
-use crate::utils::structs::Role;
-use crate::utils::{Decimal, FolioProgramInternal, Rounding};
+use crate::program::Rewards as RewardsProgram;
+use crate::state::{RewardInfo, RewardTokens, UserRewardInfo};
+use crate::utils::RewardsProgramInternal;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::{self};
 use anchor_spl::token_interface;
 use anchor_spl::token_interface::{Mint, TokenInterface, TransferChecked};
 use shared::check_condition;
-use shared::constants::{ACTOR_SEEDS, D9_U128};
-use shared::constants::{FOLIO_REWARD_TOKENS_SEEDS, REWARD_INFO_SEEDS, USER_REWARD_INFO_SEEDS};
+use shared::constants::D9_U128;
+use shared::constants::{REWARD_INFO_SEEDS, REWARD_TOKENS_SEEDS, USER_REWARD_INFO_SEEDS};
 use shared::errors::ErrorCode;
+use shared::utils::account_util::next_account;
+use shared::utils::{Decimal, Rounding};
 
 const REMAINING_ACCOUNTS_DIVIDER: usize = 5;
 const REMAINING_ACCOUNTS_UPPER_INDEX_FOR_ACCRUE_REWARDS: usize = 4;
@@ -21,11 +21,8 @@ const REMAINING_ACCOUNTS_UPPER_INDEX_FOR_ACCRUE_REWARDS: usize = 4;
 /// * `system_program` - The system program.
 /// * `token_program` - The token program.
 /// * `user` - The user account (mut, signer).
-/// * `folio_owner` - The folio owner account (PDA) (not mut, not signer).
-/// * `actor` - The actor account of the Folio Owner (PDA) (not mut, not signer).
-/// * `folio` - The folio account (PDA) (not mut, not signer).
-/// * `folio_reward_tokens` - The folio reward tokens account (PDA) (not mut, not signer).
 /// * `realm` - The realm account (PDA) (not mut, not signer).
+/// * `reward_tokens` - The reward tokens account (PDA) (not mut, not signer).
 /// * `governance_token_mint` - The governance token mint (community mint) (PDA) (not mut, not signer).
 /// * `governance_staked_token_account` - The governance staked token account of all tokens staked in the Realm (PDA) (not mut, not signer).
 /// * `caller_governance_token_account` - The caller's token account of governance token (PDA) (not mut, not signer).
@@ -36,7 +33,7 @@ const REMAINING_ACCOUNTS_UPPER_INDEX_FOR_ACCRUE_REWARDS: usize = 4;
 ///
 /// - Reward token mint
 /// - Reward info for the token mint (mut)
-/// - Fee recipient reward token account (mut) (to send) (it is not the DAO's token account, it's the folio token rewards' token account)
+/// - Token rewards' token account (mut) (to send)
 /// - User reward info (mut)
 /// - User reward token account (mut) (to receive)
 #[derive(Accounts)]
@@ -47,32 +44,19 @@ pub struct ClaimRewards<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
-    /// CHECK: Folio owner
+    /// CHECK: Realm
     #[account()]
-    pub folio_owner: UncheckedAccount<'info>,
+    pub realm: UncheckedAccount<'info>,
 
     #[account(
-        seeds = [ACTOR_SEEDS, folio_owner.key().as_ref(), folio.key().as_ref()],
-        bump = actor.bump,
-    )]
-    pub actor: Account<'info, Actor>,
-
-    #[account()]
-    pub folio: AccountLoader<'info, Folio>,
-
-    #[account(
-        seeds = [FOLIO_REWARD_TOKENS_SEEDS, folio.key().as_ref()],
+        seeds = [REWARD_TOKENS_SEEDS, realm.key().as_ref()],
         bump,
     )]
-    pub folio_reward_tokens: AccountLoader<'info, FolioRewardTokens>,
+    pub reward_tokens: AccountLoader<'info, RewardTokens>,
 
     /*
     Required accounts for the accrue rewards instruction
      */
-    /// CHECK: Is the realm related to the folio owner
-    #[account()]
-    pub realm: UncheckedAccount<'info>,
-
     /// CHECK: the governance's token mint (community mint)
     #[account()]
     pub governance_token_mint: UncheckedAccount<'info>,
@@ -89,28 +73,10 @@ pub struct ClaimRewards<'info> {
 
     - Reward token mint
     - Reward info for the token mint (mut)
-    - Fee recipient reward token account (mut) (to send) (IS NOT THE DAO's TOKEN ACCOUNTS, it's the folio token rewards' token account)
+    - Token rewards' token account (mut) (to send)
     - User reward info (mut)
     - User reward token account (mut) (to receive)
      */
-}
-
-impl ClaimRewards<'_> {
-    /// Validate the instruction.
-    ///
-    /// # Checks
-    /// * Folio is valid PDA
-    /// * Actor is the folio owner's actor
-    pub fn validate(&self, folio: &Folio) -> Result<()> {
-        folio.validate_folio(
-            &self.folio.key(),
-            Some(&self.actor),
-            Some(vec![Role::Owner]),
-            None,
-        )?;
-
-        Ok(())
-    }
 }
 
 /// Claim rewards for a user.
@@ -120,13 +86,10 @@ impl ClaimRewards<'_> {
 /// # Arguments
 /// * `ctx` - The context of the instruction.
 pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -> Result<()> {
-    let folio_reward_tokens_key = ctx.accounts.folio_reward_tokens.key();
-    let folio_key = ctx.accounts.folio.key();
+    let reward_tokens_key = ctx.accounts.reward_tokens.key();
+    let realm_key = ctx.accounts.realm.key();
     let user_key = ctx.accounts.user.key();
     let token_program_id = ctx.accounts.token_program.key();
-
-    let folio = ctx.accounts.folio.load()?;
-    ctx.accounts.validate(&folio)?;
 
     check_condition!(
         ctx.remaining_accounts.len() % REMAINING_ACCOUNTS_DIVIDER == 0,
@@ -134,33 +97,30 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
     );
 
     // Accrue the rewards before
-    FolioProgramInternal::accrue_rewards(
+    RewardsProgramInternal::accrue_rewards(
         &ctx.accounts.system_program,
         &ctx.accounts.token_program,
         &ctx.accounts.realm,
-        &ctx.accounts.folio,
-        &ctx.accounts.actor,
-        &ctx.accounts.folio_owner,
         &ctx.accounts.governance_token_mint,
         &ctx.accounts.governance_staked_token_account,
         &ctx.accounts.user,
         &ctx.accounts.caller_governance_token_account,
-        &ctx.accounts.folio_reward_tokens,
+        &ctx.accounts.reward_tokens,
         // Only the first 4 accounts are needed for the accrue rewards instruction, the last one is for claim only
         &ctx.remaining_accounts[0..REMAINING_ACCOUNTS_UPPER_INDEX_FOR_ACCRUE_REWARDS],
         true,
     )?;
 
     // Proceed with the claim rewards
-    let folio_reward_tokens = ctx.accounts.folio_reward_tokens.load()?;
+    let reward_tokens = ctx.accounts.reward_tokens.load()?;
 
-    let folio_reward_tokens_seeds = &[
-        FOLIO_REWARD_TOKENS_SEEDS,
-        folio_key.as_ref(),
-        &[folio_reward_tokens.bump],
+    let reward_tokens_seeds = &[
+        REWARD_TOKENS_SEEDS,
+        realm_key.as_ref(),
+        &[reward_tokens.bump],
     ];
 
-    let signer_seeds = &[&folio_reward_tokens_seeds[..]];
+    let signer_seeds = &[&reward_tokens_seeds[..]];
 
     let mut remaining_accounts_iter = ctx.remaining_accounts.iter();
 
@@ -175,16 +135,15 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
             &mut remaining_accounts_iter,
             false,
             true,
-            &FolioProgram::id(),
+            &RewardsProgram::id(),
         )?;
-        // This is the folio reward tokens' token account, not the DAO's
-        let fee_recipient_token_account =
+        let token_rewards_token_account =
             next_account(&mut remaining_accounts_iter, false, true, &token_program_id)?;
         let user_reward_info = next_account(
             &mut remaining_accounts_iter,
             false,
             true,
-            &FolioProgram::id(),
+            &RewardsProgram::id(),
         )?;
         let user_reward_token_account =
             next_account(&mut remaining_accounts_iter, false, true, &token_program_id)?;
@@ -195,10 +154,10 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
                 == Pubkey::find_program_address(
                     &[
                         REWARD_INFO_SEEDS,
-                        folio_key.as_ref(),
+                        realm_key.as_ref(),
                         reward_token.key().as_ref()
                     ],
-                    &FolioProgram::id()
+                    &RewardsProgram::id()
                 )
                 .0,
             InvalidRewardInfo
@@ -207,11 +166,11 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
         let expected_pda_for_user = Pubkey::find_program_address(
             &[
                 USER_REWARD_INFO_SEEDS,
-                folio_key.as_ref(),
+                realm_key.as_ref(),
                 reward_token.key().as_ref(),
                 user_key.as_ref(),
             ],
-            &FolioProgram::id(),
+            &RewardsProgram::id(),
         );
 
         check_condition!(
@@ -223,13 +182,13 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
         let mint = Mint::try_deserialize(&mut &data[..])?;
 
         check_condition!(
-            fee_recipient_token_account.key()
+            token_rewards_token_account.key()
                 == associated_token::get_associated_token_address_with_program_id(
-                    &folio_reward_tokens_key,
+                    &reward_tokens_key,
                     &reward_token.key(),
                     &token_program_id,
                 ),
-            InvalidFeeRecipientTokenAccount
+            InvalidTokenRewardsTokenAccount
         );
 
         // Update the accounts
@@ -266,9 +225,9 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
 
         // Send the reward to the user
         let cpi_accounts = TransferChecked {
-            from: fee_recipient_token_account.to_account_info(),
+            from: token_rewards_token_account.to_account_info(),
             to: user_reward_token_account.to_account_info(),
-            authority: ctx.accounts.folio_reward_tokens.to_account_info(),
+            authority: ctx.accounts.reward_tokens.to_account_info(),
             mint: reward_token.to_account_info(),
         };
 

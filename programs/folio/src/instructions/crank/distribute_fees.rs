@@ -1,5 +1,4 @@
 use crate::utils::structs::FolioStatus;
-use crate::utils::{Decimal, Rounding};
 use crate::ID;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
@@ -13,6 +12,7 @@ use shared::constants::{
     FOLIO_FEE_CONFIG_SEEDS, FOLIO_SEEDS,
 };
 use shared::errors::ErrorCode;
+use shared::utils::{Decimal, Rounding};
 
 use crate::events::ProtocolFeePaid;
 use crate::state::{FeeDistribution, FeeRecipients, Folio};

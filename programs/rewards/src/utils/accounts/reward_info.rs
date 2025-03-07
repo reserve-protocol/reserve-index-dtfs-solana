@@ -1,9 +1,9 @@
 use crate::state::RewardInfo;
-use crate::utils::math_util::Decimal;
-use crate::utils::Rounding;
 use anchor_lang::prelude::*;
 use shared::check_condition;
 use shared::errors::ErrorCode;
+use shared::utils::math_util::Decimal;
+use shared::utils::Rounding;
 
 impl RewardInfo {
     /// Process the init if needed, meaning we initialize the account if it's not initialized yet and if it already is
@@ -12,14 +12,14 @@ impl RewardInfo {
     /// # Arguments
     /// * `account_reward_info` - The account to process the init for.
     /// * `context_bump` - The bump of the account provided in the anchor context.
-    /// * `folio` - The folio the reward info belongs to.
+    /// * `realm` - The realm the reward info belongs to.
     /// * `reward_token` - The reward token.
-    /// * `raw_last_known_balance` - The last known balance of the reward token in the token account of FolioRewardTokens.
+    /// * `raw_last_known_balance` - The last known balance of the reward token in the token account of RewardTokens.
     #[cfg(not(tarpaulin_include))]
     pub fn process_init_if_needed(
         account_reward_info: &mut Account<RewardInfo>,
         context_bump: u8,
-        folio: &Pubkey,
+        realm: &Pubkey,
         reward_token: &Pubkey,
         raw_last_known_balance: u64,
     ) -> Result<()> {
@@ -28,8 +28,8 @@ impl RewardInfo {
         } else {
             // Not initialized yet
             account_reward_info.bump = context_bump;
-            account_reward_info.folio = *folio;
-            account_reward_info.folio_reward_token = *reward_token;
+            account_reward_info.realm = *realm;
+            account_reward_info.reward_token = *reward_token;
             account_reward_info.payout_last_paid = Clock::get()?.unix_timestamp as u64;
             account_reward_info.reward_index = 0u128;
             account_reward_info.balance_accounted = 0;
@@ -43,14 +43,14 @@ impl RewardInfo {
     /// Accrue rewards for the "global" reward info account.
     ///
     /// # Arguments
-    /// * `scaled_folio_reward_ratio` - The folio reward ratio (D18).
-    /// * `raw_current_reward_token_balance` - The current balance of the reward token of the FolioRewardTokens account (D9).
+    /// * `scaled_reward_ratio` - The reward ratio (D18).
+    /// * `raw_current_reward_token_balance` - The current balance of the reward token of the RewardTokens account (D9).
     /// * `raw_current_staked_token_balance` - The current total staked balance of the governing mint token in the Realm (D9).
     /// * `current_token_decimals` - The decimals of the staked token.
     /// * `current_time` - The current time (seconds).
     pub fn accrue_rewards(
         &mut self,
-        scaled_folio_reward_ratio: u128,
+        scaled_reward_ratio: u128,
         raw_current_reward_token_balance: u64,
         raw_current_staked_token_balance: u64,
         current_token_decimals: u8,
@@ -72,7 +72,7 @@ impl RewardInfo {
             .checked_sub(self.balance_accounted)
             .ok_or(ErrorCode::MathOverflow)?;
 
-        let scaled_reward_ratio = Decimal::from_scaled(scaled_folio_reward_ratio);
+        let scaled_reward_ratio = Decimal::from_scaled(scaled_reward_ratio);
 
         let scaled_base = Decimal::ONE_E18.sub(&scaled_reward_ratio)?;
         let scaled_pow_result = scaled_base.pow(elapsed)?;
@@ -108,7 +108,7 @@ impl RewardInfo {
     ///
     /// # Arguments
     /// * `scaled_tokens_to_handout` - The tokens to handout (D18).
-    /// * `raw_current_reward_token_supply` - The current balance of the reward token of the FolioRewardTokens account (D9).
+    /// * `raw_current_reward_token_supply` - The current balance of the reward token of the RewardTokens account (D9).
     /// * `current_token_decimals` - The decimals of the reward token.
     pub fn calculate_delta_index(
         &mut self,

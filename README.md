@@ -105,7 +105,7 @@ Implementation features:
 
 2. Execute minting:
    - Call `mint_folio_token`
-   - Maximum 18 tokens without lookup table
+   - Maximum 16 tokens without lookup table
 
 ### Redemption Process
 1. Burn tokens:
@@ -271,6 +271,7 @@ The universal 15 bps fee floor can be lowered by the DAO, as well as set (only l
 2. Key Management:
    > Note: Local Development keys are included in `/utils/keys/`
    - `folio_admin-keypair-local.json`: Folio Admin program ID
+   - `rewards-keypair-local.json`: Rewards program ID
    - `folio-keypair-local.json`: Folio Primary program ID
    - `folio-2-keypair-local.json`: Folio Secondary program ID
    - `spl-governance-keypair.json`: Custom Governance program ID
@@ -288,6 +289,7 @@ wallet = "~/.config/solana/id.json"
 [programs.localnet]
 folio = "n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG"
 folio_admin = "7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn"
+rewards = "7GiMvNDHVY8PXWQLHjSf1REGKpiDsVzRr4p7Y3xGbSuf"
 ```
 
 #### Build Process
@@ -296,6 +298,7 @@ Execute `build-local.sh`:
 2. Dual Folio program builds:
    - Standard instance
    - Development instance (feature-enabled) (can be migrated to for testing purposes)
+3. Normal build of Folio Admin and Rewards programs
 
 ### Key Management
 
@@ -304,10 +307,12 @@ Execute `build-local.sh`:
 # Generate new keypairs
 solana-keygen new -o folio_admin-keypair.json --no-bip39-passphrase
 solana-keygen new -o folio-keypair.json --no-bip39-passphrase
+solana-keygen new -o rewards.json --no-bip39-passphrase
 
 # View public keys
 solana address -k target/deploy/folio_admin-keypair.json
 solana address -k target/deploy/folio-keypair.json
+solana address -k target/deploy/rewards.json
 ```
 
 > Important: Backup deployment keys for devnet/mainnet environments to maintain upgrade capability
@@ -531,9 +536,10 @@ classDiagram
 ### Reward System
 ```mermaid
 classDiagram
-    class FolioRewardTokens {
+    class RewardTokens {
         +bump: u8
-        +folio: Pubkey
+        +realm: Pubkey
+        +rewards_admin: Pubkey
         +reward_ratio: u128
         +reward_tokens: Pubkey[]
         +disallowed_token: Pubkey[]
@@ -541,8 +547,8 @@ classDiagram
 
     class RewardInfo {
         +bump: u8
-        +folio: Pubkey
-        +folio_reward_token: Pubkey
+        +realm: Pubkey
+        +reward_token: Pubkey
         +payout_last_paid: u64
         +reward_index: u128
         +balance_accounted: u128
@@ -552,14 +558,13 @@ classDiagram
 
     class UserRewardInfo {
         +bump: u8
-        +folio: Pubkey
-        +folio_reward_token: Pubkey
+        +realm: Pubkey
+        +reward_token: Pubkey
         +last_reward_index: u128
         +accrued_rewards: u128
     }
 
-    Folio --> FolioRewardTokens: has one
-    FolioRewardTokens --> RewardInfo: has many
+    RewardTokens --> RewardInfo: has many
     RewardInfo --> UserRewardInfo: has many
 ```
 
@@ -582,6 +587,8 @@ sequenceDiagram
     participant Launcher as Auction Launcher
     participant User
     participant Folio
+    participant Rewards
+    participant Admin as Reward Admin
     
     %% Initialization Flow
     rect rgb(106, 106, 116)
@@ -618,10 +625,13 @@ sequenceDiagram
 
     %% Reward Management
     rect rgb(42, 36, 36)
-        Note over Owner, Folio: Reward Management
-        Owner->>Folio: add_reward_token()
-        User->>Folio: accrue_rewards()
-        User->>Folio: claim_rewards()
+        Note over Admin, Rewards: Reward Management
+        Admin->>Rewards: set_rewards_admin()        
+        Admin->>Rewards: init_or_set_reward_ratio()        
+        Admin->>Rewards: add_reward_token()
+        Admin->>Rewards: remove_reward_token()
+        User->>Rewards: accrue_rewards()
+        User->>Rewards: claim_rewards()
     end
 
     %% Fee Management

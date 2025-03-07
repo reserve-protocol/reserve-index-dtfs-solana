@@ -3,14 +3,14 @@
 #[cfg(test)]
 mod tests {
     use anchor_lang::prelude::Pubkey;
-    use folio::state::{RewardInfo, UserRewardInfo};
+    use rewards::state::{RewardInfo, UserRewardInfo};
 
     #[test]
     fn test_accrue_rewards() {
         let mut user_reward_info = UserRewardInfo {
             bump: 1,
-            folio: Pubkey::new_unique(),
-            folio_reward_token: Pubkey::new_unique(),
+            realm: Pubkey::new_unique(),
+            reward_token: Pubkey::new_unique(),
             last_reward_index: 0,
             accrued_rewards: 0,
         };
@@ -34,8 +34,8 @@ mod tests {
     fn test_accrue_rewards_multiple_updates() {
         let mut user_reward_info = UserRewardInfo {
             bump: 1,
-            folio: Pubkey::new_unique(),
-            folio_reward_token: Pubkey::new_unique(),
+            realm: Pubkey::new_unique(),
+            reward_token: Pubkey::new_unique(),
             last_reward_index: 1_000000000000000000u128, // 1 * D18
             accrued_rewards: 1_000000000000000000u128,   // 1 * D18
         };
@@ -61,8 +61,8 @@ mod tests {
     fn test_accrue_rewards_zero_balance() {
         let mut user_reward_info = UserRewardInfo {
             bump: 1,
-            folio: Pubkey::new_unique(),
-            folio_reward_token: Pubkey::new_unique(),
+            realm: Pubkey::new_unique(),
+            reward_token: Pubkey::new_unique(),
             last_reward_index: 1_000000000000000000u128,
             accrued_rewards: 1_000000000000000000u128,
         };
@@ -84,8 +84,8 @@ mod tests {
     fn test_accrue_rewards_no_index_change() {
         let mut user_reward_info = UserRewardInfo {
             bump: 1,
-            folio: Pubkey::new_unique(),
-            folio_reward_token: Pubkey::new_unique(),
+            realm: Pubkey::new_unique(),
+            reward_token: Pubkey::new_unique(),
             last_reward_index: 1_000000000000000000u128,
             accrued_rewards: 1_000000000000000000u128,
         };
@@ -108,8 +108,8 @@ mod tests {
     fn test_accrue_rewards_fractional() {
         let mut user_reward_info = UserRewardInfo {
             bump: 1,
-            folio: Pubkey::new_unique(),
-            folio_reward_token: Pubkey::new_unique(),
+            realm: Pubkey::new_unique(),
+            reward_token: Pubkey::new_unique(),
             last_reward_index: 0,
             accrued_rewards: 0,
         };
@@ -133,8 +133,8 @@ mod tests {
     fn test_accrue_rewards_overflow() {
         let mut user_reward_info = UserRewardInfo {
             bump: 1,
-            folio: Pubkey::new_unique(),
-            folio_reward_token: Pubkey::new_unique(),
+            realm: Pubkey::new_unique(),
+            reward_token: Pubkey::new_unique(),
             last_reward_index: 2_000000000000000000u128,
             accrued_rewards: 0,
         };

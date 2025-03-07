@@ -73,6 +73,9 @@ pub const LN_2: u128 = 693_147_180_559_945_309;
 /// FOLIO_PROGRAM_ID is the program id of the folio program, used to validate the folio program seeds on the set folio fee config
 pub const FOLIO_PROGRAM_ID: Pubkey = pubkey!("n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG");
 
+/// REWARDS_PROGRAM_ID is the program id of the rewards program, used to validate the rewards program seeds on the set folio fee config
+pub const REWARDS_PROGRAM_ID: Pubkey = pubkey!("7GiMvNDHVY8PXWQLHjSf1REGKpiDsVzRr4p7Y3xGbSuf");
+
 pub enum PendingBasketType {
     MintProcess,
     RedeemProcess,

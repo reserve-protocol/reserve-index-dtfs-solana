@@ -23,6 +23,8 @@ import idlSecondFolio from "../target/idl/second_folio.json";
 import * as assert from "assert";
 import { FolioAdmin } from "../target/types/folio_admin";
 import idlFolioAdmin from "../target/idl/folio_admin.json";
+import idlRewards from "../target/idl/rewards.json";
+import { Rewards } from "../target/types/rewards";
 
 /**
  * Utility functions for program interaction and transaction management.
@@ -72,6 +74,7 @@ export async function getConnectors() {
     programSecondFolio: new anchor.Program<SecondFolio>(
       idlSecondFolio as SecondFolio
     ),
+    programRewards: new anchor.Program<Rewards>(idlRewards as Rewards),
     anchorProvider,
   };
 }

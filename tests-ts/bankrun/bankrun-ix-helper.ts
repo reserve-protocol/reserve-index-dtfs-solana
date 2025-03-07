@@ -6,13 +6,13 @@ import {
   getFolioBasketPDA,
   getTVLFeeRecipientsPDA,
   getFolioPDA,
-  getFolioRewardTokensPDA,
   getMetadataPDA,
   getProgramRegistrarPDA,
   getRewardInfoPDA,
   getAuctionPDA,
   getUserPendingBasketPDA,
   getFolioFeeConfigPDA,
+  getRewardTokensPDA,
 } from "../../utils/pda-helper";
 import {
   AccountMeta,
@@ -35,6 +35,7 @@ import { getComputeLimitInstruction } from "../../utils/program-helper";
 import {
   FOLIO_PROGRAM_ID,
   OTHER_ADMIN_KEY,
+  REWARDS_PROGRAM_ID,
   SPL_GOVERNANCE_PROGRAM_ID,
   TOKEN_METADATA_PROGRAM_ID,
 } from "../../utils/constants";
@@ -50,6 +51,7 @@ import {
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
 import { FolioAdmin } from "../../target/types/folio_admin";
 import { SplGovernance } from "governance-idl-sdk";
+import { Rewards } from "../../target/types/rewards";
 
 /**
 Helper functions to create the instructions for calling the different programs.
@@ -893,249 +895,6 @@ export async function crankFeeDistribution<T extends boolean = true>(
   return { ix: crankFeeDistribution, extraSigners: [] } as any;
 }
 
-/*
-Expected to be called via the spl governance program
-*/
-export async function addRewardToken<T extends boolean = true>(
-  context: ProgramTestContext,
-  client: BanksClient,
-  programFolio: Program<Folio>,
-  executor: Keypair,
-  // Is a governance account
-  folioOwner: PublicKey,
-  folio: PublicKey,
-  rewardToken: PublicKey,
-  rewardPeriod: BN,
-  executeTxn: T = true as T,
-  rewardTokenATA: PublicKey = null
-): Promise<
-  T extends true
-    ? BanksTransactionResultWithMeta
-    : { ix: TransactionInstruction; extraSigners: any[] }
-> {
-  const addRewardToken = await programFolio.methods
-    .addRewardToken(rewardPeriod)
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      executor: executor.publicKey,
-      folioOwner: folioOwner,
-      actor: getActorPDA(folioOwner, folio),
-      folio,
-      folioRewardTokens: getFolioRewardTokensPDA(folio),
-      rewardTokenRewardInfo: getRewardInfoPDA(folio, rewardToken),
-      rewardToken,
-      rewardTokenAccount:
-        rewardTokenATA ??
-        (await getOrCreateAtaAddress(
-          context,
-          rewardToken,
-          getFolioRewardTokensPDA(folio)
-        )),
-    })
-    .instruction();
-
-  if (executeTxn) {
-    return createAndProcessTransaction(client, executor, [
-      ...getComputeLimitInstruction(800_000),
-      addRewardToken,
-    ]) as any;
-  }
-
-  return { ix: addRewardToken, extraSigners: [] } as any;
-}
-
-/*
-Expected to be called via the spl governance program
-*/
-export async function removeRewardToken<T extends boolean = true>(
-  client: BanksClient,
-  programFolio: Program<Folio>,
-  executor: Keypair,
-  // Is a governance account
-  folioOwner: PublicKey,
-  folio: PublicKey,
-  rewardTokenToRemove: PublicKey,
-
-  executeTxn: T = true as T
-): Promise<
-  T extends true
-    ? BanksTransactionResultWithMeta
-    : { ix: TransactionInstruction; extraSigners: any[] }
-> {
-  const removeRewardToken = await programFolio.methods
-    .removeRewardToken()
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      executor: executor.publicKey,
-      folioOwner: folioOwner,
-      actor: getActorPDA(folioOwner, folio),
-      folio,
-      folioRewardTokens: getFolioRewardTokensPDA(folio),
-      rewardTokenToRemove,
-    })
-    .instruction();
-
-  if (executeTxn) {
-    return createAndProcessTransaction(client, executor, [
-      removeRewardToken,
-    ]) as any;
-  }
-
-  return { ix: removeRewardToken, extraSigners: [] } as any;
-}
-
-/*
-Expected to be called via the spl governance program
-*/
-export async function initOrSetRewardRatio<T extends boolean = true>(
-  client: BanksClient,
-  programFolio: Program<Folio>,
-  executor: Keypair,
-  // Is a governance account
-  folioOwner: PublicKey,
-  folio: PublicKey,
-  realm: PublicKey,
-  governanceTokenMint: PublicKey,
-  governanceStakedTokenAccount: PublicKey,
-  callerGovernanceTokenAccount: PublicKey,
-  rewardPeriod: BN,
-  executeTxn: T = true as T
-): Promise<
-  T extends true
-    ? BanksTransactionResultWithMeta
-    : { ix: TransactionInstruction; extraSigners: any[] }
-> {
-  const initOrSetRewardRatio = await programFolio.methods
-    .initOrSetRewardRatio(rewardPeriod)
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      executor: executor.publicKey,
-      folioOwner: folioOwner,
-      actor: getActorPDA(folioOwner, folio),
-      folio,
-      folioRewardTokens: getFolioRewardTokensPDA(folio),
-      realm,
-      governanceTokenMint,
-      governanceStakedTokenAccount,
-      callerGovernanceTokenAccount,
-    })
-    .instruction();
-
-  if (executeTxn) {
-    return createAndProcessTransaction(client, executor, [
-      initOrSetRewardRatio,
-    ]) as any;
-  }
-
-  return { ix: initOrSetRewardRatio, extraSigners: [] } as any;
-}
-
-export async function accrueRewards<T extends boolean = true>(
-  client: BanksClient,
-  programFolio: Program<Folio>,
-  callerKeypair: Keypair,
-  realm: PublicKey,
-  // Is a governance account
-  folioOwner: PublicKey,
-  folio: PublicKey,
-  governanceMint: PublicKey,
-  governanceHoldingTokenAccount: PublicKey,
-  callerGovernanceTokenAccount: PublicKey,
-  userGovernanceTokenAccount: PublicKey,
-  extraUser: PublicKey = callerKeypair.publicKey,
-  executeTxn: T = true as T,
-  remainingAccounts: AccountMeta[] = []
-): Promise<
-  T extends true
-    ? BanksTransactionResultWithMeta
-    : { ix: TransactionInstruction; extraSigners: any[] }
-> {
-  const accrueRewards = await programFolio.methods
-    .accrueRewards()
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      caller: callerKeypair.publicKey,
-      realm,
-      folioOwner,
-      actor: getActorPDA(folioOwner, folio),
-      folio,
-      folioRewardTokens: getFolioRewardTokensPDA(folio),
-      governanceTokenMint: governanceMint,
-      governanceStakedTokenAccount: governanceHoldingTokenAccount,
-      callerGovernanceTokenAccount,
-      userGovernanceTokenAccount,
-      user: extraUser ?? callerKeypair.publicKey,
-    })
-    .remainingAccounts(remainingAccounts)
-    .instruction();
-
-  if (executeTxn) {
-    return createAndProcessTransaction(client, callerKeypair, [
-      ...getComputeLimitInstruction(600_000),
-      accrueRewards,
-    ]) as any;
-  }
-
-  return { ix: accrueRewards, extraSigners: [] } as any;
-}
-
-export async function claimRewards<T extends boolean = true>(
-  context: ProgramTestContext,
-  client: BanksClient,
-  programFolio: Program<Folio>,
-  userKeypair: Keypair,
-  folioOwner: PublicKey,
-  folio: PublicKey,
-  realm: PublicKey,
-  governanceTokenMint: PublicKey,
-  governanceStakedTokenAccount: PublicKey,
-  callerGovernanceTokenAccount: PublicKey,
-  rewardTokens: PublicKey[],
-  executeTxn: T = true as T,
-  remainingAccounts: AccountMeta[] = []
-): Promise<
-  T extends true
-    ? BanksTransactionResultWithMeta
-    : { ix: TransactionInstruction; extraSigners: any[] }
-> {
-  const claimRewards = await programFolio.methods
-    .claimRewards()
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      user: userKeypair.publicKey,
-      folioOwner,
-      actor: getActorPDA(folioOwner, folio),
-      folio,
-      folioRewardTokens: getFolioRewardTokensPDA(folio),
-      realm,
-      governanceTokenMint,
-      governanceStakedTokenAccount,
-      callerGovernanceTokenAccount,
-    })
-    .remainingAccounts(
-      remainingAccounts.length > 0
-        ? remainingAccounts
-        : await buildRemainingAccountsForClaimRewards(
-            context,
-            userKeypair,
-            folio,
-            rewardTokens
-          )
-    )
-    .instruction();
-
-  if (executeTxn) {
-    return createAndProcessTransaction(client, userKeypair, [
-      claimRewards,
-    ]) as any;
-  }
-
-  return { ix: claimRewards, extraSigners: [] } as any;
-}
-
 export async function approveAuction<T extends boolean = true>(
   client: BanksClient,
   programFolio: Program<Folio>,
@@ -1440,12 +1199,275 @@ export async function migrateFolioTokens<T extends boolean = true>(
 }
 
 /*
+Rewards instructions
+*/
+
+/*
+Expected to be called via the spl governance program
+*/
+export async function setRewardsAdmin<T extends boolean = true>(
+  client: BanksClient,
+  programRewards: Program<Rewards>,
+  executor: Keypair,
+  // Is a governance account
+  rewardAdmin: PublicKey,
+  realm: PublicKey,
+  executeTxn: T = true as T
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const setRewardsAdmin = await programRewards.methods
+    .setRewardsAdmin()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      executor: executor.publicKey,
+      rewardAdmin,
+      realm,
+      rewardTokens: getRewardTokensPDA(realm),
+    })
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, executor, [
+      setRewardsAdmin,
+    ]) as any;
+  }
+
+  return { ix: setRewardsAdmin, extraSigners: [] } as any;
+}
+
+export async function addRewardToken<T extends boolean = true>(
+  context: ProgramTestContext,
+  client: BanksClient,
+  programRewards: Program<Rewards>,
+  executor: Keypair,
+  // Is a governance account
+  rewardAdmin: PublicKey,
+  realm: PublicKey,
+  rewardToken: PublicKey,
+  executeTxn: T = true as T,
+  rewardTokenATA: PublicKey = null
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const addRewardToken = await programRewards.methods
+    .addRewardToken()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      executor: executor.publicKey,
+      rewardAdmin,
+      realm,
+      rewardTokens: getRewardTokensPDA(realm),
+      rewardTokenRewardInfo: getRewardInfoPDA(realm, rewardToken),
+      rewardToken,
+      rewardTokenAccount:
+        rewardTokenATA ??
+        (await getOrCreateAtaAddress(
+          context,
+          rewardToken,
+          getRewardTokensPDA(realm)
+        )),
+    })
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, executor, [
+      ...getComputeLimitInstruction(800_000),
+      addRewardToken,
+    ]) as any;
+  }
+
+  return { ix: addRewardToken, extraSigners: [] } as any;
+}
+
+/*
+Expected to be called via the spl governance program
+*/
+export async function removeRewardToken<T extends boolean = true>(
+  client: BanksClient,
+  programRewards: Program<Rewards>,
+  executor: Keypair,
+  // Is a governance account
+  rewardAdmin: PublicKey,
+  realm: PublicKey,
+  rewardTokenToRemove: PublicKey,
+
+  executeTxn: T = true as T
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const removeRewardToken = await programRewards.methods
+    .removeRewardToken()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      executor: executor.publicKey,
+      rewardAdmin,
+      realm,
+      rewardTokens: getRewardTokensPDA(realm),
+      rewardTokenToRemove,
+    })
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, executor, [
+      removeRewardToken,
+    ]) as any;
+  }
+
+  return { ix: removeRewardToken, extraSigners: [] } as any;
+}
+
+/*
+Expected to be called via the spl governance program
+*/
+export async function initOrSetRewardRatio<T extends boolean = true>(
+  client: BanksClient,
+  programRewards: Program<Rewards>,
+  executor: Keypair,
+  // Is a governance account
+  rewardAdmin: PublicKey,
+  realm: PublicKey,
+  governanceTokenMint: PublicKey,
+  governanceStakedTokenAccount: PublicKey,
+  callerGovernanceTokenAccount: PublicKey,
+  rewardPeriod: BN,
+  executeTxn: T = true as T
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const initOrSetRewardRatio = await programRewards.methods
+    .initOrSetRewardRatio(rewardPeriod)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      executor: executor.publicKey,
+      rewardAdmin,
+      realm,
+      rewardTokens: getRewardTokensPDA(realm),
+      governanceTokenMint,
+      governanceStakedTokenAccount,
+      callerGovernanceTokenAccount,
+    })
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, executor, [
+      initOrSetRewardRatio,
+    ]) as any;
+  }
+
+  return { ix: initOrSetRewardRatio, extraSigners: [] } as any;
+}
+
+export async function accrueRewards<T extends boolean = true>(
+  client: BanksClient,
+  programRewards: Program<Rewards>,
+  callerKeypair: Keypair,
+  realm: PublicKey,
+  governanceMint: PublicKey,
+  governanceHoldingTokenAccount: PublicKey,
+  callerGovernanceTokenAccount: PublicKey,
+  userGovernanceTokenAccount: PublicKey,
+  extraUser: PublicKey = callerKeypair.publicKey,
+  executeTxn: T = true as T,
+  remainingAccounts: AccountMeta[] = []
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const accrueRewards = await programRewards.methods
+    .accrueRewards()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      caller: callerKeypair.publicKey,
+      realm,
+      rewardTokens: getRewardTokensPDA(realm),
+      governanceTokenMint: governanceMint,
+      governanceStakedTokenAccount: governanceHoldingTokenAccount,
+      callerGovernanceTokenAccount,
+      userGovernanceTokenAccount,
+      user: extraUser ?? callerKeypair.publicKey,
+    })
+    .remainingAccounts(remainingAccounts)
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, callerKeypair, [
+      ...getComputeLimitInstruction(600_000),
+      accrueRewards,
+    ]) as any;
+  }
+
+  return { ix: accrueRewards, extraSigners: [] } as any;
+}
+
+export async function claimRewards<T extends boolean = true>(
+  context: ProgramTestContext,
+  client: BanksClient,
+  programRewards: Program<Rewards>,
+  userKeypair: Keypair,
+  realm: PublicKey,
+  governanceTokenMint: PublicKey,
+  governanceStakedTokenAccount: PublicKey,
+  callerGovernanceTokenAccount: PublicKey,
+  rewardTokens: PublicKey[],
+  executeTxn: T = true as T,
+  remainingAccounts: AccountMeta[] = []
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const claimRewards = await programRewards.methods
+    .claimRewards()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      user: userKeypair.publicKey,
+      realm,
+      rewardTokens: getRewardTokensPDA(realm),
+      governanceTokenMint,
+      governanceStakedTokenAccount,
+      callerGovernanceTokenAccount,
+    })
+    .remainingAccounts(
+      remainingAccounts.length > 0
+        ? remainingAccounts
+        : await buildRemainingAccountsForClaimRewards(
+            context,
+            userKeypair,
+            realm,
+            rewardTokens
+          )
+    )
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, userKeypair, [
+      claimRewards,
+    ]) as any;
+  }
+
+  return { ix: claimRewards, extraSigners: [] } as any;
+}
+
+/*
 Governance instructions
 */
 
-function getGovernanceClient(programFolio: Program<Folio>) {
+function getGovernanceClient(programRewards: Program<Rewards>) {
   return new SplGovernance(
-    programFolio.provider.connection as any,
+    programRewards.provider.connection as any,
     SPL_GOVERNANCE_PROGRAM_ID
   );
 }
@@ -1453,8 +1475,7 @@ function getGovernanceClient(programFolio: Program<Folio>) {
 async function buildGovernanceAccrueRewardsRemainingAccounts(
   context: ProgramTestContext,
   userKeypair: Keypair,
-  folioOwner: PublicKey,
-  folio: PublicKey,
+  realm: PublicKey,
   governanceTokenMint: PublicKey,
   rewardTokens: PublicKey[],
   withSystemProgram: boolean = true
@@ -1464,11 +1485,8 @@ async function buildGovernanceAccrueRewardsRemainingAccounts(
   /* Order is
    *
    * system_program (if needed)
-   * folio_program_info
-   * folio_owner
-   * actor
-   * folio
-   * folio_reward_tokens
+   * rewards_program_info
+   * rewards_reward_tokens
    * governance_token_mint
    * reward token accounts
    */
@@ -1482,31 +1500,13 @@ async function buildGovernanceAccrueRewardsRemainingAccounts(
   }
 
   remainingAccounts.push({
-    pubkey: FOLIO_PROGRAM_ID,
+    pubkey: REWARDS_PROGRAM_ID,
     isSigner: false,
     isWritable: false,
   });
 
   remainingAccounts.push({
-    pubkey: folioOwner,
-    isSigner: false,
-    isWritable: false,
-  });
-
-  remainingAccounts.push({
-    pubkey: getActorPDA(folioOwner, folio),
-    isSigner: false,
-    isWritable: false,
-  });
-
-  remainingAccounts.push({
-    pubkey: folio,
-    isSigner: false,
-    isWritable: false,
-  });
-
-  remainingAccounts.push({
-    pubkey: getFolioRewardTokensPDA(folio),
+    pubkey: getRewardTokensPDA(realm),
     isSigner: false,
     isWritable: false,
   });
@@ -1521,7 +1521,7 @@ async function buildGovernanceAccrueRewardsRemainingAccounts(
     ...(await buildRemainingAccountsForAccruesRewards(
       context,
       userKeypair,
-      folio,
+      realm,
       rewardTokens
     ))
   );
@@ -1531,18 +1531,16 @@ async function buildGovernanceAccrueRewardsRemainingAccounts(
 
 export async function depositLiquidityToGovernance(
   context: ProgramTestContext,
-  programFolio: Program<Folio>,
+  programRewards: Program<Rewards>,
   userKeypair: Keypair,
   realm: PublicKey,
-  folioOwnerPDA: PublicKey,
-  folioPDA: PublicKey,
   governanceTokenMint: PublicKey,
   userATA: PublicKey,
   rewardTokens: PublicKey[],
   amount: BN
 ): Promise<BanksTransactionResultWithMeta> {
   const depositIx = await getGovernanceClient(
-    programFolio
+    programRewards
   ).depositGoverningTokensInstruction(
     realm,
     governanceTokenMint,
@@ -1557,8 +1555,7 @@ export async function depositLiquidityToGovernance(
     ...(await buildGovernanceAccrueRewardsRemainingAccounts(
       context,
       userKeypair,
-      folioOwnerPDA,
-      folioPDA,
+      realm,
       governanceTokenMint,
       rewardTokens,
       false
@@ -1573,17 +1570,15 @@ export async function depositLiquidityToGovernance(
 
 export async function withdrawLiquidityFromGovernance(
   context: ProgramTestContext,
-  programFolio: Program<Folio>,
+  programRewards: Program<Rewards>,
   userKeypair: Keypair,
   realm: PublicKey,
-  folioOwnerPDA: PublicKey,
-  folioPDA: PublicKey,
   governanceTokenMint: PublicKey,
   userATA: PublicKey,
   rewardTokens: PublicKey[]
 ): Promise<BanksTransactionResultWithMeta> {
   const withdrawIx = await getGovernanceClient(
-    programFolio
+    programRewards
   ).withdrawGoverningTokensInstruction(
     realm,
     governanceTokenMint,
@@ -1595,8 +1590,7 @@ export async function withdrawLiquidityFromGovernance(
     ...(await buildGovernanceAccrueRewardsRemainingAccounts(
       context,
       userKeypair,
-      folioOwnerPDA,
-      folioPDA,
+      realm,
       governanceTokenMint,
       rewardTokens,
       true

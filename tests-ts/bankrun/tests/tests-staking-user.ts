@@ -11,9 +11,8 @@ import {
 import {
   createAndSetActor,
   createAndSetFolio,
-  FolioStatus,
   createAndSetDaoFeeConfig,
-  createAndSetFolioRewardTokens,
+  createAndSetRewardTokens,
   RewardInfo,
   UserRewardInfo,
   createAndSetRewardInfo,
@@ -43,17 +42,14 @@ import { airdrop, assertError, getConnectors } from "../bankrun-program-helper";
 import { travelFutureSlot } from "../bankrun-program-helper";
 import {
   getFolioPDA,
-  getFolioRewardTokensPDA,
   getGovernanceHoldingPDA,
   getRewardInfoPDA,
+  getRewardTokensPDA,
   getUserRewardInfoPDA,
   getUserTokenRecordRealmsPDA,
 } from "../../../utils/pda-helper";
 import { accrueRewards, claimRewards } from "../bankrun-ix-helper";
-import {
-  assertInvalidFolioStatusTestCase,
-  GeneralTestCases,
-} from "../bankrun-general-tests-helper";
+
 import * as assert from "assert";
 import { FolioAdmin } from "../../../target/types/folio_admin";
 import {
@@ -61,6 +57,7 @@ import {
   createGovernanceTokenRecord,
   setupGovernanceAccounts,
 } from "../bankrun-governance-helper";
+import { Rewards } from "../../../target/types/rewards";
 
 /**
  * Tests for user staking functionality, including:
@@ -77,6 +74,7 @@ describe("Bankrun - Staking User", () => {
   let banksClient: BanksClient;
 
   let programFolioAdmin: Program<FolioAdmin>;
+  let programRewards: Program<Rewards>;
   let programFolio: Program<Folio>;
 
   let keys: any;
@@ -85,6 +83,7 @@ describe("Bankrun - Staking User", () => {
   let adminKeypair: Keypair;
 
   let realmPDA: PublicKey;
+  let rewardsAdminPDA: PublicKey;
   let folioOwnerPDA: PublicKey;
 
   let folioTokenMint: Keypair;
@@ -111,7 +110,7 @@ describe("Bankrun - Staking User", () => {
 
     remainingAccounts: () => AccountMeta[];
 
-    folioRewardTokenBalances: {
+    rewardTokenBalances: {
       [key: string]: BN;
     };
     rewardInfosAlreadyThere: () => Promise<RewardInfo[]>;
@@ -149,7 +148,7 @@ describe("Bankrun - Staking User", () => {
 
     remainingAccounts: () => [],
 
-    folioRewardTokenBalances: {},
+    rewardTokenBalances: {},
     rewardInfosAlreadyThere: async () => [],
     userRewardInfosAlreadyThere: [],
     userStakedBalances: {},
@@ -179,11 +178,6 @@ describe("Bankrun - Staking User", () => {
 
   const TEST_ACCRUE_REWARDS = [
     {
-      desc: "(passes the wrong folio owner as account [not as signer, just not the right one], errors out)",
-      expectedError: "InvalidRole",
-      customRole: Role.AuctionLauncher,
-    },
-    {
       desc: "(passes wrong governance holding token account, errors out)",
       expectedError: "InvalidHoldingTokenAccount",
       governanceHoldingTokenAccount: PublicKey.default,
@@ -212,8 +206,8 @@ describe("Bankrun - Staking User", () => {
       indexAccountToInvalidate: INDEX_FOR_REMAINING_ACCOUNTS.USER_REWARD_INFO,
     },
     {
-      desc: "(passes wrong fee recipient token account, eerrors out)",
-      expectedError: "InvalidFeeRecipientTokenAccount",
+      desc: "(passes wrong token rewards token account, errors out)",
+      expectedError: "InvalidTokenRewardsTokenAccount",
       rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
       indexAccountToInvalidate: INDEX_FOR_REMAINING_ACCOUNTS.REWARD_TOKEN_ATA,
     },
@@ -260,7 +254,7 @@ describe("Bankrun - Staking User", () => {
       },
       rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
       timeToAddToClock: new BN(10),
-      folioRewardTokenBalances: {
+      rewardTokenBalances: {
         [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100),
       },
     },
@@ -297,7 +291,7 @@ describe("Bankrun - Staking User", () => {
         [rewardedUser1.publicKey.toBase58()]: new BN(100).mul(D9),
         [rewardedUser2.publicKey.toBase58()]: new BN(200).mul(D9),
       },
-      folioRewardTokenBalances: {
+      rewardTokenBalances: {
         [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100), // is multipled by decimals in function
         [REWARD_TOKEN_MINTS[1].publicKey.toBase58()]: new BN(1000), // is multipled by decimals in function
       },
@@ -336,7 +330,7 @@ describe("Bankrun - Staking User", () => {
         [rewardedUser1.publicKey.toBase58()]: new BN(100).mul(D9),
         [rewardedUser2.publicKey.toBase58()]: new BN(200).mul(D9),
       },
-      folioRewardTokenBalances: {
+      rewardTokenBalances: {
         [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100),
         [REWARD_TOKEN_MINTS[1].publicKey.toBase58()]: new BN(1000),
       },
@@ -362,7 +356,7 @@ describe("Bankrun - Staking User", () => {
         [rewardedUser1.publicKey.toBase58()]: new BN(100).mul(D9),
         [rewardedUser2.publicKey.toBase58()]: new BN(200).mul(D9),
       },
-      folioRewardTokenBalances: {
+      rewardTokenBalances: {
         [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100),
         [REWARD_TOKEN_MINTS[1].publicKey.toBase58()]: new BN(1000),
       },
@@ -388,7 +382,7 @@ describe("Bankrun - Staking User", () => {
         [rewardedUser1.publicKey.toBase58()]: new BN(100).mul(D9),
         [rewardedUser2.publicKey.toBase58()]: new BN(200).mul(D9),
       },
-      folioRewardTokenBalances: {
+      rewardTokenBalances: {
         [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100),
         [REWARD_TOKEN_MINTS[1].publicKey.toBase58()]: new BN(1000),
       },
@@ -427,7 +421,7 @@ describe("Bankrun - Staking User", () => {
         [rewardedUser1.publicKey.toBase58()]: new BN("500000000000"), // 500e9
         [rewardedUser2.publicKey.toBase58()]: new BN("500000000000"), // 500e9
       },
-      folioRewardTokenBalances: {
+      rewardTokenBalances: {
         [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN("1000"), // 1000 is multipled by decimals in function
       },
       rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
@@ -447,11 +441,6 @@ describe("Bankrun - Staking User", () => {
   ];
 
   const TEST_CLAIM_REWARDS = [
-    {
-      desc: "(passes the wrong folio owner as account [not as signer, just not the right one], errors out)",
-      expectedError: "InvalidRole",
-      customRole: Role.AuctionLauncher,
-    },
     {
       desc: "(passes wrong number of remaining accounts, errors out)",
       expectedError: "InvalidNumberOfRemainingAccounts",
@@ -476,15 +465,15 @@ describe("Bankrun - Staking User", () => {
       indexAccountToInvalidate: INDEX_FOR_REMAINING_ACCOUNTS.USER_REWARD_INFO,
     },
     {
-      desc: "(passes wrong fee recipient token account, errors out)",
-      expectedError: "InvalidFeeRecipientTokenAccount",
+      desc: "(passes wrong token rewards token account, errors out)",
+      expectedError: "InvalidTokenRewardsTokenAccount",
       rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
       indexAccountToInvalidate: INDEX_FOR_REMAINING_ACCOUNTS.REWARD_TOKEN_ATA,
     },
     {
       desc: "(claimable rewards == 0, errors out)",
       expectedError: "NoRewardsToClaim",
-      folioRewardTokenBalances: {
+      rewardTokenBalances: {
         [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100),
       },
       rewardInfosAlreadyThere: async () => [
@@ -504,7 +493,7 @@ describe("Bankrun - Staking User", () => {
     {
       desc: "(claimable rewards != 0, claims rewards)",
       expectedError: null,
-      folioRewardTokenBalances: {
+      rewardTokenBalances: {
         [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100).mul(D9),
       },
       rewardInfosAlreadyThere: async () => [
@@ -526,7 +515,7 @@ describe("Bankrun - Staking User", () => {
 
   function getInvalidGovernanceAccount(): PublicKey {
     const invalidGovernanceAccount = getUserTokenRecordRealmsPDA(
-      folioOwnerPDA,
+      realmPDA,
       GOVERNANCE_MINT.publicKey,
       Keypair.generate().publicKey
     );
@@ -575,15 +564,15 @@ describe("Bankrun - Staking User", () => {
     const userRewardInfos: UserRewardInfo[] = [];
 
     for (const rewardToken of rewardsTokenToClaim) {
-      const rewardInfoPDA = getRewardInfoPDA(folioPDA, rewardToken);
+      const rewardInfoPDA = getRewardInfoPDA(realmPDA, rewardToken);
 
-      const rewardInfo = await programFolio.account.rewardInfo.fetch(
+      const rewardInfo = await programRewards.account.rewardInfo.fetch(
         rewardInfoPDA
       );
 
       rewardInfos.push(
         new RewardInfo(
-          rewardInfo.folioRewardToken,
+          rewardInfo.rewardToken,
           rewardInfo.payoutLastPaid,
           rewardInfo.rewardIndex,
           rewardInfo.balanceAccounted,
@@ -603,7 +592,7 @@ describe("Bankrun - Staking User", () => {
 
       for (const userToClaimFor of userToUse) {
         const userRewardInfoPDA = getUserRewardInfoPDA(
-          folioPDA,
+          realmPDA,
           rewardToken,
           userToClaimFor
         );
@@ -612,13 +601,12 @@ describe("Bankrun - Staking User", () => {
           continue;
         }
 
-        const userRewardInfo = await programFolio.account.userRewardInfo.fetch(
-          userRewardInfoPDA
-        );
+        const userRewardInfo =
+          await programRewards.account.userRewardInfo.fetch(userRewardInfoPDA);
 
         userRewardInfos.push(
           new UserRewardInfo(
-            userRewardInfo.folioRewardToken,
+            userRewardInfo.rewardToken,
             userToClaimFor,
             userRewardInfo.lastRewardIndex,
             userRewardInfo.accruedRewards
@@ -644,11 +632,12 @@ describe("Bankrun - Staking User", () => {
     } = {},
     rewardRatio: BN = new BN(8_022_536_812_037) // LN2 / min reward ratio available (so LN 2 / 1 day)
   ) {
-    ({ folioOwnerPDA, realmPDA } = await setupGovernanceAccounts(
-      context,
-      adminKeypair,
-      GOVERNANCE_MINT.publicKey
-    ));
+    ({ folioOwnerPDA, realmPDA, rewardsAdminPDA } =
+      await setupGovernanceAccounts(
+        context,
+        adminKeypair,
+        GOVERNANCE_MINT.publicKey
+      ));
 
     await createAndSetDaoFeeConfig(
       context,
@@ -683,16 +672,17 @@ describe("Bankrun - Staking User", () => {
       customRole
     );
 
-    await createAndSetFolioRewardTokens(
+    await createAndSetRewardTokens(
       context,
-      programFolio,
-      folioPDA,
+      programRewards,
+      realmPDA,
+      rewardsAdminPDA,
       rewardRatio, // LN2 / min reward ratio available (so LN 2 / 1 day)
       REWARD_TOKEN_MINTS.map((mint) => mint.publicKey),
       []
     );
 
-    const folioRewardTokensPDA = getFolioRewardTokensPDA(folioPDA);
+    const rewardTokensPDA = getRewardTokensPDA(realmPDA);
 
     // Init the reward tokens
     for (const rewardTokenMint of REWARD_TOKEN_MINTS) {
@@ -709,11 +699,11 @@ describe("Bankrun - Staking User", () => {
           initialRewardTokenBalances[
             rewardTokenMint.publicKey.toBase58()
           ].toNumber(),
-          folioRewardTokensPDA
+          rewardTokensPDA
         );
       }
 
-      initToken(context, folioPDA, rewardTokenMint, DEFAULT_DECIMALS, supply);
+      initToken(context, realmPDA, rewardTokenMint, DEFAULT_DECIMALS, supply);
 
       await resetTokenBalance(
         context,
@@ -730,12 +720,17 @@ describe("Bankrun - Staking User", () => {
 
     // Reset reward info accounts
     for (const rewardToken of REWARD_TOKEN_MINTS) {
-      closeAccount(context, getRewardInfoPDA(folioPDA, rewardToken.publicKey));
+      closeAccount(context, getRewardInfoPDA(realmPDA, rewardToken.publicKey));
     }
 
     // Init reward info if provided
     for (const rewardInfo of rewardInfos) {
-      await createAndSetRewardInfo(context, programFolio, folioPDA, rewardInfo);
+      await createAndSetRewardInfo(
+        context,
+        programRewards,
+        realmPDA,
+        rewardInfo
+      );
     }
 
     // Reset user reward info account
@@ -743,7 +738,7 @@ describe("Bankrun - Staking User", () => {
       for (const user of [rewardedUser1.publicKey, rewardedUser2.publicKey]) {
         closeAccount(
           context,
-          getUserRewardInfoPDA(folioPDA, rewardToken.publicKey, user)
+          getUserRewardInfoPDA(realmPDA, rewardToken.publicKey, user)
         );
       }
     }
@@ -752,8 +747,8 @@ describe("Bankrun - Staking User", () => {
     for (const userRewardInfo of userRewardInfos) {
       await createAndSetUserRewardInfo(
         context,
-        programFolio,
-        folioPDA,
+        programRewards,
+        realmPDA,
         userRewardInfo
       );
     }
@@ -796,8 +791,14 @@ describe("Bankrun - Staking User", () => {
   }
 
   before(async () => {
-    ({ keys, programFolioAdmin, programFolio, provider, context } =
-      await getConnectors());
+    ({
+      keys,
+      programFolioAdmin,
+      programRewards,
+      programFolio,
+      provider,
+      context,
+    } = await getConnectors());
 
     banksClient = context.banksClient;
 
@@ -817,57 +818,6 @@ describe("Bankrun - Staking User", () => {
     await initBaseCase();
   });
 
-  describe("General Tests", () => {
-    const generalIxAccrueRewards = () =>
-      accrueRewards<true>(
-        banksClient,
-        programFolio,
-        rewardedUser1,
-        realmPDA,
-        folioOwnerPDA,
-        folioPDA,
-        GOVERNANCE_MINT.publicKey,
-        getGovernanceHoldingPDA(realmPDA, GOVERNANCE_MINT.publicKey),
-        rewardedUser1.publicKey,
-        getUserTokenRecordRealmsPDA(
-          realmPDA,
-          GOVERNANCE_MINT.publicKey,
-          rewardedUser1.publicKey
-        ),
-        getUserTokenRecordRealmsPDA(
-          realmPDA,
-          GOVERNANCE_MINT.publicKey,
-          rewardedUser1.publicKey
-        ),
-        true,
-        []
-      );
-
-    beforeEach(async () => {
-      await initBaseCase();
-    });
-
-    describe("should run general tests for accrue rewards", () => {
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for both KILLED and MIGRATING`, async () => {
-        await assertInvalidFolioStatusTestCase(
-          context,
-          programFolio,
-          folioTokenMint.publicKey,
-          generalIxAccrueRewards,
-          FolioStatus.Killed
-        );
-
-        await assertInvalidFolioStatusTestCase(
-          context,
-          programFolio,
-          folioTokenMint.publicKey,
-          generalIxAccrueRewards,
-          FolioStatus.Migrating
-        );
-      });
-    });
-  });
-
   describe("Specific Cases - Accrue Rewards", () => {
     TEST_ACCRUE_REWARDS.forEach(({ desc, expectedError, ...restOfParams }) => {
       describe(`When ${desc}`, () => {
@@ -877,7 +827,7 @@ describe("Bankrun - Staking User", () => {
           customRole,
           rewardInfosAlreadyThere,
           userRewardInfosAlreadyThere,
-          folioRewardTokenBalances,
+          rewardTokenBalances,
           rewardsTokenToClaim,
           indexAccountToInvalidate,
           extraUserToClaimFor,
@@ -918,7 +868,7 @@ describe("Bankrun - Staking User", () => {
             folioMintToUse,
             customRole,
             new BN(1000_000_000_000),
-            folioRewardTokenBalances,
+            rewardTokenBalances,
             rewardInfosAlreadyThereToUse,
             userRewardInfosAlreadyThere,
             userStakedBalances,
@@ -959,7 +909,7 @@ describe("Bankrun - Staking User", () => {
               await buildRemainingAccountsForAccruesRewards(
                 context,
                 rewardedUser1,
-                folioPDA,
+                realmPDA,
                 rewardsTokenToClaim,
                 extraUser
               );
@@ -995,11 +945,9 @@ describe("Bankrun - Staking User", () => {
 
           txnResult = await accrueRewards<true>(
             banksClient,
-            programFolio,
+            programRewards,
             rewardedUser1,
             realmPDA,
-            folioOwnerPDA,
-            folioPDA,
             GOVERNANCE_MINT.publicKey,
             governanceHoldingTokenAccount ??
               getGovernanceHoldingPDA(realmPDA, GOVERNANCE_MINT.publicKey),
@@ -1026,11 +974,9 @@ describe("Bankrun - Staking User", () => {
 
             txnResult = await accrueRewards<true>(
               banksClient,
-              programFolio,
+              programRewards,
               rewardedUser1,
               realmPDA,
-              folioOwnerPDA,
-              folioPDA,
               GOVERNANCE_MINT.publicKey,
               getGovernanceHoldingPDA(realmPDA, GOVERNANCE_MINT.publicKey),
               callerGovernanceTokenAccountToUse,
@@ -1057,16 +1003,15 @@ describe("Bankrun - Staking User", () => {
               );
 
             for (let i = 0; i < rewardInfos.length; i++) {
-              const initialRewardTokenBalanceOfFolio = (
-                folioRewardTokenBalances[
-                  rewardInfos[i].folioRewardToken.toBase58()
-                ] ?? new BN(0)
+              const initialRewardTokenBalanceOfRealm = (
+                rewardTokenBalances[rewardInfos[i].rewardToken.toBase58()] ??
+                new BN(0)
               ).mul(D18);
 
               assert.equal(
                 rewardInfos[i].balanceLastKnown.eq(
                   rewardInfosBefore[i].balanceLastKnown.add(
-                    initialRewardTokenBalanceOfFolio
+                    initialRewardTokenBalanceOfRealm
                   )
                 ),
                 true
@@ -1176,7 +1121,7 @@ describe("Bankrun - Staking User", () => {
           customRole,
           rewardInfosAlreadyThere,
           userRewardInfosAlreadyThere,
-          folioRewardTokenBalances,
+          rewardTokenBalances,
           rewardsTokenToClaim,
           indexAccountToInvalidate,
           remainingAccounts,
@@ -1198,7 +1143,7 @@ describe("Bankrun - Staking User", () => {
             folioTokenMint,
             customRole,
             new BN(1000_000_000_000),
-            folioRewardTokenBalances,
+            rewardTokenBalances,
             rewardInfosAlreadyThereToUse,
             userRewardInfosAlreadyThere
           );
@@ -1219,7 +1164,7 @@ describe("Bankrun - Staking User", () => {
               await buildRemainingAccountsForClaimRewards(
                 context,
                 rewardedUser1,
-                folioPDA,
+                realmPDA,
                 rewardsTokenToClaim
               );
           }
@@ -1251,10 +1196,8 @@ describe("Bankrun - Staking User", () => {
           txnResult = await claimRewards<true>(
             context,
             banksClient,
-            programFolio,
+            programRewards,
             rewardedUser1,
-            folioOwnerPDA,
-            folioPDA,
             realmPDA,
             GOVERNANCE_MINT.publicKey,
             getGovernanceHoldingPDA(realmPDA, GOVERNANCE_MINT.publicKey),

@@ -3,9 +3,10 @@ import { Keypair, PublicKey } from "@solana/web3.js";
 import idlFolio from "../target/idl/folio.json";
 import idlFolioAdmin from "../target/idl/folio_admin.json";
 import idlFolioSecond from "../target/idl/second_folio.json";
-
+import idlRewards from "../target/idl/rewards.json";
 // Programs
 export const FOLIO_ADMIN_PROGRAM_ID = new PublicKey(idlFolioAdmin.address);
+export const REWARDS_PROGRAM_ID = new PublicKey(idlRewards.address);
 export const FOLIO_PROGRAM_ID = new PublicKey(idlFolio.address);
 
 // Another Folio program ID to be able to test migrations

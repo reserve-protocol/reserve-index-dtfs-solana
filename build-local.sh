@@ -41,3 +41,6 @@ echo "Building first instance of the program..."
 cp utils/keys/folio-keypair-local.json target/deploy/folio-keypair.json
 anchor build
 # Want to keep original folio file names so no mv here
+
+# For the Folio Admin program and Rewards program, no need to build in a special way, anchor build will
+# do what's needed.

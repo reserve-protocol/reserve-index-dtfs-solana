@@ -1,8 +1,6 @@
 use crate::events::BasketTokenAdded;
 use crate::state::{Actor, Folio, FolioBasket};
-use crate::utils::account_util::next_account;
 use crate::utils::structs::{FolioStatus, Role};
-use crate::utils::TokenUtil;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::{get_associated_token_address_with_program_id, AssociatedToken};
 use anchor_spl::token;
@@ -10,6 +8,8 @@ use anchor_spl::token_interface::{self, Mint, TokenAccount, TokenInterface, Tran
 use shared::check_condition;
 use shared::constants::{ACTOR_SEEDS, FOLIO_BASKET_SEEDS, FOLIO_SEEDS};
 use shared::errors::ErrorCode;
+use shared::utils::account_util::next_account;
+use shared::utils::TokenUtil;
 
 const EXPECTED_REMAINING_ACCOUNTS_LENGTH: usize = 3;
 

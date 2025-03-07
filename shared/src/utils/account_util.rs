@@ -1,8 +1,8 @@
+use crate::{check_condition, errors::ErrorCode};
 use anchor_lang::{
     prelude::*,
     solana_program::{program::invoke_signed, system_instruction},
 };
-use shared::{check_condition, errors::ErrorCode};
 
 /// Helper function to validate the next account in an iterator.
 ///

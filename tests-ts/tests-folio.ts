@@ -30,7 +30,6 @@ import {
   removeActor,
   removeFromPendingBasket,
   removeRewardToken,
-  resizeFolio,
   updateFolio,
 } from "../utils/folio-helper";
 import * as assert from "assert";
@@ -287,25 +286,6 @@ describe("Folio Tests", () => {
         decimals: tokenMint.decimals,
       }))
     );
-  });
-
-  it("should resize folio", async () => {
-    const folioSizeBefore = (await connection.getAccountInfo(folioPDA))?.data
-      .length;
-
-    await resizeFolio(
-      connection,
-      folioOwnerKeypair,
-      folioPDA,
-      new BN(folioSizeBefore + 100)
-    );
-
-    await wait(2);
-
-    const folioSizeAfter = (await connection.getAccountInfo(folioPDA))?.data
-      .length;
-
-    assert.equal(folioSizeAfter, folioSizeBefore + 100);
   });
 
   it("should update fee per second of folio", async () => {

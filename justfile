@@ -11,8 +11,8 @@ install-tools:
     @if command -v cargo >/dev/null 2>&1; then \
         echo "Rust is already installed. Version: $(rustc --version)"; \
     else \
-        echo "Installing Rust (1.83)..."; \
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; \
+        echo "Installing Rust v1.83"; \
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.83; \
         source "$HOME/.cargo/env"; \
     fi
 
@@ -21,8 +21,8 @@ install-tools:
     @if command -v solana >/dev/null 2>&1; then \
         echo "Solana CLI is already installed. Version: $(solana --version)"; \
     else \
-        echo "Installing Solana CLI (2.1.x)..."; \
-        sh -c "$(curl -sSfL https://release.anza.xyz/v2.1.13/install)"; \
+        echo "Installing Solana v2.1.0"; \
+        sh -c "$(curl -sSfL https://release.anza.xyz/v2.1.0/install)"; \
         SOLANA_PATH="$HOME/.local/share/solana/install/active_release/bin"; \
         if [[ ":$PATH:" != *":$SOLANA_PATH:"* ]]; then \
             echo "Adding Solana to PATH..."; \
@@ -31,8 +31,8 @@ install-tools:
             export PATH="$SOLANA_PATH:$PATH"; \
         fi; \
     fi
-    @echo "Use Solana v2.1.13"
-    @agave-install init 2.1.13
+    @echo "Use Solana v2.1.0"
+    @agave-install init 2.1.0
 
     # Install Anchor
     @echo "Checking for Anchor..."
@@ -68,13 +68,13 @@ build-local:
 
     # Copy the built governance program
     @if [ -f "target/deploy/spl_governance.so" ]; then \
-        cp target/deploy/spl_governance.so ../dtfs-solana/tests-ts/programs/governance.so; \
+        cp target/deploy/spl_governance.so ../reserve-index-dtfs-solana/tests-ts/programs/governance.so; \
     elif [ -f "target/sbf-solana-solana/release/spl_governance.so" ]; then \
-        cp target/sbf-solana-solana/release/spl_governance.so ../dtfs-solana/tests-ts/programs/governance.so; \
+        cp target/sbf-solana-solana/release/spl_governance.so ../reserve-index-dtfs-solana/tests-ts/programs/governance.so; \
     fi
 
-    # Return to dtfs-solana directory
-    @cd ../dtfs-solana
+    # Return to reserve-index-dtfs-solana directory
+    @cd ../reserve-index-dtfs-solana
 
     # Build second Folio instance with feature flag
     @echo "Building second instance of the program..."

@@ -147,30 +147,6 @@ export async function initFolio(
   return folioPDA;
 }
 
-export async function resizeFolio(
-  connection: Connection,
-  folioOwnerKeypair: Keypair,
-  folio: PublicKey,
-  newSize: BN
-) {
-  const folioProgram = getFolioProgram(connection, folioOwnerKeypair);
-
-  const resizeFolio = await folioProgram.methods
-    .resizeFolio(newSize)
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      rent: SYSVAR_RENT_PUBKEY,
-      folioOwner: folioOwnerKeypair.publicKey,
-      actor: getActorPDA(folioOwnerKeypair.publicKey, folio),
-      folio: folio,
-    })
-    .instruction();
-
-  await pSendAndConfirmTxn(folioProgram, [resizeFolio], [], {
-    skipPreflight: SKIP_PREFLIGHT,
-  });
-}
-
 export async function updateFolio(
   connection: Connection,
   folioOwnerKeypair: Keypair,

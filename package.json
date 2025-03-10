@@ -18,6 +18,7 @@
     "solana-bankrun": "^0.4.0"
   },
   "devDependencies": {
+    "@metaplex-foundation/amman": "0.12.1",
     "@metaplex-foundation/amman-client": "^0.2.4",
     "@types/bn.js": "^5.1.0",
     "@types/chai": "^4.3.0",

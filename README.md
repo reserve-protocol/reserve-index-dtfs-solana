@@ -236,7 +236,7 @@ The universal 15 bps fee floor can be lowered by the DAO, as well as set (only l
    - Repository structure:
      ```
      parent_directory/
-     ├── dtfs-solana/         # Main repository
+     ├── reserve-index-dtfs-solana/         # Main repository
      └── solana-program-library/  # Custom SPL Governance
      ```
 

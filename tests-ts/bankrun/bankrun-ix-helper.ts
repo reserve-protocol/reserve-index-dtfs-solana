@@ -263,42 +263,6 @@ export async function initFolio<T extends boolean = true>(
   return { ix: initFolio, extraSigners: [folioTokenMint] } as any;
 }
 
-export async function resizeFolio<T extends boolean = true>(
-  client: BanksClient,
-  programFolio: Program<Folio>,
-  folioOwnerKeypair: Keypair,
-  folio: PublicKey,
-  newSize: BN,
-
-  executeTxn: T = true as T
-): Promise<
-  T extends true
-    ? BanksTransactionResultWithMeta
-    : { ix: TransactionInstruction; extraSigners: any[] }
-> {
-  const resizeFolio = await programFolio.methods
-    .resizeFolio(newSize)
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      rent: SYSVAR_RENT_PUBKEY,
-      folioOwner: !executeTxn
-        ? OTHER_ADMIN_KEY.publicKey
-        : folioOwnerKeypair.publicKey,
-      actor: getActorPDA(folioOwnerKeypair.publicKey, folio),
-
-      folio: folio,
-    })
-    .instruction();
-
-  if (executeTxn) {
-    return createAndProcessTransaction(client, folioOwnerKeypair, [
-      resizeFolio,
-    ]) as any;
-  }
-
-  return { ix: resizeFolio, extraSigners: [] } as any;
-}
-
 export async function updateFolio<T extends boolean = true>(
   context: ProgramTestContext,
   client: BanksClient,

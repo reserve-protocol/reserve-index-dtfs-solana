@@ -20,7 +20,6 @@
 //! # Instructions
 //!
 //! * `init_folio` - Initialize a folio.
-//! * `resize_folio` - Resize a folio (data size).
 //! * `update_folio` - Update a folio.
 //! * `init_or_update_actor` - Initialize or update an actor.
 //! * `remove_actor` - Remove an actor with the possibility to close the actor account.
@@ -97,10 +96,6 @@ pub mod folio {
             uri,
             mandate,
         )
-    }
-
-    pub fn resize_folio(ctx: Context<ResizeFolio>, new_size: u64) -> Result<()> {
-        resize_folio::handler(ctx, new_size)
     }
 
     #[allow(clippy::too_many_arguments)]

@@ -4,6 +4,8 @@ set shell := ["bash", "-cu"]
 # Environment variables
 set dotenv-load := true
 
+export PROGRAMS_DIR := "tests-ts/programs"
+
 # Install Rust, Solana CLI, and Anchor with version checks
 install-tools:
     # Check and install Rust
@@ -96,16 +98,33 @@ build-local:
     @cp utils/keys/folio-keypair-local.json target/deploy/folio-keypair.json
     @anchor build
 
+download-programs:
+    # Exit on error (Just equivalent of set -e)
+    @set -e
+
+    @PROGRAMS_DIR="tests-ts/programs"
+    @mkdir -p "{{PROGRAMS_DIR}}"
+
+    # Metaplex' Token Metadata Program
+    @if [ ! -f "{{PROGRAMS_DIR}}/metadata.so" ]; then \
+        solana program dump --url mainnet-beta metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s "{{PROGRAMS_DIR}}/metadata.so"; \
+    fi
+
+    # Squad's Multisig Program
+    @if [ ! -f "{{PROGRAMS_DIR}}/squads.so" ]; then \
+        solana program dump --url mainnet-beta SMPLecH534NA9acpos4G6x7uf3LWbCAwZQE9e8ZekMu "{{PROGRAMS_DIR}}/squads.so"; \
+    fi
+
 # Run Solana local validator and tests
 test-amman:
     # Go to git workspace root
     @cd "$(git rev-parse --show-toplevel)" || exit 1
 
     # Run setup scripts
-    @./download-programs.sh
-    @./build-local.sh
+    @just install-tools
+    @just download-programs
+    @just build-local
     @killall solana-test-validator || true
-    @agave-install init 2.1.13
 
     # Start amman in background (Just handles this naturally)
     @npx amman start --reset >/dev/null &
@@ -115,3 +134,13 @@ test-amman:
 
     # Run tests ( trap will handle cleanup of background processes)
     @bash -c 'trap "kill 0" SIGINT SIGQUIT EXIT; anchor test --skip-local-validator --skip-deploy --skip-build'
+
+test-bankrun:
+    # Go to git workspace root
+    @cd "$(git rev-parse --show-toplevel)" || exit 1
+
+    # Run setup scripts
+    @just install-tools
+    @just download-programs
+    @just build-local
+    @anchor run test-bankrun

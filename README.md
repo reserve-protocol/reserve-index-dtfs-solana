@@ -290,8 +290,8 @@ Execute `just build-local`:
 #### Program ID Generation
 ```bash
 # Generate new keypairs
-solana-keygen new -o target/deploy/folio_admin-keypair.json --no-bip39-passphrase
-solana-keygen new -o target/deploy/folio-keypair.json --no-bip39-passphrase
+solana-keygen new -o folio_admin-keypair.json --no-bip39-passphrase
+solana-keygen new -o folio-keypair.json --no-bip39-passphrase
 
 # View public keys
 solana address -k target/deploy/folio_admin-keypair.json
@@ -344,14 +344,7 @@ Located under `tests-ts/bankrun/`, these tests provide a middle ground between u
 
 #### Setup and Execution
 ```bash
-# 1. Build programs
-./build-local.sh
-
-# 2. Download required programs
-./download-programs.sh
-
-# 3. Run tests
-anchor run test-bankrun
+just test-bankrun
 ```
 
 > Note: Bankrun tests don't require a Solana test validator, making them significantly faster than traditional integration tests.
@@ -366,11 +359,11 @@ Located under `tests-ts/tests-*.ts`, these tests provide full end-to-end testing
 - Validates real-world scenarios
 
 #### Setup and Execution
-Run the tests:
-```bash
-# Terminal 1
-just test-amman
-```
+
+Start the test environment and run tests:
+   ```bash
+   just test-amman
+   ```
 
 #### Test Configuration
 - Uses Amman for transaction monitoring

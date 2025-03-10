@@ -1,0 +1,117 @@
+# Set the default shell to bash
+set shell := ["bash", "-cu"]
+
+# Environment variables
+set dotenv-load := true
+
+# Install Rust, Solana CLI, and Anchor with version checks
+install-tools:
+    # Check and install Rust
+    @echo "Checking for Rust..."
+    @if command -v cargo >/dev/null 2>&1; then \
+        echo "Rust is already installed. Version: $(rustc --version)"; \
+    else \
+        echo "Installing Rust (1.83)..."; \
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; \
+        source "$HOME/.cargo/env"; \
+    fi
+
+    # Check and install Solana CLI
+    @echo "Checking for Solana CLI..."
+    @if command -v solana >/dev/null 2>&1; then \
+        echo "Solana CLI is already installed. Version: $(solana --version)"; \
+    else \
+        echo "Installing Solana CLI (2.1.x)..."; \
+        sh -c "$(curl -sSfL https://release.anza.xyz/v2.1.13/install)"; \
+        SOLANA_PATH="$HOME/.local/share/solana/install/active_release/bin"; \
+        if [[ ":$PATH:" != *":$SOLANA_PATH:"* ]]; then \
+            echo "Adding Solana to PATH..."; \
+            echo 'export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"' >> ~/.bashrc; \
+            [ -f ~/.zshrc ] && echo 'export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"' >> ~/.zshrc; \
+            export PATH="$SOLANA_PATH:$PATH"; \
+        fi; \
+    fi
+    @echo "Use Solana v2.1.13"
+    @agave-install init 2.1.13
+
+    # Install Anchor
+    @echo "Checking for Anchor..."
+    @if command -v avm >/dev/null 2>&1; then \
+        echo "Anchor Version Manager already installed"; \
+    else \
+        echo "Installing Anchor..."; \
+        cargo install --git https://github.com/coral-xyz/anchor avm --force; \
+        avm install 0.30.1; \
+    fi
+
+    # Setup Anchor version
+    @echo "Setting up Anchor version 0.30.1"
+    @avm use 0.30.1
+
+    # Verification
+    @echo "Installation complete! Please restart your terminal or run 'source ~/.bashrc' (or ~/.zshrc if you use zsh)"
+    @echo "Verify installations:"
+    @echo "Rust: $(cargo --version 2>/dev/null || echo 'not found')"
+    @echo "Solana: $(solana --version 2>/dev/null || echo 'not found')"
+    @echo "Anchor: $(anchor --version 2>/dev/null || echo 'not found')"
+
+# Build custom SPL Governance and two Folio program instances
+build-local:
+    # Exit on error (Just equivalent of set -e)
+    @set -e
+
+    # Build SPL Governance program
+    @echo "Building SPL Governance program..."
+    @cd ../solana-program-library/governance/program
+    @cargo build-sbf
+    @cd ../..
+
+    # Copy the built governance program
+    @if [ -f "target/deploy/spl_governance.so" ]; then \
+        cp target/deploy/spl_governance.so ../dtfs-solana/tests-ts/programs/governance.so; \
+    elif [ -f "target/sbf-solana-solana/release/spl_governance.so" ]; then \
+        cp target/sbf-solana-solana/release/spl_governance.so ../dtfs-solana/tests-ts/programs/governance.so; \
+    fi
+
+    # Return to dtfs-solana directory
+    @cd ../dtfs-solana
+
+    # Build second Folio instance with feature flag
+    @echo "Building second instance of the program..."
+    @cp utils/keys/folio-2-keypair-local.json target/deploy/folio-keypair.json
+    @anchor build -- --features dev
+
+    # Update program ID in IDL and type files (Mac compatible)
+    @sed -i '' 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt/g' target/idl/folio.json
+    @sed -i '' 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt/g' target/types/folio.ts
+
+    # Rename second instance files
+    @mv target/idl/folio.json target/idl/second_folio.json
+    @mv target/types/folio.ts target/types/second_folio.ts
+    @mv target/deploy/folio.so target/deploy/second_folio.so
+    @mv target/deploy/folio-keypair.json target/deploy/second_folio-keypair.json
+
+    # Build first Folio instance
+    @echo "Building first instance of the program..."
+    @cp utils/keys/folio-keypair-local.json target/deploy/folio-keypair.json
+    @anchor build
+
+# Run Solana local validator and tests
+test-amman:
+    # Go to git workspace root
+    @cd "$(git rev-parse --show-toplevel)" || exit 1
+
+    # Run setup scripts
+    @./download-programs.sh
+    @./build-local.sh
+    @killall solana-test-validator || true
+    @agave-install init 2.1.13
+
+    # Start amman in background (Just handles this naturally)
+    @npx amman start --reset >/dev/null &
+
+    # Wait for validator to start
+    @sleep 5
+
+    # Run tests ( trap will handle cleanup of background processes)
+    @bash -c 'trap "kill 0" SIGINT SIGQUIT EXIT; anchor test --skip-local-validator --skip-deploy --skip-build'

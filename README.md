@@ -242,20 +242,8 @@ The universal 15 bps fee floor can be lowered by the DAO, as well as set (only l
 
 2. Development Tools:
    ```bash
-   # Install Rust
-   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-
-   # Install Solana
-   sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
-
-   # Configure PATH
-   echo 'export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"' >> ~/.zshrc
-   source ~/.zshrc
-
-   # Install Anchor
-   cargo install --git https://github.com/coral-xyz/anchor avm --force
-   avm install 0.30.1
-   avm use 0.30.1
+   cargo install just
+   just install-tools
    ```
 
 ### Environment Setup
@@ -291,7 +279,7 @@ folio_admin = "7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn"
 ```
 
 #### Build Process
-Execute `build-local.sh`:
+Execute `just build-local`:
 1. SPL Governance compilation
 2. Dual Folio program builds:
    - Standard instance
@@ -302,8 +290,8 @@ Execute `build-local.sh`:
 #### Program ID Generation
 ```bash
 # Generate new keypairs
-solana-keygen new -o folio_admin-keypair.json --no-bip39-passphrase
-solana-keygen new -o folio-keypair.json --no-bip39-passphrase
+solana-keygen new -o target/deploy/folio_admin-keypair.json --no-bip39-passphrase
+solana-keygen new -o target/deploy/folio-keypair.json --no-bip39-passphrase
 
 # View public keys
 solana address -k target/deploy/folio_admin-keypair.json
@@ -378,18 +366,11 @@ Located under `tests-ts/tests-*.ts`, these tests provide full end-to-end testing
 - Validates real-world scenarios
 
 #### Setup and Execution
-
-1. Start the test environment:
-   ```bash
-   # Terminal 1
-   ./start-amman.sh
-   ```
-
-2. Run the tests:
-   ```bash
-   # Terminal 2
-   tsc && anchor test --skip-local-validator --skip-deploy --skip-build
-   ```
+Run the tests:
+```bash
+# Terminal 1
+just test-amman
+```
 
 #### Test Configuration
 - Uses Amman for transaction monitoring

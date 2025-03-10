@@ -25,13 +25,8 @@ install-tools:
     else \
         echo "Installing Solana v2.1.0"; \
         sh -c "$(curl -sSfL https://release.anza.xyz/v2.1.0/install)"; \
-        SOLANA_PATH="$HOME/.local/share/solana/install/active_release/bin"; \
-        if [[ ":$PATH:" != *":$SOLANA_PATH:"* ]]; then \
-            echo "Adding Solana to PATH..."; \
-            echo 'export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"' >> ~/.bashrc; \
-            [ -f ~/.zshrc ] && echo 'export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"' >> ~/.zshrc; \
-            export PATH="$SOLANA_PATH:$PATH"; \
-        fi; \
+        echo 'export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"' >> ~/.zshrc; \
+        source ~/.zshrc; \
     fi
     @echo "Use Solana v2.1.0"
     @agave-install init 2.1.0
@@ -92,6 +87,8 @@ build-local:
     @mv target/types/folio.ts target/types/second_folio.ts
     @mv target/deploy/folio.so target/deploy/second_folio.so
     @mv target/deploy/folio-keypair.json target/deploy/second_folio-keypair.json
+
+    @cp .env.example .env
 
     # Build first Folio instance
     @echo "Building first instance of the program..."

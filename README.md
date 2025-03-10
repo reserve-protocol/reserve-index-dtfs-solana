@@ -279,7 +279,10 @@ folio_admin = "7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn"
 ```
 
 #### Build Process
-Execute `just build-local`:
+Execute:
+```bash
+just build-local
+```
 1. SPL Governance compilation
 2. Dual Folio program builds:
    - Standard instance

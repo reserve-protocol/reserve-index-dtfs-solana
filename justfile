@@ -127,7 +127,7 @@ test-amman:
     @npx amman start --reset >/dev/null &
 
     # Wait for validator to start
-    @sleep 5
+    @sleep 15
 
     # Run tests ( trap will handle cleanup of background processes)
     @bash -c 'trap "kill 0" SIGINT SIGQUIT EXIT; anchor test --skip-local-validator --skip-deploy --skip-build'

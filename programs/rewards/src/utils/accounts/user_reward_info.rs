@@ -1,13 +1,13 @@
 use std::io::Write;
 
 use crate::state::{RewardInfo, UserRewardInfo};
-use crate::utils::account_util::init_pda_account_rent;
-use crate::utils::{Decimal, Rounding};
-use crate::ID as FOLIO_ID;
+use crate::ID as REWARDS_ID;
 use anchor_lang::{prelude::*, Discriminator};
 use shared::check_condition;
 use shared::constants::USER_REWARD_INFO_SEEDS;
 use shared::errors::ErrorCode;
+use shared::utils::account_util::init_pda_account_rent;
+use shared::utils::{Decimal, Rounding};
 
 impl UserRewardInfo {
     /// Process the init if needed, meaning we initialize the account if it's not initialized yet and if it already is
@@ -19,10 +19,11 @@ impl UserRewardInfo {
     /// * `payer` - The payer of the UserRewardInfo account initialization.
     /// * `for_user` - The user the UserRewardInfo account will be initialized for.
     /// * `context_bump` - The bump of the account provided in the anchor context.
-    /// * `folio` - The folio the UserRewardInfo account belongs to.
+    /// * `realm` - The realm the UserRewardInfo account belongs to.
     /// * `reward_token` - The reward token the UserRewardInfo account will track.
     /// * `reward_info` - The reward info account.
     /// * `raw_user_balance` - The balance of the user's governance token that is staked in the Realm (D9).
+    #[allow(clippy::too_many_arguments)]
     #[cfg(not(tarpaulin_include))]
     pub fn process_init_if_needed<'info>(
         account_user_reward_info: &'info AccountInfo<'info>,
@@ -30,7 +31,7 @@ impl UserRewardInfo {
         payer: &AccountInfo<'info>,
         for_user: &Pubkey,
         context_bump: u8,
-        folio: &Pubkey,
+        realm: &Pubkey,
         reward_token: &Pubkey,
         reward_info: &Account<RewardInfo>,
         raw_user_balance: u64,
@@ -39,7 +40,7 @@ impl UserRewardInfo {
             {
                 let self_signer_seeds = &[
                     USER_REWARD_INFO_SEEDS,
-                    folio.as_ref(),
+                    realm.as_ref(),
                     reward_token.as_ref(),
                     for_user.as_ref(),
                     &[context_bump],
@@ -50,7 +51,7 @@ impl UserRewardInfo {
                     account_user_reward_info,
                     8 + UserRewardInfo::INIT_SPACE,
                     payer,
-                    &FOLIO_ID,
+                    &REWARDS_ID,
                     system_program,
                     self_signer,
                 )?;
@@ -61,7 +62,7 @@ impl UserRewardInfo {
 
                 let mut cursor = &mut data[8..];
                 cursor.write_all(&context_bump.to_le_bytes())?;
-                cursor.write_all(folio.as_ref())?;
+                cursor.write_all(realm.as_ref())?;
                 cursor.write_all(reward_token.as_ref())?;
                 cursor.write_all(&0u128.to_le_bytes())?;
                 cursor.write_all(&0u128.to_le_bytes())?;

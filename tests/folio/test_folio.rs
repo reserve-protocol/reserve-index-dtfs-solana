@@ -4,9 +4,10 @@
 mod tests {
     use anchor_lang::prelude::*;
     use folio::state::Folio;
-    use folio::utils::{AuctionEnd, Decimal, Rounding};
+    use folio::utils::AuctionEnd;
     use shared::constants::MAX_TVL_FEE;
     use shared::errors::ErrorCode;
+    use shared::utils::{Decimal, Rounding};
 
     #[test]
     fn test_set_tvl_fee_zero() {

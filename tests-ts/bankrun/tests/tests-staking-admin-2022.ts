@@ -6,19 +6,17 @@ import {
   BanksTransactionResultWithMeta,
   ProgramTestContext,
 } from "solana-bankrun";
-
 import {
   createAndSetActor,
   createAndSetFolio,
   createAndSetDaoFeeConfig,
-  createAndSetFolioRewardTokens,
+  createAndSetRewardTokens,
   closeAccount,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
 import {
   DEFAULT_DECIMALS,
   MAX_MINT_FEE,
-  MAX_REWARD_HALF_LIFE,
   MAX_REWARD_TOKENS,
 } from "../../../utils/constants";
 import {
@@ -34,10 +32,7 @@ import {
   getConnectors,
   travelFutureSlot,
 } from "../bankrun-program-helper";
-import {
-  getFolioPDA,
-  getFolioRewardTokensPDA,
-} from "../../../utils/pda-helper";
+import { getFolioPDA, getRewardTokensPDA } from "../../../utils/pda-helper";
 import { addRewardToken } from "../bankrun-ix-helper";
 
 import * as assert from "assert";
@@ -51,6 +46,7 @@ import {
   executeGovernanceInstruction,
   setupGovernanceAccounts,
 } from "../bankrun-governance-helper";
+import { Rewards } from "../../../target/types/rewards";
 
 /**
  * Tests for staking admin functionality with SPL Token 2022, including:
@@ -65,6 +61,7 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
   let banksClient: BanksClient;
 
   let programFolioAdmin: Program<FolioAdmin>;
+  let programRewards: Program<Rewards>;
   let programFolio: Program<Folio>;
 
   let keys: any;
@@ -75,6 +72,9 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
   let folioOwnerPDA: PublicKey;
   let folioTokenMint: Keypair;
   let folioPDA: PublicKey;
+
+  let realmPDA: PublicKey;
+  let rewardsAdminPDA: PublicKey;
 
   const REWARD_TOKEN_MINT = Keypair.generate();
   let rewardTokenATA: PublicKey;
@@ -105,11 +105,12 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
   ];
 
   async function initBaseCase(mintExtension: ExtensionType) {
-    ({ folioOwnerPDA } = await setupGovernanceAccounts(
-      context,
-      adminKeypair,
-      GOVERNANCE_MINT.publicKey
-    ));
+    ({ folioOwnerPDA, realmPDA, rewardsAdminPDA } =
+      await setupGovernanceAccounts(
+        context,
+        adminKeypair,
+        GOVERNANCE_MINT.publicKey
+      ));
 
     await createAndSetDaoFeeConfig(
       context,
@@ -134,7 +135,7 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
 
     rewardTokenATA = getAssociatedTokenAddressSync(
       REWARD_TOKEN_MINT.publicKey,
-      getFolioRewardTokensPDA(folioPDA),
+      getRewardTokensPDA(realmPDA),
       true,
       TOKEN_2022_PROGRAM_ID
     );
@@ -154,7 +155,7 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
       context,
       adminKeypair,
       REWARD_TOKEN_MINT.publicKey,
-      getFolioRewardTokensPDA(folioPDA),
+      getRewardTokensPDA(realmPDA),
       new BN(1000)
     );
   }
@@ -171,15 +172,21 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
       context,
       // Can be any keypair that acts as executor
       adminKeypair,
-      folioOwnerPDA,
+      rewardsAdminPDA,
       GOVERNANCE_MINT.publicKey,
       [ix]
     );
   }
 
   before(async () => {
-    ({ keys, programFolioAdmin, programFolio, provider, context } =
-      await getConnectors());
+    ({
+      keys,
+      programFolioAdmin,
+      programRewards,
+      programFolio,
+      provider,
+      context,
+    } = await getConnectors());
 
     banksClient = context.banksClient;
 
@@ -215,10 +222,11 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
               folioTokenMint.publicKey
             );
 
-            await createAndSetFolioRewardTokens(
+            await createAndSetRewardTokens(
               context,
-              programFolio,
-              folioPDA,
+              programRewards,
+              realmPDA,
+              rewardsAdminPDA,
               new BN(0),
               [],
               []
@@ -230,12 +238,11 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
               addRewardToken<false>(
                 context,
                 banksClient,
-                programFolio,
+                programRewards,
                 adminKeypair,
-                folioOwnerPDA,
-                folioPDA,
+                rewardsAdminPDA,
+                realmPDA,
                 REWARD_TOKEN_MINT.publicKey,
-                MAX_REWARD_HALF_LIFE,
                 false,
                 rewardTokenATA
               )
@@ -250,9 +257,9 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
             it("should succeed", async () => {
               await travelFutureSlot(context);
 
-              const folioRewardTokens =
-                await programFolio.account.folioRewardTokens.fetch(
-                  getFolioRewardTokensPDA(folioPDA)
+              const rewardTokens =
+                await programRewards.account.rewardTokens.fetch(
+                  getRewardTokensPDA(realmPDA)
                 );
 
               const expectedRewardTokensArray = buildExpectedArray(
@@ -266,7 +273,7 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
 
               for (let i = 0; i < MAX_REWARD_TOKENS; i++) {
                 assert.equal(
-                  folioRewardTokens.rewardTokens[i].toBase58(),
+                  rewardTokens.rewardTokens[i].toBase58(),
                   expectedRewardTokensArray[i].toBase58()
                 );
               }

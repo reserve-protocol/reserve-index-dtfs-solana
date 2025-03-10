@@ -8,9 +8,9 @@ describe("Bankrun", () => {
   require("./tests/tests-folio-minting");
   require("./tests/tests-folio-redeeming");
   require("./tests/tests-migration");
-  require("./tests/tests-staking-admin");
   require("./tests/tests-fees");
   require("./tests/tests-auction");
+  require("./tests/tests-staking-admin");
   require("./tests/tests-staking-user");
   require("./tests/tests-staking-governance");
   require("./tests/tests-staking-admin-2022");

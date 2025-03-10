@@ -5,6 +5,7 @@ import {
   TOKEN_METADATA_PROGRAM_ID,
   SPL_GOVERNANCE_PROGRAM_ID,
   FOLIO_SECOND_PROGRAM_ID,
+  REWARDS_PROGRAM_ID,
 } from "./constants";
 import BN from "bn.js";
 
@@ -155,52 +156,52 @@ export function getAuctionPDAWithBump(folio: PublicKey, auctionId: BN) {
   );
 }
 
-export function getFolioRewardTokensPDA(folio: PublicKey) {
-  return getFolioRewardTokensPDAWithBump(folio)[0];
+export function getRewardTokensPDA(realm: PublicKey) {
+  return getRewardTokensPDAWithBump(realm)[0];
 }
 
-export function getFolioRewardTokensPDAWithBump(folio: PublicKey) {
+export function getRewardTokensPDAWithBump(realm: PublicKey) {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("folio_reward_tokens"), folio.toBuffer()],
-    FOLIO_PROGRAM_ID
+    [Buffer.from("reward_tokens"), realm.toBuffer()],
+    REWARDS_PROGRAM_ID
   );
 }
 
-export function getRewardInfoPDA(folio: PublicKey, rewardToken: PublicKey) {
-  return getRewardInfoPDAWithBump(folio, rewardToken)[0];
+export function getRewardInfoPDA(realm: PublicKey, rewardToken: PublicKey) {
+  return getRewardInfoPDAWithBump(realm, rewardToken)[0];
 }
 
 export function getRewardInfoPDAWithBump(
-  folio: PublicKey,
+  realm: PublicKey,
   rewardToken: PublicKey
 ) {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("reward_info"), folio.toBuffer(), rewardToken.toBuffer()],
-    FOLIO_PROGRAM_ID
+    [Buffer.from("reward_info"), realm.toBuffer(), rewardToken.toBuffer()],
+    REWARDS_PROGRAM_ID
   );
 }
 
 export function getUserRewardInfoPDA(
-  folio: PublicKey,
+  realm: PublicKey,
   rewardToken: PublicKey,
   user: PublicKey
 ) {
-  return getUserRewardInfoPDAWithBump(folio, rewardToken, user)[0];
+  return getUserRewardInfoPDAWithBump(realm, rewardToken, user)[0];
 }
 
 export function getUserRewardInfoPDAWithBump(
-  folio: PublicKey,
+  realm: PublicKey,
   rewardToken: PublicKey,
   user: PublicKey
 ) {
   return PublicKey.findProgramAddressSync(
     [
       Buffer.from("user_reward_info"),
-      folio.toBuffer(),
+      realm.toBuffer(),
       rewardToken.toBuffer(),
       user.toBuffer(),
     ],
-    FOLIO_PROGRAM_ID
+    REWARDS_PROGRAM_ID
   );
 }
 

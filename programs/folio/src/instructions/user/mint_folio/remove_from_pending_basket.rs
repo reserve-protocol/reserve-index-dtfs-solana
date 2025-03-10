@@ -1,5 +1,4 @@
 use crate::state::{Folio, FolioBasket, UserPendingBasket};
-use crate::utils::account_util::next_account;
 use crate::utils::structs::TokenAmount;
 use anchor_lang::prelude::*;
 use anchor_spl::{
@@ -7,6 +6,7 @@ use anchor_spl::{
     token_interface::{self, Mint, TokenInterface, TransferChecked},
 };
 use shared::errors::ErrorCode;
+use shared::utils::account_util::next_account;
 use shared::{
     check_condition,
     constants::{PendingBasketType, FOLIO_BASKET_SEEDS, FOLIO_SEEDS, USER_PENDING_BASKET_SEEDS},

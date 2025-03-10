@@ -1,8 +1,8 @@
 //! Tests for the math utilities
 #[cfg(test)]
 mod tests {
-    use folio::utils::{Decimal, IntoU256, Rounding};
     use shared::constants::{D18_U256, D9_U256};
+    use shared::utils::{Decimal, IntoU256, Rounding};
     use spl_math::uint::U256;
 
     #[test]

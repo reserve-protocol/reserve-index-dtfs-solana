@@ -1,11 +1,12 @@
 use crate::program::Folio as FolioProgram;
 use crate::state::{Auction, Folio};
-use crate::utils::math_util::Decimal;
 use crate::utils::structs::AuctionStatus;
-use crate::utils::{AuctionEnd, BasketRange, Prices, Rounding};
+use crate::utils::{AuctionEnd, BasketRange, Prices};
 use anchor_lang::prelude::*;
 use shared::constants::{MAX_PRICE_RANGE, MAX_RATE, MAX_TTL};
 use shared::errors::ErrorCode;
+use shared::utils::math_util::Decimal;
+use shared::utils::Rounding;
 use shared::{check_condition, constants::AUCTION_SEEDS};
 use std::cell::RefMut;
 use std::cmp::max;

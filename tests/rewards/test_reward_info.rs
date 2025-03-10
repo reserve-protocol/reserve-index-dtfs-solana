@@ -1,7 +1,8 @@
 //! Tests for the RewardInfo state
 #[cfg(test)]
 mod tests {
-    use folio::{state::RewardInfo, utils::Decimal};
+    use rewards::state::RewardInfo;
+    use shared::utils::Decimal;
 
     #[test]
     fn test_accrue_rewards_basic() {

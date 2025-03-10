@@ -20,15 +20,11 @@ import {
   getFolioBasketPDA,
   getTVLFeeRecipientsPDA,
   getFolioPDA,
-  getFolioRewardTokensPDA,
   getMetadataPDA,
   getProgramRegistrarPDA,
-  getRewardInfoPDA,
   getAuctionPDA,
   getUserPendingBasketPDA,
-  getGovernanceHoldingPDA,
   getFolioFeeConfigPDA,
-  getUserTokenRecordRealmsPDA,
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -38,8 +34,6 @@ import { TOKEN_METADATA_PROGRAM_ID } from "./constants";
 import { getOrCreateAtaAddress } from "./token-helper";
 import {
   buildRemainingAccounts,
-  buildRemainingAccountsForAccruesRewards,
-  buildRemainingAccountsForClaimRewards,
   buildRemainingAccountsForMigrateFolioTokens,
 } from "./remaining-accounts-helper";
 import idlSecondFolio from "../target/idl/second_folio.json";
@@ -52,7 +46,7 @@ const SKIP_PREFLIGHT = true;
 
 /**
  * Core helper functions for interacting with the Folio protocol. Includes methods
- * for initializing folios, managing baskets, handling auctions, rewards, and
+ * for initializing folios, managing baskets, handling auctions, fees, and
  * migrations. Primary interface for most Folio program operations.
  */
 
@@ -869,208 +863,6 @@ export async function bid(
     .instruction();
 
   await pSendAndConfirmTxn(folioProgram, [bid], [], {
-    skipPreflight: SKIP_PREFLIGHT,
-  });
-}
-
-/**
- * For now this function expects the signer to be a governance account (folio owner)
- * this doesn't directly work as the governance account is a PDA owned by the SPL governance program,
- * to test this we'd need to create the realms, do proposals, etc. so instead it'll be tested with bankrun for now.
- */
-export async function addRewardToken(
-  connection: Connection,
-  executor: Keypair,
-  // Is a governance account
-  folioOwner: Keypair,
-  folio: PublicKey,
-  rewardToken: PublicKey,
-  rewardPeriod: BN
-) {
-  const folioProgram = getFolioProgram(connection, executor);
-
-  const addRewardToken = await folioProgram.methods
-    .addRewardToken(rewardPeriod)
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      executor: executor.publicKey,
-      folioOwner: folioOwner.publicKey,
-      actor: getActorPDA(folioOwner.publicKey, folio),
-      folio,
-      folioRewardTokens: getFolioRewardTokensPDA(folio),
-      rewardTokenRewardInfo: getRewardInfoPDA(folio, rewardToken),
-      rewardToken,
-      rewardTokenAccount: await getOrCreateAtaAddress(
-        connection,
-        rewardToken,
-        executor,
-        getFolioRewardTokensPDA(folio)
-      ),
-    })
-    .instruction();
-
-  await pSendAndConfirmTxn(folioProgram, [addRewardToken], [folioOwner], {
-    skipPreflight: SKIP_PREFLIGHT,
-  });
-}
-
-/**
- * For now this function expects the signer to be a governance account (folio owner)
- * this doesn't directly work as the governance account is a PDA owned by the SPL governance program,
- * to test this we'd need to create the realms, do proposals, etc. so instead it'll be tested with bankrun for now.
- */
-export async function removeRewardToken(
-  connection: Connection,
-  executor: Keypair,
-  // Is a governance account
-  folioOwner: Keypair,
-  folio: PublicKey,
-  rewardTokenToRemove: PublicKey
-) {
-  const folioProgram = getFolioProgram(connection, executor);
-
-  const removeRewardToken = await folioProgram.methods
-    .removeRewardToken()
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      executor: executor.publicKey,
-      folioOwner: folioOwner.publicKey,
-      actor: getActorPDA(folioOwner.publicKey, folio),
-      folio,
-      folioRewardTokens: getFolioRewardTokensPDA(folio),
-      rewardTokenToRemove,
-    })
-    .instruction();
-
-  await pSendAndConfirmTxn(folioProgram, [removeRewardToken], [folioOwner], {
-    skipPreflight: SKIP_PREFLIGHT,
-  });
-}
-
-/**
- * For now this function expects the signer to be a governance account (folio owner)
- * this doesn't directly work as the governance account is a PDA owned by the SPL governance program,
- * to test this we'd need to create the realms, do proposals, etc. so instead it'll be tested with bankrun for now.
- */
-export async function initOrSetRewardRatio(
-  connection: Connection,
-  executor: Keypair,
-  // Is a governance account
-  folioOwner: Keypair,
-  folio: PublicKey,
-  rewardPeriod: BN
-) {
-  const folioProgram = getFolioProgram(connection, executor);
-
-  const initOrSetRewardRatio = await folioProgram.methods
-    .initOrSetRewardRatio(rewardPeriod)
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      executor: executor.publicKey,
-      folioOwner: folioOwner.publicKey,
-      actor: getActorPDA(folioOwner.publicKey, folio),
-      folio,
-      folioRewardTokens: getFolioRewardTokensPDA(folio),
-    })
-    .instruction();
-
-  await pSendAndConfirmTxn(folioProgram, [initOrSetRewardRatio], [folioOwner], {
-    skipPreflight: SKIP_PREFLIGHT,
-  });
-}
-
-export async function accrueRewards(
-  connection: Connection,
-  callerKeypair: Keypair,
-  realm: PublicKey,
-  folioOwner: PublicKey,
-  folio: PublicKey,
-  rewardTokens: PublicKey[],
-  governanceMint: PublicKey,
-  extraUser: PublicKey = callerKeypair.publicKey
-) {
-  const folioProgram = getFolioProgram(connection, callerKeypair);
-  const accrueRewards = await folioProgram.methods
-    .accrueRewards()
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      realm,
-      caller: callerKeypair.publicKey,
-      folioOwner,
-      actor: getActorPDA(folioOwner, folio),
-      folio,
-      folioRewardTokens: getFolioRewardTokensPDA(folio),
-      governanceTokenMint: governanceMint,
-      governanceStakedTokenAccount: getGovernanceHoldingPDA(
-        folioOwner,
-        governanceMint
-      ),
-      callerGovernanceTokenAccount: getUserTokenRecordRealmsPDA(
-        folioOwner,
-        governanceMint,
-        callerKeypair.publicKey
-      ),
-      user: extraUser,
-      userGovernanceTokenAccount: getUserTokenRecordRealmsPDA(
-        folioOwner,
-        governanceMint,
-        extraUser
-      ),
-    })
-    .remainingAccounts(
-      await buildRemainingAccountsForAccruesRewards(
-        connection,
-        callerKeypair,
-        folio,
-        rewardTokens,
-        extraUser
-      )
-    )
-    .instruction();
-
-  await pSendAndConfirmTxn(
-    folioProgram,
-    [...getComputeLimitInstruction(400_000), accrueRewards],
-    [],
-    {
-      skipPreflight: SKIP_PREFLIGHT,
-    }
-  );
-}
-
-export async function claimRewards(
-  connection: Connection,
-  userKeypair: Keypair,
-  // Is a governance account
-  folioOwner: PublicKey,
-  folio: PublicKey,
-  rewardTokens: PublicKey[]
-) {
-  const folioProgram = getFolioProgram(connection, userKeypair);
-
-  const claimRewards = await folioProgram.methods
-    .claimRewards()
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      user: userKeypair.publicKey,
-      folioOwner,
-      actor: getActorPDA(folioOwner, folio),
-      folio,
-      folioRewardTokens: getFolioRewardTokensPDA(folio),
-    })
-    .remainingAccounts(
-      await buildRemainingAccountsForClaimRewards(
-        connection,
-        userKeypair,
-        folio,
-        rewardTokens
-      )
-    )
-    .instruction();
-
-  await pSendAndConfirmTxn(folioProgram, [claimRewards], [], {
     skipPreflight: SKIP_PREFLIGHT,
   });
 }

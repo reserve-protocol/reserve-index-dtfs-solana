@@ -1,8 +1,8 @@
 use std::cmp::Ordering;
 
+use crate::constants::{D18_U256, D9_U256, ONE_U256};
+use crate::errors::ErrorCode::MathOverflow;
 use anchor_lang::prelude::*;
-use shared::constants::{D18_U256, D9_U256, ONE_U256};
-use shared::errors::ErrorCode::MathOverflow;
 use spl_math::uint::U256;
 
 /// The rounding mode for the math operations

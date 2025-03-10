@@ -1,15 +1,15 @@
 import { BN } from "@coral-xyz/anchor";
 import { AccountMeta, Connection, Keypair, PublicKey } from "@solana/web3.js";
 import {
-  getFolioRewardTokensPDA,
   getRewardInfoPDA,
+  getRewardTokensPDA,
   getUserRewardInfoPDA,
 } from "./pda-helper";
 import { getOrCreateAtaAddress } from "./token-helper";
 
 /**
  * Helper functions for building remaining accounts arrays required for various
- * Folio program instructions. Handles account setup for rewards, token operations,
+ * Folio / Rewards program instructions. Handles account setup for rewards, token operations,
  * and migrations.
  */
 
@@ -64,13 +64,13 @@ export async function buildRemainingAccounts(
 export async function buildRemainingAccountsForAccruesRewards(
   connection: Connection,
   callerKeypair: Keypair,
-  folio: PublicKey,
+  realm: PublicKey,
   rewardTokens: PublicKey[],
   extraUser: PublicKey = callerKeypair.publicKey
 ): Promise<AccountMeta[]> {
   const remainingAccounts: AccountMeta[] = [];
 
-  const folioRewardTokensPDA = getFolioRewardTokensPDA(folio);
+  const rewardTokensPDA = getRewardTokensPDA(realm);
 
   for (const token of rewardTokens) {
     remainingAccounts.push({
@@ -80,7 +80,7 @@ export async function buildRemainingAccountsForAccruesRewards(
     });
 
     remainingAccounts.push({
-      pubkey: getRewardInfoPDA(folio, token),
+      pubkey: getRewardInfoPDA(realm, token),
       isSigner: false,
       isWritable: true,
     });
@@ -90,21 +90,21 @@ export async function buildRemainingAccountsForAccruesRewards(
         connection,
         token,
         callerKeypair,
-        folioRewardTokensPDA
+        rewardTokensPDA
       ),
       isSigner: false,
       isWritable: false,
     });
 
     remainingAccounts.push({
-      pubkey: getUserRewardInfoPDA(folio, token, callerKeypair.publicKey),
+      pubkey: getUserRewardInfoPDA(realm, token, callerKeypair.publicKey),
       isSigner: false,
       isWritable: true,
     });
 
     if (extraUser.toString() !== callerKeypair.publicKey.toString()) {
       remainingAccounts.push({
-        pubkey: getUserRewardInfoPDA(folio, token, extraUser),
+        pubkey: getUserRewardInfoPDA(realm, token, extraUser),
         isSigner: false,
         isWritable: true,
       });
@@ -117,12 +117,12 @@ export async function buildRemainingAccountsForAccruesRewards(
 export async function buildRemainingAccountsForClaimRewards(
   connection: Connection,
   callerKeypair: Keypair,
-  folio: PublicKey,
+  realm: PublicKey,
   rewardTokens: PublicKey[]
 ): Promise<AccountMeta[]> {
   const remainingAccounts: AccountMeta[] = [];
 
-  const folioRewardTokensPDA = getFolioRewardTokensPDA(folio);
+  const rewardTokensPDA = getRewardTokensPDA(realm);
 
   for (const token of rewardTokens) {
     remainingAccounts.push({
@@ -132,7 +132,7 @@ export async function buildRemainingAccountsForClaimRewards(
     });
 
     remainingAccounts.push({
-      pubkey: getRewardInfoPDA(folio, token),
+      pubkey: getRewardInfoPDA(realm, token),
       isSigner: false,
       isWritable: true,
     });
@@ -142,14 +142,14 @@ export async function buildRemainingAccountsForClaimRewards(
         connection,
         token,
         callerKeypair,
-        folioRewardTokensPDA
+        rewardTokensPDA
       ),
       isSigner: false,
       isWritable: true,
     });
 
     remainingAccounts.push({
-      pubkey: getUserRewardInfoPDA(folio, token, callerKeypair.publicKey),
+      pubkey: getUserRewardInfoPDA(realm, token, callerKeypair.publicKey),
       isSigner: false,
       isWritable: true,
     });

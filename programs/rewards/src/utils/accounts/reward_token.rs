@@ -1,32 +1,30 @@
 use crate::events::RewardRatioSet;
-use crate::state::FolioRewardTokens;
-use crate::utils::{Decimal, Rounding};
+use crate::state::RewardTokens;
 use anchor_lang::prelude::*;
 use shared::check_condition;
 use shared::constants::{LN_2, MAX_REWARD_HALF_LIFE, MIN_REWARD_HALF_LIFE};
 use shared::errors::ErrorCode;
+use shared::utils::{Decimal, Rounding};
 
-impl FolioRewardTokens {
+impl RewardTokens {
     /// Process the init if needed, meaning we initialize the account if it's not initialized yet and if it already is
     /// we check if the bump is correct.
     ///
     /// # Arguments
-    /// * `account_loader_folio_reward_tokens` - The account loader for the FolioRewardTokens account.
+    /// * `account_loader_reward_tokens` - The account loader for the RewardTokens account.
     /// * `context_bump` - The bump of the account provided in the anchor context.
-    /// * `folio` - The folio
-    /// * `new_reward_token` - The new reward token to add (if any)
-    /// * `reward_period` - The reward period (seconds)
+    /// * `realm` - The realm the RewardTokens account belongs to.
+    /// * `rewards_admin` - The rewards admin account.
     #[cfg(not(tarpaulin_include))]
     pub fn process_init_if_needed(
-        account_loader_folio_reward_tokens: &mut AccountLoader<FolioRewardTokens>,
+        account_loader_reward_tokens: &mut AccountLoader<RewardTokens>,
         context_bump: u8,
-        folio: &Pubkey,
-        new_reward_token: Option<&Pubkey>,
-        reward_period: u64,
+        realm: &Pubkey,
+        rewards_admin: &Pubkey,
     ) -> Result<()> {
-        let account_info_folio_reward_tokens = account_loader_folio_reward_tokens.to_account_info();
+        let account_info_reward_tokens = account_loader_reward_tokens.to_account_info();
 
-        let data = account_info_folio_reward_tokens.try_borrow_mut_data()?;
+        let data = account_info_reward_tokens.try_borrow_mut_data()?;
         let mut disc_bytes = [0u8; 8];
         disc_bytes.copy_from_slice(&data[..8]);
 
@@ -36,29 +34,23 @@ impl FolioRewardTokens {
 
         if discriminator == 0 {
             // Not initialized yet
-            let folio_reward_tokens = &mut account_loader_folio_reward_tokens.load_init()?;
+            let reward_tokens = &mut account_loader_reward_tokens.load_init()?;
 
-            folio_reward_tokens.bump = context_bump;
-            folio_reward_tokens.folio = *folio;
-            if let Some(new_reward_token) = new_reward_token {
-                folio_reward_tokens.add_reward_token(new_reward_token)?;
-            }
-            folio_reward_tokens.set_reward_ratio(reward_period)?;
+            reward_tokens.bump = context_bump;
+            reward_tokens.realm = *realm;
+            reward_tokens.rewards_admin = *rewards_admin;
         } else {
-            let folio_reward_tokens = &mut account_loader_folio_reward_tokens.load_mut()?;
+            let reward_tokens = &mut account_loader_reward_tokens.load_mut()?;
 
-            check_condition!(folio_reward_tokens.bump == context_bump, InvalidBump);
+            check_condition!(reward_tokens.bump == context_bump, InvalidBump);
 
-            if let Some(new_reward_token) = new_reward_token {
-                folio_reward_tokens.add_reward_token(new_reward_token)?;
-            }
-            folio_reward_tokens.set_reward_ratio(reward_period)?;
+            reward_tokens.rewards_admin = *rewards_admin;
         }
 
         Ok(())
     }
 
-    /// Add a reward token to the FolioRewardTokens account, meaning we'll start tracking that reward token.
+    /// Add a reward token to the RewardTokens account, meaning we'll start tracking that reward token.
     /// Will return an error if the reward token is already registered or if it's a disallowed reward token or if there is no more room for new reward tokens.
     ///
     /// # Arguments
@@ -92,7 +84,7 @@ impl FolioRewardTokens {
         Ok(())
     }
 
-    /// Remove a reward token from the FolioRewardTokens account, meaning we'll stop tracking that reward token.
+    /// Remove a reward token from the RewardTokens account, meaning we'll stop tracking that reward token.
     /// Will return an error if the reward token is not registered.
     /// Will add the removed reward token to the disallowed token list.
     ///
@@ -128,7 +120,7 @@ impl FolioRewardTokens {
         Ok(())
     }
 
-    /// Set the reward ratio for the FolioRewardTokens account.
+    /// Set the reward ratio for the RewardTokens account.
     /// Will return an error if the reward half life is not between the minimum and maximum reward half life.
     ///
     /// # Arguments

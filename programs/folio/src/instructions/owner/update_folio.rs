@@ -3,7 +3,7 @@ use crate::events::{AuctionDelaySet, AuctionLengthSet, MintFeeSet};
 use crate::instructions::distribute_fees;
 use crate::state::{Actor, FeeDistribution, FeeRecipients, Folio};
 use crate::utils::structs::{FeeRecipient, Role};
-use crate::utils::{init_pda_account_rent, FixedSizeString, FolioStatus, MAX_PADDED_STRING_LENGTH};
+use crate::utils::{FixedSizeString, FolioStatus, MAX_PADDED_STRING_LENGTH};
 use crate::ID;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::system_program;
@@ -13,6 +13,7 @@ use shared::constants::{
     MAX_MINT_FEE, MAX_TVL_FEE, MIN_AUCTION_LENGTH,
 };
 use shared::errors::ErrorCode;
+use shared::utils::init_pda_account_rent;
 use shared::{check_condition, constants::ACTOR_SEEDS};
 
 /// Index of the accounts in the remaining accounts.

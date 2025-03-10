@@ -1,6 +1,4 @@
-use crate::utils::math_util::Decimal;
 use crate::utils::structs::{AuctionEnd, FolioStatus, Role};
-use crate::utils::{Rounding, TokenResult};
 use crate::{
     events::TVLFeeSet,
     program::Folio as FolioProgram,
@@ -8,6 +6,8 @@ use crate::{
 };
 use anchor_lang::prelude::*;
 use shared::constants::YEAR_IN_SECONDS;
+use shared::utils::math_util::Decimal;
+use shared::utils::{Rounding, TokenResult};
 use shared::{
     check_condition,
     constants::{FOLIO_SEEDS, MAX_TVL_FEE},

@@ -5,9 +5,9 @@ edition = "2021"
 
 [dependencies]
 shared = { path = "../shared" }
-folio_admin = { path = "../programs/folio-admin" }
-folio = { path = "../programs/folio" }
-rewards = { path = "../programs/rewards" }
+folio_admin = { path = "../programs/folio-admin", features = ["no-entrypoint"] }
+folio = { path = "../programs/folio", features = ["no-entrypoint"] }
+rewards = { path = "../programs/rewards", features = ["no-entrypoint"] }
 anchor-lang = "0.30.1"
 spl-math = { version = "=0.2.0", features = ["no-entrypoint"] }
 

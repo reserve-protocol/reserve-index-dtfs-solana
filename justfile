@@ -54,7 +54,7 @@ install-tools:
 
 # Build custom SPL Governance and two Folio program instances
 build-local:
-    # Exit on error (Just equivalent of set -e)
+    # Exit on error
     @set -e
 
     # Build SPL Governance program
@@ -72,6 +72,9 @@ build-local:
 
     # Return to reserve-index-dtfs-solana directory
     @cd ../reserve-index-dtfs-solana
+
+    # Install node modules
+    @yarn install
 
     # Build second Folio instance with feature flag
     @echo "Building second instance of the program..."
@@ -96,7 +99,7 @@ build-local:
     @anchor build
 
 download-programs:
-    # Exit on error (Just equivalent of set -e)
+    # Exit on error
     @set -e
 
     @PROGRAMS_DIR="tests-ts/programs"
@@ -113,31 +116,39 @@ download-programs:
     fi
 
 # Run Solana local validator and tests
-test-amman:
+test-amman skip_build="":
     # Go to git workspace root
     @cd "$(git rev-parse --show-toplevel)" || exit 1
 
     # Run setup scripts
     @just install-tools
     @just download-programs
-    @just build-local
+    @if [ "{{skip_build}}" == "--skip-build" ]; then \
+        echo "Skipping build-local step"; \
+    else \
+      just build-local; \
+    fi
     @killall solana-test-validator || true
 
-    # Start amman in background (Just handles this naturally)
+    # Start amman in background
     @npx amman start --reset >/dev/null &
 
     # Wait for validator to start
     @sleep 15
 
-    # Run tests ( trap will handle cleanup of background processes)
-    @bash -c 'trap "kill 0" SIGINT SIGQUIT EXIT; anchor test --skip-local-validator --skip-deploy --skip-build'
+    # Run tests
+    @anchor test --skip-local-validator --skip-deploy --skip-build
 
-test-bankrun:
+test-bankrun skip_build="":
     # Go to git workspace root
     @cd "$(git rev-parse --show-toplevel)" || exit 1
 
     # Run setup scripts
     @just install-tools
     @just download-programs
-    @just build-local
+    @if [ "{{skip_build}}" == "--skip-build" ]; then \
+        echo "Skipping build-local step"; \
+    else \
+      just build-local; \
+    fi
     @anchor run test-bankrun

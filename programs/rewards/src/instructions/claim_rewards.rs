@@ -1,4 +1,3 @@
-use crate::program::Rewards as RewardsProgram;
 use crate::state::{RewardInfo, RewardTokens, UserRewardInfo};
 use crate::utils::RewardsProgramInternal;
 use anchor_lang::prelude::*;
@@ -131,20 +130,11 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
             false,
             &token_program_id,
         )?;
-        let reward_info = next_account(
-            &mut remaining_accounts_iter,
-            false,
-            true,
-            &RewardsProgram::id(),
-        )?;
+        let reward_info = next_account(&mut remaining_accounts_iter, false, true, &crate::id())?;
         let token_rewards_token_account =
             next_account(&mut remaining_accounts_iter, false, true, &token_program_id)?;
-        let user_reward_info = next_account(
-            &mut remaining_accounts_iter,
-            false,
-            true,
-            &RewardsProgram::id(),
-        )?;
+        let user_reward_info =
+            next_account(&mut remaining_accounts_iter, false, true, &crate::id())?;
         let user_reward_token_account =
             next_account(&mut remaining_accounts_iter, false, true, &token_program_id)?;
 
@@ -157,7 +147,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
                         realm_key.as_ref(),
                         reward_token.key().as_ref()
                     ],
-                    &RewardsProgram::id()
+                    &crate::id()
                 )
                 .0,
             InvalidRewardInfo
@@ -170,7 +160,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
                 reward_token.key().as_ref(),
                 user_key.as_ref(),
             ],
-            &RewardsProgram::id(),
+            &crate::id(),
         );
 
         check_condition!(

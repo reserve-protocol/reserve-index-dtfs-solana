@@ -1,13 +1,11 @@
 use crate::utils::structs::{AuctionEnd, FolioStatus, Role};
 use crate::{
     events::TVLFeeSet,
-    program::Folio as FolioProgram,
     state::{Actor, Folio},
 };
 use anchor_lang::prelude::*;
 use shared::constants::YEAR_IN_SECONDS;
-use shared::utils::math_util::Decimal;
-use shared::utils::{Rounding, TokenResult};
+use shared::utils::{Decimal, Rounding, TokenResult};
 use shared::{
     check_condition,
     constants::{FOLIO_SEEDS, MAX_TVL_FEE},
@@ -41,7 +39,7 @@ impl Folio {
             (*folio_pubkey, self.bump)
                 == Pubkey::find_program_address(
                     &[FOLIO_SEEDS, folio_token_mint.as_ref()],
-                    &FolioProgram::id()
+                    &crate::id()
                 ),
             InvalidPda
         );
@@ -386,15 +384,41 @@ impl Folio {
         end_time_sell: u64,
         end_time_buy: u64,
     ) {
-        for auction_end in self.sell_ends.iter_mut() {
+        let mut found_sell = false;
+        let mut sell_index_available = None;
+        for (index, auction_end) in self.sell_ends.iter_mut().enumerate() {
+            if auction_end.mint == Pubkey::default() && sell_index_available.is_none() {
+                sell_index_available = Some(index);
+            }
             if auction_end.mint == *sell_mint {
                 auction_end.end_time = end_time_sell;
+                found_sell = true;
+                break;
+            }
+        }
+        if !found_sell {
+            if let Some(index) = sell_index_available {
+                self.sell_ends[index].mint = *sell_mint;
+                self.sell_ends[index].end_time = end_time_sell;
             }
         }
 
-        for auction_end in self.buy_ends.iter_mut() {
+        let mut found_buy = false;
+        let mut buy_index_available = None;
+        for (index, auction_end) in self.buy_ends.iter_mut().enumerate() {
+            if auction_end.mint == Pubkey::default() && buy_index_available.is_none() {
+                buy_index_available = Some(index);
+            }
             if auction_end.mint == *buy_mint {
                 auction_end.end_time = end_time_buy;
+                found_buy = true;
+                break;
+            }
+        }
+        if !found_buy {
+            if let Some(index) = buy_index_available {
+                self.buy_ends[index].mint = *buy_mint;
+                self.buy_ends[index].end_time = end_time_buy;
             }
         }
     }

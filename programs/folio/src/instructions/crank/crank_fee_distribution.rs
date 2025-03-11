@@ -10,7 +10,6 @@ use shared::utils::account_util::next_account;
 use shared::utils::{Decimal, Rounding};
 
 use crate::events::TVLFeePaid;
-use crate::program::Folio as FolioProgram;
 use crate::state::{FeeDistribution, Folio};
 
 /// Crank Fee Distribution
@@ -85,7 +84,7 @@ impl CrankFeeDistribution<'_> {
                         self.folio.key().as_ref(),
                         fee_distribution.index.to_le_bytes().as_slice()
                     ],
-                    &FolioProgram::id()
+                    &crate::id()
                 )
                 .0,
             InvalidFeeDistribution

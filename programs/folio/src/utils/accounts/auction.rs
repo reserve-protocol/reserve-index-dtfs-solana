@@ -1,4 +1,3 @@
-use crate::program::Folio as FolioProgram;
 use crate::state::{Auction, Folio};
 use crate::utils::structs::AuctionStatus;
 use crate::utils::{AuctionEnd, BasketRange, Prices};
@@ -24,7 +23,7 @@ impl Auction {
             (*auction_pubkey, self.bump)
                 == Pubkey::find_program_address(
                     &[AUCTION_SEEDS, folio_pubkey.as_ref(), auction_id.as_ref()],
-                    &FolioProgram::id()
+                    &crate::id()
                 ),
             InvalidPda
         );

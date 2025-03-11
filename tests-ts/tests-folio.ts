@@ -9,19 +9,15 @@ import { Folio } from "../target/types/folio";
 import { BN, Program } from "@coral-xyz/anchor";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import {
-  accrueRewards,
   addOrUpdateActor,
-  addRewardToken,
   addToBasket,
   addToPendingBasket,
   approveAuction,
   bid,
   burnFolioToken,
-  claimRewards,
   crankFeeDistribution,
   distributeFees,
   initFolio,
-  initOrSetRewardRatio,
   killAuction,
   mintFolioToken,
   openAuction,
@@ -29,8 +25,6 @@ import {
   redeemFromPendingBasket,
   removeActor,
   removeFromPendingBasket,
-  removeRewardToken,
-  resizeFolio,
   updateFolio,
 } from "../utils/folio-helper";
 import * as assert from "assert";
@@ -41,11 +35,8 @@ import {
   getFeeDistributionPDA,
   getFolioBasketPDA,
   getTVLFeeRecipientsPDA,
-  getFolioRewardTokensPDA,
-  getRewardInfoPDA,
   getAuctionPDA,
   getUserPendingBasketPDA,
-  getUserRewardInfoPDA,
 } from "../utils/pda-helper";
 import {
   DEFAULT_DECIMALS_MUL,
@@ -78,7 +69,7 @@ import { FolioAdmin } from "../target/types/folio_admin";
 /**
  * Tests for the Folio program.
  * These tests are designed to test the functionality of the Folio program from
- * initializing the folio to adding tokens to the basket. Auctions to rewards.
+ * initializing the folio to adding tokens to the basket. Auctions to fees.
  */
 
 describe("Folio Tests", () => {
@@ -124,12 +115,6 @@ describe("Folio Tests", () => {
 
   let buyMint: Keypair;
 
-  const rewardTokenMints = [
-    { mint: Keypair.generate(), decimals: DEFAULT_DECIMALS },
-    { mint: Keypair.generate(), decimals: DEFAULT_DECIMALS },
-    { mint: Keypair.generate(), decimals: DEFAULT_DECIMALS },
-  ];
-
   const feeRecipient: PublicKey = Keypair.generate().publicKey;
 
   let currentFeeDistributionIndex: BN = new BN(0);
@@ -153,18 +138,6 @@ describe("Folio Tests", () => {
     userKeypair = Keypair.generate();
     auctionApproverKeypair = Keypair.generate();
     auctionLauncherKeypair = Keypair.generate();
-
-    // Governance related tests are skipped for now, tested via Bankrun
-    // Inject fake accounts in Amman for governance
-    // const userTokenRecordPda = getUserTokenRecordRealmsPDA(
-    //   folioOwnerKeypair.publicKey,
-    //   folioTokenMint.publicKey,
-    //   userKeypair.publicKey
-    // );
-
-    // await createGovernanceAccounts(userTokenRecordPda, 1000);
-
-    // await wait(10);
 
     await airdrop(connection, payerKeypair.publicKey, 1000);
     await airdrop(connection, adminKeypair.publicKey, 1000);
@@ -215,17 +188,6 @@ describe("Folio Tests", () => {
       1_000,
       adminKeypair.publicKey
     );
-
-    for (const rewardTokenMint of rewardTokenMints) {
-      await initToken(connection, adminKeypair, rewardTokenMint.mint);
-      await mintToken(
-        connection,
-        adminKeypair,
-        rewardTokenMint.mint.publicKey,
-        1_000,
-        adminKeypair.publicKey
-      );
-    }
 
     // Set dao fee recipient
     await setDaoFeeConfig(
@@ -287,25 +249,6 @@ describe("Folio Tests", () => {
         decimals: tokenMint.decimals,
       }))
     );
-  });
-
-  it("should resize folio", async () => {
-    const folioSizeBefore = (await connection.getAccountInfo(folioPDA))?.data
-      .length;
-
-    await resizeFolio(
-      connection,
-      folioOwnerKeypair,
-      folioPDA,
-      new BN(folioSizeBefore + 100)
-    );
-
-    await wait(2);
-
-    const folioSizeAfter = (await connection.getAccountInfo(folioPDA))?.data
-      .length;
-
-    assert.equal(folioSizeAfter, folioSizeBefore + 100);
   });
 
   it("should update fee per second of folio", async () => {
@@ -1325,245 +1268,5 @@ describe("Folio Tests", () => {
       "amountForMinting",
       true
     );
-  });
-
-  /*
-   Skipping because it's tedious to create a realm and go through the spl governance process
-   (tested via bankrun instead)
-   */
-  it.skip("should allow user to add reward token", async () => {
-    await addRewardToken(
-      connection,
-      new Keypair(), // TODO
-      folioOwnerKeypair,
-      folioPDA,
-      rewardTokenMints[0].mint.publicKey,
-      new BN(86400)
-    );
-
-    const folioRewardTokens =
-      await programFolio.account.folioRewardTokens.fetch(
-        getFolioRewardTokensPDA(folioPDA)
-      );
-
-    assert.equal(
-      folioRewardTokens.rewardTokens[0].toBase58(),
-      rewardTokenMints[0].mint.publicKey.toBase58()
-    );
-    assert.equal(folioRewardTokens.rewardRatio.eq(new BN(8022536812036)), true);
-    assert.deepEqual(folioRewardTokens.folio, folioPDA);
-    assert.notEqual(folioRewardTokens.bump, 0);
-  });
-
-  /*
-   Skipping because it's tedious to create a realm and go through the spl governance process
-   (tested via bankrun instead)
-   */
-  it.skip("should allow user to init or set reward ratio", async () => {
-    await initOrSetRewardRatio(
-      connection,
-      new Keypair(), // TODO
-      folioOwnerKeypair,
-      folioPDA,
-      new BN(86400)
-    );
-
-    const folioRewardTokensAfter =
-      await programFolio.account.folioRewardTokens.fetch(
-        getFolioRewardTokensPDA(folioPDA)
-      );
-
-    assert.equal(
-      folioRewardTokensAfter.rewardRatio.eq(new BN(8022536812036)),
-      true
-    );
-  });
-
-  /*
-   Skipping because it's tedious to create a realm and go through the spl governance process
-   (tested via bankrun instead)
-   */
-  it.skip("should allow user to remove reward token", async () => {
-    await removeRewardToken(
-      connection,
-      new Keypair(), // TODO
-      folioOwnerKeypair,
-      folioPDA,
-      rewardTokenMints[0].mint.publicKey
-    );
-
-    const folioRewardTokensAfter =
-      await programFolio.account.folioRewardTokens.fetch(
-        getFolioRewardTokensPDA(folioPDA)
-      );
-
-    assert.deepEqual(folioRewardTokensAfter.rewardTokens[0], PublicKey.default);
-    assert.deepEqual(
-      folioRewardTokensAfter.disallowedToken[0],
-      rewardTokenMints[0].mint.publicKey
-    );
-  });
-
-  /*
-   Skipping because it's tedious to create a realm and go through the spl governance process 
-   (tested via bankrun instead)
-   */
-  it.skip("should allow user to accrue rewards, after adding 1 more reward tokens", async () => {
-    // Adding the tokens
-    await addRewardToken(
-      connection,
-      new Keypair(), // TODO
-      folioOwnerKeypair,
-      folioPDA,
-      rewardTokenMints[1].mint.publicKey,
-      new BN(86400)
-    );
-
-    const folioRewardTokenPDA = getFolioRewardTokensPDA(folioPDA);
-
-    const rewardInfoPDA = getRewardInfoPDA(
-      folioPDA,
-      rewardTokenMints[1].mint.publicKey
-    );
-    const rewardInfoBefore = await programFolio.account.rewardInfo.fetch(
-      rewardInfoPDA
-    );
-
-    // Mint some token to the folio (as if received fees)
-    // To generate rewards we'll mint a LOT of reward tokens, so that we don't have to wait for them to accrue to claim them
-    for (let i = 0; i < 10; i++) {
-      await mintToken(
-        connection,
-        adminKeypair,
-        rewardTokenMints[1].mint.publicKey,
-        1_000_000_000,
-        folioRewardTokenPDA
-      );
-    }
-
-    // First accrue rewards will be 0 since the balance unaccounted for is 0, so we'll call it twice
-    // Calling accrue rewards
-    await accrueRewards(
-      connection,
-      userKeypair,
-      Keypair.generate().publicKey, // TODO
-      folioOwnerKeypair.publicKey,
-      folioPDA,
-      [rewardTokenMints[1].mint.publicKey],
-      // Here set governance as same as folio token mint, since it doesn't really matter
-      folioTokenMint.publicKey,
-      userKeypair.publicKey
-    );
-
-    const rewardInfoAfterFirstCall =
-      await programFolio.account.rewardInfo.fetch(rewardInfoPDA);
-
-    assert.equal(
-      rewardInfoAfterFirstCall.balanceLastKnown.gt(
-        rewardInfoBefore.balanceLastKnown
-      ),
-      true
-    );
-
-    // To generate a bit of rewards
-    await wait(40);
-
-    // Second call will accrue rewards
-    await accrueRewards(
-      connection,
-      userKeypair,
-      Keypair.generate().publicKey, // TODO
-      folioOwnerKeypair.publicKey,
-      folioPDA,
-      [rewardTokenMints[1].mint.publicKey],
-      // Here set governance as same as folio token mint, since it doesn't really matter
-      folioTokenMint.publicKey,
-      userKeypair.publicKey
-    );
-
-    const rewardInfoAfterSecondCall =
-      await programFolio.account.rewardInfo.fetch(rewardInfoPDA);
-
-    const userInfoRewardPDA = getUserRewardInfoPDA(
-      folioPDA,
-      rewardTokenMints[1].mint.publicKey,
-      userKeypair.publicKey
-    );
-
-    const userInfoRewardAfter = await programFolio.account.userRewardInfo.fetch(
-      userInfoRewardPDA
-    );
-
-    assert.equal(
-      rewardInfoAfterSecondCall.rewardIndex.gt(rewardInfoBefore.rewardIndex),
-      true
-    );
-
-    assert.equal(
-      rewardInfoAfterSecondCall.balanceAccounted.gt(
-        rewardInfoBefore.balanceAccounted
-      ),
-      true
-    );
-    assert.equal(
-      rewardInfoAfterSecondCall.payoutLastPaid.gt(
-        rewardInfoBefore.payoutLastPaid
-      ),
-      true
-    );
-
-    assert.equal(userInfoRewardAfter.folio.toBase58(), folioPDA.toBase58());
-    assert.equal(
-      userInfoRewardAfter.folioRewardToken.toBase58(),
-      rewardTokenMints[1].mint.publicKey.toBase58()
-    );
-    assert.notEqual(userInfoRewardAfter.bump, 0);
-    assert.equal(userInfoRewardAfter.accruedRewards.gte(new BN(0)), true);
-    assert.equal(
-      userInfoRewardAfter.lastRewardIndex.eq(
-        rewardInfoAfterSecondCall.rewardIndex
-      ),
-      true
-    );
-  });
-
-  /*
-   Skipping because it's tedious to create a realm and go through the spl governance process 
-   (tested via bankrun instead)
-   */
-  it.skip("should allow user to claim rewards", async () => {
-    const rewardInfoPDA = getRewardInfoPDA(
-      folioPDA,
-      rewardTokenMints[1].mint.publicKey
-    );
-    const userRewardInfoPDA = getUserRewardInfoPDA(
-      folioPDA,
-      rewardTokenMints[1].mint.publicKey,
-      userKeypair.publicKey
-    );
-    const rewardInfoBefore = await programFolio.account.rewardInfo.fetch(
-      rewardInfoPDA
-    );
-
-    await claimRewards(
-      connection,
-      userKeypair,
-      folioOwnerKeypair.publicKey,
-      folioPDA,
-      [rewardTokenMints[1].mint.publicKey]
-    );
-
-    const rewardInfoAfter = await programFolio.account.rewardInfo.fetch(
-      rewardInfoPDA
-    );
-    const userRewardInfoAfter = await programFolio.account.userRewardInfo.fetch(
-      userRewardInfoPDA
-    );
-
-    assert.equal(
-      rewardInfoAfter.totalClaimed.gt(rewardInfoBefore.totalClaimed),
-      true
-    );
-    assert.equal(userRewardInfoAfter.accruedRewards.eq(new BN(0)), true);
   });
 });

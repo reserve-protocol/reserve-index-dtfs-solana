@@ -1,6 +1,4 @@
-use crate::utils::account_util::next_account;
 use crate::utils::structs::FolioStatus;
-use crate::utils::{Decimal, Rounding};
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 use anchor_spl::token;
@@ -8,9 +6,10 @@ use anchor_spl::token_interface::{Mint, TokenInterface};
 use shared::check_condition;
 use shared::constants::{FEE_DISTRIBUTION_SEEDS, FOLIO_SEEDS, MAX_FEE_RECIPIENTS_PORTION};
 use shared::errors::ErrorCode;
+use shared::utils::account_util::next_account;
+use shared::utils::{Decimal, Rounding};
 
 use crate::events::TVLFeePaid;
-use crate::program::Folio as FolioProgram;
 use crate::state::{FeeDistribution, Folio};
 
 /// Crank Fee Distribution
@@ -85,7 +84,7 @@ impl CrankFeeDistribution<'_> {
                         self.folio.key().as_ref(),
                         fee_distribution.index.to_le_bytes().as_slice()
                     ],
-                    &FolioProgram::id()
+                    &crate::id()
                 )
                 .0,
             InvalidFeeDistribution

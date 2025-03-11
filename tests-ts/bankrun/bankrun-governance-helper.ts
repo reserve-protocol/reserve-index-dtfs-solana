@@ -790,6 +790,7 @@ export async function setupGovernanceAccounts(
 ): Promise<{
   realmPDA: PublicKey;
   folioOwnerPDA: PublicKey;
+  rewardsAdminPDA: PublicKey;
 }> {
   initToken(
     context,
@@ -811,10 +812,20 @@ export async function setupGovernanceAccounts(
   );
 
   const governanceSeed = Keypair.generate().publicKey;
-
   const folioOwnerPDA = getGovernanceAccountPDA(realmPDA, governanceSeed);
-
   createGovernanceAccount(context, realmPDA, folioOwnerPDA, governanceSeed);
 
-  return { realmPDA, folioOwnerPDA };
+  const governanceSeedRewards = Keypair.generate().publicKey;
+  const rewardsAdminPDA = getGovernanceAccountPDA(
+    realmPDA,
+    governanceSeedRewards
+  );
+  createGovernanceAccount(
+    context,
+    realmPDA,
+    rewardsAdminPDA,
+    governanceSeedRewards
+  );
+
+  return { realmPDA, folioOwnerPDA, rewardsAdminPDA };
 }

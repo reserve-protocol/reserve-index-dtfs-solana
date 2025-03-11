@@ -10,8 +10,8 @@ use shared::{
 };
 
 use crate::state::{Folio, FolioBasket, UserPendingBasket};
-use crate::utils::account_util::next_account;
 use crate::utils::structs::{FolioStatus, TokenAmount};
+use shared::utils::account_util::next_account;
 
 const EXPECTED_REMAINING_ACCOUNTS_LENGTH: usize = 3;
 

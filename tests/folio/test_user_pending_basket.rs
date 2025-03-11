@@ -5,9 +5,9 @@ mod tests {
     use anchor_lang::prelude::Pubkey;
     use folio::state::UserPendingBasket;
     use folio::utils::structs::TokenAmount;
-    use folio::utils::Decimal;
     use shared::constants::{PendingBasketType, MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS};
     use shared::errors::ErrorCode;
+    use shared::utils::Decimal;
 
     #[test]
     fn test_add_token_amounts_new_mint() {

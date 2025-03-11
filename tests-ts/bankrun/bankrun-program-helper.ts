@@ -17,6 +17,7 @@ import { Folio } from "../../target/types/folio";
 import idlFolio from "../../target/idl/folio.json";
 import idlSecondFolio from "../../target/idl/second_folio.json";
 import idlFolioAdmin from "../../target/idl/folio_admin.json";
+import idlRewards from "../../target/idl/rewards.json";
 import { BankrunProvider } from "anchor-bankrun";
 import * as assert from "assert";
 import { AnchorError } from "@coral-xyz/anchor";
@@ -25,6 +26,7 @@ import {
   TOKEN_METADATA_PROGRAM_ID,
 } from "../../utils/constants";
 import { FolioAdmin } from "../../target/types/folio_admin";
+import { Rewards } from "../../target/types/rewards";
 import { Folio as FolioSecond } from "../../target/types/second_folio";
 
 /**
@@ -56,6 +58,7 @@ export async function getConnectors() {
     path.join(__dirname, "../.."),
     [
       { name: "folio_admin", programId: new PublicKey(idlFolioAdmin.address) },
+      { name: "rewards", programId: new PublicKey(idlRewards.address) },
       { name: "folio", programId: new PublicKey(idlFolio.address) },
       {
         name: "second_folio",
@@ -80,6 +83,7 @@ export async function getConnectors() {
     programFolioSecond: new anchor.Program<FolioSecond>(
       idlSecondFolio as FolioSecond
     ),
+    programRewards: new anchor.Program<Rewards>(idlRewards as Rewards),
     provider,
   };
 }

@@ -235,6 +235,9 @@ pub enum ErrorCode {
     #[msg("New Folio Not Owned By New Folio Program")]
     NewFolioNotOwnedByNewFolioProgram,
 
+    #[msg("Invalid New Folio")]
+    InvalidNewFolio,
+
     #[msg("Can't Migrate To Same Program")]
     CantMigrateToSameProgram,
 

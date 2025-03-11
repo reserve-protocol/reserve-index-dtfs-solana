@@ -86,61 +86,13 @@ jobs:
       - name: Add Solana to PATH
         run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
-      - name: Checkout SPL
-        uses: actions/checkout@v4
-        with:
-          repository: reserve-protocol/solana-program-library
-          path: solana-program-library
-
-      - name: Cache SPL build
-        uses: actions/cache@v4
-        with:
-          path: solana-program-library/target/
-          key: ${{ runner.os }}-spl-${{ hashFiles('solana-program-library/**/*.rs') }}
+      - name: Install Just
+        run: cargo install just
 
       - name: Build SPL
         run: |
-          # Create directories
-          mkdir -p tests-ts/programs
-
-          # Build SPL Governance
-          cd solana-program-library/governance/program
-          cargo build-sbf
-          cd ../../
-
-          # Copy the built program to the correct location (using absolute paths)
-          WORKSPACE="/home/runner/work/reserve-index-dtfs-solana/reserve-index-dtfs-solana"
-          if [ -f "target/deploy/spl_governance.so" ]; then
-              cp target/deploy/spl_governance.so "$WORKSPACE/tests-ts/programs/governance.so"
-          elif [ -f "target/sbf-solana-solana/release/spl_governance.so" ]; then
-              cp target/sbf-solana-solana/release/spl_governance.so "$WORKSPACE/tests-ts/programs/governance.so"
-          else
-              find . -name "spl_governance.so"
-              exit 1
-          fi
-
-          cd "$WORKSPACE"
-
-          # Build Folio programs
-          npm install
-
-          mkdir -p target/deploy target/idl target/types
-          cp utils/keys/folio-2-keypair-local.json target/deploy/folio-keypair.json
-          anchor build -- --features dev
-
-          # Update program IDs
-          sed -i 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt/g' target/idl/folio.json
-          sed -i 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt/g' target/types/folio.ts
-
-          # Rename files for second instance
-          mv target/idl/folio.json target/idl/second_folio.json
-          mv target/types/folio.ts target/types/second_folio.ts
-          mv target/deploy/folio.so target/deploy/second_folio.so
-          mv target/deploy/folio-keypair.json target/deploy/second_folio-keypair.json
-
-          # Build first instance
-          cp utils/keys/folio-keypair-local.json target/deploy/folio-keypair.json
-          anchor build
+          # Build SPl governance program and DTF programs
+          just build-local
 
       - name: Upload built programs
         uses: actions/upload-artifact@v4

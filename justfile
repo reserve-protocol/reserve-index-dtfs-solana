@@ -69,6 +69,9 @@ build-local:
         cp target/deploy/spl_governance.so ../tests-ts/programs/governance.so; \
     elif [ -f "target/sbf-solana-solana/release/spl_governance.so" ]; then \
         cp target/sbf-solana-solana/release/spl_governance.so ../tests-ts/programs/governance.so; \
+    else \
+        find . -name "spl_governance.so"; \
+        exit 1; \
     fi
 
     # Return to workspace root

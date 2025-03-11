@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 env:
   CARGO_TERM_COLOR: always
@@ -109,7 +109,7 @@ jobs:
           cd ../../
 
           # Copy the built program to the correct location (using absolute paths)
-          WORKSPACE="/home/runner/work/dtfs-solana/dtfs-solana"
+          WORKSPACE="/home/runner/work/reserve-index-dtfs-solana/reserve-index-dtfs-solana"
           if [ -f "target/deploy/spl_governance.so" ]; then
               cp target/deploy/spl_governance.so "$WORKSPACE/tests-ts/programs/governance.so"
           elif [ -f "target/sbf-solana-solana/release/spl_governance.so" ]; then
@@ -223,7 +223,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "20.10.0"
 
       - name: Install npm dependencies
         run: |

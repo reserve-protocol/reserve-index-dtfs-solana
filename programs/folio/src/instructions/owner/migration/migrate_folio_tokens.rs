@@ -1,7 +1,7 @@
 use crate::ID as FOLIO_PROGRAM_ID;
 use crate::{
     state::{Folio, FolioBasket},
-    utils::{next_account, FolioStatus},
+    utils::FolioStatus,
 };
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface;
@@ -11,6 +11,7 @@ use anchor_spl::{
 };
 use folio_admin::{state::ProgramRegistrar, ID as FOLIO_ADMIN_PROGRAM_ID};
 use shared::errors::ErrorCode;
+use shared::utils::account_util::next_account;
 use shared::{
     check_condition,
     constants::{FOLIO_BASKET_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS},

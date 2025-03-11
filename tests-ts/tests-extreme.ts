@@ -1,5 +1,5 @@
 import { airdrop, getConnectors } from "../utils/program-helper";
-import { BN } from "@coral-xyz/anchor";
+import { BN, Program } from "@coral-xyz/anchor";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import {
   addToBasket,
@@ -19,6 +19,7 @@ import {
   MAX_TOKENS_IN_BASKET,
   FEE_NUMERATOR,
 } from "../utils/constants";
+import { Folio } from "../target/types/folio";
 
 /**
  * Extreme tests for the Folio protocol.
@@ -29,6 +30,7 @@ import {
 
 describe("Extreme Folio Tests", () => {
   let connection: Connection;
+  let programFolio: Program<Folio>;
   let keys: any;
 
   let payerKeypair: Keypair;
@@ -50,7 +52,7 @@ describe("Extreme Folio Tests", () => {
   }));
 
   before(async () => {
-    ({ connection, keys } = await getConnectors());
+    ({ connection, programFolio, keys } = await getConnectors());
 
     payerKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.payer));
     adminKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.admin));

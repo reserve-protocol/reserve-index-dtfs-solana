@@ -6,7 +6,6 @@
 //!     - Conduct auctions.
 //!     - Buy into and redeem from folios.
 //!     - Migrate between different folio versions.
-//!     - Reward token distribution.
 //!
 //! ** Also has a `declare_id` with a feature flag "dev" to allow for easy local testing between
 //! ** different versions of the program.
@@ -20,7 +19,6 @@
 //! # Instructions
 //!
 //! * `init_folio` - Initialize a folio.
-//! * `resize_folio` - Resize a folio (data size).
 //! * `update_folio` - Update a folio.
 //! * `init_or_update_actor` - Initialize or update an actor.
 //! * `remove_actor` - Remove an actor with the possibility to close the actor account.
@@ -43,11 +41,6 @@
 //! * `close_auction` - Close an auction.
 //! * `open_auction_permissionless` - Open an auction permissionlessly (after a delay, if not done by allowed actors).
 //! * `bid` - Bid in an auction.
-//! * `init_or_set_reward_ratio` - Initialize or set the reward ratio of a folio.
-//! * `add_reward_token` - Add a tracked reward token to a folio.
-//! * `remove_reward_token` - Remove a tracked reward token from a folio.
-//! * `claim_rewards` - Claim rewards from a folio tokens, which means transferring the rewards accrued by a user to the user.
-//! * `accrue_rewards` - Accrue rewards to a folio, meaning updating accrued rewards.
 #![allow(clippy::too_many_arguments)]
 use anchor_lang::prelude::*;
 
@@ -97,10 +90,6 @@ pub mod folio {
             uri,
             mandate,
         )
-    }
-
-    pub fn resize_folio(ctx: Context<ResizeFolio>, new_size: u64) -> Result<()> {
-        resize_folio::handler(ctx, new_size)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -298,49 +287,5 @@ pub mod folio {
             with_callback,
             callback_data,
         )
-    }
-
-    /*
-    Reward token functions
-     */
-    pub fn init_or_set_reward_ratio<'info>(
-        ctx: Context<'_, '_, 'info, 'info, InitOrSetRewardRatio<'info>>,
-        reward_period: u64,
-    ) -> Result<()> {
-        init_or_set_reward_ratio::handler(ctx, reward_period)
-    }
-
-    pub fn add_reward_token<'info>(
-        ctx: Context<'_, '_, 'info, 'info, AddRewardToken<'info>>,
-        reward_period: u64,
-    ) -> Result<()> {
-        add_reward_token::handler(ctx, reward_period)
-    }
-
-    pub fn remove_reward_token<'info>(
-        ctx: Context<'_, '_, 'info, 'info, RemoveRewardToken<'info>>,
-    ) -> Result<()> {
-        remove_reward_token::handler(ctx)
-    }
-
-    pub fn claim_rewards<'info>(
-        ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>,
-    ) -> Result<()> {
-        claim_rewards::handler(ctx)
-    }
-
-    pub fn accrue_rewards<'info>(
-        ctx: Context<'_, '_, 'info, 'info, AccrueRewards<'info>>,
-    ) -> Result<()> {
-        accrue_rewards::handler(ctx)
-    }
-
-    /*
-    Dummy functions
-     */
-    pub fn idl_include_account<'info>(
-        ctx: Context<'_, '_, 'info, 'info, IdlIncludeAccount<'info>>,
-    ) -> Result<()> {
-        dummy_instruction::idl_include_account(ctx)
     }
 }

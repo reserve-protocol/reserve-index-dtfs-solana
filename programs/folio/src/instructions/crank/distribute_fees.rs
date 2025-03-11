@@ -3,6 +3,8 @@ use crate::ID;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 use anchor_spl::token;
+use anchor_spl::token::ID as TOKEN_PROGRAM_ID;
+use anchor_spl::token_2022::ID as TOKEN_2022_PROGRAM_ID;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use folio_admin::state::DAOFeeConfig;
 use folio_admin::ID as FOLIO_ADMIN_PROGRAM_ID;
@@ -87,6 +89,7 @@ pub fn validate<'info>(
     folio_fee_config: &AccountInfo<'info>,
     fee_recipients_account: &AccountInfo<'info>,
     fee_distribution_account: &AccountInfo<'info>,
+    token_program: &AccountInfo<'info>,
     index: u64,
 ) -> Result<()> {
     let loaded_folio = folio.load()?;
@@ -148,6 +151,12 @@ pub fn validate<'info>(
         InvalidFeeDistribution
     );
 
+    // Validate the token program
+    check_condition!(
+        [TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID].contains(&token_program.key()),
+        InvalidProgram
+    );
+
     Ok(())
 }
 
@@ -187,6 +196,7 @@ pub fn distribute_fees<'info>(
             folio_fee_config,
             &fee_recipients.to_account_info(),
             &fee_distribution.to_account_info(),
+            token_program,
             index,
         )?;
 

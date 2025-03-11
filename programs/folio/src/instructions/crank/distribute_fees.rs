@@ -173,7 +173,7 @@ pub fn distribute_fees<'info>(
     }
 
     // Mint pending fees to dao recipient
-    let raw_dao_pending_fee_shares: u64;
+    let mut raw_dao_pending_fee_shares: u64;
 
     let scaled_fee_recipients_pending_fee_shares_minus_dust: u128;
 
@@ -212,15 +212,20 @@ pub fn distribute_fees<'info>(
             authority: folio.to_account_info(),
         };
 
+        if !has_fee_recipients {
+            // If there are no fee recipients, the DAO gets all the fees
+            raw_dao_pending_fee_shares = raw_dao_pending_fee_shares
+                .checked_add(raw_fee_recipients_pending_fee_shares)
+                .ok_or(ErrorCode::MathOverflow)?;
+        }
+
         token::mint_to(
             CpiContext::new_with_signer(
                 token_program.to_account_info(),
                 cpi_accounts,
                 &[signer_seeds],
             ),
-            raw_dao_pending_fee_shares
-                .checked_add(raw_fee_recipients_pending_fee_shares)
-                .ok_or(ErrorCode::MathOverflow)?,
+            raw_dao_pending_fee_shares,
         )?;
 
         // Create new fee distribution for other recipients if there are any

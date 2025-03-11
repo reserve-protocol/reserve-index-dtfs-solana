@@ -230,17 +230,7 @@ The universal 15 bps fee floor can be lowered by the DAO, as well as set (only l
 ## Build Guide
 
 ### Prerequisites
-
-1. Required Repositories:
-   - Custom SPL Governance: [reserve-protocol/solana-program-library](https://github.com/reserve-protocol/solana-program-library)
-   - Repository structure:
-     ```
-     parent_directory/
-     ├── reserve-index-dtfs-solana/         # Main repository
-     └── solana-program-library/  # Custom SPL Governance
-     ```
-
-2. Development Tools:
+Development Tools:
    ```bash
    cargo install just
    just install-tools

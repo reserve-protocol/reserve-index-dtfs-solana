@@ -8,10 +8,12 @@ skip-lint = false
 folio = "n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG"
 folio_admin = "7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn"
 rewards = "7GiMvNDHVY8PXWQLHjSf1REGKpiDsVzRr4p7Y3xGbSuf"
+
 [programs.devnet]
 folio = "n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG"
 folio_admin = "7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn"
 rewards = "7GiMvNDHVY8PXWQLHjSf1REGKpiDsVzRr4p7Y3xGbSuf"
+
 [programs.mainnet]
 folio = "n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG"
 folio_admin = "7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn"
@@ -22,9 +24,7 @@ url = "https://api.apr.dev"
 
 [provider]
 cluster = "Localnet"
-#cluster = "Devnet"
 wallet = "~/.config/solana/id.json"
-
 
 [scripts]
 test = "tsc && yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests-ts/tests-*.ts"

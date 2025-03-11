@@ -24,9 +24,8 @@ install-tools:
         echo "Solana CLI is already installed. Version: $(solana --version)"; \
     else \
         echo "Installing Solana v2.1.0"; \
-        sh -c "$(curl -sSfL https://release.anza.xyz/v2.1.0/install)"; \
+        sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"; \
         echo 'export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"' >> ~/.zshrc; \
-        source ~/.zshrc; \
     fi
     @echo "Use Solana v2.1.0"
     @agave-install init 2.1.0
@@ -52,33 +51,39 @@ install-tools:
     @echo "Solana: $(solana --version 2>/dev/null || echo 'not found')"
     @echo "Anchor: $(anchor --version 2>/dev/null || echo 'not found')"
 
-# Build custom SPL Governance and two Folio program instances
 build-local:
     # Exit on error
     @set -e
 
+    # Return to workspace root
+    @cd "$(git rev-parse --show-toplevel)" || exit 1
+
     # Build SPL Governance program
     @echo "Building SPL Governance program..."
-    @cd ../solana-program-library/governance/program
+    @cd governance/program
     @cargo build-sbf
-    @cd ../..
+    @cd ..
 
     # Copy the built governance program
     @if [ -f "target/deploy/spl_governance.so" ]; then \
-        cp target/deploy/spl_governance.so ../reserve-index-dtfs-solana/tests-ts/programs/governance.so; \
+        cp target/deploy/spl_governance.so ../tests-ts/programs/governance.so; \
     elif [ -f "target/sbf-solana-solana/release/spl_governance.so" ]; then \
-        cp target/sbf-solana-solana/release/spl_governance.so ../reserve-index-dtfs-solana/tests-ts/programs/governance.so; \
+        cp target/sbf-solana-solana/release/spl_governance.so ../tests-ts/programs/governance.so; \
     fi
 
-    # Return to reserve-index-dtfs-solana directory
-    @cd ../reserve-index-dtfs-solana
+    # Return to workspace root
+    @cd ..
 
     # Install node modules
     @yarn install
 
+    @cp .env.example .env
+
     # Build second Folio instance with feature flag
     @echo "Building second instance of the program..."
     @cp utils/keys/folio-2-keypair-local.json target/deploy/folio-keypair.json
+
+    # Anchor build with dev feature flag
     @anchor build -- --features dev
 
     # Update program ID in IDL and type files (Mac compatible)
@@ -90,8 +95,6 @@ build-local:
     @mv target/types/folio.ts target/types/second_folio.ts
     @mv target/deploy/folio.so target/deploy/second_folio.so
     @mv target/deploy/folio-keypair.json target/deploy/second_folio-keypair.json
-
-    @cp .env.example .env
 
     # Build first Folio instance
     @echo "Building first instance of the program..."

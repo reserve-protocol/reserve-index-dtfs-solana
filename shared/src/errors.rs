@@ -190,9 +190,6 @@ pub enum ErrorCode {
     #[msg("No More Room For New Reward Token")]
     NoMoreRoomForNewRewardToken,
 
-    #[msg("No More Room For New Disallowed Token")]
-    NoMoreRoomForNewDisallowedToken,
-
     #[msg("Reward Not Registered")]
     RewardNotRegistered,
 

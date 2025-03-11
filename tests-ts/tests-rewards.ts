@@ -209,15 +209,21 @@ describe("Reward Tests", () => {
       rewardTokenMints[0].mint.publicKey
     );
 
+    const rewardInfoPDA = getRewardInfoPDA(
+      realm,
+      rewardTokenMints[0].mint.publicKey
+    );
+    const rewardInfo = await programRewards.account.rewardInfo.fetch(
+      rewardInfoPDA
+    );
+
+    assert.equal(rewardInfo.isDisallowed, true);
+
     const rewardTokens = await programRewards.account.rewardTokens.fetch(
       getRewardTokensPDA(realm)
     );
 
     assert.deepEqual(rewardTokens.rewardTokens[0], PublicKey.default);
-    assert.deepEqual(
-      rewardTokens.disallowedToken[0],
-      rewardTokenMints[0].mint.publicKey
-    );
   });
 
   /*

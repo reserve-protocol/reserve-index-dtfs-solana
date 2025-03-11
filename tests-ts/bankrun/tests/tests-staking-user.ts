@@ -577,7 +577,8 @@ describe("Bankrun - Staking User", () => {
           rewardInfo.rewardIndex,
           rewardInfo.balanceAccounted,
           rewardInfo.balanceLastKnown,
-          rewardInfo.totalClaimed
+          rewardInfo.totalClaimed,
+          rewardInfo.isDisallowed
         )
       );
 
@@ -678,8 +679,7 @@ describe("Bankrun - Staking User", () => {
       realmPDA,
       rewardsAdminPDA,
       rewardRatio, // LN2 / min reward ratio available (so LN 2 / 1 day)
-      REWARD_TOKEN_MINTS.map((mint) => mint.publicKey),
-      []
+      REWARD_TOKEN_MINTS.map((mint) => mint.publicKey)
     );
 
     const rewardTokensPDA = getRewardTokensPDA(realmPDA);

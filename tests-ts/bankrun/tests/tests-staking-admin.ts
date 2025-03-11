@@ -16,6 +16,7 @@ import {
 import { Folio } from "../../../target/types/folio";
 import {
   DEFAULT_DECIMALS,
+  MAX_DISALLOWED_REWARD_TOKENS,
   MAX_MINT_FEE,
   MAX_REWARD_HALF_LIFE,
   MAX_REWARD_TOKENS,
@@ -202,7 +203,7 @@ describe("Bankrun - Staking Admin", () => {
     {
       desc: "(no more room for new disallowed token, errors out)",
       expectedError: "NoMoreRoomForNewDisallowedToken",
-      disallowedTokenRewards: Array(MAX_REWARD_TOKENS).fill(
+      disallowedTokenRewards: Array(MAX_DISALLOWED_REWARD_TOKENS).fill(
         REWARD_TOKEN_MINTS[0].publicKey
       ),
       alreadyAddedTokenRewards: [REWARD_TOKEN_MINTS[1].publicKey],

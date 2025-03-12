@@ -32,11 +32,11 @@ import {
   FolioStatus,
   createAndSetProgramRegistrar,
   createAndSetFolioBasket,
-  TokenAmount,
   Auction,
   createAndSetAuction,
   closeAccount,
   AuctionEnd,
+  FolioTokenAmount,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
 import {
@@ -116,7 +116,7 @@ describe("Bankrun - Auction", () => {
 
     customFolioTokenMint: Keypair;
 
-    initialFolioBasket: TokenAmount[];
+    initialFolioBasket: FolioTokenAmount[];
 
     buyMints: PublicKey[];
     sellMints: PublicKey[];
@@ -147,8 +147,7 @@ describe("Bankrun - Auction", () => {
 
     initialFolioBasket: MINTS_IN_FOLIO.map((mint) => ({
       mint: mint.publicKey,
-      amountForMinting: new BN(100),
-      amountForRedeeming: new BN(100),
+      amount: new BN(100),
     })),
 
     buyMints: BUY_MINTS.map((mint) => mint.publicKey),
@@ -332,7 +331,7 @@ describe("Bankrun - Auction", () => {
 
   async function initBaseCase(
     customFolioTokenMint: Keypair = null,
-    initialFolioBasket: TokenAmount[] = [],
+    initialFolioBasket: FolioTokenAmount[] = [],
     folioTokenSupply: BN = new BN(10_000)
   ) {
     const folioTokenMintToUse = customFolioTokenMint || folioTokenMint;
@@ -1139,6 +1138,11 @@ describe("Bankrun - Auction", () => {
 
         before(async () => {
           const mintToUse = customFolioTokenMint || folioTokenMint;
+          initialFolioBasket.forEach((token) => {
+            if (token.mint.equals(sellMint.publicKey)) {
+              token.amount = new BN(sellAmount);
+            }
+          });
 
           await initBaseCase(mintToUse, initialFolioBasket, folioTokenSupply);
 

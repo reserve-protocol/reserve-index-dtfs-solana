@@ -1,6 +1,6 @@
 use crate::utils::{
     structs::{AuctionEnd, BasketRange, FeeRecipient, TokenAmount},
-    FixedSizeString, Prices,
+    FixedSizeString, FolioTokenAmount, Prices,
 };
 use anchor_lang::prelude::*;
 use shared::constants::{
@@ -201,7 +201,7 @@ pub struct FolioBasket {
 
     /// Represents the amount frozen for minting as well as the amount frozen for redeeming PER token in the basket.
     /// Default pubkey means not set.
-    pub token_amounts: [TokenAmount; MAX_FOLIO_TOKEN_AMOUNTS],
+    pub token_amounts: [FolioTokenAmount; MAX_FOLIO_TOKEN_AMOUNTS],
 }
 
 impl FolioBasket {
@@ -214,7 +214,7 @@ impl Default for FolioBasket {
             bump: 0,
             _padding: [0; 7],
             folio: Pubkey::default(),
-            token_amounts: [TokenAmount::default(); MAX_FOLIO_TOKEN_AMOUNTS],
+            token_amounts: [FolioTokenAmount::default(); MAX_FOLIO_TOKEN_AMOUNTS],
         }
     }
 }

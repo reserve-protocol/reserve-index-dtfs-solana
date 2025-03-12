@@ -33,7 +33,6 @@ import {
   getActorPDA,
   getDAOFeeConfigPDA,
   getFeeDistributionPDA,
-  getFolioBasketPDA,
   getTVLFeeRecipientsPDA,
   getAuctionPDA,
   getUserPendingBasketPDA,
@@ -477,7 +476,8 @@ describe("Folio Tests", () => {
       [],
       [[0, 100]],
       [],
-      [0]
+      [0],
+      true
     );
   });
 
@@ -520,7 +520,8 @@ describe("Folio Tests", () => {
       [],
       [[], [-100, 100], [-100, 100], [-100, 100], [-100, 100]],
       [0, 10],
-      [1, 2, 3, 4]
+      [1, 2, 3, 4],
+      true
     );
   });
 
@@ -539,22 +540,11 @@ describe("Folio Tests", () => {
       userKeypair.publicKey
     );
 
-    const folioBasketPDA = getFolioBasketPDA(folioPDA);
-
     const userPendingBasket =
       await programFolio.account.userPendingBasket.fetch(userPendingBasketPDA);
 
-    const folioBasket = await programFolio.account.folioBasket.fetch(
-      folioBasketPDA
-    );
-
     assert.equal(
       userPendingBasket.tokenAmounts[0].amountForMinting.toNumber(),
-      100 * 10 ** tokenMints[0].decimals
-    );
-
-    assert.equal(
-      folioBasket.tokenAmounts[0].amountForMinting.toNumber(),
       100 * 10 ** tokenMints[0].decimals
     );
   });
@@ -608,7 +598,8 @@ describe("Folio Tests", () => {
       ],
       [],
       [],
-      [0, 1, 2, 3]
+      [0, 1, 2, 3],
+      false
     );
   });
 
@@ -654,7 +645,8 @@ describe("Folio Tests", () => {
       ],
       [],
       [0, 0],
-      [0, 1, 2, 3]
+      [0, 1, 2, 3],
+      false
     );
   });
 
@@ -693,7 +685,8 @@ describe("Folio Tests", () => {
       ],
       [],
       [],
-      [3]
+      [3],
+      false
     );
   });
 
@@ -711,6 +704,8 @@ describe("Folio Tests", () => {
       false
     );
 
+    const sharesToMint = new BN(3).mul(new BN(DEFAULT_DECIMALS_MUL));
+
     await mintFolioToken(
       connection,
       userKeypair,
@@ -720,7 +715,7 @@ describe("Folio Tests", () => {
         mint: token.mint.publicKey,
         amount: new BN(0),
       })),
-      new BN(3).mul(new BN(DEFAULT_DECIMALS_MUL))
+      sharesToMint
     );
 
     const folioAfter = await programFolio.account.folio.fetch(folioPDA);
@@ -752,8 +747,10 @@ describe("Folio Tests", () => {
       // Receives a bit less than 3 tokens because of the fees
       [0, 2.85],
       [0, 1, 2, 3, 4],
+      true,
       "amountForMinting",
-      true
+      true,
+      [129999999900, 129999999900, 13000000, 129999999900, 129999999900]
     );
   });
 
@@ -792,6 +789,7 @@ describe("Folio Tests", () => {
       [],
       [0, -2],
       [0, 1, 2, 3, 4],
+      true,
       "amountForRedeeming",
       true
     );
@@ -836,6 +834,7 @@ describe("Folio Tests", () => {
       ],
       [],
       [0, 1, 2, 3, 4],
+      false,
       "amountForRedeeming"
     );
   });
@@ -1188,6 +1187,7 @@ describe("Folio Tests", () => {
       ],
       [],
       [0, 1],
+      true,
       "amountForMinting",
       true
     );
@@ -1265,6 +1265,7 @@ describe("Folio Tests", () => {
       ],
       [],
       [0, 1],
+      true,
       "amountForMinting",
       true
     );

@@ -3,6 +3,7 @@ set shell := ["bash", "-cu"]
 
 # Environment variables
 set dotenv-load := true
+set export
 
 export PROGRAMS_DIR := "tests-ts/programs"
 
@@ -155,3 +156,18 @@ test-bankrun skip_build="":
       just build-local; \
     fi
     @anchor run test-bankrun
+
+test-coverage:
+    @just install-tools
+    # Expect tarpaulin to be already installed.
+    @cargo tarpaulin --workspace \
+                --exclude-files \
+                "governance/*" \
+                "programs/*/src/instructions/*" \
+                "programs/*/src/external/*" \
+                "programs/*/src/**/events.rs" \
+                "programs/*/src/**/state.rs" \
+                "programs/*/src/lib.rs" \
+                "programs/*/src/**/errors.rs" \
+                --out Html \
+                --output-dir target/tarpaulin

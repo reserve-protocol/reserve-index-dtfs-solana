@@ -1,5 +1,6 @@
 pub mod add_to_basket;
 pub mod init_folio;
+pub mod init_folio_2022;
 pub mod init_or_update_actor;
 pub mod kill_folio;
 pub mod migration;
@@ -9,6 +10,7 @@ pub mod update_folio;
 
 pub use add_to_basket::*;
 pub use init_folio::*;
+pub use init_folio_2022::*;
 pub use init_or_update_actor::*;
 pub use kill_folio::*;
 pub use migration::*;

@@ -56,6 +56,8 @@ impl RewardInfo {
         current_token_decimals: u8,
         current_time: u64,
     ) -> Result<()> {
+        check_condition!(!self.is_disallowed, DisallowedRewardToken);
+
         let (elapsed, overflow) = current_time.overflowing_sub(self.payout_last_paid);
 
         if elapsed == 0 || overflow {

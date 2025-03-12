@@ -106,6 +106,8 @@ impl UserRewardInfo {
         reward_info: &RewardInfo,
         raw_user_governance_balance: u64,
     ) -> Result<()> {
+        check_condition!(!reward_info.is_disallowed, DisallowedRewardToken);
+
         // D18+decimals{reward/share}
         let (scaled_delta_result, overflow) = reward_info
             .reward_index

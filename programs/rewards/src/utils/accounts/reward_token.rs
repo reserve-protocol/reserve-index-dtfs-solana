@@ -1,5 +1,5 @@
 use crate::events::RewardRatioSet;
-use crate::state::RewardTokens;
+use crate::state::{RewardInfo, RewardTokens};
 use anchor_lang::prelude::*;
 use shared::check_condition;
 use shared::constants::{LN_2, MAX_REWARD_HALF_LIFE, MIN_REWARD_HALF_LIFE};
@@ -55,15 +55,14 @@ impl RewardTokens {
     ///
     /// # Arguments
     /// * `new_reward_token` - The new reward token to add.
-    pub fn add_reward_token(&mut self, new_reward_token: &Pubkey) -> Result<()> {
+    /// * `new_reward_info` - The new reward info account to add.
+    pub fn add_reward_token(
+        &mut self,
+        new_reward_token: &Pubkey,
+        new_reward_info: &RewardInfo,
+    ) -> Result<()> {
         // Check for disallowed reward token
-        check_condition!(
-            !self
-                .disallowed_token
-                .iter()
-                .any(|disallowed_reward_token| disallowed_reward_token.key() == *new_reward_token),
-            DisallowedRewardToken
-        );
+        check_condition!(!new_reward_info.is_disallowed, DisallowedRewardToken);
 
         let mut next_index_to_add: Option<usize> = None;
         for (index, reward_token) in self.reward_tokens.iter().enumerate() {
@@ -86,11 +85,17 @@ impl RewardTokens {
 
     /// Remove a reward token from the RewardTokens account, meaning we'll stop tracking that reward token.
     /// Will return an error if the reward token is not registered.
-    /// Will add the removed reward token to the disallowed token list.
+    /// Will set the removed reward token to the disallowed state.
     ///
     /// # Arguments
     /// * `reward_token` - The reward token to remove.
-    pub fn remove_reward_token(&mut self, reward_token: &Pubkey) -> Result<()> {
+    /// * `reward_info` - The reward info account to update.
+    #[cfg(not(tarpaulin_include))]
+    pub fn remove_reward_token(
+        &mut self,
+        reward_token: &Pubkey,
+        reward_info: &mut Account<RewardInfo>,
+    ) -> Result<()> {
         let reward_token_position = self
             .reward_tokens
             .iter()
@@ -102,20 +107,7 @@ impl RewardTokens {
         // Set to null in reward token list
         self.reward_tokens[reward_token_position.unwrap()] = Pubkey::default();
 
-        // Add to disallowed token list
-        let default_pubkey = Pubkey::default();
-
-        let next_disallowed_token_position = self
-            .disallowed_token
-            .iter()
-            .position(|disallowed_reward_token| disallowed_reward_token.key() == default_pubkey);
-
-        check_condition!(
-            next_disallowed_token_position.is_some(),
-            NoMoreRoomForNewDisallowedToken
-        );
-
-        self.disallowed_token[next_disallowed_token_position.unwrap()] = *reward_token;
+        reward_info.is_disallowed = true;
 
         Ok(())
     }

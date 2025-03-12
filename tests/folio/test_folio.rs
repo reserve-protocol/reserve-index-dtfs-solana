@@ -687,4 +687,66 @@ mod tests {
         assert_eq!(folio.sell_ends[0].end_time, 100);
         assert_eq!(folio.buy_ends[0].end_time, 200);
     }
+
+    #[test]
+    fn test_fees_are_correct() {
+        let scaled_new_fee_annually = MAX_TVL_FEE; // 10% annual rate
+        let year_in_seconds = 31_536_000;
+
+        // PART 1: Test the per-second rate calculation
+        // Calculate the per-second rate from the annual rate
+        // Formula: per_second_rate = 1 - (1 - annual_rate)^(1/seconds_in_year)
+        let one_minus_fee = Decimal::ONE_E18
+            .sub(&Decimal::from_scaled(scaled_new_fee_annually))
+            .unwrap();
+
+        let result = one_minus_fee.nth_root(year_in_seconds).unwrap();
+        let scaled_tvl_fee = Decimal::ONE_E18.sub(&result).unwrap();
+
+        // The per-second rate should be approximately 3.34 * 10^-9 for a 10% annual rate
+        let expected_per_second_rate = 3_340_000_000u128; // Approximate value
+        let actual_per_second_rate = scaled_tvl_fee.to_scaled(Rounding::Floor).unwrap();
+
+        // Allow for a small rounding error
+        let tolerance = 100_000_000u128; // Tolerance for rounding errors
+
+        assert!(
+            (actual_per_second_rate as i128 - expected_per_second_rate as i128).abs()
+                < tolerance as i128,
+            "Per-second rate calculation is incorrect. Got: {}, Expected approximately: {}",
+            actual_per_second_rate,
+            expected_per_second_rate
+        );
+
+        // PART 2: Test the continuous compounding effect
+        // Now calculate what the effective annual rate would be when this per-second rate
+        // is compounded over a full year
+        // Formula: effective_annual_rate = 1 - (1 - per_second_rate)^seconds_in_year
+        let scaled_one_minus_tvl_fee = Decimal::ONE_E18.sub(&scaled_tvl_fee).unwrap();
+        let compounded_one_minus_fee = scaled_one_minus_tvl_fee.pow(year_in_seconds).unwrap();
+        let effective_annual_rate = Decimal::ONE_E18.sub(&compounded_one_minus_fee).unwrap();
+
+        // Get the actual effective annual rate from the implementation
+        let actual_effective_rate = effective_annual_rate.to_scaled(Rounding::Floor).unwrap();
+
+        // Verify that the effective annual rate is different from the input annual rate
+        // This demonstrates the compounding effect
+        assert!(
+            actual_effective_rate != scaled_new_fee_annually,
+            "The effective annual rate should be different from the input annual rate due to compounding"
+        );
+
+        // The effective annual rate should be approximately 10% for a 10% nominal annual rate
+        // Allow for a 1% difference
+        let min_expected = scaled_new_fee_annually * 99 / 100;
+        let max_expected = scaled_new_fee_annually * 101 / 100;
+
+        assert!(
+            actual_effective_rate >= min_expected && actual_effective_rate <= max_expected,
+            "Effective annual rate after continuous compounding is outside the expected range. Got: {}, Expected between {} and {}",
+            actual_effective_rate,
+            min_expected,
+            max_expected
+        );
+    }
 }

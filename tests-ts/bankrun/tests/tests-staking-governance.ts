@@ -185,7 +185,8 @@ describe("Bankrun - Governance Staking User", () => {
           rewardInfo.rewardIndex,
           rewardInfo.balanceAccounted,
           rewardInfo.balanceLastKnown,
-          rewardInfo.totalClaimed
+          rewardInfo.totalClaimed,
+          rewardInfo.isDisallowed
         )
       );
 
@@ -268,8 +269,7 @@ describe("Bankrun - Governance Staking User", () => {
       realmPDA,
       rewardsAdminPDA,
       rewardRatio,
-      REWARD_TOKEN_MINTS.map((mint) => mint.publicKey),
-      []
+      REWARD_TOKEN_MINTS.map((mint) => mint.publicKey)
     );
 
     const rewardTokensPDA = getRewardTokensPDA(realmPDA);

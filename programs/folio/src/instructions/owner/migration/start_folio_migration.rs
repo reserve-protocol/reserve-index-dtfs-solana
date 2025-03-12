@@ -3,7 +3,7 @@ use crate::{
     state::{Actor, Folio},
     utils::{FolioStatus, Role},
 };
-use anchor_lang::prelude::*;
+use anchor_lang::{prelude::*, Discriminator};
 use anchor_spl::{
     token_2022::spl_token_2022::instruction::AuthorityType,
     token_interface::{self, Mint, TokenInterface},
@@ -108,6 +108,13 @@ impl StartFolioMigration<'_> {
         check_condition!(
             self.new_folio_program.key() != FOLIO_PROGRAM_ID,
             CantMigrateToSameProgram
+        );
+
+        // Make sure the discriminator of the new folio is correct
+        let data = self.new_folio.try_borrow_data()?;
+        check_condition!(
+            data.len() >= 8 && data[0..8] == Folio::discriminator(),
+            InvalidNewFolio
         );
 
         Ok(())

@@ -41,6 +41,7 @@ import {
   MAX_FEE_FLOOR,
   MAX_PADDED_STRING_LENGTH,
   REWARDS_PROGRAM_ID,
+  MAX_DISALLOWED_REWARD_TOKENS,
 } from "../../utils/constants";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
@@ -1064,7 +1065,7 @@ export async function createAndSetRewardTokens(
   };
 
   // Manual encoding for reward tokens
-  const buffer = Buffer.alloc(360);
+  const buffer = Buffer.alloc(1192);
   let offset = 0;
 
   // Encode discriminator
@@ -1108,7 +1109,14 @@ export async function createAndSetRewardTokens(
   });
 
   // Encode disallowed token
-  rewardTokens.disallowedToken.forEach((dt: any) => {
+  const paddedDisallowedTokens = [
+    ...rewardTokens.disallowedToken,
+    ...Array(
+      MAX_DISALLOWED_REWARD_TOKENS - rewardTokens.disallowedToken.length
+    ).fill(PublicKey.default),
+  ];
+
+  paddedDisallowedTokens.forEach((dt: any) => {
     dt.toBuffer().copy(buffer, offset);
     offset += 32;
   });

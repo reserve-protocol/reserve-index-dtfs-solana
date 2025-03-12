@@ -1,7 +1,7 @@
 use crate::{check_condition, errors::ErrorCode};
 use anchor_lang::{
     prelude::*,
-    solana_program::{program::invoke_signed, system_instruction},
+    solana_program::{program::invoke, program::invoke_signed, system_instruction},
 };
 
 /// Helper function to validate the next account in an iterator.
@@ -68,21 +68,50 @@ pub fn init_pda_account_rent<'info>(
     let rent = Rent::get()?;
     let rent_lamports = rent.minimum_balance(space);
 
-    invoke_signed(
-        &system_instruction::create_account(
-            payer.key,
-            account_to_init.key,
-            rent_lamports,
-            space as u64,
-            owner_program_id,
-        ),
-        &[
-            payer.clone(),
-            account_to_init.clone(),
-            system_program.clone(),
-        ],
-        pda_signers_seeds,
-    )?;
+    let current_lamports_balance = account_to_init.lamports();
+
+    if current_lamports_balance == 0 {
+        invoke_signed(
+            &system_instruction::create_account(
+                payer.key,
+                account_to_init.key,
+                rent_lamports,
+                space as u64,
+                owner_program_id,
+            ),
+            &[
+                payer.clone(),
+                account_to_init.clone(),
+                system_program.clone(),
+            ],
+            pda_signers_seeds,
+        )?;
+    } else {
+        // Account already has lamports, we only need to send if there isn't enough for the rent
+        let lamports_needed = rent
+            .minimum_balance(space)
+            .saturating_sub(current_lamports_balance);
+
+        if lamports_needed > 0 {
+            // Transfer the required amount of lamports to the account
+            invoke(
+                &system_instruction::transfer(payer.key, account_to_init.key, lamports_needed),
+                &[payer.clone(), account_to_init.clone()],
+            )?;
+        }
+
+        invoke_signed(
+            &system_instruction::allocate(account_to_init.key, space as u64),
+            &[account_to_init.clone(), system_program.clone()],
+            pda_signers_seeds,
+        )?;
+
+        invoke_signed(
+            &system_instruction::assign(account_to_init.key, owner_program_id),
+            &[account_to_init.clone(), system_program.clone()],
+            pda_signers_seeds,
+        )?;
+    }
 
     Ok(())
 }

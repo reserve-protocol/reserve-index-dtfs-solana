@@ -3,6 +3,8 @@ use crate::ID;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 use anchor_spl::token;
+use anchor_spl::token::ID as TOKEN_PROGRAM_ID;
+use anchor_spl::token_2022::ID as TOKEN_2022_PROGRAM_ID;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use folio_admin::state::DAOFeeConfig;
 use folio_admin::ID as FOLIO_ADMIN_PROGRAM_ID;
@@ -42,19 +44,12 @@ pub struct DistributeFees<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
-    #[account(
-            seeds = [DAO_FEE_CONFIG_SEEDS],
-            bump,
-            seeds::program = FOLIO_ADMIN_PROGRAM_ID,
-        )]
+    /// CHECK: seeds validated in validate function
+    #[account()]
     pub dao_fee_config: Account<'info, DAOFeeConfig>,
 
-    /// CHECK: Could be empty or could be set, if set we use that one, else we use dao fee config
-    #[account(
-        seeds = [FOLIO_FEE_CONFIG_SEEDS, folio.key().as_ref()],
-        bump,
-        seeds::program = FOLIO_ADMIN_PROGRAM_ID,
-    )]
+    /// CHECK: Could be empty or could be set, if set we use that one, else we use dao fee config, seeds validated in validate function
+    #[account()]
     pub folio_fee_config: UncheckedAccount<'info>,
 
     #[account(mut)]
@@ -63,10 +58,8 @@ pub struct DistributeFees<'info> {
     #[account(mut)]
     pub folio_token_mint: Box<InterfaceAccount<'info, Mint>>,
 
-    #[account(mut,
-        seeds = [FEE_RECIPIENTS_SEEDS, folio.key().as_ref()],
-        bump,
-    )]
+    /// CHECK: seeds validated in validate function
+    #[account(mut)]
     pub fee_recipients: AccountLoader<'info, FeeRecipients>,
 
     #[account(
@@ -92,6 +85,11 @@ pub fn validate<'info>(
     folio: &AccountLoader<'info, Folio>,
     fee_recipients: &FeeRecipients,
     folio_token_mint: &InterfaceAccount<'info, Mint>,
+    dao_fee_config: &Account<'info, DAOFeeConfig>,
+    folio_fee_config: &AccountInfo<'info>,
+    fee_recipients_account: &AccountInfo<'info>,
+    fee_distribution_account: &AccountInfo<'info>,
+    token_program: &AccountInfo<'info>,
     index: u64,
 ) -> Result<()> {
     let loaded_folio = folio.load()?;
@@ -111,6 +109,52 @@ pub fn validate<'info>(
     check_condition!(
         folio_token_mint.key() == loaded_folio.folio_token_mint,
         InvalidFolioTokenMint
+    );
+
+    let folio_key = folio.key();
+
+    // Validate dao_fee_config PDA
+    let (expected_dao_fee_config, _) =
+        Pubkey::find_program_address(&[DAO_FEE_CONFIG_SEEDS], &FOLIO_ADMIN_PROGRAM_ID);
+
+    check_condition!(dao_fee_config.key() == expected_dao_fee_config, InvalidPda);
+
+    // Validate folio_fee_config PDA
+    let (expected_folio_fee_config, _) = Pubkey::find_program_address(
+        &[FOLIO_FEE_CONFIG_SEEDS, folio_key.as_ref()],
+        &FOLIO_ADMIN_PROGRAM_ID,
+    );
+    check_condition!(
+        folio_fee_config.key() == expected_folio_fee_config,
+        InvalidPda
+    );
+
+    // Validate fee_recipients PDA
+    let (expected_fee_recipients, _) =
+        Pubkey::find_program_address(&[FEE_RECIPIENTS_SEEDS, folio_key.as_ref()], &ID);
+    check_condition!(
+        fee_recipients_account.key() == expected_fee_recipients,
+        InvalidPda
+    );
+
+    // Validate fee_distribution PDA
+    let (expected_fee_distribution, _) = Pubkey::find_program_address(
+        &[
+            FEE_DISTRIBUTION_SEEDS,
+            folio_key.as_ref(),
+            index.to_le_bytes().as_slice(),
+        ],
+        &ID,
+    );
+    check_condition!(
+        fee_distribution_account.key() == expected_fee_distribution,
+        InvalidFeeDistribution
+    );
+
+    // Validate the token program
+    check_condition!(
+        [TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID].contains(&token_program.key()),
+        InvalidProgram
     );
 
     Ok(())
@@ -142,9 +186,19 @@ pub fn distribute_fees<'info>(
     index: u64,
 ) -> Result<()> {
     {
-        let fee_recipients = fee_recipients.load()?;
+        let fee_recipients_data = fee_recipients.load()?;
 
-        validate(folio, &fee_recipients, folio_token_mint, index)?;
+        validate(
+            folio,
+            &fee_recipients_data,
+            folio_token_mint,
+            dao_fee_config,
+            folio_fee_config,
+            &fee_recipients.to_account_info(),
+            &fee_distribution.to_account_info(),
+            token_program,
+            index,
+        )?;
 
         let folio = &mut folio.load_mut()?;
 
@@ -173,7 +227,7 @@ pub fn distribute_fees<'info>(
     }
 
     // Mint pending fees to dao recipient
-    let raw_dao_pending_fee_shares: u64;
+    let mut raw_dao_pending_fee_shares: u64;
 
     let scaled_fee_recipients_pending_fee_shares_minus_dust: u128;
 
@@ -212,15 +266,20 @@ pub fn distribute_fees<'info>(
             authority: folio.to_account_info(),
         };
 
+        if !has_fee_recipients {
+            // If there are no fee recipients, the DAO gets all the fees
+            raw_dao_pending_fee_shares = raw_dao_pending_fee_shares
+                .checked_add(raw_fee_recipients_pending_fee_shares)
+                .ok_or(ErrorCode::MathOverflow)?;
+        }
+
         token::mint_to(
             CpiContext::new_with_signer(
                 token_program.to_account_info(),
                 cpi_accounts,
                 &[signer_seeds],
             ),
-            raw_dao_pending_fee_shares
-                .checked_add(raw_fee_recipients_pending_fee_shares)
-                .ok_or(ErrorCode::MathOverflow)?,
+            raw_dao_pending_fee_shares,
         )?;
 
         // Create new fee distribution for other recipients if there are any

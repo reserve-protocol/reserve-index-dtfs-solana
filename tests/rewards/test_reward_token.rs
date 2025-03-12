@@ -5,7 +5,9 @@ mod tests {
 
     use anchor_lang::prelude::Pubkey;
     use rewards::state::RewardTokens;
-    use shared::constants::{MAX_REWARD_HALF_LIFE, MAX_REWARD_TOKENS, MIN_REWARD_HALF_LIFE};
+    use shared::constants::{
+        MAX_DISALLOWED_REWARD_TOKENS, MAX_REWARD_HALF_LIFE, MAX_REWARD_TOKENS, MIN_REWARD_HALF_LIFE,
+    };
     use shared::errors::ErrorCode::*;
 
     fn setup_reward_tokens() -> RewardTokens {
@@ -14,7 +16,7 @@ mod tests {
             realm: Pubkey::new_unique(),
             rewards_admin: Pubkey::new_unique(),
             reward_tokens: [Pubkey::default(); MAX_REWARD_TOKENS],
-            disallowed_token: [Pubkey::default(); MAX_REWARD_TOKENS],
+            disallowed_token: [Pubkey::default(); MAX_DISALLOWED_REWARD_TOKENS],
             reward_ratio: 0,
             _padding: [0; 15],
         }
@@ -90,7 +92,7 @@ mod tests {
         let token_to_remove = Pubkey::new_unique();
         reward_tokens.reward_tokens[0] = token_to_remove;
 
-        for i in 0..MAX_REWARD_TOKENS {
+        for i in 0..MAX_DISALLOWED_REWARD_TOKENS {
             reward_tokens.disallowed_token[i] = Pubkey::new_unique();
         }
 

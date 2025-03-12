@@ -41,7 +41,6 @@ import {
   MAX_FEE_FLOOR,
   MAX_PADDED_STRING_LENGTH,
   REWARDS_PROGRAM_ID,
-  MAX_DISALLOWED_REWARD_TOKENS,
 } from "../../utils/constants";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
@@ -122,6 +121,7 @@ export class RewardInfo {
   balanceAccounted: BN;
   balanceLastKnown: BN;
   totalClaimed: BN;
+  isDisallowed: boolean;
 
   constructor(
     rewardToken: PublicKey,
@@ -129,7 +129,8 @@ export class RewardInfo {
     rewardIndex: BN,
     balanceAccounted: BN,
     balanceLastKnown: BN,
-    totalClaimed: BN
+    totalClaimed: BN,
+    isDisallowed: boolean
   ) {
     this.rewardToken = rewardToken;
     this.payoutLastPaid = payoutLastPaid;
@@ -137,6 +138,7 @@ export class RewardInfo {
     this.balanceAccounted = balanceAccounted;
     this.balanceLastKnown = balanceLastKnown;
     this.totalClaimed = totalClaimed;
+    this.isDisallowed = isDisallowed;
   }
 
   public static async default(
@@ -149,7 +151,8 @@ export class RewardInfo {
       new BN(0),
       new BN(0),
       new BN(0),
-      new BN(0)
+      new BN(0),
+      false
     );
   }
 }
@@ -1049,8 +1052,7 @@ export async function createAndSetRewardTokens(
   realm: PublicKey,
   rewardsAdmin: PublicKey,
   rewardRatio: BN,
-  rewardTokensToTrack: PublicKey[],
-  disallowedTokens: PublicKey[]
+  rewardTokensToTrack: PublicKey[]
 ) {
   const rewardTokensPDAWithBump = getRewardTokensPDAWithBump(realm);
 
@@ -1061,11 +1063,10 @@ export async function createAndSetRewardTokens(
     realm: realm,
     rewardsAdmin: rewardsAdmin,
     rewardTokens: rewardTokensToTrack,
-    disallowedToken: disallowedTokens,
   };
 
   // Manual encoding for reward tokens
-  const buffer = Buffer.alloc(1192);
+  const buffer = Buffer.alloc(232);
   let offset = 0;
 
   // Encode discriminator
@@ -1108,19 +1109,6 @@ export async function createAndSetRewardTokens(
     offset += 32;
   });
 
-  // Encode disallowed token
-  const paddedDisallowedTokens = [
-    ...rewardTokens.disallowedToken,
-    ...Array(
-      MAX_DISALLOWED_REWARD_TOKENS - rewardTokens.disallowedToken.length
-    ).fill(PublicKey.default),
-  ];
-
-  paddedDisallowedTokens.forEach((dt: any) => {
-    dt.toBuffer().copy(buffer, offset);
-    offset += 32;
-  });
-
   await setRewardsAccountInfo(
     ctx,
     program,
@@ -1151,10 +1139,11 @@ export async function createAndSetRewardInfo(
     balanceAccounted: providedRewardInfo.balanceAccounted,
     balanceLastKnown: providedRewardInfo.balanceLastKnown,
     totalClaimed: providedRewardInfo.totalClaimed,
+    isDisallowed: providedRewardInfo.isDisallowed,
   };
 
   // Manual encoding for fee recipients
-  const buffer = Buffer.alloc(145);
+  const buffer = Buffer.alloc(146);
   let offset = 0;
 
   // Encode discriminator
@@ -1197,6 +1186,10 @@ export async function createAndSetRewardInfo(
   // Encode total claimed
   rewardInfo.totalClaimed.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
   offset += 16;
+
+  // Encode is disallowed
+  buffer.writeUInt8(rewardInfo.isDisallowed ? 1 : 0, offset);
+  offset += 1;
 
   await setRewardsAccountInfo(
     ctx,

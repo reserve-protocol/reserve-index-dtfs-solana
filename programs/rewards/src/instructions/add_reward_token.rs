@@ -110,16 +110,19 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AddRewardToken<'info>>)
     let realm_key = ctx.accounts.realm.key();
     ctx.accounts.validate()?;
 
-    let reward_tokens = &mut ctx.accounts.reward_tokens.load_mut()?;
-
-    reward_tokens.add_reward_token(&ctx.accounts.reward_token.key())?;
-
     RewardInfo::process_init_if_needed(
         &mut ctx.accounts.reward_token_reward_info,
         ctx.bumps.reward_token_reward_info,
         &realm_key,
         &ctx.accounts.reward_token.key(),
         ctx.accounts.reward_token_account.amount,
+    )?;
+
+    let reward_tokens = &mut ctx.accounts.reward_tokens.load_mut()?;
+
+    reward_tokens.add_reward_token(
+        &ctx.accounts.reward_token.key(),
+        &ctx.accounts.reward_token_reward_info,
     )?;
 
     emit!(RewardTokenAdded {

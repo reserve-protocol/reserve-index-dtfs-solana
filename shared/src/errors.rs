@@ -190,9 +190,6 @@ pub enum ErrorCode {
     #[msg("No More Room For New Reward Token")]
     NoMoreRoomForNewRewardToken,
 
-    #[msg("No More Room For New Disallowed Token")]
-    NoMoreRoomForNewDisallowedToken,
-
     #[msg("Reward Not Registered")]
     RewardNotRegistered,
 
@@ -237,6 +234,9 @@ pub enum ErrorCode {
 
     #[msg("New Folio Not Owned By New Folio Program")]
     NewFolioNotOwnedByNewFolioProgram,
+
+    #[msg("Invalid New Folio")]
+    InvalidNewFolio,
 
     #[msg("Can't Migrate To Same Program")]
     CantMigrateToSameProgram,

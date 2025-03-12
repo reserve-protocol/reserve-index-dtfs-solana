@@ -1,9 +1,9 @@
 use crate::events::RewardTokenRemoved;
-use crate::state::RewardTokens;
+use crate::state::{RewardInfo, RewardTokens};
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::Mint;
 use shared::check_condition;
-use shared::constants::REWARD_TOKENS_SEEDS;
+use shared::constants::{REWARD_INFO_SEEDS, REWARD_TOKENS_SEEDS};
 use shared::errors::ErrorCode;
 
 /// Remove a tracked reward token from the realm.
@@ -36,6 +36,12 @@ pub struct RemoveRewardToken<'info> {
         bump
     )]
     pub reward_tokens: AccountLoader<'info, RewardTokens>,
+
+    #[account(mut,
+        seeds = [REWARD_INFO_SEEDS, realm.key().as_ref(), reward_token_to_remove.key().as_ref()],
+        bump
+    )]
+    pub reward_token_reward_info: Account<'info, RewardInfo>,
 
     #[account()]
     pub reward_token_to_remove: Box<InterfaceAccount<'info, Mint>>,
@@ -71,10 +77,10 @@ impl RemoveRewardToken<'_> {
 pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, RemoveRewardToken<'info>>) -> Result<()> {
     ctx.accounts.validate()?;
 
-    ctx.accounts
-        .reward_tokens
-        .load_mut()?
-        .remove_reward_token(&ctx.accounts.reward_token_to_remove.key())?;
+    ctx.accounts.reward_tokens.load_mut()?.remove_reward_token(
+        &ctx.accounts.reward_token_to_remove.key(),
+        &mut ctx.accounts.reward_token_reward_info,
+    )?;
 
     emit!(RewardTokenRemoved {
         reward_token: ctx.accounts.reward_token_to_remove.key(),

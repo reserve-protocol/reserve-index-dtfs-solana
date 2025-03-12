@@ -509,7 +509,6 @@ classDiagram
         +rewards_admin: Pubkey
         +reward_ratio: u128
         +reward_tokens: Pubkey[]
-        +disallowed_token: Pubkey[]
     }
 
     class RewardInfo {
@@ -521,6 +520,7 @@ classDiagram
         +balance_accounted: u128
         +balance_last_known: u128
         +total_claimed: u128
+        +is_disallowed: bool
     }
 
     class UserRewardInfo {

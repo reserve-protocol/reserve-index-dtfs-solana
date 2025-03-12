@@ -228,7 +228,6 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
               realmPDA,
               rewardsAdminPDA,
               new BN(0),
-              [],
               []
             );
 

@@ -4,10 +4,8 @@
 mod tests {
 
     use anchor_lang::prelude::Pubkey;
-    use rewards::state::RewardTokens;
-    use shared::constants::{
-        MAX_DISALLOWED_REWARD_TOKENS, MAX_REWARD_HALF_LIFE, MAX_REWARD_TOKENS, MIN_REWARD_HALF_LIFE,
-    };
+    use rewards::state::{RewardInfo, RewardTokens};
+    use shared::constants::{MAX_REWARD_HALF_LIFE, MAX_REWARD_TOKENS, MIN_REWARD_HALF_LIFE};
     use shared::errors::ErrorCode::*;
 
     fn setup_reward_tokens() -> RewardTokens {
@@ -16,9 +14,16 @@ mod tests {
             realm: Pubkey::new_unique(),
             rewards_admin: Pubkey::new_unique(),
             reward_tokens: [Pubkey::default(); MAX_REWARD_TOKENS],
-            disallowed_token: [Pubkey::default(); MAX_DISALLOWED_REWARD_TOKENS],
             reward_ratio: 0,
             _padding: [0; 15],
+        }
+    }
+
+    fn setup_reward_info(token: Pubkey, is_disallowed: bool) -> RewardInfo {
+        RewardInfo {
+            reward_token: token,
+            is_disallowed,
+            ..Default::default()
         }
     }
 
@@ -26,12 +31,12 @@ mod tests {
     fn test_add_reward_token() {
         let mut reward_tokens = setup_reward_tokens();
         let new_token = Pubkey::new_unique();
-
-        let result = reward_tokens.add_reward_token(&new_token);
+        let reward_info = setup_reward_info(new_token, false);
+        let result = reward_tokens.add_reward_token(&new_token, &reward_info);
         assert!(result.is_ok());
         assert_eq!(reward_tokens.reward_tokens[0], new_token);
 
-        let duplicate_result = reward_tokens.add_reward_token(&new_token);
+        let duplicate_result = reward_tokens.add_reward_token(&new_token, &reward_info);
         assert!(duplicate_result.is_err());
         assert_eq!(
             duplicate_result.unwrap_err(),
@@ -48,7 +53,8 @@ mod tests {
         }
 
         let new_token = Pubkey::new_unique();
-        let result = reward_tokens.add_reward_token(&new_token);
+        let reward_info = setup_reward_info(new_token, false);
+        let result = reward_tokens.add_reward_token(&new_token, &reward_info);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), NoMoreRoomForNewRewardToken.into());
     }
@@ -57,48 +63,11 @@ mod tests {
     fn test_add_disallowed_reward_token() {
         let mut reward_tokens = setup_reward_tokens();
         let disallowed_token = Pubkey::new_unique();
-        reward_tokens.disallowed_token[0] = disallowed_token;
+        let reward_info = setup_reward_info(disallowed_token, true);
 
-        let result = reward_tokens.add_reward_token(&disallowed_token);
+        let result = reward_tokens.add_reward_token(&disallowed_token, &reward_info);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), DisallowedRewardToken.into());
-    }
-
-    #[test]
-    fn test_remove_reward_token() {
-        let mut reward_tokens = setup_reward_tokens();
-        let token_to_remove = Pubkey::new_unique();
-        reward_tokens.reward_tokens[0] = token_to_remove;
-
-        let result = reward_tokens.remove_reward_token(&token_to_remove);
-        assert!(result.is_ok());
-        assert_eq!(reward_tokens.reward_tokens[0], Pubkey::default());
-        assert_eq!(reward_tokens.disallowed_token[0], token_to_remove);
-    }
-
-    #[test]
-    fn test_remove_nonexistent_reward_token() {
-        let mut reward_tokens = setup_reward_tokens();
-        let nonexistent_token = Pubkey::new_unique();
-
-        let result = reward_tokens.remove_reward_token(&nonexistent_token);
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), RewardNotRegistered.into());
-    }
-
-    #[test]
-    fn test_remove_token_disallowed_list_full() {
-        let mut reward_tokens = setup_reward_tokens();
-        let token_to_remove = Pubkey::new_unique();
-        reward_tokens.reward_tokens[0] = token_to_remove;
-
-        for i in 0..MAX_DISALLOWED_REWARD_TOKENS {
-            reward_tokens.disallowed_token[i] = Pubkey::new_unique();
-        }
-
-        let result = reward_tokens.remove_reward_token(&token_to_remove);
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), NoMoreRoomForNewDisallowedToken.into());
     }
 
     #[test]

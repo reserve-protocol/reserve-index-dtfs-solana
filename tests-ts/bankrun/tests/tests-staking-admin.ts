@@ -12,11 +12,12 @@ import {
   createAndSetFolio,
   createAndSetDaoFeeConfig,
   createAndSetRewardTokens,
+  createAndSetRewardInfo,
+  RewardInfo,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
 import {
   DEFAULT_DECIMALS,
-  MAX_DISALLOWED_REWARD_TOKENS,
   MAX_MINT_FEE,
   MAX_REWARD_HALF_LIFE,
   MAX_REWARD_TOKENS,
@@ -198,15 +199,6 @@ describe("Bankrun - Staking Admin", () => {
       desc: "(reward token is not registered, errors out)",
       expectedError: "RewardNotRegistered",
       alreadyAddedTokenRewards: [],
-      rewardToken: REWARD_TOKEN_MINTS[1].publicKey,
-    },
-    {
-      desc: "(no more room for new disallowed token, errors out)",
-      expectedError: "NoMoreRoomForNewDisallowedToken",
-      disallowedTokenRewards: Array(MAX_DISALLOWED_REWARD_TOKENS).fill(
-        REWARD_TOKEN_MINTS[0].publicKey
-      ),
-      alreadyAddedTokenRewards: [REWARD_TOKEN_MINTS[1].publicKey],
       rewardToken: REWARD_TOKEN_MINTS[1].publicKey,
     },
     {
@@ -460,9 +452,35 @@ describe("Bankrun - Staking Admin", () => {
               realmPDA,
               rewardsAdminPDA,
               new BN(0),
-              alreadyAddedTokenRewards,
-              disallowedTokenRewards
+              alreadyAddedTokenRewards
             );
+
+            // Clean up past disallowed
+            for (const alreadyAddedToken of alreadyAddedTokenRewards) {
+              const rewardInfo = {
+                ...(await RewardInfo.default(context, alreadyAddedToken)),
+                isDisallowed: false,
+              };
+              await createAndSetRewardInfo(
+                context,
+                programRewards,
+                realmPDA,
+                rewardInfo
+              );
+            }
+
+            for (const disallowedToken of disallowedTokenRewards) {
+              const rewardInfo = {
+                ...(await RewardInfo.default(context, disallowedToken)),
+                isDisallowed: true,
+              };
+              await createAndSetRewardInfo(
+                context,
+                programRewards,
+                realmPDA,
+                rewardInfo
+              );
+            }
 
             await travelFutureSlot(context);
 
@@ -550,9 +568,21 @@ describe("Bankrun - Staking Admin", () => {
               realmPDA,
               rewardsAdminPDA,
               new BN(0),
-              alreadyAddedTokenRewards,
-              disallowedTokenRewards
+              alreadyAddedTokenRewards
             );
+
+            for (const disallowedToken of disallowedTokenRewards) {
+              const rewardInfo = {
+                ...(await RewardInfo.default(context, disallowedToken)),
+                isDisallowed: true,
+              };
+              await createAndSetRewardInfo(
+                context,
+                programRewards,
+                realmPDA,
+                rewardInfo
+              );
+            }
 
             await travelFutureSlot(context);
 
@@ -642,9 +672,21 @@ describe("Bankrun - Staking Admin", () => {
               realmPDA,
               rewardsAdminPDA,
               new BN(0),
-              alreadyAddedTokenRewards,
-              disallowedTokenRewards
+              alreadyAddedTokenRewards
             );
+
+            for (const disallowedToken of disallowedTokenRewards) {
+              const rewardInfo = {
+                ...(await RewardInfo.default(context, disallowedToken)),
+                isDisallowed: true,
+              };
+              await createAndSetRewardInfo(
+                context,
+                programRewards,
+                realmPDA,
+                rewardInfo
+              );
+            }
 
             await travelFutureSlot(context);
 

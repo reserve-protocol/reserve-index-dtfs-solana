@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use shared::constants::{MAX_DISALLOWED_REWARD_TOKENS, MAX_REWARD_TOKENS};
+use shared::constants::MAX_REWARD_TOKENS;
 
 /// This is used to track the reward tokens.
 ///
@@ -30,11 +30,6 @@ pub struct RewardTokens {
     // Default pubkey means not set.
     /// Max of 30 reward tokens.
     pub reward_tokens: [Pubkey; MAX_REWARD_TOKENS],
-
-    /// Disallowed tokens, representing removed tokens from the reward tokens list
-    /// Default pubkey means not set.
-    /// Max of 30 disallowed tokens.
-    pub disallowed_token: [Pubkey; MAX_DISALLOWED_REWARD_TOKENS],
 }
 
 impl RewardTokens {
@@ -69,6 +64,9 @@ pub struct RewardInfo {
 
     /// Scaled in D18 to track dust (represents reward tokens claimed - dust)
     pub total_claimed: u128,
+
+    /// If the token is disallowed, this will be true
+    pub is_disallowed: bool,
 }
 
 impl RewardInfo {

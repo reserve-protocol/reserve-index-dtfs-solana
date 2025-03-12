@@ -176,12 +176,13 @@ pub fn handler<'info>(
 
     // Don't need to validate mint existence, as the folio might not have this mint anymore, but the user should
     // still be able to remove the amount his own pending token amounts.
-    let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
-    folio_basket.remove_token_amounts_from_folio(
-        &removed_mints,
-        false,
-        PendingBasketType::RedeemProcess,
-    )?;
+    // let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
+    // TODO:
+    // folio_basket.remove_token_amounts_from_folio(
+    //     &removed_mints,
+    //     false,
+    //     PendingBasketType::RedeemProcess,
+    // )?;
 
     let user_pending_basket = &mut ctx.accounts.user_pending_basket.load_mut()?;
     user_pending_basket.remove_token_amounts_from_folio(

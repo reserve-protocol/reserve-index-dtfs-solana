@@ -1,4 +1,5 @@
 use crate::utils::structs::FolioStatus;
+use crate::utils::FolioTokenAmount;
 use crate::{
     cpi_call,
     events::AuctionBid,
@@ -208,7 +209,11 @@ pub fn handler(
     check_condition!(raw_sell_amount <= raw_sell_available, InsufficientBalance);
 
     // put buy token in basket
-    folio_basket.add_tokens_to_basket(&vec![auction.buy])?;
+    let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
+    folio_basket.add_tokens_to_basket(&vec![FolioTokenAmount {
+        mint: auction.buy,
+        amount: raw_bought_amount,
+    }])?;
 
     // pay bidder
     let folio_bump = folio.bump;
@@ -238,20 +243,17 @@ pub fn handler(
     // QoL: close auction if we have reached the sell limit
     ctx.accounts.folio_sell_token_account.reload()?;
 
-    let raw_sell_balance = folio_basket.get_non_pending_balance(
-        ctx.accounts.folio_sell_token_account.amount,
-        &ctx.accounts.auction_sell_token_mint.key(),
-    )?;
+    let raw_sell_balance = folio_basket.get_migrate_balance(&ctx.accounts.auction_sell_token_mint.key())?;
 
     if raw_sell_balance <= raw_min_sell_balance {
         auction.end = current_time;
         // cannot update sellEnds/buyEnds due to possibility of parallel auctions
-
-        if raw_sell_balance == 0 {
-            // Remove the sell token from the basket if all the tokens were sold out
-            folio_basket.remove_tokens_from_basket(&vec![auction.sell])?;
-        }
     }
+    // Remove the sell token from the basket
+    folio_basket.remove_tokens_from_basket(&vec![FolioTokenAmount {
+        mint: auction.sell,
+        amount: raw_sell_amount,
+    }])?;
 
     // collect payment from bidder
     if with_callback {

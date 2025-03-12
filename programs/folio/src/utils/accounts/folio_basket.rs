@@ -1,13 +1,11 @@
-use crate::utils::structs::TokenAmount;
-use anchor_lang::prelude::*;
-use shared::check_condition;
-use shared::constants::{PendingBasketType, MAX_FOLIO_TOKEN_AMOUNTS};
-use shared::errors::ErrorCode;
-use shared::errors::ErrorCode::InvalidAddedTokenMints;
-use shared::errors::ErrorCode::*;
-
 use crate::events::BasketTokenRemoved;
 use crate::state::FolioBasket;
+use crate::FolioTokenAmount;
+use anchor_lang::prelude::*;
+use shared::check_condition;
+use shared::constants::MAX_FOLIO_TOKEN_AMOUNTS;
+use shared::errors::ErrorCode;
+use shared::errors::ErrorCode::*;
 
 impl FolioBasket {
     /// Process the init if needed, meaning we initialize the account if it's not initialized yet and if it already is
@@ -23,7 +21,7 @@ impl FolioBasket {
         account_loader_folio_basket: &mut AccountLoader<FolioBasket>,
         context_bump: u8,
         folio: &Pubkey,
-        added_mints: &Vec<Pubkey>,
+        added_folio_token_amounts: &Vec<FolioTokenAmount>,
     ) -> Result<()> {
         let account_info_folio_basket = account_loader_folio_basket.to_account_info();
 
@@ -41,15 +39,15 @@ impl FolioBasket {
 
             folio_basket.bump = context_bump;
             folio_basket.folio = *folio;
-            folio_basket.token_amounts = [TokenAmount::default(); MAX_FOLIO_TOKEN_AMOUNTS];
+            folio_basket.token_amounts = [FolioTokenAmount::default(); MAX_FOLIO_TOKEN_AMOUNTS];
 
-            folio_basket.add_tokens_to_basket(added_mints)?;
+            folio_basket.add_tokens_to_basket(added_folio_token_amounts)?;
         } else {
             let folio_basket = &mut account_loader_folio_basket.load_mut()?;
 
             check_condition!(folio_basket.bump == context_bump, InvalidBump);
 
-            folio_basket.add_tokens_to_basket(added_mints)?;
+            folio_basket.add_tokens_to_basket(added_folio_token_amounts)?;
         }
 
         Ok(())
@@ -59,49 +57,77 @@ impl FolioBasket {
     /// Will error out if the basket is full or if trying to add the default pubkey.
     ///
     /// # Arguments
-    /// * `mints` - The mints to add to the basket.
+    /// * `folio_token_amounts` - The mints to add to the basket.
     ///
     /// # Returns
-    pub fn add_tokens_to_basket(&mut self, mints: &Vec<Pubkey>) -> Result<()> {
-        for mint in mints {
-            check_condition!(*mint != Pubkey::default(), InvalidAddedTokenMints);
+    pub fn add_tokens_to_basket(
+        &mut self,
+        folio_token_amounts: &Vec<FolioTokenAmount>,
+    ) -> Result<()> {
+        for folio_token_amount in folio_token_amounts {
+            check_condition!(
+                folio_token_amount.mint != Pubkey::default(),
+                InvalidAddedTokenMints
+            );
 
-            if self.token_amounts.iter_mut().any(|ta| ta.mint == *mint) {
-                // Continue if already exists
-                continue;
-            } else if let Some(slot) = self
+            let token_is_present = self
                 .token_amounts
                 .iter_mut()
-                .find(|ta| ta.mint == Pubkey::default())
-            {
-                slot.mint = *mint;
-                slot.amount_for_minting = 0;
-                slot.amount_for_redeeming = 0;
-            } else {
-                // No available slot found, return an error
-                return Err(error!(MaxNumberOfTokensReached));
+                .find(|ta| ta.mint == folio_token_amount.mint);
+
+            if let Some(slot_to_update) = token_is_present {
+                slot_to_update.amount = slot_to_update
+                    .amount
+                    .checked_add(folio_token_amount.amount)
+                    .ok_or(ErrorCode::MathOverflow)?;
+
+                continue;
             }
+
+            let empty_slot = self
+                .token_amounts
+                .iter_mut()
+                .find(|ta| ta.mint == Pubkey::default());
+
+            if let Some(slot) = empty_slot {
+                slot.mint = folio_token_amount.mint;
+                slot.amount = folio_token_amount.amount;
+                continue;
+            }
+
+            return Err(error!(MaxNumberOfTokensReached));
         }
 
         Ok(())
     }
 
-    /// Remove tokens from the basket by setting the amounts to 0 and the pubkey to the default pubkey.
-    /// Will error out if the token is not found.
+    /// Reduce the am
     ///
     /// # Arguments
-    /// * `mints` - The mints to remove from the basket.
+    /// * `folio_token_amounts` - The mints to remove from the basket.
     ///
     /// # Returns
-    pub fn remove_tokens_from_basket(&mut self, mints: &Vec<Pubkey>) -> Result<()> {
-        for mint in mints {
-            if let Some(slot_to_remove) = self.token_amounts.iter_mut().find(|ta| ta.mint == *mint)
+    pub fn remove_tokens_from_basket(
+        &mut self,
+        folio_token_amounts: &Vec<FolioTokenAmount>,
+    ) -> Result<()> {
+        for folio_token_amount in folio_token_amounts {
+            if let Some(slot_to_update) = self
+                .token_amounts
+                .iter_mut()
+                .find(|ta| ta.mint == folio_token_amount.mint)
             {
-                slot_to_remove.mint = Pubkey::default();
-                slot_to_remove.amount_for_minting = 0;
-                slot_to_remove.amount_for_redeeming = 0;
+                slot_to_update.amount = slot_to_update
+                    .amount
+                    .checked_sub(folio_token_amount.amount)
+                    .ok_or(ErrorCode::MathOverflow)?;
 
-                emit!(BasketTokenRemoved { token: mint.key() });
+                if slot_to_update.amount == 0 {
+                    slot_to_update.mint = Pubkey::default();
+                    emit!(BasketTokenRemoved {
+                        token: folio_token_amount.mint
+                    });
+                }
             } else {
                 // Token haven't been found
                 return Err(error!(InvalidRemovedTokenMints));
@@ -111,108 +137,25 @@ impl FolioBasket {
         Ok(())
     }
 
-    /// Add token amounts to the folio basket, this can be done for minting or redeeming.
-    /// They are separate amounts to avoid complex operations when trying to get the folio balances, etc.
-    /// Will error out if the token mint is not found.
+    /// Remove all amounts from the basket for the given mints.
     ///
     /// # Arguments
-    /// * `token_amounts` - The token amounts to add to the basket.
-    /// * `pending_basket_type` - The type of pending basket.
-    pub fn add_token_amounts_to_basket(
-        &mut self,
-        token_amounts: &Vec<TokenAmount>,
-        pending_basket_type: PendingBasketType,
-    ) -> Result<()> {
-        for token_amount in token_amounts {
-            if let Some(slot_for_update) = self
-                .token_amounts
-                .iter_mut()
-                .find(|ta| ta.mint == token_amount.mint)
+    /// mints: The mints to tokens to remove from folio completely
+    ///
+    pub fn remove_all_amounts_from_basket(&mut self, mints: &Vec<Pubkey>) -> Result<()> {
+        for mint in mints {
+            if let Some(slot_to_update) = self.token_amounts.iter_mut().find(|ta| ta.mint == *mint)
             {
-                match pending_basket_type {
-                    PendingBasketType::MintProcess => {
-                        slot_for_update.amount_for_minting = token_amount
-                            .amount_for_minting
-                            .checked_add(slot_for_update.amount_for_minting)
-                            .ok_or(ErrorCode::MathOverflow)?;
-                    }
-                    PendingBasketType::RedeemProcess => {
-                        slot_for_update.amount_for_redeeming = token_amount
-                            .amount_for_redeeming
-                            .checked_add(slot_for_update.amount_for_redeeming)
-                            .ok_or(ErrorCode::MathOverflow)?;
-                    }
-                }
+                slot_to_update.amount = 0;
+                slot_to_update.mint = Pubkey::default();
+                emit!(BasketTokenRemoved { token: *mint });
             } else {
-                // Can't add token amounts of an unsupported mint
-                return Err(error!(InvalidAddedTokenMints));
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Remove token amounts from the folio basket, this can be done for minting or redeeming.
-    /// They are separate amounts to avoid complex operations when trying to get the folio balances, etc.
-    /// Will error out if the token mint is not found and if the needs_to_validate_mint_existence is true.
-    ///
-    /// # Arguments
-    /// * `token_amounts` - The token amounts to remove from the basket.
-    /// * `needs_to_validate_mint_existence` - Whether to validate the mint existence.
-    /// * `pending_basket_type` - The type of pending basket.
-    pub fn remove_token_amounts_from_folio(
-        &mut self,
-        token_amounts: &Vec<TokenAmount>,
-        needs_to_validate_mint_existence: bool,
-        pending_basket_type: PendingBasketType,
-    ) -> Result<()> {
-        // We can let tokens be removed even if the mint doesn't exist as the user might have coins that have been removed from the basket.
-        for token_amount in token_amounts {
-            if let Some(slot_for_update) = self
-                .token_amounts
-                .iter_mut()
-                .find(|ta| ta.mint == token_amount.mint)
-            {
-                match pending_basket_type {
-                    PendingBasketType::MintProcess => {
-                        slot_for_update.amount_for_minting = slot_for_update
-                            .amount_for_minting
-                            .checked_sub(token_amount.amount_for_minting)
-                            .ok_or(InvalidShareAmountProvided)?;
-                    }
-                    PendingBasketType::RedeemProcess => {
-                        slot_for_update.amount_for_redeeming = slot_for_update
-                            .amount_for_redeeming
-                            .checked_sub(token_amount.amount_for_redeeming)
-                            .ok_or(InvalidShareAmountProvided)?;
-                    }
-                }
-            } else if needs_to_validate_mint_existence {
+                // Token haven't been found
                 return Err(error!(InvalidRemovedTokenMints));
             }
         }
 
         Ok(())
-    }
-
-    /// Get the clean token balance by subtracting the sum of the tokens amounts from the raw token balance.
-    ///
-    /// # Arguments
-    /// * `raw_token_balance` - The token balance (D9)
-    /// * `token_amounts` - The token amounts to subtract from the token balance.
-    ///
-    /// # Returns the "clean" token balance in D9
-    pub fn get_clean_token_balance(
-        raw_token_balance: u64,
-        token_amounts: &TokenAmount,
-    ) -> Result<u64> {
-        raw_token_balance
-            // Since can't be rolled back, we need to act as if those have already been withdrawn
-            .checked_sub(token_amounts.amount_for_redeeming)
-            .ok_or(ErrorCode::MathOverflow)?
-            // Since can be rolled back, can't take them into account, needs to be removed
-            .checked_sub(token_amounts.amount_for_minting)
-            .ok_or(ErrorCode::MathOverflow.into())
     }
 
     /// Get the total number of mints in the basket.
@@ -230,15 +173,14 @@ impl FolioBasket {
     /// Is used for migrating, sell in Bid, etc.
     ///
     /// # Arguments
-    /// * `raw_token_balance` - The token balance (D9)
     /// * `mint` - The mint to get the balance for.
     ///
-    /// # Returns the non pending balance in D9
-    pub fn get_non_pending_balance(&self, raw_token_balance: u64, mint: &Pubkey) -> Result<u64> {
+    /// # Returns the migrate balance in D9
+    pub fn get_migrate_balance(&self, mint: &Pubkey) -> Result<u64> {
         let token_amount = self.token_amounts.iter().find(|ta| ta.mint == *mint);
 
         if let Some(token_amount) = token_amount {
-            FolioBasket::get_clean_token_balance(raw_token_balance, token_amount)
+            Ok(token_amount.amount)
         } else {
             Err(error!(TokenMintNotInOldFolioBasket))
         }

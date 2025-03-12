@@ -109,6 +109,16 @@ export class TokenAmount {
   }
 }
 
+export class FolioTokenAmount {
+  public mint: PublicKey;
+  public amount: BN;
+
+  constructor(mint: PublicKey, amount: BN) {
+    this.mint = mint;
+    this.amount = amount;
+  }
+}
+
 export class MintInfo {
   mint: PublicKey;
   decimals: BN;
@@ -634,7 +644,7 @@ export async function createAndSetFolioBasket(
   ctx: ProgramTestContext,
   program: Program<Folio>,
   folio: PublicKey,
-  tokenAmounts: TokenAmount[]
+  foliotokenAmounts: FolioTokenAmount[]
 ) {
   const folioBasketPDAWithBump = getFolioBasketPDAWithBump(folio);
 
@@ -642,10 +652,10 @@ export async function createAndSetFolioBasket(
     bump: folioBasketPDAWithBump[1],
     _padding: [0, 0, 0, 0, 0, 0, 0],
     folio: folio,
-    tokenAmounts: tokenAmounts,
+    foliotokenAmounts: foliotokenAmounts,
   };
 
-  const buffer = Buffer.alloc(816);
+  const buffer = Buffer.alloc(688);
   let offset = 0;
 
   // Encode discriminator
@@ -668,23 +678,15 @@ export async function createAndSetFolioBasket(
   offset += 32;
 
   // Encode token amounts
-  // Encode token amounts
   for (let i = 0; i < MAX_FOLIO_TOKEN_AMOUNTS; i++) {
-    const tokenAmount = folioBasket.tokenAmounts[i] || {
+    const tokenAmount = folioBasket.foliotokenAmounts[i] || {
       mint: PublicKey.default,
-      amountForMinting: new BN(0),
-      amountForRedeeming: new BN(0),
+      amount: new BN(0),
     };
 
     tokenAmount.mint.toBuffer().copy(buffer, offset);
     offset += 32;
-    tokenAmount.amountForMinting
-      .toArrayLike(Buffer, "le", 8)
-      .copy(buffer, offset);
-    offset += 8;
-    tokenAmount.amountForRedeeming
-      .toArrayLike(Buffer, "le", 8)
-      .copy(buffer, offset);
+    tokenAmount.amount.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
     offset += 8;
   }
 

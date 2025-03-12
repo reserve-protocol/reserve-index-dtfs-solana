@@ -160,7 +160,10 @@ export class TestHelper {
    * @param expectedBalancesDifference - The expected balances difference for the token accounts.
    * @param indices - The indices to check.
    * @param property - The property to check for pending amounts, wether amountForMinting or amountForRedeeming.
+   * @param folioBasketChanged - Whether the Folio basket changed.
+   * @param rawFolioShares - The raw folio shares to mint.
    * @param isEstimate - Whether to use estimate (will floor the values to the nearest 100).
+   * @param investmentsBeforeSnapshotsInPendingBasket - The investments before snapshots in the pending basket.
    */
   assertBalanceSnapshot(
     before: any,
@@ -169,8 +172,10 @@ export class TestHelper {
     expectedTokenBalancesDiffs: number[][],
     expectedBalancesDifference: number[],
     indices: number[],
+    folioBasketChanged: boolean,
     property: "amountForMinting" | "amountForRedeeming" = "amountForMinting",
-    isEstimate: boolean = false
+    isEstimate: boolean = false,
+    expectedFolioBasketTokenChanges: number[] | null = null
   ) {
     if (expectedDifferences.length > 0) {
       indices.forEach((index) => {
@@ -187,18 +192,29 @@ export class TestHelper {
         }
 
         const afterFolioValue =
-          after.folioBasketAmounts.tokenAmounts[index][property].toNumber();
-        const expectedFolioValue =
-          before.folioBasketAmounts.tokenAmounts[index][property].toNumber() +
-          expectedDifferences[index][1];
+          after.folioBasketAmounts.tokenAmounts[index].amount.toNumber();
+        const beforeFolioValue =
+          before.folioBasketAmounts.tokenAmounts[index].amount.toNumber();
+        if (folioBasketChanged) {
+          const expectedDifference = expectedDifferences[index][1];
+          let expectedFolioValue =
+            property === "amountForMinting"
+              ? beforeFolioValue + expectedDifference
+              : beforeFolioValue - expectedDifference;
+          if (expectedFolioBasketTokenChanges) {
+            expectedFolioValue = expectedFolioBasketTokenChanges[index];
+          }
 
-        if (isEstimate) {
-          assert.equal(
-            this.floor(afterFolioValue),
-            this.floor(expectedFolioValue)
-          );
+          if (isEstimate) {
+            assert.equal(
+              this.floor(afterFolioValue),
+              this.floor(expectedFolioValue)
+            );
+          } else {
+            assert.equal(afterFolioValue, expectedFolioValue);
+          }
         } else {
-          assert.equal(afterFolioValue, expectedFolioValue);
+          assert.equal(afterFolioValue, beforeFolioValue);
         }
       });
     }

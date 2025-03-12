@@ -60,8 +60,10 @@ pub const MAX_FOLIO_TOKEN_AMOUNTS: usize = 16;
 pub const MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS: usize = 20;
 /// MAX_CONCURRENT_AUCTIONS is the maximum number of concurrent auctions that can be set for a folio, 16.
 pub const MAX_CONCURRENT_AUCTIONS: usize = 16;
-/// MAX_REWARD_TOKENS is the maximum number of reward tokens that can be set for a folio, 5.
+/// MAX_REWARD_TOKENS is the maximum number of reward tokens that can be set for a folio, 4.
 pub const MAX_REWARD_TOKENS: usize = 4;
+/// MAX_DISALLOWED_REWARD_TOKENS is the maximum number of reward tokens that can be disallowed for a folio, 30.
+pub const MAX_DISALLOWED_REWARD_TOKENS: usize = 30;
 
 /// MAX_REWARD_HALF_LIFE is the maximum half life of a reward token, 2 weeks.
 pub const MAX_REWARD_HALF_LIFE: u64 = 604800 * 2;

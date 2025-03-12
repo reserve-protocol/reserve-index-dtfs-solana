@@ -1,6 +1,8 @@
 use anchor_lang::{prelude::*, solana_program::instruction::Instruction};
-
+use shared::check_condition;
 const CALLBACK_PROGRAM_ID_INDEX: usize = 0;
+use crate::ID as FOLIO_PROGRAM_ID;
+use shared::errors::ErrorCode;
 
 /// Utility function to make a generalized CPI call to a program during a bid.
 ///
@@ -12,6 +14,12 @@ const CALLBACK_PROGRAM_ID_INDEX: usize = 0;
 pub fn cpi_call(remaining_accounts: &[AccountInfo], data: Vec<u8>) -> Result<()> {
     if !remaining_accounts.is_empty() {
         let callback_program = &remaining_accounts[CALLBACK_PROGRAM_ID_INDEX];
+
+        check_condition!(
+            callback_program.key() != FOLIO_PROGRAM_ID,
+            InvalidCallbackProgram
+        );
+
         let callback_accounts = &remaining_accounts[CALLBACK_PROGRAM_ID_INDEX + 1..];
 
         let callback_accounts_metas: Vec<anchor_lang::prelude::AccountMeta> = callback_accounts

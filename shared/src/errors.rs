@@ -249,6 +249,9 @@ pub enum ErrorCode {
 
     #[msg("Invalid Holding Token Account")]
     InvalidHoldingTokenAccount,
+
+    #[msg("Invalid Callback Program")]
+    InvalidCallbackProgram,
 }
 
 /// Check a condition and return an error if it is not met.

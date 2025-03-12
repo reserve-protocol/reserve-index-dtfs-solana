@@ -384,7 +384,6 @@ impl Folio {
         end_time_sell: u64,
         end_time_buy: u64,
     ) {
-        let mut found_sell = false;
         let mut sell_index_available = None;
         for (index, auction_end) in self.sell_ends.iter_mut().enumerate() {
             if auction_end.mint == Pubkey::default() && sell_index_available.is_none() {
@@ -392,18 +391,15 @@ impl Folio {
             }
             if auction_end.mint == *sell_mint {
                 auction_end.end_time = end_time_sell;
-                found_sell = true;
+                sell_index_available = None;
                 break;
             }
         }
-        if !found_sell {
-            if let Some(index) = sell_index_available {
-                self.sell_ends[index].mint = *sell_mint;
-                self.sell_ends[index].end_time = end_time_sell;
-            }
+        if let Some(index) = sell_index_available {
+            self.sell_ends[index].mint = *sell_mint;
+            self.sell_ends[index].end_time = end_time_sell;
         }
 
-        let mut found_buy = false;
         let mut buy_index_available = None;
         for (index, auction_end) in self.buy_ends.iter_mut().enumerate() {
             if auction_end.mint == Pubkey::default() && buy_index_available.is_none() {
@@ -411,15 +407,13 @@ impl Folio {
             }
             if auction_end.mint == *buy_mint {
                 auction_end.end_time = end_time_buy;
-                found_buy = true;
+                buy_index_available = None;
                 break;
             }
         }
-        if !found_buy {
-            if let Some(index) = buy_index_available {
-                self.buy_ends[index].mint = *buy_mint;
-                self.buy_ends[index].end_time = end_time_buy;
-            }
+        if let Some(index) = buy_index_available {
+            self.buy_ends[index].mint = *buy_mint;
+            self.buy_ends[index].end_time = end_time_buy;
         }
     }
 }

@@ -2,10 +2,13 @@ import { airdrop, getConnectors } from "../utils/program-helper";
 import { BN, Program } from "@coral-xyz/anchor";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import {
+  addOrUpdateActor,
   addToBasket,
   addToPendingBasket,
+  approveAuction,
   initFolio,
   mintFolioToken,
+  openAuction,
 } from "../utils/folio-helper";
 import { setDaoFeeConfig } from "../utils/folio-admin-helper";
 import { initToken, mintToken } from "../utils/token-helper";
@@ -18,8 +21,11 @@ import {
   MAX_FEE_FLOOR,
   MAX_TOKENS_IN_BASKET,
   FEE_NUMERATOR,
+  MAX_TTL,
 } from "../utils/constants";
 import { Folio } from "../target/types/folio";
+import { getAuctionPDA } from "../utils/pda-helper";
+import { assert } from "chai";
 
 /**
  * Extreme tests for the Folio protocol.
@@ -40,6 +46,7 @@ describe("Extreme Folio Tests", () => {
   let folioOwnerKeypair: Keypair;
   let folioTokenMint: Keypair;
   let folioPDA: PublicKey;
+  let auctionApproverKeypair: Keypair;
 
   const BATCH_SIZE = 5;
 
@@ -59,11 +66,13 @@ describe("Extreme Folio Tests", () => {
 
     folioOwnerKeypair = Keypair.generate();
     userKeypair = Keypair.generate();
+    auctionApproverKeypair = Keypair.generate();
 
     await airdrop(connection, payerKeypair.publicKey, 1000);
     await airdrop(connection, adminKeypair.publicKey, 1000);
     await airdrop(connection, folioOwnerKeypair.publicKey, 1000);
     await airdrop(connection, userKeypair.publicKey, 1000);
+    await airdrop(connection, auctionApproverKeypair.publicKey, 1000);
 
     folioTokenMint = Keypair.generate();
 
@@ -166,5 +175,71 @@ describe("Extreme Folio Tests", () => {
       })),
       new BN(3 * DEFAULT_DECIMALS_MUL)
     );
+  });
+
+  it("opening auction properly sets mint and end time", async () => {
+    await addOrUpdateActor(
+      connection,
+      folioOwnerKeypair,
+      folioPDA,
+      auctionApproverKeypair.publicKey,
+      {
+        auctionApprover: {},
+      }
+    );
+
+    const sellMint = tokenMints[0].mint.publicKey; // USDC
+    const buyMint = tokenMints[1].mint.publicKey; // USDT
+    const auctionId = new BN(1);
+    const ttl = MAX_TTL;
+
+    // Approve auction with id 1
+    await approveAuction(
+      connection,
+      auctionApproverKeypair,
+      folioPDA,
+      buyMint,
+      sellMint,
+      auctionId,
+      { spot: new BN(5), low: new BN(0), high: new BN(20) },
+      { spot: new BN(5), low: new BN(0), high: new BN(20) },
+      new BN(20),
+      new BN(1),
+      ttl
+    );
+
+    await addOrUpdateActor(
+      connection,
+      folioOwnerKeypair,
+      folioPDA,
+      auctionApproverKeypair.publicKey,
+      {
+        auctionLauncher: {},
+      }
+    );
+
+    const auctionPDA = getAuctionPDA(folioPDA, auctionId);
+
+    // Open auction with id 1
+    await openAuction(
+      connection,
+      auctionApproverKeypair,
+      folioPDA,
+      auctionPDA,
+      new BN(5),
+      new BN(5),
+      new BN(20),
+      new BN(1)
+    );
+
+    const folioAccount = await programFolio.account.folio.fetch(folioPDA);
+    const sellEnd = folioAccount.sellEnds[0];
+    const buyEnd = folioAccount.buyEnds[0];
+    assert.isNotNull(sellEnd);
+    assert.isNotNull(buyEnd);
+    assert.strictEqual(sellEnd.mint.toString(), sellMint.toString());
+    assert.notEqual(sellEnd.endTime.toNumber(), 0);
+    assert.strictEqual(buyEnd.mint.toString(), buyMint.toString());
+    assert.notEqual(buyEnd.endTime.toNumber(), 0);
   });
 });

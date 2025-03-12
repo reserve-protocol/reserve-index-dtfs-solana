@@ -181,8 +181,9 @@ pub mod folio {
      */
     pub fn start_folio_migration<'info>(
         ctx: Context<'_, '_, 'info, 'info, StartFolioMigration<'info>>,
+        index_for_fee_distribution: u64,
     ) -> Result<()> {
-        start_folio_migration::handler(ctx)
+        start_folio_migration::handler(ctx, index_for_fee_distribution)
     }
 
     pub fn migrate_folio_tokens<'info>(

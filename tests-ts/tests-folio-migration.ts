@@ -17,10 +17,13 @@ import {
   MAX_AUCTION_DELAY,
   MAX_MINT_FEE,
   DEFAULT_DECIMALS,
+  FEE_NUMERATOR,
+  MAX_FEE_FLOOR,
 } from "../utils/constants";
 import { getMint } from "@solana/spl-token";
 import {
   initProgramRegistrar,
+  setDaoFeeConfig,
   updateProgramRegistrar,
 } from "../utils/folio-admin-helper";
 import {
@@ -54,6 +57,8 @@ describe("Folio Migration Tests", () => {
   // Here we use another mint just for initializing the second folio in the second instance (since the code) inits the folio mint
   // in future folio program version this won't be the case.
   let otherFolioTokenMint: Keypair;
+
+  const feeRecipient: PublicKey = Keypair.generate().publicKey;
 
   before(async () => {
     ({ connection, programFolio, programSecondFolio, keys } =
@@ -149,6 +154,15 @@ describe("Folio Migration Tests", () => {
       "mandate",
       true
     );
+
+    // Set dao fee recipient
+    await setDaoFeeConfig(
+      connection,
+      adminKeypair,
+      feeRecipient,
+      FEE_NUMERATOR,
+      MAX_FEE_FLOOR
+    );
   });
 
   it("should allow user to migrate from first to second instance", async () => {
@@ -161,7 +175,9 @@ describe("Folio Migration Tests", () => {
       folioTokenMint.publicKey,
       folioPDA,
       newFolioPDA,
-      programSecondFolio.programId
+      programSecondFolio.programId,
+      new BN(1),
+      feeRecipient
     );
 
     const oldFolioAccountAfter = await programFolio.account.folio.fetch(

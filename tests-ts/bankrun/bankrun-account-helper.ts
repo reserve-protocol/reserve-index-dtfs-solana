@@ -21,6 +21,7 @@ import {
   getFolioFeeConfigPDA,
   getFeeDistributionPDA,
   getRewardTokensPDA,
+  getTVLFeeRecipientsPDA,
 } from "../../utils/pda-helper";
 import * as crypto from "crypto";
 import { Folio } from "../../target/types/folio";
@@ -1318,6 +1319,52 @@ export async function buildRemainingAccountsForUpdateFolio(
       ),
       isSigner: false,
       isWritable: true,
+    },
+  ];
+
+  return remainingAccounts;
+}
+
+export async function buildRemainingAccountsForStartFolioMigration(
+  context: ProgramTestContext,
+  oldFolio: PublicKey,
+  folioTokenMint: PublicKey,
+  daoFeeRecipient: PublicKey
+): Promise<AccountMeta[]> {
+  const remainingAccounts: AccountMeta[] = [
+    {
+      pubkey: TOKEN_PROGRAM_ID,
+      isSigner: false,
+      isWritable: false,
+    },
+    {
+      pubkey: getDAOFeeConfigPDA(),
+      isSigner: false,
+      isWritable: false,
+    },
+    {
+      pubkey: getFolioFeeConfigPDA(oldFolio),
+      isSigner: false,
+      isWritable: false,
+    },
+    {
+      pubkey: getFeeDistributionPDA(oldFolio, new BN(1)),
+      isSigner: false,
+      isWritable: true,
+    },
+    {
+      pubkey: await getOrCreateAtaAddress(
+        context,
+        folioTokenMint,
+        daoFeeRecipient
+      ),
+      isSigner: false,
+      isWritable: true,
+    },
+    {
+      pubkey: getTVLFeeRecipientsPDA(oldFolio),
+      isSigner: false,
+      isWritable: false,
     },
   ];
 

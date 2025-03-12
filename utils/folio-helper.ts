@@ -873,12 +873,14 @@ export async function startFolioMigration(
   folioTokenMint: PublicKey,
   oldFolio: PublicKey,
   newFolio: PublicKey,
-  newFolioProgram: PublicKey
+  newFolioProgram: PublicKey,
+  indexForFeeDistribution: BN,
+  daoFeeRecipient: PublicKey
 ) {
   const folioProgram = getFolioProgram(connection, folioOwnerKeypair);
 
   const startFolioMigration = await folioProgram.methods
-    .startFolioMigration()
+    .startFolioMigration(indexForFeeDistribution)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
@@ -890,6 +892,43 @@ export async function startFolioMigration(
       newFolio,
       folioTokenMint,
     })
+    .remainingAccounts([
+      {
+        pubkey: TOKEN_PROGRAM_ID,
+        isSigner: false,
+        isWritable: false,
+      },
+      {
+        pubkey: getDAOFeeConfigPDA(),
+        isSigner: false,
+        isWritable: false,
+      },
+      {
+        pubkey: getFolioFeeConfigPDA(oldFolio),
+        isSigner: false,
+        isWritable: false,
+      },
+      {
+        pubkey: getFeeDistributionPDA(oldFolio, indexForFeeDistribution),
+        isSigner: false,
+        isWritable: true,
+      },
+      {
+        pubkey: await getOrCreateAtaAddress(
+          connection,
+          folioTokenMint,
+          folioOwnerKeypair,
+          daoFeeRecipient
+        ),
+        isSigner: false,
+        isWritable: true,
+      },
+      {
+        pubkey: getTVLFeeRecipientsPDA(oldFolio),
+        isSigner: false,
+        isWritable: false,
+      },
+    ])
     .instruction();
 
   await pSendAndConfirmTxn(folioProgram, [startFolioMigration], [], {

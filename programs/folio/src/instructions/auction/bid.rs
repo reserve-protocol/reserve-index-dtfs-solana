@@ -251,6 +251,11 @@ pub fn handler(
         auction.end = current_time;
         // cannot update sellEnds/buyEnds due to possibility of parallel auctions
     }
+    // Remove the sell token from the basket
+    folio_basket.remove_tokens_from_basket(&vec![FolioTokenAmount {
+        mint: auction.sell,
+        amount: raw_sell_amount,
+    }])?;
 
     // collect payment from bidder
     if with_callback {

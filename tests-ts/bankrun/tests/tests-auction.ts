@@ -380,6 +380,40 @@ describe("Bankrun - Auction", () => {
         );
       },
     },
+    // Should be able to bid
+    {
+      desc: "Should not be effected by pending basket, if is valid, sold out sell mint, updates auction end",
+      expectedError: null,
+      // With decimals
+      sellAmount: new BN(1000).mul(D9),
+      maxBuyAmount: new BN(1000000000000),
+      sellOut: true,
+      auctionToUse: {
+        ...VALID_AUCTION,
+        buyLimit: {
+          ...VALID_AUCTION.buyLimit,
+          spot: new BN(1000).mul(D9),
+        },
+      },
+      expectedTokenBalanceChanges: [
+        new BN(1000000000000),
+        new BN(1000000000000).neg(),
+        new BN(1000000000000).neg(),
+        new BN(1000000000000),
+      ],
+      beforeCallback: async () => {
+        // Add to pending basket
+        await addToPendingBasket(
+          context,
+          banksClient,
+          programFolio,
+          bidderKeypair,
+          folioPDA,
+          [{ mint: DEFAULT_SELL_MINT.publicKey, amount: new BN(1000).mul(D9) }],
+          true
+        );
+      },
+    },
   ];
 
   async function getCallback(buyMint: PublicKey, transferAmount: BN) {

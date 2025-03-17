@@ -32,7 +32,6 @@ use shared::utils::{Decimal, Rounding};
 /// * `remaining_accounts` - The remaining accounts will be the token accounts of the fee recipients, needs to follow the
 ///                          order of the indices passed as parameters.
 #[derive(Accounts)]
-
 pub struct CrankFeeDistribution<'info> {
     pub rent: Sysvar<'info, Rent>,
     pub system_program: Program<'info, System>,

@@ -217,7 +217,8 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
             Mint::try_deserialize(&mut &data[..])?.decimals
         };
 
-        let raw_migrate_balance = old_folio_basket.get_migrate_balance(token_mint.key)?;
+        let raw_migrate_balance =
+            old_folio_basket.get_token_amount_in_folio_basket(token_mint.key)?;
 
         let cpi_accounts = TransferChecked {
             from: sender_token_account.to_account_info(),

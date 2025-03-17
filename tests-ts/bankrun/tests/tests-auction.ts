@@ -19,6 +19,7 @@ import {
   getAuctionPDA,
 } from "../../../utils/pda-helper";
 import {
+  addToPendingBasket,
   approveAuction,
   bid,
   killAuction as closeAuction,
@@ -134,8 +135,12 @@ describe("Bankrun - Auction", () => {
       data: Buffer;
       remainingAccounts: AccountMeta[];
     };
+    beforeCallback: () => Promise<void>;
 
     folioTokenSupply: BN;
+
+    // Tokens that are in folio basket of sell token
+    folioSellBalance: BN | null;
 
     sellOut: boolean;
 
@@ -168,6 +173,8 @@ describe("Bankrun - Auction", () => {
       data: Buffer.from([]),
       remainingAccounts: [],
     }),
+    beforeCallback: () => Promise.resolve(),
+    folioSellBalance: null,
 
     folioTokenSupply: new BN(10_000),
 
@@ -246,6 +253,8 @@ describe("Bankrun - Auction", () => {
     {
       desc: "(sell amount > min sell balance, errors out)",
       expectedError: "InsufficientBalance",
+      // Tokens that are in folio basket of sell token
+      folioSellBalance: new BN(1000),
       sellAmount: new BN(1000000000001),
       maxBuyAmount: new BN(10000000000000),
     },
@@ -337,6 +346,40 @@ describe("Bankrun - Auction", () => {
         new BN(1000).mul(D9),
       ],
     },
+    // Should be able to bid
+    {
+      desc: "(Should not be effected by pending basket, if is valid, sold out sell mint, updates auction end)",
+      expectedError: null,
+      // With decimals
+      sellAmount: new BN(1000).mul(D9),
+      maxBuyAmount: new BN(1000000000000),
+      sellOut: true,
+      auctionToUse: {
+        ...VALID_AUCTION,
+        buyLimit: {
+          ...VALID_AUCTION.buyLimit,
+          spot: new BN(1000).mul(D27),
+        },
+      },
+      expectedTokenBalanceChanges: [
+        new BN(1000000000000),
+        new BN(1000000000000).neg(),
+        new BN(1000000000000).neg(),
+        new BN(1000000000000),
+      ],
+      beforeCallback: async () => {
+        // Add to pending basket
+        await addToPendingBasket(
+          context,
+          banksClient,
+          programFolio,
+          bidderKeypair,
+          folioPDA,
+          [{ mint: DEFAULT_SELL_MINT.publicKey, amount: new BN(3000).mul(D9) }],
+          true
+        );
+      },
+    },
   ];
 
   async function getCallback(buyMint: PublicKey, transferAmount: BN) {
@@ -402,10 +445,11 @@ describe("Bankrun - Auction", () => {
 
     for (const mint of MINTS_IN_FOLIO) {
       initToken(context, adminKeypair.publicKey, mint, DEFAULT_DECIMALS);
+      const amount =
+        initialFolioBasket.find((t) => t.mint.equals(mint.publicKey))?.amount ||
+        new BN(1_000);
 
-      // Mint the actual balance (not pending) for auction testing
-      const baseAmount = new BN(1_000);
-      mintToken(context, mint.publicKey, baseAmount.toNumber(), folioPDA);
+      mintToken(context, mint.publicKey, amount.toNumber(), folioPDA);
 
       // If you need pending amounts for specific tests, use extraTokenAmountsForFolioBasket
       const extraTokenAmount = extraTokenAmountsForFolioBasket.find((t) =>
@@ -415,7 +459,7 @@ describe("Bankrun - Auction", () => {
         mintToken(
           context,
           mint.publicKey,
-          baseAmount.add(extraTokenAmount.amount).toNumber(),
+          amount.add(extraTokenAmount.amount).toNumber(),
           folioPDA
         );
       }
@@ -1173,6 +1217,8 @@ describe("Bankrun - Auction", () => {
           folioTokenSupply,
           sellOut,
           extraTokenAmountsForFolioBasket,
+          folioSellBalance,
+          beforeCallback,
         } = {
           ...DEFAULT_PARAMS,
           ...restOfParams,
@@ -1188,7 +1234,7 @@ describe("Bankrun - Auction", () => {
           const mintToUse = customFolioTokenMint || folioTokenMint;
           initialFolioBasket.forEach((token) => {
             if (token.mint.equals(sellMint.publicKey)) {
-              token.amount = new BN(sellAmount);
+              token.amount = folioSellBalance ?? new BN(sellAmount);
             }
           });
 
@@ -1213,6 +1259,10 @@ describe("Bankrun - Auction", () => {
 
           auctionToUse.start = currentTime;
           auctionToUse.end = currentTime.add(new BN(1000000000));
+
+          if (beforeCallback) {
+            await beforeCallback();
+          }
 
           await createAndSetAuction(
             context,

@@ -82,15 +82,15 @@ mod tests {
     }
 
     #[test]
-    fn test_get_migrate_balance() {
+    fn test_get_token_amount_in_folio_basket() {
         let mut basket = setup_folio_basket();
         let mint = basket.token_amounts[0].mint;
         basket.token_amounts[0].amount = 100;
 
-        let balance = basket.get_migrate_balance(&mint).unwrap();
+        let balance = basket.get_token_amount_in_folio_basket(&mint).unwrap();
         assert_eq!(balance, 100);
 
-        let error = basket.get_migrate_balance(&Pubkey::new_unique());
+        let error = basket.get_token_amount_in_folio_basket(&Pubkey::new_unique());
         assert_eq!(error.unwrap_err(), TokenMintNotInOldFolioBasket.into());
     }
 }

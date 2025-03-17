@@ -672,13 +672,6 @@ describe("Bankrun - Folio redeeming", () => {
                   basket.tokenAmounts[i].mint.toString(),
                   expectedTokenAmountsForFolioBasket[i].mint.toString()
                 );
-                // assert.equal(
-                //   basket.tokenAmounts[i].amountForMinting.eq(
-                //     expectedTokenAmountsForFolioBasket[i].amountForMinting
-                //   ),
-                //   true
-                // );
-                // Amount for redeeming will be asserted below
               }
 
               // User pending basket has changed amounts and token accounts have change balances
@@ -725,14 +718,12 @@ describe("Bankrun - Folio redeeming", () => {
               // Assertion for redeeming amouunt
               for (let i = 0; i < folioBasketTokens.length; i++) {
                 // Both user and folio should have the same amount added from redeeming
-                // assert.equal(
-                //   basket.tokenAmounts[i].amountForRedeeming.eq(
-                //     basketBefore[i].amountForRedeeming.add(
-                //       expectedTokenBalanceChanges[i]
-                //     )
-                //   ),
-                //   true
-                // );
+                assert.equal(
+                  basket.tokenAmounts[i].amount.eq(
+                    basketBefore[i].amount.sub(expectedTokenBalanceChanges[i])
+                  ),
+                  true
+                );
                 assert.equal(
                   userPendingBasket.tokenAmounts[i].amountForRedeeming.eq(
                     userPendingBasketBefore[i].amountForRedeeming.add(
@@ -871,13 +862,11 @@ describe("Bankrun - Folio redeeming", () => {
                   basket.tokenAmounts[i].mint.toString(),
                   expectedTokenAmountsForFolioBasket[i].mint.toString()
                 );
-                // assert.equal(
-                //   basket.tokenAmounts[i].amountForMinting.eq(
-                //     expectedTokenAmountsForFolioBasket[i].amountForMinting
-                //   ),
-                //   true
-                // );
-                // Amount for redeeming will be asserted below
+                // Change in pending basket does not effect folio basket
+                assert.equal(
+                  basket.tokenAmounts[i].amount.eq(basketBefore[i].amount),
+                  true
+                );
               }
 
               // User pending basket has changed amounts and token accounts have change balances
@@ -923,21 +912,17 @@ describe("Bankrun - Folio redeeming", () => {
 
               // Assert redeeming amounts
               for (let i = 0; i < folioBasketTokens.length; i++) {
-                // Both user and folio should have the same amount added from redeeming
-                // assert.equal(
-                //   basket.tokenAmounts[i].amountForRedeeming.eq(
-                //     basketBefore[i].amountForRedeeming.sub(
-                //       expectedTokenBalanceChanges[i]
-                //     )
-                //   ),
-                //   true
-                // );
                 assert.equal(
                   userPendingBasket.tokenAmounts[i].amountForRedeeming.eq(
                     userPendingBasketBefore[i].amountForRedeeming.sub(
                       expectedTokenBalanceChanges[i]
                     )
                   ),
+                  true
+                );
+                // Any changes in pending basket should not effect folio basket
+                assert.equal(
+                  basket.tokenAmounts[i].amount.eq(basketBefore[i].amount),
                   true
                 );
               }

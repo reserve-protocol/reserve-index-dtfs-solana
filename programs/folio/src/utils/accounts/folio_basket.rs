@@ -168,14 +168,14 @@ impl FolioBasket {
             .count() as u8
     }
 
-    /// Get the migrate balance by subtracting the token amounts from the token balance.
+    /// Get the token amount in the basket.
     /// Will error out if the token mint is not found.
     ///
     /// # Arguments
     /// * `mint` - The mint to get the balance for.
     ///
-    /// # Returns the migrate balance in D9
-    pub fn get_migrate_balance(&self, mint: &Pubkey) -> Result<u64> {
+    /// # Returns the token amount in the basket
+    pub fn get_token_amount_in_folio_basket(&self, mint: &Pubkey) -> Result<u64> {
         let token_amount = self.token_amounts.iter().find(|ta| ta.mint == *mint);
 
         if let Some(token_amount) = token_amount {
@@ -183,5 +183,15 @@ impl FolioBasket {
         } else {
             Err(error!(TokenMintNotInOldFolioBasket))
         }
+    }
+
+    /// Get the token amount in the basket or zero if the token mint is not found.
+    ///
+    /// # Arguments
+    /// * `mint` - The mint to get the balance for.
+    ///
+    /// # Returns the token amount in the basket or zero if the token mint is not found.
+    pub fn get_token_amount_in_folio_basket_or_zero(&self, mint: &Pubkey) -> u64 {
+        self.get_token_amount_in_folio_basket(mint).unwrap_or(0)
     }
 }

@@ -205,6 +205,7 @@ pub fn handler(
         folio.sell_ends = [AuctionEnd::default(); MAX_CONCURRENT_AUCTIONS];
         folio.buy_ends = [AuctionEnd::default(); MAX_CONCURRENT_AUCTIONS];
         folio.mandate = FixedSizeString::new(&mandate);
+        folio.fee_recipients_pending_fee_shares_to_be_minted = 0;
     }
 
     let actor = &mut ctx.accounts.actor;

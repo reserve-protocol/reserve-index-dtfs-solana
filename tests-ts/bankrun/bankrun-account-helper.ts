@@ -341,7 +341,8 @@ export async function createAndSetFolio(
   useSecondFolioProgram: boolean = false,
   buyEnds: AuctionEnd[] = [],
   sellEnds: AuctionEnd[] = [],
-  mandate: string = ""
+  mandate: string = "",
+  feeRecipientsPendingFeeSharesToBeMinted: BN = new BN(0)
 ) {
   // Set last poke as current time stamp, else 0 would make the elapsed time huge
   if (lastPoke.isZero()) {
@@ -355,7 +356,7 @@ export async function createAndSetFolio(
     useSecondFolioProgram
   );
 
-  const buffer = Buffer.alloc(1560);
+  const buffer = Buffer.alloc(1576);
   let offset = 0;
 
   // Encode discriminator
@@ -436,6 +437,12 @@ export async function createAndSetFolio(
   // Write mandate
   Buffer.from(mandate).copy(buffer, offset);
   offset += MAX_PADDED_STRING_LENGTH;
+
+  // Write fee recipients pending fee shares to be minted
+  feeRecipientsPendingFeeSharesToBeMinted
+    .toArrayLike(Buffer, "le", 16)
+    .copy(buffer, offset);
+  offset += 16;
 
   await setFolioAccountInfo(
     ctx,

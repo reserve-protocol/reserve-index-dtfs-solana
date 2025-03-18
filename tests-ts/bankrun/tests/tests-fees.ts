@@ -421,11 +421,26 @@ describe("Bankrun - Fees", () => {
   async function initBaseCase(
     customFolioTokenMint: Keypair | null = null,
     customFolioTokenSupply: BN = new BN(0),
-    customFolioFeeConfig: boolean = false
+    customFolioFeeConfig: boolean = false,
+    amountToDistribute: BN = new BN(0)
   ) {
     await setFeeRegistry(customFolioFeeConfig);
 
-    await createAndSetFolio(context, programFolio, folioTokenMint.publicKey);
+    await createAndSetFolio(
+      context,
+      programFolio,
+      folioTokenMint.publicKey,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      false,
+      [],
+      [],
+      undefined,
+      amountToDistribute
+    );
 
     initToken(
       context,
@@ -883,7 +898,12 @@ describe("Bankrun - Fees", () => {
           const crankerToUse = customCranker || cranker;
 
           before(async () => {
-            await initBaseCase(customFolioTokenMint, new BN(1000_000_000_000));
+            await initBaseCase(
+              customFolioTokenMint,
+              new BN(1000_000_000_000),
+              undefined,
+              amountToDistribute
+            );
 
             currentClock = await context.banksClient.getClock();
 
@@ -904,12 +924,16 @@ describe("Bankrun - Fees", () => {
               context,
               programFolio,
               folioTokenMint.publicKey,
-
               undefined,
               undefined,
               new BN(currentClock.unixTimestamp.toString()),
               new BN(0),
-              initialFeeRecipientPendingFeeShares
+              initialFeeRecipientPendingFeeShares,
+              false,
+              [],
+              [],
+              undefined,
+              amountToDistribute
             );
 
             // Remove the fee recipients that were already claimed (by putting them as public key default)

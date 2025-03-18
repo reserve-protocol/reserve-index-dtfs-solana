@@ -252,6 +252,9 @@ impl Folio {
             .add(&Decimal::from_scaled(self.dao_pending_fee_shares))?
             .add(&Decimal::from_scaled(
                 self.fee_recipients_pending_fee_shares,
+            ))?
+            .add(&Decimal::from_scaled(
+                self.fee_recipients_pending_fee_shares_to_be_minted,
             ))
     }
 

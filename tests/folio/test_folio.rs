@@ -281,16 +281,17 @@ mod tests {
         let folio = Folio {
             dao_pending_fee_shares: 1_000_000_000_000_000_000, // 1.0 * D18
             fee_recipients_pending_fee_shares: 2_000_000_000_000_000_000, // 2.0 * D18
+            fee_recipients_pending_fee_shares_to_be_minted: 3_000_000_000_000_000_000, // 1.0 * D18
             ..Folio::default()
         };
 
         // Test with 10 tokens in circulation
         let result = folio.get_total_supply(10_000_000_000).unwrap(); // 10.0 * D9
 
-        // Expected: 10 + 1 + 2 = 13 tokens
+        // Expected: 10 + 1 + 2 + 3 = 16 tokens
         assert_eq!(
             result.to_scaled(Rounding::Floor).unwrap(),
-            13_000_000_000_000_000_000
+            16_000_000_000_000_000_000
         );
     }
 

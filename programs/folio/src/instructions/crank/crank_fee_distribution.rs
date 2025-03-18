@@ -40,7 +40,7 @@ pub struct CrankFeeDistribution<'info> {
     #[account(mut)]
     pub cranker: UncheckedAccount<'info>,
 
-    #[account()]
+    #[account(mut)]
     pub folio: AccountLoader<'info, Folio>,
 
     #[account(mut)]
@@ -133,6 +133,7 @@ pub fn handler<'info>(
     }
 
     let signer_seeds = &[FOLIO_SEEDS, token_mint_key.as_ref(), &[folio_bump]];
+    let mut total_fee_recipients_pending_fee_share_distribution = 0u64;
 
     let remaining_accounts = &ctx.remaining_accounts;
     let mut remaining_accounts_iter = remaining_accounts.iter();
@@ -189,13 +190,25 @@ pub fn handler<'info>(
                     ),
                     raw_amount_to_distribute,
                 )?;
-
+                total_fee_recipients_pending_fee_share_distribution =
+                    total_fee_recipients_pending_fee_share_distribution
+                        .checked_add(raw_amount_to_distribute)
+                        .ok_or(ErrorCode::MathOverflow)?;
                 emit!(TVLFeePaid {
                     recipient: related_fee_distribution.recipient.key(),
                     amount: raw_amount_to_distribute,
                 });
             }
         }
+    }
+
+    // Update folio pending fee shares
+    {
+        let folio = &mut ctx.accounts.folio.load_mut()?;
+        folio.fee_recipients_pending_fee_shares = folio
+            .fee_recipients_pending_fee_shares
+            .checked_sub(total_fee_recipients_pending_fee_share_distribution.into())
+            .ok_or(ErrorCode::MathOverflow)?;
     }
 
     // Check if we can close the fee distribution account to reimburse the cranker for the rent

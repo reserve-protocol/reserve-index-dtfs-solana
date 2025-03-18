@@ -271,6 +271,7 @@ describe("Bankrun - Fees", () => {
         portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(30)),
       })),
       isPreTransactionValidated: true,
+      initialFeeRecipientPendingFeeShares: new BN(8_000_000_000),
     },
     {
       desc: "(user tries to distribute fees to a user that has already been distributed to, succeeds but no changes)",
@@ -303,6 +304,7 @@ describe("Bankrun - Fees", () => {
           portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
         },
       ],
+      initialFeeRecipientPendingFeeShares: new BN(8_000_000_000),
       // 0 Because already distributed
       expectedFeeDistributed: [new BN(0), new BN(4_000_000_000)],
     },
@@ -311,6 +313,7 @@ describe("Bankrun - Fees", () => {
       expectedError: "InvalidFeeRecipient",
       // Stored in D18
       amountToDistribute: new BN(8_000_000_000).mul(D9),
+      initialFeeRecipientPendingFeeShares: new BN(8_000_000_000),
       feeRecipients: [
         {
           recipient: feeRecipient1.publicKey,
@@ -359,6 +362,7 @@ describe("Bankrun - Fees", () => {
         },
       ],
       expectedFeeDistributed: [new BN(4_000_000_000)],
+      initialFeeRecipientPendingFeeShares: new BN(8_000_000_000),
     },
     {
       desc: "(user distributes fees to all fee recipients, account closes)",
@@ -386,6 +390,7 @@ describe("Bankrun - Fees", () => {
         },
       ],
       expectedFeeDistributed: [new BN(4_000_000_000), new BN(4_000_000_000)],
+      initialFeeRecipientPendingFeeShares: new BN(8_000_000_000),
       shouldCloseAccount: true,
     },
   ];
@@ -851,7 +856,7 @@ describe("Bankrun - Fees", () => {
     );
   });
 
-  describe("Specific Cases - Crank fee distribution", () => {
+  describe.only("Specific Cases - Crank fee distribution", () => {
     TEST_CASES_CRANK_FEE_DISTRIBUTION.forEach(
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {

@@ -186,8 +186,9 @@ pub mod folio {
     pub fn mint_folio_token<'info>(
         ctx: Context<'_, '_, 'info, 'info, MintFolioToken<'info>>,
         raw_shares: u64,
+        min_raw_shares: Option<u64>,
     ) -> Result<()> {
-        mint_folio_token::handler(ctx, raw_shares)
+        mint_folio_token::handler(ctx, raw_shares, min_raw_shares)
     }
 
     pub fn burn_folio_token<'info>(

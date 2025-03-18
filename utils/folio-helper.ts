@@ -673,6 +673,10 @@ export async function crankFeeDistribution(
       folioTokenMint,
       cranker,
       feeDistribution: getFeeDistributionPDA(folio, feeDistributionIndex),
+      // Can be null
+      upgradedFolio: null,
+      upgradedFolioProgram: null,
+      programRegistrar: null,
     })
     .remainingAccounts(remainingAccounts)
     .instruction();

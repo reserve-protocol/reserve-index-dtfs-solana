@@ -819,7 +819,10 @@ export async function crankFeeDistribution<T extends boolean = true>(
   indices: BN[],
   feeRecipients: PublicKey[],
   executeTxn: T = true as T,
-  remainingAccounts: AccountMeta[] = []
+  remainingAccounts: AccountMeta[] = [],
+  newFolio: PublicKey = null,
+  newFolioProgram: PublicKey = null,
+  programRegistrar: PublicKey = null
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
@@ -832,11 +835,14 @@ export async function crankFeeDistribution<T extends boolean = true>(
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,
-
       folio: folio,
       folioTokenMint,
       cranker,
       feeDistribution: getFeeDistributionPDA(folio, feeDistributionIndex),
+      // Can be null
+      upgradedFolio: newFolio,
+      upgradedFolioProgram: newFolioProgram,
+      programRegistrar,
     })
     .remainingAccounts(
       remainingAccounts.length > 0

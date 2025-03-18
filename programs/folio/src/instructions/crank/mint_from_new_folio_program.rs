@@ -80,6 +80,7 @@ pub fn handler<'info>(
     #[cfg(not(feature = "dev"))]
     return Ok(());
 
+    #[allow(unreachable_code)]
     let new_folio_bump: u8;
 
     let token_mint_key = ctx.accounts.folio_token_mint.key();

@@ -25,6 +25,8 @@ bytemuck = "=1.20.0"
 mpl-token-metadata = "=5.1.0"
 folio_admin = { path = "../folio-admin", features = ["no-entrypoint"] }
 shared = { path = "../../shared" }
+spl-token-metadata-interface = "0.3.3"
+spl-type-length-value = "0.4.3"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }

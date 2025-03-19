@@ -93,6 +93,31 @@ pub mod folio {
     }
 
     #[allow(clippy::too_many_arguments)]
+    pub fn init_folio_2022(
+        ctx: Context<InitFolio2022>,
+        scaled_tvl_fee: u128,
+        scaled_mint_fee: u128,
+        auction_delay: u64,
+        auction_length: u64,
+        name: String,
+        symbol: String,
+        uri: String,
+        mandate: String,
+    ) -> Result<()> {
+        init_folio_2022::handler(
+            ctx,
+            scaled_tvl_fee,
+            scaled_mint_fee,
+            auction_delay,
+            auction_length,
+            name,
+            symbol,
+            uri,
+            mandate,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
     pub fn update_folio<'info>(
         ctx: Context<'_, '_, 'info, 'info, UpdateFolio<'info>>,
         scaled_tvl_fee: Option<u128>,
@@ -156,8 +181,9 @@ pub mod folio {
      */
     pub fn start_folio_migration<'info>(
         ctx: Context<'_, '_, 'info, 'info, StartFolioMigration<'info>>,
+        index_for_fee_distribution: u64,
     ) -> Result<()> {
-        start_folio_migration::handler(ctx)
+        start_folio_migration::handler(ctx, index_for_fee_distribution)
     }
 
     pub fn migrate_folio_tokens<'info>(

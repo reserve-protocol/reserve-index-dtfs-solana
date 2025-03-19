@@ -5,7 +5,9 @@ use anchor_lang::prelude::*;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 use anchor_spl::token::TokenAccount;
 use shared::check_condition;
-use shared::constants::{PendingBasketType, MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS};
+use shared::constants::{
+    PendingBasketType, MAX_FOLIO_TOKEN_AMOUNTS, MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
+};
 use shared::errors::ErrorCode;
 use shared::errors::ErrorCode::InvalidAddedTokenMints;
 use shared::errors::ErrorCode::*;
@@ -189,21 +191,6 @@ impl UserPendingBasket {
         Ok(())
     }
 
-    /// Reorder the token amounts in the pending basket of the user to match the order of the mints in the ordering vector.
-    ///
-    /// # Arguments
-    /// * `ordering_vec` - The ordering vector to reorder the token amounts.
-    pub fn reorder_token_amounts(&mut self, ordering_vec: &[TokenAmount]) -> Result<()> {
-        self.token_amounts.sort_by_key(|ta| {
-            ordering_vec
-                .iter()
-                .position(|order_mint| order_mint.mint == ta.mint)
-                .unwrap_or(usize::MAX)
-        });
-
-        Ok(())
-    }
-
     /// Check if the pending basket of the user is empty. Meaning all the token amounts are 0.
     ///
     /// # Returns
@@ -262,24 +249,57 @@ impl UserPendingBasket {
 
         let scaled_total_supply_folio_token = folio.get_total_supply(raw_folio_token_supply)?;
 
-        for (index, folio_token_account) in included_tokens.iter().enumerate() {
-            let related_mint = &mut folio_basket.token_amounts[index];
+        // Create a map from ATA address to (basket_index, mint)
+        let mut ata_to_basket: [(Pubkey, usize, Pubkey); MAX_FOLIO_TOKEN_AMOUNTS] =
+            [(Pubkey::default(), 0, Pubkey::default()); MAX_FOLIO_TOKEN_AMOUNTS];
 
-            check_condition!(
-                folio_token_account.key()
-                    == get_associated_token_address_with_program_id(
-                        folio_key,
-                        &related_mint.mint,
-                        token_program_id,
-                    ),
-                InvalidRecipientTokenAccount
+        let mut valid_atas = 0;
+
+        for (i, token_amount) in folio_basket.token_amounts.iter().enumerate() {
+            if token_amount.mint == Pubkey::default() {
+                continue;
+            }
+
+            let expected_ata = get_associated_token_address_with_program_id(
+                folio_key,
+                &token_amount.mint,
+                token_program_id,
             );
 
-            let raw_user_amount = &mut self.token_amounts[index];
+            ata_to_basket[valid_atas] = (expected_ata, i, token_amount.mint);
+            valid_atas += 1;
+        }
 
-            check_condition!(raw_user_amount.mint == related_mint.mint, MintMismatch);
+        // Process each included token
+        for folio_token_account in included_tokens.iter() {
+            let ata_address = folio_token_account.key();
 
-            // Get token balance for folio of the token currently being processed
+            // Find the basket index for this ATA using iterator
+            let (basket_index, related_mint_pubkey) = ata_to_basket
+                .iter()
+                .take(valid_atas)
+                .find_map(|(ata, idx, mint)| {
+                    if *ata == ata_address {
+                        Some((*idx, *mint))
+                    } else {
+                        None
+                    }
+                })
+                .ok_or(ErrorCode::InvalidRecipientTokenAccount)?;
+
+            let related_mint = &mut folio_basket.token_amounts[basket_index];
+
+            let user_index = match self
+                .token_amounts
+                .iter()
+                .position(|ta| ta.mint == related_mint_pubkey)
+            {
+                Some(idx) => idx,
+                None => return Err(error!(ErrorCode::MintMismatch)),
+            };
+
+            let raw_user_amount = &mut self.token_amounts[user_index];
+
             let data = folio_token_account.try_borrow_data()?;
             let folio_token_account = TokenAccount::try_deserialize(&mut &data[..])?;
 

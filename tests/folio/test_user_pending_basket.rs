@@ -313,32 +313,6 @@ mod tests {
     }
 
     #[test]
-    fn test_reorder_token_amounts() {
-        let mut pending = UserPendingBasket::default();
-        let token1 = TokenAmount {
-            mint: Pubkey::new_unique(),
-
-            amount_for_minting: 100,
-            amount_for_redeeming: 0,
-        };
-        let token2 = TokenAmount {
-            mint: Pubkey::new_unique(),
-
-            amount_for_minting: 200,
-            amount_for_redeeming: 0,
-        };
-        pending.token_amounts[0] = token1;
-        pending.token_amounts[1] = token2;
-
-        let ordering = vec![token2, token1];
-        let result = pending.reorder_token_amounts(&ordering);
-
-        assert!(result.is_ok());
-        assert_eq!(pending.token_amounts[0], token2);
-        assert_eq!(pending.token_amounts[1], token1);
-    }
-
-    #[test]
     fn test_is_empty() {
         // Test completely empty basket
         let basket = UserPendingBasket {

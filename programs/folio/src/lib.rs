@@ -315,4 +315,22 @@ pub mod folio {
             callback_data,
         )
     }
+
+    /*
+    Development functions, used to show implementation for future folio program versions.
+     */
+    #[allow(unused_variables)]
+    pub fn mint_from_new_folio_program<'info>(
+        ctx: Context<'_, '_, 'info, 'info, MintFromNewFolioProgram<'info>>,
+        amount: u64,
+    ) -> Result<()> {
+        #[cfg(feature = "dev")]
+        {
+            mint_from_new_folio_program::handler(ctx, amount)
+        }
+        #[cfg(not(feature = "dev"))]
+        {
+            Ok(())
+        }
+    }
 }

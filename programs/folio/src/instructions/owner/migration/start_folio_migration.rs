@@ -1,19 +1,34 @@
+use crate::instructions::distribute_fees;
+use crate::state::{FeeDistribution, FeeRecipients};
 use crate::ID as FOLIO_PROGRAM_ID;
+use crate::ID;
 use crate::{
     state::{Actor, Folio},
     utils::{FolioStatus, Role},
 };
-use anchor_lang::prelude::*;
+use anchor_lang::{prelude::*, system_program, Discriminator};
 use anchor_spl::{
     token_2022::spl_token_2022::instruction::AuthorityType,
     token_interface::{self, Mint, TokenInterface},
 };
 use folio_admin::{state::ProgramRegistrar, ID as FOLIO_ADMIN_PROGRAM_ID};
+use shared::constants::FEE_DISTRIBUTION_SEEDS;
 use shared::errors::ErrorCode;
+use shared::utils::init_pda_account_rent;
 use shared::{
     check_condition,
     constants::{ACTOR_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS},
 };
+
+/// Index of the accounts in the remaining accounts.
+enum IndexPerAccount {
+    TokenProgram,
+    DAOFeeConfig,
+    FolioFeeConfig,
+    FeeDistribution,
+    DAOFeeRecipient,
+    FeeRecipients,
+}
 
 /// Start Folio Migration
 /// Folio owner
@@ -64,6 +79,18 @@ pub struct StartFolioMigration<'info> {
     mint::freeze_authority = old_folio,
     )]
     pub folio_token_mint: Box<InterfaceAccount<'info, Mint>>,
+    /*
+    Remaining accounts will be just for distributing the fees
+
+    Order is
+
+    - Token program
+    - DAO fee config
+    - Folio fee config
+    - Fee Distribution (mut)
+    - DAO fee recipient (mut)
+    - Fee Recipients
+     */
 }
 
 impl StartFolioMigration<'_> {
@@ -110,6 +137,102 @@ impl StartFolioMigration<'_> {
             CantMigrateToSameProgram
         );
 
+        // Make sure the discriminator of the new folio is correct
+        let data = self.new_folio.try_borrow_data()?;
+        check_condition!(
+            data.len() >= 8 && data[0..8] == Folio::discriminator(),
+            InvalidNewFolio
+        );
+
+        Ok(())
+    }
+}
+
+impl<'info> StartFolioMigration<'info> {
+    /// Distribute fees
+    ///
+    /// # Arguments
+    /// * `remaining_accounts` - The remaining accounts contains the extra accounts required to distribute the fees.
+    /// * `index_for_fee_distribution` - The index of the next fee distribution account to create.
+    pub fn distribute_fees(
+        &self,
+        remaining_accounts: &'info [AccountInfo<'info>],
+        index_for_fee_distribution: u64,
+    ) -> Result<()> {
+        {
+            let folio_status = {
+                let folio = self.old_folio.load()?;
+                folio.status.into()
+            };
+
+            // Don't distribute fees if the isn't INITIALIZED or KILLED
+            if ![FolioStatus::Killed, FolioStatus::Initialized].contains(&folio_status) {
+                return Ok(());
+            }
+
+            let dao_fee_config =
+                Account::try_from(&remaining_accounts[IndexPerAccount::DAOFeeConfig as usize])?;
+
+            // Create the fee distribution account (since the distribute fees init it, but we're skipping the anchor's context by
+            // calling the function directly)
+            let folio_key = self.old_folio.key();
+            let index_for_fee_distribution_parsed = index_for_fee_distribution.to_le_bytes();
+
+            let seeds_for_fee_distribution = &[
+                FEE_DISTRIBUTION_SEEDS,
+                folio_key.as_ref(),
+                index_for_fee_distribution_parsed.as_slice(),
+            ];
+
+            let (fee_distribution_account, fee_distribution_bump) =
+                Pubkey::find_program_address(seeds_for_fee_distribution, &FOLIO_PROGRAM_ID);
+
+            let seeds_with_bump = [
+                FEE_DISTRIBUTION_SEEDS,
+                folio_key.as_ref(),
+                index_for_fee_distribution_parsed.as_slice(),
+                &[fee_distribution_bump],
+            ];
+
+            check_condition!(
+                fee_distribution_account
+                    == remaining_accounts[IndexPerAccount::FeeDistribution as usize].key(),
+                InvalidFeeDistribution
+            );
+
+            init_pda_account_rent(
+                &remaining_accounts[IndexPerAccount::FeeDistribution as usize],
+                FeeDistribution::SIZE,
+                &self.folio_owner,
+                &ID,
+                &self.system_program,
+                &[&seeds_with_bump[..]],
+            )?;
+
+            let fee_distribution: AccountLoader<FeeDistribution> =
+                AccountLoader::try_from_unchecked(
+                    &system_program::ID,
+                    &remaining_accounts[IndexPerAccount::FeeDistribution as usize],
+                )?;
+
+            let fee_recipients: AccountLoader<FeeRecipients> = AccountLoader::try_from(
+                &remaining_accounts[IndexPerAccount::FeeRecipients as usize],
+            )?;
+
+            distribute_fees(
+                &remaining_accounts[IndexPerAccount::TokenProgram as usize],
+                &self.folio_owner,
+                &dao_fee_config,
+                &remaining_accounts[IndexPerAccount::FolioFeeConfig as usize],
+                &self.old_folio,
+                &self.folio_token_mint,
+                &fee_recipients,
+                &fee_distribution,
+                &remaining_accounts[IndexPerAccount::DAOFeeRecipient as usize],
+                index_for_fee_distribution,
+            )?;
+        }
+
         Ok(())
     }
 }
@@ -119,7 +242,11 @@ impl StartFolioMigration<'_> {
 ///
 /// # Arguments
 /// * `ctx` - The context of the instruction.
-pub fn handler(ctx: Context<StartFolioMigration>) -> Result<()> {
+/// * `index_for_fee_distribution` - The index of the next fee distribution account to create.
+pub fn handler<'info>(
+    ctx: Context<'_, '_, 'info, 'info, StartFolioMigration<'info>>,
+    index_for_fee_distribution: u64,
+) -> Result<()> {
     let old_folio_bump: u8;
     {
         let old_folio = &mut ctx.accounts.old_folio.load_mut()?;
@@ -131,6 +258,10 @@ pub fn handler(ctx: Context<StartFolioMigration>) -> Result<()> {
         // Update old folio status
         old_folio.status = FolioStatus::Migrating as u8;
     }
+
+    // Distribute the fees
+    ctx.accounts
+        .distribute_fees(ctx.remaining_accounts, index_for_fee_distribution)?;
 
     // Transfer the mint and freeze authority to the new folio
     let token_mint_key = ctx.accounts.folio_token_mint.key();

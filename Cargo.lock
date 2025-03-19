@@ -992,6 +992,8 @@ dependencies = [
  "folio_admin",
  "mpl-token-metadata",
  "shared",
+ "spl-token-metadata-interface",
+ "spl-type-length-value",
 ]
 
 [[package]]

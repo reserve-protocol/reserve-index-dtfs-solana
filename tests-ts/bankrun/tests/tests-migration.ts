@@ -23,6 +23,7 @@ import {
   createAndSetProgramRegistrar,
   createAndSetFolioBasket,
   TokenAmount,
+  createAndSetDaoFeeConfig,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
 import {
@@ -76,6 +77,8 @@ describe("Bankrun - Folio migration", () => {
 
   let oldFolioPDA: PublicKey;
   let newFolioPDA: PublicKey;
+
+  const feeRecipient: PublicKey = Keypair.generate().publicKey;
 
   const MINTS = [Keypair.generate(), Keypair.generate()];
 
@@ -265,6 +268,14 @@ describe("Bankrun - Folio migration", () => {
     // When second step of migration, we expect some changes to already be done
     isMigrating: boolean = false
   ) {
+    await createAndSetDaoFeeConfig(
+      context,
+      programFolioAdmin,
+      feeRecipient,
+      new BN(0),
+      new BN(0)
+    );
+
     const folioTokenMintToUse = customFolioTokenMint || folioTokenMint;
     oldFolioPDA = getFolioPDA(folioTokenMintToUse.publicKey);
 
@@ -368,6 +379,7 @@ describe("Bankrun - Folio migration", () => {
   describe("General Tests", () => {
     const generalIxStartMigration = () =>
       startFolioMigration<true>(
+        context,
         banksClient,
         programFolio,
         folioOwnerKeypair,
@@ -375,6 +387,8 @@ describe("Bankrun - Folio migration", () => {
         oldFolioPDA,
         newFolioPDA,
         programFolioSecond.programId,
+        new BN(1),
+        feeRecipient,
         true
       );
 
@@ -492,6 +506,7 @@ describe("Bankrun - Folio migration", () => {
             await travelFutureSlot(context);
 
             txnResult = await startFolioMigration<true>(
+              context,
               banksClient,
               programFolio,
               folioOwnerKeypair,
@@ -499,6 +514,8 @@ describe("Bankrun - Folio migration", () => {
               oldFolioPDA,
               newFolioPDA,
               newFolioProgram || programFolioSecond.programId,
+              new BN(1),
+              feeRecipient,
               true
             );
           });

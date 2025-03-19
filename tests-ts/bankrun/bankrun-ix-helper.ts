@@ -47,6 +47,7 @@ import {
   Auction,
   buildRemainingAccountsForAccruesRewards,
   buildRemainingAccountsForUpdateFolio,
+  buildRemainingAccountsForStartFolioMigration,
 } from "./bankrun-account-helper";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
 import { FolioAdmin } from "../../target/types/folio_admin";
@@ -1073,6 +1074,7 @@ export async function bid<T extends boolean = true>(
 }
 
 export async function startFolioMigration<T extends boolean = true>(
+  context: ProgramTestContext,
   client: BanksClient,
   programFolio: Program<Folio>,
   folioOwnerKeypair: Keypair,
@@ -1080,6 +1082,8 @@ export async function startFolioMigration<T extends boolean = true>(
   oldFolio: PublicKey,
   newFolio: PublicKey,
   newFolioProgram: PublicKey,
+  indexForFeeDistribution: BN,
+  daoFeeRecipient: PublicKey,
   executeTxn: T = true as T
 ): Promise<
   T extends true
@@ -1087,7 +1091,7 @@ export async function startFolioMigration<T extends boolean = true>(
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
   const startFolioMigration = await programFolio.methods
-    .startFolioMigration()
+    .startFolioMigration(indexForFeeDistribution)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
@@ -1099,6 +1103,14 @@ export async function startFolioMigration<T extends boolean = true>(
       newFolio,
       folioTokenMint,
     })
+    .remainingAccounts(
+      await buildRemainingAccountsForStartFolioMigration(
+        context,
+        oldFolio,
+        folioTokenMint,
+        daoFeeRecipient
+      )
+    )
     .instruction();
 
   if (executeTxn) {

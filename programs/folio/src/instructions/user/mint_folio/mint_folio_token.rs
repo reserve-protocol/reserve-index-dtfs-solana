@@ -152,9 +152,7 @@ pub fn handler<'info>(
         InvalidNumberOfRemainingAccounts
     );
 
-    // Reorder the user's token amounts to match the folio's token amounts, for efficiency
     let token_amounts_user = &mut ctx.accounts.user_pending_basket.load_mut()?;
-    token_amounts_user.reorder_token_amounts(&folio_basket.token_amounts)?;
 
     // Get the related folio fees
     let fee_details = ctx

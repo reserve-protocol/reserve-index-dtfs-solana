@@ -2,6 +2,8 @@ import {
   createMint,
   createTransferCheckedInstruction,
   getAssociatedTokenAddressSync,
+  getMetadataPointerState,
+  getMint,
   getOrCreateAssociatedTokenAccount,
   mintTo,
   TOKEN_2022_PROGRAM_ID,
@@ -164,4 +166,34 @@ export async function getTokenBalance(
     return await connection.getBalance(account);
   }
   return (await connection.getTokenAccountBalance(account)).value.uiAmount;
+}
+
+export async function getTokenMetadata(
+  connection: Connection,
+  mint: PublicKey
+): Promise<{
+  metadataPointer: any;
+  metadata: any;
+  name: string;
+  symbol: string;
+  uri: string;
+}> {
+  const mintInfo = await getMint(
+    connection,
+    mint,
+    "confirmed",
+    TOKEN_2022_PROGRAM_ID
+  );
+
+  const metadataPointer = getMetadataPointerState(mintInfo);
+
+  const metadata = await getTokenMetadata(connection, mint);
+
+  return {
+    metadataPointer,
+    metadata,
+    name: metadata.name,
+    symbol: metadata.symbol,
+    uri: metadata.uri,
+  };
 }

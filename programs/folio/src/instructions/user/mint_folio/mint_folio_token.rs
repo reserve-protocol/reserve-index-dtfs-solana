@@ -127,9 +127,11 @@ user amount / balance folio * total supply = share
 /// # Arguments
 /// * `ctx` - The context of the instruction.
 /// * `raw_shares` - The amount of shares the user wants to mint (D9).
+/// * `min_raw_shares` - The minimum amount of shares the user wants to mint (D9), to provide slippage protection.
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, MintFolioToken<'info>>,
     raw_shares: u64,
+    min_raw_shares: Option<u64>,
 ) -> Result<()> {
     let folio_bump = {
         let folio = &mut ctx.accounts.folio.load_mut()?;
@@ -193,6 +195,13 @@ pub fn handler<'info>(
         .ok_or(ErrorCode::MathOverflow)?;
 
     let signer_seeds = &[FOLIO_SEEDS, token_mint_key.as_ref(), &[folio_bump]];
+
+    if let Some(min_raw_shares) = min_raw_shares {
+        check_condition!(
+            raw_folio_token_amount_to_mint >= min_raw_shares,
+            SlippageExceeded
+        );
+    }
 
     token::mint_to(
         CpiContext::new_with_signer(

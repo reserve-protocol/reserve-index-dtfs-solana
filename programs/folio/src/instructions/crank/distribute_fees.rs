@@ -340,6 +340,12 @@ pub fn distribute_fees<'info>(
             .checked_sub(scaled_fee_recipients_pending_fee_shares_minus_dust)
             .unwrap();
 
+        // Add the fees to track total supply, including pending shares
+        folio.fee_recipients_pending_fee_shares_to_be_minted = folio
+            .fee_recipients_pending_fee_shares_to_be_minted
+            .checked_add(scaled_fee_recipients_pending_fee_shares_minus_dust)
+            .ok_or(ErrorCode::MathOverflow)?;
+
         let fee_recipients = &mut fee_recipients.load_mut()?;
         fee_recipients.distribution_index = index;
     }

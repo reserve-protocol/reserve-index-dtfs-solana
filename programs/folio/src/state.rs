@@ -83,6 +83,11 @@ pub struct Folio {
 
     /// Describes mission/brand of the Folio (max size 128 bytes)
     pub mandate: FixedSizeString,
+
+    /// Amount of fees to be minted to the fee recipients, scaled in D18, we need this since the fee
+    /// distribution is done in multiple steps, so we need to keep track of the amount to be minted
+    /// for when we calculate the total supply.
+    pub fee_recipients_pending_fee_shares_to_be_minted: u128,
 }
 
 impl Folio {

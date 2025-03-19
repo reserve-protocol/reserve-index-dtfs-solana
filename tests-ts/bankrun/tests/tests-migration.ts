@@ -320,7 +320,8 @@ describe("Bankrun - Folio migration", () => {
     // When second step of migration, we expect some changes to already be done
     isMigrating: boolean = false,
     includeSecondProgramInRegistrar: boolean = true,
-    mintAuthority: PublicKey = null
+    mintAuthority: PublicKey = null,
+    amountToDistribute: BN = new BN(0)
   ) {
     await createAndSetDaoFeeConfig(
       context,
@@ -342,7 +343,11 @@ describe("Bankrun - Folio migration", () => {
       new BN(0),
       new BN(0),
       new BN(0),
-      false
+      false,
+      [],
+      [],
+      "",
+      amountToDistribute
     );
 
     await createAndSetFolioBasket(
@@ -797,7 +802,8 @@ describe("Bankrun - Folio migration", () => {
               [],
               isMigrating,
               includeSecondProgramInRegistrar,
-              mintAuthority
+              mintAuthority,
+              AMOUNT_TO_DISTRIBUTE
             );
 
             if (newFolioProgram) {

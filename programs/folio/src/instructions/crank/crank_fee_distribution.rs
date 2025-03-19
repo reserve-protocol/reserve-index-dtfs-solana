@@ -19,7 +19,7 @@ use crate::state::{FeeDistribution, Folio};
 /// * `token_program` - The token program.
 /// * `user` - The user account (mut, signer).
 /// * `cranker` - The cranker account (mut, not signer). Used to track who to reimburse the rent to when closing the fee distribution account.
-/// * `folio` - The folio account (PDA) (not mut, not signer).
+/// * `folio` - The folio account (PDA) (mut, not signer).
 /// * `folio_token_mint` - The folio token mint account (mut, not signer).
 /// * `fee_distribution` - The fee distribution account (PDA) (mut, not signer).
 /// * `fee_distribution_token_mint` - The fee distribution token mint account (not mut, not signer).
@@ -40,7 +40,7 @@ pub struct CrankFeeDistribution<'info> {
     #[account(mut)]
     pub cranker: UncheckedAccount<'info>,
 
-    #[account()]
+    #[account(mut)]
     pub folio: AccountLoader<'info, Folio>,
 
     #[account(mut)]
@@ -134,6 +134,8 @@ pub fn handler<'info>(
 
     let signer_seeds = &[FOLIO_SEEDS, token_mint_key.as_ref(), &[folio_bump]];
 
+    let mut amount_to_remove_from_folio_pending_fees: u128 = 0;
+
     let remaining_accounts = &ctx.remaining_accounts;
     let mut remaining_accounts_iter = remaining_accounts.iter();
     {
@@ -190,6 +192,10 @@ pub fn handler<'info>(
                     raw_amount_to_distribute,
                 )?;
 
+                amount_to_remove_from_folio_pending_fees = amount_to_remove_from_folio_pending_fees
+                    .checked_add(raw_amount_to_distribute as u128)
+                    .ok_or(ErrorCode::MathOverflow)?;
+
                 emit!(TVLFeePaid {
                     recipient: related_fee_distribution.recipient.key(),
                     amount: raw_amount_to_distribute,
@@ -212,6 +218,12 @@ pub fn handler<'info>(
             .fee_distribution
             .close(ctx.accounts.cranker.to_account_info())?;
     }
+
+    let folio = &mut ctx.accounts.folio.load_mut()?;
+    folio.fee_recipients_pending_fee_shares_to_be_minted = folio
+        .fee_recipients_pending_fee_shares_to_be_minted
+        .checked_sub(amount_to_remove_from_folio_pending_fees)
+        .ok_or(ErrorCode::MathOverflow)?;
 
     Ok(())
 }

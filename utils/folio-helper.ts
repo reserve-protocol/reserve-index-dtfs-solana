@@ -451,11 +451,12 @@ export async function mintFolioToken(
   folio: PublicKey,
   folioTokenMint: PublicKey,
   tokens: { mint: PublicKey; amount: BN }[],
-  shares: BN
+  shares: BN,
+  minRawShares: BN | null = null
 ) {
   const folioProgram = getFolioProgram(connection, userKeypair);
   const mintFolioToken = await folioProgram.methods
-    .mintFolioToken(shares)
+    .mintFolioToken(shares, minRawShares)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,

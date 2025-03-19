@@ -607,10 +607,11 @@ export async function mintFolioToken<T extends boolean = true>(
   tokens: { mint: PublicKey; amount: BN }[],
   shares: BN,
   executeTxn: T = true as T,
-  remainingAccounts: AccountMeta[] = []
+  remainingAccounts: AccountMeta[] = [],
+  minRawShares: BN | null = null
 ) {
   const mintFolioToken = await programFolio.methods
-    .mintFolioToken(shares)
+    .mintFolioToken(shares, minRawShares)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,

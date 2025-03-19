@@ -119,6 +119,8 @@ describe("Bankrun - Folio Minting", () => {
     // Is Validated before sending the transaction
     isPreTransactionValidated: boolean;
 
+    minRawShares: BN | null;
+
     // Expected changes
     expectedFolioTokenBalanceChange: BN;
     expectedDaoFeeShares: BN;
@@ -137,6 +139,8 @@ describe("Bankrun - Folio Minting", () => {
     isPreTransactionValidated: false,
 
     customFolioFeeConfig: false,
+
+    minRawShares: null,
 
     // Expected changes
     expectedFolioTokenBalanceChange: new BN(0),
@@ -442,6 +446,23 @@ describe("Bankrun - Folio Minting", () => {
         { mint: MINTS[1].publicKey, amount: new BN(0) },
       ],
       shares: new BN(1_000_000_000),
+    },
+    {
+      desc: "(user claims, slippage is too big, errors out)",
+      expectedError: "SlippageExceeded",
+      folioBasketTokens: [
+        new TokenAmount(MINTS[0].publicKey, new BN(1_000_000), new BN(0)),
+      ],
+      alreadyIncludedTokens: [
+        new TokenAmount(MINTS[0].publicKey, new BN(1_000_000), new BN(0)),
+      ],
+      tokens: [{ mint: MINTS[0].publicKey, amount: new BN(0) }],
+      shares: new BN(1_000_001),
+      minRawShares: new BN(1_000_002),
+      expectedFolioTokenBalanceChange: new BN(1_000_000),
+      expectedDaoFeeShares: new BN(2_500_002_500_000), // 0.25% (scaled in d18)
+      expectedFeeRecipientShares: new BN(47_500_047_500_000), // 4.75% (scaled in d18)
+      expectedTokenBalanceChanges: [new BN(1_000_000), new BN(1_000_000)],
     },
     // Can only mint 1_000_000 shares, because the folio token balance is 9999 tokens
     // from the minting in the init base function
@@ -1139,6 +1160,7 @@ describe("Bankrun - Folio Minting", () => {
             customDAOMintFee,
             customFolioMintFee,
             customFolioFeeConfig,
+            minRawShares,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
@@ -1203,9 +1225,9 @@ describe("Bankrun - Folio Minting", () => {
                 tokenMintToUse.publicKey,
                 tokens,
                 shares,
-
                 true,
-                remainingAccounts()
+                remainingAccounts(),
+                minRawShares
               );
             } catch (e) {
               // Transaction limit is caught before sending the transaction

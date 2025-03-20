@@ -597,6 +597,7 @@ describe("Bankrun - Auction", () => {
           DEFAULT_SELL_MINT.publicKey
         ),
         new BN(0),
+        1,
         true
       );
 
@@ -915,6 +916,7 @@ describe("Bankrun - Auction", () => {
               folioPDA,
               auctionToUse,
               MAX_TTL,
+              1,
               true
             );
           });
@@ -943,9 +945,18 @@ describe("Bankrun - Auction", () => {
                 auctionAfter.launchTimeout.eq(currentTime.add(MAX_TTL)),
                 true
               );
-              assert.equal(auctionAfter.start.eq(new BN(0)), true);
-              assert.equal(auctionAfter.end.eq(new BN(0)), true);
-              assert.equal(auctionAfter.k.eq(auctionToUse.k), true);
+              assert.equal(
+                auctionAfter.auctionRunDetails[0].start.eq(new BN(0)),
+                true
+              );
+              assert.equal(
+                auctionAfter.auctionRunDetails[0].end.eq(new BN(0)),
+                true
+              );
+              assert.equal(
+                auctionAfter.auctionRunDetails[0].k.eq(auctionToUse.k),
+                true
+              );
               assert.deepEqual(auctionAfter.folio, folioPDA);
               assert.deepEqual(auctionAfter.sell, sellMint.publicKey);
               assert.deepEqual(auctionAfter.buy, buyMint.publicKey);
@@ -974,11 +985,15 @@ describe("Bankrun - Auction", () => {
                 true
               );
               assert.equal(
-                auctionAfter.prices.start.eq(auctionToUse.prices.start),
+                auctionAfter.auctionRunDetails[0].prices.start.eq(
+                  auctionToUse.prices.start
+                ),
                 true
               );
               assert.equal(
-                auctionAfter.prices.end.eq(auctionToUse.prices.end),
+                auctionAfter.auctionRunDetails[0].prices.end.eq(
+                  auctionToUse.prices.end
+                ),
                 true
               );
             });
@@ -1033,7 +1048,10 @@ describe("Bankrun - Auction", () => {
                 getAuctionPDA(folioPDA, auctionToUse.id)
               );
 
-              assert.equal(auctionAfter.end.eq(new BN(1)), true);
+              assert.equal(
+                auctionAfter.auctionRunDetails[0].end.eq(new BN(1)),
+                true
+              );
             });
           }
         });
@@ -1117,19 +1135,31 @@ describe("Bankrun - Auction", () => {
                 true
               );
               assert.equal(
-                auctionAfter.prices.start.eq(auctionToUse.prices.start),
+                auctionAfter.auctionRunDetails[0].prices.start.eq(
+                  auctionToUse.prices.start
+                ),
                 true
               );
               assert.equal(
-                auctionAfter.prices.end.eq(auctionToUse.prices.end),
+                auctionAfter.auctionRunDetails[0].prices.end.eq(
+                  auctionToUse.prices.end
+                ),
                 true
               );
-              assert.equal(auctionAfter.start.eq(currentTime), true);
               assert.equal(
-                auctionAfter.end.eq(currentTime.add(folio.auctionLength)),
+                auctionAfter.auctionRunDetails[0].start.eq(currentTime),
                 true
               );
-              assert.equal(auctionAfter.k.eq(auctionToUse.k), true);
+              assert.equal(
+                auctionAfter.auctionRunDetails[0].end.eq(
+                  currentTime.add(folio.auctionLength)
+                ),
+                true
+              );
+              assert.equal(
+                auctionAfter.auctionRunDetails[0].k.eq(auctionToUse.k),
+                true
+              );
             });
           }
         });
@@ -1213,19 +1243,31 @@ describe("Bankrun - Auction", () => {
                 true
               );
               assert.equal(
-                auctionAfter.prices.start.eq(auctionToUse.prices.start),
+                auctionAfter.auctionRunDetails[0].prices.start.eq(
+                  auctionToUse.prices.start
+                ),
                 true
               );
               assert.equal(
-                auctionAfter.prices.end.eq(auctionToUse.prices.end),
+                auctionAfter.auctionRunDetails[0].prices.end.eq(
+                  auctionToUse.prices.end
+                ),
                 true
               );
-              assert.equal(auctionAfter.start.eq(currentTime), true);
               assert.equal(
-                auctionAfter.end.eq(currentTime.add(folio.auctionLength)),
+                auctionAfter.auctionRunDetails[0].start.eq(currentTime),
                 true
               );
-              assert.equal(auctionAfter.k.eq(auctionToUse.k), true);
+              assert.equal(
+                auctionAfter.auctionRunDetails[0].end.eq(
+                  currentTime.add(folio.auctionLength)
+                ),
+                true
+              );
+              assert.equal(
+                auctionAfter.auctionRunDetails[0].k.eq(auctionToUse.k),
+                true
+              );
             });
           }
         });
@@ -1366,7 +1408,10 @@ describe("Bankrun - Auction", () => {
               );
 
               assert.equal(folioBasketSellMint, null);
-              assert.equal(auctionAfter.end.eq(currentTime), true);
+              assert.equal(
+                auctionAfter.auctionRunDetails[0].end.eq(currentTime),
+                true
+              );
             }
 
             // Buy mint should be added to the folio basket

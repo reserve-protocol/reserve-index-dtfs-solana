@@ -145,6 +145,15 @@ pub enum ErrorCode {
     #[msg("Auction Cannot Be Opened")]
     AuctionCannotBeOpened,
 
+    #[msg("Max auction runs limit exceeded.")]
+    MaxAuctionRunsLimitExceeded,
+
+    #[msg("Auction Max Runs Reached")]
+    AuctionMaxRunsReached,
+
+    #[msg("No running auction found, for the auction")]
+    NoRunningAuctionFound,
+
     #[msg("Auction Timeout")]
     AuctionTimeout,
 

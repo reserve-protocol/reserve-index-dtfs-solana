@@ -1,10 +1,10 @@
 use crate::utils::{
     structs::{AuctionEnd, BasketRange, FeeRecipient, TokenAmount},
-    FixedSizeString, FolioTokenAmount, Prices,
+    AuctionRunDetails, FixedSizeString, FolioTokenAmount, Prices,
 };
 use anchor_lang::prelude::*;
 use shared::constants::{
-    MAX_CONCURRENT_AUCTIONS, MAX_FEE_RECIPIENTS, MAX_FOLIO_TOKEN_AMOUNTS,
+    MAX_CONCURRENT_AUCTIONS, MAX_FEE_RECIPIENTS, MAX_FOLIO_TOKEN_AMOUNTS, MAX_SINGLE_AUCTION_RUNS,
     MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
 };
 
@@ -274,6 +274,20 @@ impl Default for UserPendingBasket {
 ///
 /// zero_copy
 /// PDA Seeds ["auction", folio pubkey, auction id]
+///
+///
+///
+/// When an auction is repeated:
+/// Users can pass:
+// uint256 sellLimit,
+// uint256 buyLimit,
+// uint256 startPrice,
+// uint256 endPrice
+///
+///
+///
+///
+///
 #[account(zero_copy)]
 #[derive(Default, InitSpace)]
 #[repr(C)]
@@ -292,15 +306,6 @@ pub struct Auction {
     /// Scaled in seconds, inclusive
     pub launch_timeout: u64,
 
-    /// Scaled in seconds, inclusive
-    pub start: u64,
-
-    /// Scaled in seconds, inclusive
-    pub end: u64,
-
-    /// D18{1} price = startPrice * e ^ -kt
-    pub k: u128,
-
     pub folio: Pubkey,
 
     /// Sell token mint
@@ -315,8 +320,20 @@ pub struct Auction {
     /// D18{buyToken/share} min ratio of buy token in the basket, exclusive
     pub buy_limit: BasketRange,
 
-    /// D18{buyToken/sellToken}
-    pub prices: Prices,
+    /// The maximum number of repeats for this auction.
+    pub max_runs: u8,
+
+    // If the close is called it is not possible to re-run the auction, even when max_runs is not reached.
+    // It is a u8, if greater than 0 its true.
+    pub closed_for_reruns: u8,
+
+    pub _padding2: [u8; 14],
+
+    /// The proposed auction details.
+    pub initial_proposed_price: Prices,
+
+    /// The details of each auction run.
+    pub auction_run_details: [AuctionRunDetails; MAX_SINGLE_AUCTION_RUNS],
 }
 
 impl Auction {

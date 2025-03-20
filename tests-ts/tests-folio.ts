@@ -1046,8 +1046,8 @@ describe("Folio Tests", () => {
     assert.equal(auction.buyLimit.spot.eq(new BN(2000).mul(D18)), true);
     assert.equal(auction.buyLimit.low.eq(new BN(0)), true);
     assert.equal(auction.buyLimit.high.eq(new BN(2000).mul(D18)), true);
-    assert.equal(auction.prices.start.eq(new BN(2)), true);
-    assert.equal(auction.prices.end.eq(new BN(1)), true);
+    assert.equal(auction.initialProposedPrice.start.eq(new BN(2)), true);
+    assert.equal(auction.initialProposedPrice.end.eq(new BN(1)), true);
     assert.equal(
       auction.availableAt.toNumber() >=
         currentTimeOnSolana + folio.auctionDelay.toNumber(),
@@ -1057,9 +1057,9 @@ describe("Folio Tests", () => {
       auction.launchTimeout.toNumber() >= currentTimeOnSolana + ttl.toNumber(),
       true
     );
-    assert.equal(auction.start.eq(new BN(0)), true);
-    assert.equal(auction.end.eq(new BN(0)), true);
-    assert.equal(auction.k.eq(new BN(0)), true);
+    assert.equal(auction.auctionRunDetails[0].start.eq(new BN(0)), true);
+    assert.equal(auction.auctionRunDetails[0].end.eq(new BN(0)), true);
+    assert.equal(auction.auctionRunDetails[0].k.eq(new BN(0)), true);
   });
 
   it("should allow user to open auction", async () => {
@@ -1082,20 +1082,32 @@ describe("Folio Tests", () => {
     const auction = await programFolio.account.auction.fetch(auctionPDA);
 
     // Update limits and prices
-    assert.equal(auction.sellLimit.spot.eq(new BN(2)), true);
-    assert.equal(auction.buyLimit.spot.eq(new BN(2000).mul(D18)), true);
-    assert.equal(auction.prices.start.eq(new BN(2)), true);
-    assert.equal(auction.prices.end.eq(new BN(1)), true);
+    assert.equal(
+      auction.auctionRunDetails[0].sellLimitSpot.eq(new BN(2)),
+      true
+    );
+    assert.equal(
+      auction.auctionRunDetails[0].sellLimitSpot.eq(new BN(2)),
+      true
+    );
+    assert.equal(auction.auctionRunDetails[0].prices.start.eq(new BN(2)), true);
+    assert.equal(auction.auctionRunDetails[0].prices.end.eq(new BN(1)), true);
 
     // Assert auction is opened
-    assert.equal(auction.start.toNumber() >= currentTimeOnSolana, true);
     assert.equal(
-      auction.end.toNumber() >=
+      auction.auctionRunDetails[0].start.toNumber() >= currentTimeOnSolana,
+      true
+    );
+    assert.equal(
+      auction.auctionRunDetails[0].end.toNumber() >=
         currentTimeOnSolana + folio.auctionLength.toNumber(),
       true
     );
 
-    assert.equal(auction.k.eq(new BN(1146076687433)), true);
+    assert.equal(
+      auction.auctionRunDetails[0].k.eq(new BN(1146076687433)),
+      true
+    );
   });
 
   it.skip("should allow auction actor to kill auction", async () => {
@@ -1118,7 +1130,9 @@ describe("Folio Tests", () => {
     const folioAfter = await programFolio.account.folio.fetch(folioPDA);
 
     assert.equal(
-      (await programFolio.account.auction.fetch(auctionPDA)).end.toNumber(),
+      (
+        await programFolio.account.auction.fetch(auctionPDA)
+      ).auctionRunDetails[0].end.toNumber(),
       1
     );
 

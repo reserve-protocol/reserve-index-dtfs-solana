@@ -5,6 +5,7 @@ use crate::{
 };
 use anchor_lang::prelude::*;
 use shared::constants::ACTOR_SEEDS;
+use shared::errors::ErrorCode;
 
 /// Close an auction.
 /// Auction Approver, Auction Launcher, or Owner.
@@ -70,7 +71,17 @@ pub fn handler(ctx: Context<CloseAuction>) -> Result<()> {
 
     ctx.accounts.validate(folio, auction)?;
 
-    auction.end = 1;
+    let current_time = Clock::get()?.unix_timestamp as u64;
+
+    let index_of_current_running_auction = auction.index_of_last_or_current_auction_run();
+    if let Some(index) = index_of_current_running_auction {
+        if auction.auction_run_details[index].end > current_time {
+            auction.auction_run_details[index].end = current_time
+                .checked_sub(1)
+                .ok_or(error!(ErrorCode::MathOverflow))?;
+        }
+    }
+    auction.closed_for_reruns = 1;
 
     emit!(AuctionClosed {
         auction_id: auction.id

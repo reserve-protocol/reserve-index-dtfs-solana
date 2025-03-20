@@ -874,6 +874,7 @@ export async function approveAuction<T extends boolean = true>(
   folio: PublicKey,
   auction: Auction,
   ttl: BN,
+  maxRuns: number = 1,
   executeTxn: T = true as T
 ): Promise<
   T extends true
@@ -886,7 +887,8 @@ export async function approveAuction<T extends boolean = true>(
       auction.sellLimit,
       auction.buyLimit,
       auction.prices,
-      ttl
+      ttl,
+      maxRuns
     )
     .accountsPartial({
       systemProgram: SystemProgram.programId,

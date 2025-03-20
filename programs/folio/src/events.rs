@@ -91,6 +91,7 @@ pub struct ProtocolFeePaid {
 ///
 /// # Arguments
 /// * `auction_id` - The id of the auction.
+/// * `auction_run_index` - In case of auction re-run it will be the index of run.
 /// * `start_price` - The start price of the auction, scaled in D18.
 /// * `end_price` - The end price of the auction, scaled in D18.
 /// * `start` - The start time of the auction, scaled in seconds.
@@ -98,6 +99,8 @@ pub struct ProtocolFeePaid {
 #[event]
 pub struct AuctionOpened {
     pub auction_id: u64,
+
+    pub auction_run_index: u8,
 
     /// Scaled in D18
     pub start_price: u128,

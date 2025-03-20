@@ -170,9 +170,18 @@ pub fn handler(
 
     let current_time = Clock::get()?.unix_timestamp as u64;
 
+    let index_of_current_running_auction = auction.index_of_last_or_current_auction_run();
+    check_condition!(
+        index_of_current_running_auction.is_some(),
+        AuctionNotOngoing
+    );
+    let index_of_current_running_auction = index_of_current_running_auction.unwrap();
+
     // checks auction is ongoing
     // D18{buyTok/sellTok}
-    let scaled_price = Decimal::from_scaled(auction.get_price(current_time)?);
+    let scaled_price = Decimal::from_scaled(
+        auction.auction_run_details[index_of_current_running_auction].get_price(current_time)?,
+    );
 
     // {buyTok} = {sellTok} * D18{buyTok/sellTok} / D18
     let raw_bought_amount = Decimal::from_token_amount(raw_sell_amount)?
@@ -247,8 +256,10 @@ pub fn handler(
 
     let raw_sell_balance_after =
         folio_basket.get_token_amount_in_folio_basket_or_zero(&auction.sell);
+
+    // TODO: Change checks with dust limits.
     if raw_sell_balance_after <= raw_min_sell_balance {
-        auction.end = current_time;
+        auction.auction_run_details[index_of_current_running_auction].end = current_time;
         // cannot update sellEnds/buyEnds due to possibility of parallel auctions
     }
 

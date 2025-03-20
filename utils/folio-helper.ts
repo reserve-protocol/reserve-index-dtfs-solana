@@ -697,7 +697,8 @@ export async function approveAuction(
   buyLimit: { spot: BN; low: BN; high: BN },
   startPrice: BN,
   endPrice: BN,
-  ttl: BN
+  ttl: BN,
+  maxRuns: number = 1
 ) {
   const folioProgram = getFolioProgram(connection, auctionApproverKeypair);
 
@@ -707,7 +708,8 @@ export async function approveAuction(
       sellLimit,
       buyLimit,
       { start: startPrice, end: endPrice },
-      ttl
+      ttl,
+      maxRuns
     )
     .accountsPartial({
       systemProgram: SystemProgram.programId,

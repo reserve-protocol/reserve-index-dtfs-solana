@@ -1,6 +1,6 @@
 use crate::state::{Auction, Folio};
 use crate::utils::structs::AuctionStatus;
-use crate::utils::{AuctionEnd, BasketRange, Prices};
+use crate::utils::{AuctionEnd, AuctionRunDetails, BasketRange, OpenAuctionConfig, Prices};
 use anchor_lang::prelude::*;
 use shared::constants::{MAX_PRICE_RANGE, MAX_RATE, MAX_TTL};
 use shared::errors::ErrorCode;
@@ -80,9 +80,10 @@ impl Auction {
         scaled_buy_limit: u128,
     ) -> Result<()> {
         check_condition!(
-            scaled_start_price >= self.prices.start
-                && scaled_end_price >= self.prices.end
-                && (self.prices.start == 0 || scaled_start_price <= 100 * self.prices.start),
+            scaled_start_price >= self.initial_proposed_price.start
+                && scaled_end_price >= self.initial_proposed_price.end
+                && (self.initial_proposed_price.start == 0
+                    || scaled_start_price <= 100 * self.initial_proposed_price.start),
             InvalidPrices
         );
 
@@ -99,7 +100,41 @@ impl Auction {
         Ok(())
     }
 
-    /// Get the status of the auction.
+    /// Returns the total auction runs
+    pub fn total_auction_runs(&self) -> Result<usize> {
+        Ok(self
+            .auction_run_details
+            .iter()
+            .filter(|run| run.start != 0)
+            .count())
+    }
+
+    /// Returns either 0 if available (start == 0), or the index of the first initialized slot.
+    pub fn index_for_next_auction_run(&self) -> Result<usize> {
+        for (index, run) in self.auction_run_details.iter().enumerate() {
+            if run.start == 0 {
+                return Ok(index);
+            }
+        }
+        err!(ErrorCode::AuctionMaxRunsReached)
+    }
+
+    /// Returns none or the index of last running auction.
+    pub fn index_of_last_or_current_auction_run(&self) -> Option<usize> {
+        for (index, run) in self.auction_run_details.iter().enumerate().rev() {
+            if run.start != 0 {
+                return Some(index);
+            }
+        }
+        None
+    }
+
+    /// Returns true if auction is closed for any re-runs.
+    pub fn is_closed_for_reruns(&self) -> bool {
+        self.closed_for_reruns > 0
+    }
+
+    /// Get the status of the last running auction.
     ///
     /// # Arguments
     /// * `current_time` - The current on-chain time (seconds).
@@ -107,16 +142,19 @@ impl Auction {
     /// # Returns
     /// * `Some(AuctionStatus)` - The status of the auction.
     /// * `None` - If no status can be determined.
-    pub fn try_get_status(&self, current_time: u64) -> Option<AuctionStatus> {
-        if self.start == 0 && self.end == 0 {
-            Some(AuctionStatus::APPROVED)
-        } else if self.start <= current_time && self.end >= current_time {
-            Some(AuctionStatus::Open)
-        } else if self.end < current_time {
-            Some(AuctionStatus::Closed)
-        } else {
-            None
+    pub fn try_get_status_of_last_running_auction(
+        &self,
+        current_time: u64,
+    ) -> Option<AuctionStatus> {
+        let index = self.index_of_last_or_current_auction_run();
+        if index.is_none() {
+            // no auction runs yet, the status for auction is approved!
+            return Some(AuctionStatus::APPROVED);
         }
+        let index = index.unwrap();
+        let run = self.auction_run_details[index];
+
+        run.try_get_status(current_time)
     }
 
     /// Open the auction.
@@ -124,12 +162,26 @@ impl Auction {
     /// # Arguments
     /// * `folio` - The folio.
     /// * `current_time` - The current on-chain time (seconds).
-    pub fn open_auction(&mut self, folio: &mut RefMut<'_, Folio>, current_time: u64) -> Result<()> {
-        let auction_status = self.try_get_status(current_time);
+    pub fn open_auction(
+        &mut self,
+        folio: &mut RefMut<'_, Folio>,
+        current_time: u64,
+        config: Option<OpenAuctionConfig>,
+    ) -> Result<usize> {
+        let auction_status = self.try_get_status_of_last_running_auction(current_time);
 
         check_condition!(
-            auction_status == Some(AuctionStatus::APPROVED),
+            auction_status == Some(AuctionStatus::APPROVED)
+                || auction_status == Some(AuctionStatus::Closed),
             AuctionCannotBeOpened
+        );
+        check_condition!(!self.is_closed_for_reruns(), AuctionCannotBeOpened);
+
+        let auction_runs = self.total_auction_runs()?;
+
+        check_condition!(
+            auction_runs <= self.max_runs as usize,
+            AuctionMaxRunsReached
         );
 
         // Do not open auctions that have timed out from ttl
@@ -168,28 +220,68 @@ impl Auction {
             max(end_buy_time, current_time_with_auction_length),
         );
 
+        let auction_run_prices = match config {
+            Some(config) => config.price,
+            None => self.initial_proposed_price,
+        };
+
         // ensure valid price range (startPrice == endPrice is valid)
         check_condition!(
-            self.prices.start >= self.prices.end
-                && self.prices.end != 0
-                && self.prices.start <= MAX_RATE
-                && self
-                    .prices
+            auction_run_prices.start >= auction_run_prices.end
+                && auction_run_prices.end != 0
+                && auction_run_prices.start <= MAX_RATE
+                && auction_run_prices
                     .start
-                    .checked_div(self.prices.end)
+                    .checked_div(auction_run_prices.end)
                     .ok_or(ErrorCode::MathOverflow)?
                     <= MAX_PRICE_RANGE,
             InvalidPrices
         );
 
-        self.start = current_time;
-        self.end = current_time_with_auction_length;
+        let index_of_current_or_last_auction_run = self.index_of_last_or_current_auction_run();
 
-        self.calculate_k(folio.auction_length)?;
+        let scaled_sell_limit = match config {
+            Some(config) => config.sell_limit_spot,
+            None => match index_of_current_or_last_auction_run {
+                Some(index) => self.auction_run_details[index].sell_limit_spot,
+                None => self.sell_limit.spot,
+            },
+        };
 
-        Ok(())
+        let scaled_buy_limit = match config {
+            Some(config) => config.buy_limit_spot,
+            None => match index_of_current_or_last_auction_run {
+                Some(index) => self.auction_run_details[index].buy_limit_spot,
+                None => self.buy_limit.spot,
+            },
+        };
+
+        let next_auction_run_index = self.index_for_next_auction_run()?;
+
+        // Validate parameters
+        self.validate_auction_opening_from_auction_launcher(
+            auction_run_prices.start,
+            auction_run_prices.end,
+            scaled_sell_limit,
+            scaled_buy_limit,
+        )?;
+
+        self.auction_run_details[next_auction_run_index] = AuctionRunDetails {
+            start: current_time,
+            end: current_time_with_auction_length,
+            prices: auction_run_prices,
+            sell_limit_spot: scaled_sell_limit,
+            buy_limit_spot: scaled_buy_limit,
+            // The function to set this is called, immediately after insertion.
+            k: 0,
+        };
+        self.auction_run_details[next_auction_run_index].calculate_k(folio.auction_length)?;
+
+        Ok(next_auction_run_index)
     }
+}
 
+impl AuctionRunDetails {
     /// Calculate the k value for the auction. Used to avoid recomputing k on every bid.
     /// k = ln(P_0 / P_t) / t
     ///
@@ -250,6 +342,26 @@ impl Auction {
                     Ok(scaled_p)
                 }
             }
+        }
+    }
+
+    /// Get the status of the last running auction.
+    ///
+    /// # Arguments
+    /// * `current_time` - The current on-chain time (seconds).
+    ///
+    /// # Returns
+    /// * `Some(AuctionStatus)` - The status of the auction.
+    /// * `None` - If no status can be determined.
+    pub fn try_get_status(&self, current_time: u64) -> Option<AuctionStatus> {
+        if self.start == 0 && self.end == 0 {
+            Some(AuctionStatus::APPROVED)
+        } else if self.start <= current_time && self.end >= current_time {
+            Some(AuctionStatus::Open)
+        } else if self.end < current_time {
+            Some(AuctionStatus::Closed)
+        } else {
+            None
         }
     }
 }

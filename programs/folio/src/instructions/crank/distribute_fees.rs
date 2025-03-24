@@ -239,7 +239,7 @@ pub fn distribute_fees<'info>(
         let fee_recipients = fee_recipients.load()?;
         let token_mint_key = folio_token_mint.key();
 
-        has_fee_recipients = !fee_recipients.fee_recipients.is_empty();
+        has_fee_recipients = !fee_recipients.is_empty();
 
         // We scale down as token units and bring back in D18, to get the amount
         // minus the dust that we can split

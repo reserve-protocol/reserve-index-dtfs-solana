@@ -45,7 +45,7 @@ import {
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
 import * as assert from "assert";
-import { D9, DEFAULT_DECIMALS, MAX_TTL } from "../../../utils/constants";
+import { D27, D9, DEFAULT_DECIMALS, MAX_TTL } from "../../../utils/constants";
 import {
   assertExpectedBalancesChanges,
   getOrCreateAtaAddress,
@@ -266,6 +266,14 @@ describe("Bankrun - Auction", () => {
       expectedError: null,
       sellAmount: new BN(1000),
       maxBuyAmount: new BN(10000),
+      folioTokenSupply: new BN(10_000),
+      auctionToUse: {
+        ...VALID_AUCTION,
+        buyLimit: {
+          ...VALID_AUCTION.buyLimit,
+          spot: new BN(10000).mul(D27).div(new BN(10_000)),
+        },
+      },
       expectedTokenBalanceChanges: [
         new BN(1000),
         new BN(1000).neg(),
@@ -278,6 +286,14 @@ describe("Bankrun - Auction", () => {
       expectedError: null,
       sellAmount: new BN(1000),
       maxBuyAmount: new BN(10000),
+      folioTokenSupply: new BN(10_000),
+      auctionToUse: {
+        ...VALID_AUCTION,
+        buyLimit: {
+          ...VALID_AUCTION.buyLimit,
+          spot: new BN(10000).mul(D27).div(new BN(10_000)),
+        },
+      },
       callback: () => getCallback(DEFAULT_BUY_MINT.publicKey, new BN(1000)),
       expectedTokenBalanceChanges: [
         new BN(1000),
@@ -289,22 +305,31 @@ describe("Bankrun - Auction", () => {
     {
       desc: "(is valid, sold out sell mint, updates auction end)",
       expectedError: null,
-      // With decimals
       sellAmount: new BN(1000).mul(D9),
-      maxBuyAmount: new BN(1000000000000),
+      maxBuyAmount: new BN(1000).mul(D9),
+      folioTokenSupply: new BN(10_000),
       sellOut: true,
       auctionToUse: {
         ...VALID_AUCTION,
         buyLimit: {
           ...VALID_AUCTION.buyLimit,
-          spot: new BN(1000).mul(D9),
+          spot: new BN(1000).mul(D27),
+        },
+        sellLimit: {
+          ...VALID_AUCTION.sellLimit,
+          spot: new BN(0),
         },
       },
+      initialFolioBasket: MINTS_IN_FOLIO.map((mint) => ({
+        mint: mint.publicKey,
+        amountForMinting: new BN(1000).mul(D9),
+        amountForRedeeming: new BN(1000).mul(D9),
+      })),
       expectedTokenBalanceChanges: [
-        new BN(1000000000000),
-        new BN(1000000000000).neg(),
-        new BN(1000000000000).neg(),
-        new BN(1000000000000),
+        new BN(1000).mul(D9),
+        new BN(1000).mul(D9).neg(),
+        new BN(1000).mul(D9).neg(),
+        new BN(1000).mul(D9),
       ],
     },
   ];

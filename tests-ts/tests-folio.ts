@@ -50,6 +50,7 @@ import {
   DEFAULT_DECIMALS_MUL_D18,
   DEFAULT_DECIMALS,
   FEE_NUMERATOR,
+  D18,
 } from "../utils/constants";
 import { TestHelper } from "../utils/test-helper";
 import {
@@ -1022,7 +1023,11 @@ describe("Folio Tests", () => {
       sellMint,
       new BN(1),
       { spot: new BN(1), low: new BN(0), high: new BN(2) },
-      { spot: new BN(1), low: new BN(0), high: new BN(2) },
+      {
+        spot: new BN(2000).mul(D18),
+        low: new BN(0),
+        high: new BN(2000).mul(D18),
+      },
       new BN(2),
       new BN(1),
       ttl
@@ -1039,9 +1044,9 @@ describe("Folio Tests", () => {
     assert.equal(auction.sellLimit.spot.eq(new BN(1)), true);
     assert.equal(auction.sellLimit.low.eq(new BN(0)), true);
     assert.equal(auction.sellLimit.high.eq(new BN(2)), true);
-    assert.equal(auction.buyLimit.spot.eq(new BN(1)), true);
+    assert.equal(auction.buyLimit.spot.eq(new BN(2000).mul(D18)), true);
     assert.equal(auction.buyLimit.low.eq(new BN(0)), true);
-    assert.equal(auction.buyLimit.high.eq(new BN(2)), true);
+    assert.equal(auction.buyLimit.high.eq(new BN(2000).mul(D18)), true);
     assert.equal(auction.prices.start.eq(new BN(2)), true);
     assert.equal(auction.prices.end.eq(new BN(1)), true);
     assert.equal(
@@ -1066,12 +1071,11 @@ describe("Folio Tests", () => {
 
     await openAuction(
       connection,
-      // Auction launcher is removed in the test above, but approver gets the 2 roles
       auctionApproverKeypair,
       folioPDA,
       auctionPDA,
       new BN(2),
-      new BN(2),
+      new BN(2000).mul(D18),
       new BN(2),
       new BN(1)
     );
@@ -1080,7 +1084,7 @@ describe("Folio Tests", () => {
 
     // Update limits and prices
     assert.equal(auction.sellLimit.spot.eq(new BN(2)), true);
-    assert.equal(auction.buyLimit.spot.eq(new BN(2)), true);
+    assert.equal(auction.buyLimit.spot.eq(new BN(2000).mul(D18)), true);
     assert.equal(auction.prices.start.eq(new BN(2)), true);
     assert.equal(auction.prices.end.eq(new BN(1)), true);
 

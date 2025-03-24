@@ -38,6 +38,7 @@ export const DEFAULT_PRECISION = new BN(10 ** 9);
 
 export const D9 = new BN("1000000000");
 export const D18 = new BN("1000000000000000000");
+export const D27 = new BN(10).pow(new BN(27));
 
 export const MAX_TVL_FEE = new BN("100000000000000000");
 // Estimation of the expected tvl fee when max is set (0.1% error rate)

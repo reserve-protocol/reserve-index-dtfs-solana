@@ -283,6 +283,7 @@ pub fn handler(
     //  D18{buyTok/share} = D18{buyTok/share} * {share} / D18
     let raw_max_buy_balance = Decimal::from_scaled(auction.buy_limit.spot)
         .mul(&scaled_folio_token_total_supply)?
+        .div(&Decimal::ONE_E18)?
         .to_token_amount(Rounding::Floor)?
         .0;
 

@@ -339,3 +339,28 @@ pub struct Auction {
 impl Auction {
     pub const SIZE: usize = 8 + Auction::INIT_SPACE;
 }
+
+/// FolioTokenMetadata is used to track the metadata of a token in a folio.
+///
+///
+/// PDA Seeds ["folio_token_metadata", folio pubkey, token mint]
+#[account]
+#[derive(Default, InitSpace)]
+pub struct FolioTokenMetadata {
+    pub bump: u8,
+
+    /// The mint of the token.
+    pub mint: Pubkey,
+
+    /// The folio that the token is related to.
+    pub folio: Pubkey,
+
+    /// The dust limit of the token, Scaled in D18.
+    /// Any amount of this token below this amount will be considered as dust and the overall token amount is less then or equal to this amount,
+    /// the token will be removed from the basket.
+    pub dust_amount: u128,
+}
+
+impl FolioTokenMetadata {
+    pub const SIZE: usize = 8 + FolioTokenMetadata::INIT_SPACE;
+}

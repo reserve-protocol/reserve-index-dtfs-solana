@@ -45,6 +45,7 @@ import {
 } from "../../utils/constants";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import assert from "assert";
 
 /**
  * Helper functions for creating and setting accounts in the Bankrun environment.
@@ -223,47 +224,87 @@ export class AuctionPrices {
   }
 }
 
+export class AuctionRunDetails {
+  start: BN;
+  end: BN;
+  prices: AuctionPrices;
+  sellLimitSpot: BN;
+  buyLimitSpot: BN;
+  k: BN;
+
+  constructor(
+    start: BN,
+    end: BN,
+    prices: AuctionPrices,
+    sellLimitSpot: BN,
+    buyLimitSpot: BN,
+    k: BN
+  ) {
+    this.start = start;
+    this.end = end;
+    this.prices = prices;
+    this.sellLimitSpot = sellLimitSpot;
+    this.buyLimitSpot = buyLimitSpot;
+    this.k = k;
+  }
+
+  public static default() {
+    return new AuctionRunDetails(
+      new BN(0),
+      new BN(0),
+      new AuctionPrices(new BN(0), new BN(0)),
+      new BN(0),
+      new BN(0),
+      new BN(0)
+    );
+  }
+}
+
 export class Auction {
   id: BN;
   availableAt: BN;
   launchTimeout: BN;
-  start: BN;
-  end: BN;
-  k: BN;
   folio: PublicKey;
   sell: PublicKey;
   buy: PublicKey;
   sellLimit: BasketRange;
   buyLimit: BasketRange;
-  prices: AuctionPrices;
+  maxRuns: number;
+  closedForReruns: number;
+  initialProposedPrice: AuctionPrices;
+  auctionRunDetails: AuctionRunDetails[];
 
   constructor(
     id: BN,
     availableAt: BN,
     launchTimeout: BN,
-    start: BN,
-    end: BN,
-    k: BN,
     folio: PublicKey,
     sell: PublicKey,
     buy: PublicKey,
     sellLimit: BasketRange,
     buyLimit: BasketRange,
-    startPrice: BN,
-    endPrice: BN
+    initialProposedPrice: AuctionPrices,
+    auctionRunDetails: AuctionRunDetails[],
+    maxRuns: number,
+    closedForReruns: number
   ) {
     this.id = id;
     this.availableAt = availableAt;
     this.launchTimeout = launchTimeout;
-    this.start = start;
-    this.end = end;
-    this.k = k;
     this.folio = folio;
     this.sell = sell;
     this.buy = buy;
     this.sellLimit = sellLimit;
     this.buyLimit = buyLimit;
-    this.prices = new AuctionPrices(startPrice, endPrice);
+    this.initialProposedPrice = initialProposedPrice;
+    this.auctionRunDetails = auctionRunDetails;
+    assert.equal(
+      auctionRunDetails.length <= 10,
+      true,
+      "Auction run details length is greater than the max allowed"
+    );
+    this.maxRuns = maxRuns;
+    this.closedForReruns = closedForReruns;
   }
 
   public static default(
@@ -275,17 +316,15 @@ export class Auction {
       new BN(0),
       new BN(0),
       new BN(0),
-      new BN(0),
-      new BN(0),
-      new BN(0),
       folio,
       sellMint,
       buyMint,
-
       new BasketRange(new BN(0), new BN(0), new BN(0)),
       new BasketRange(new BN(0), new BN(0), new BN(0)),
-      new BN(0),
-      new BN(0)
+      new AuctionPrices(new BN(0), new BN(0)),
+      Array.from({ length: 10 }, () => AuctionRunDetails.default()),
+      1,
+      0
     );
   }
 }
@@ -785,7 +824,7 @@ export async function createAndSetAuction(
   const auctionPDAWithBump = getAuctionPDAWithBump(folio, auction.id);
 
   // Manual encoding for fee recipients
-  const buffer = Buffer.alloc(296);
+  const buffer = Buffer.alloc(1240);
   let offset = 0;
 
   // Encode discriminator
@@ -814,18 +853,6 @@ export async function createAndSetAuction(
   // Encode launch timeout
   auction.launchTimeout.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
   offset += 8;
-
-  // Encode start
-  auction.start.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
-  offset += 8;
-
-  // Encode end
-  auction.end.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
-  offset += 8;
-
-  // Encode k (u128)
-  auction.k.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
-  offset += 16;
 
   // Encode folio pubkey
   folio.toBuffer().copy(buffer, offset);
@@ -859,13 +886,53 @@ export async function createAndSetAuction(
   auction.buyLimit.high.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
   offset += 16;
 
-  // Encode start price
-  auction.prices.start.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  // Encode max runs
+  buffer.writeUInt8(auction.maxRuns, offset);
+  offset += 1;
+
+  // Encode closed for reruns
+  buffer.writeUInt8(auction.closedForReruns ? 1 : 0, offset);
+  offset += 1;
+
+  Array.from({ length: 14 }).forEach((_, i) => {
+    buffer.writeUInt8(0, offset);
+    offset += 1;
+  });
+
+  // Encode initial proposed price
+  auction.initialProposedPrice.start
+    .toArrayLike(Buffer, "le", 16)
+    .copy(buffer, offset);
   offset += 16;
 
-  // Encode end price
-  auction.prices.end.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+  auction.initialProposedPrice.end
+    .toArrayLike(Buffer, "le", 16)
+    .copy(buffer, offset);
   offset += 16;
+
+  // Encode auction run details
+  auction.auctionRunDetails.forEach((runDetail: AuctionRunDetails) => {
+    runDetail.start.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+    offset += 8;
+
+    runDetail.end.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+    offset += 8;
+
+    runDetail.prices.start.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+    offset += 16;
+
+    runDetail.prices.end.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+    offset += 16;
+
+    runDetail.sellLimitSpot.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+    offset += 16;
+
+    runDetail.buyLimitSpot.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+    offset += 16;
+
+    runDetail.k.toArrayLike(Buffer, "le", 16).copy(buffer, offset);
+    offset += 16;
+  });
 
   await setFolioAccountInfo(
     ctx,

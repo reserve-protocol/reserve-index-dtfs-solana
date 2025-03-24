@@ -177,12 +177,9 @@ impl Auction {
         );
         check_condition!(!self.is_closed_for_reruns(), AuctionCannotBeOpened);
 
-        let auction_runs = self.total_auction_runs()?;
+        let auction_runs: usize = self.total_auction_runs()?;
 
-        check_condition!(
-            auction_runs <= self.max_runs as usize,
-            AuctionMaxRunsReached
-        );
+        check_condition!(auction_runs < self.max_runs as usize, AuctionMaxRunsReached);
 
         // Do not open auctions that have timed out from ttl
         check_condition!(current_time <= self.launch_timeout, AuctionTimeout);

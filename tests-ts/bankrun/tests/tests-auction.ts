@@ -38,6 +38,7 @@ import {
   closeAccount,
   AuctionEnd,
   FolioTokenAmount,
+  AuctionRunDetails,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
 import {
@@ -100,16 +101,17 @@ describe("Bankrun - Auction", () => {
     VALID_AUCTION_ID,
     new BN(1),
     new BN(1),
-    new BN(1),
-    new BN(1),
-    new BN(0),
     folioPDA,
     DEFAULT_SELL_MINT.publicKey,
     DEFAULT_BUY_MINT.publicKey,
     { low: new BN(1), high: new BN(1), spot: new BN(1) },
     { low: new BN(1), high: new BN(1), spot: new BN(1) },
-    new BN(1),
-    new BN(1)
+    { start: new BN(1), end: new BN(1) },
+    Array.from({ length: MAX_SINGLE_AUCTION_RUNS }, () =>
+      AuctionRunDetails.default()
+    ),
+    1,
+    0
   );
 
   const DEFAULT_PARAMS: {
@@ -146,6 +148,8 @@ describe("Bankrun - Auction", () => {
 
     // Expected changes
     expectedTokenBalanceChanges: BN[];
+    // Index of the new run to use if the auction is reopened
+    indexOfRun: number;
   } = {
     remainingAccounts: () => [],
 
@@ -182,6 +186,7 @@ describe("Bankrun - Auction", () => {
 
     // Expected changes
     expectedTokenBalanceChanges: Array(MINTS_IN_FOLIO.length).fill(new BN(0)),
+    indexOfRun: 0,
   };
 
   // Lots of the tests will be done via unit testing for validating the prices, limits, etc.
@@ -216,6 +221,88 @@ describe("Bankrun - Auction", () => {
       desc: "(is valid)",
       expectedError: null,
     },
+    {
+      desc: "(reopen auction with an auction already running, errors out)",
+      expectedError: "AuctionCannotBeOpened",
+      auctionToUse: {
+        ...VALID_AUCTION,
+        maxRuns: 2,
+        closedForReruns: 0,
+        auctionRunDetails: [
+          {
+            ...VALID_AUCTION.auctionRunDetails[0],
+            start: new BN(1),
+            end: new BN(10000000).mul(D9),
+          },
+          ...VALID_AUCTION.auctionRunDetails.slice(1),
+        ],
+      },
+    },
+    {
+      desc: "(reopen auction with closed for reruns set to 1, errors out)",
+      expectedError: "AuctionCannotBeOpened",
+      auctionToUse: {
+        ...VALID_AUCTION,
+        maxRuns: 2,
+        closedForReruns: 1,
+      },
+    },
+    {
+      desc: "(reopen auction, is valid)",
+      expectedError: null,
+      auctionToUse: {
+        ...VALID_AUCTION,
+        initialProposedPrice: {
+          start: new BN(1),
+          end: new BN(1),
+        },
+        maxRuns: 2,
+        closedForReruns: 0,
+        sellLimit: {
+          spot: new BN(100),
+          low: new BN(1),
+          high: new BN(100),
+        },
+        buyLimit: {
+          spot: new BN(100),
+          low: new BN(1),
+          high: new BN(100),
+        },
+        auctionRunDetails: [
+          {
+            ...VALID_AUCTION.auctionRunDetails[0],
+            start: new BN(1),
+            end: new BN(2),
+            sellLimitSpot: new BN(100),
+            buyLimitSpot: new BN(100),
+          },
+          ...VALID_AUCTION.auctionRunDetails.slice(1),
+        ],
+      },
+      indexOfRun: 1,
+    },
+    {
+      desc: "(reopen auction with max runs reached, errors out)",
+      expectedError: "AuctionMaxRunsReached",
+      auctionToUse: {
+        ...VALID_AUCTION,
+        maxRuns: 2,
+        closedForReruns: 0,
+        auctionRunDetails: [
+          {
+            ...VALID_AUCTION.auctionRunDetails[0],
+            start: new BN(1),
+            end: new BN(2),
+          },
+          {
+            ...VALID_AUCTION.auctionRunDetails[1],
+            start: new BN(3),
+            end: new BN(4),
+          },
+          ...VALID_AUCTION.auctionRunDetails.slice(2),
+        ],
+      },
+    },
   ];
 
   const TEST_CASE_OPEN_AUCTION_PERMISSIONLESS = [
@@ -224,7 +311,7 @@ describe("Bankrun - Auction", () => {
       expectedError: "AuctionCannotBeOpenedPermissionlesslyYet",
       availableAt: new BN(10),
     },
-    // Same as open appart from the available at check
+    // Same as open apart from the available at check
     ...TEST_CASE_OPEN_AUCTION,
   ];
 
@@ -413,6 +500,42 @@ describe("Bankrun - Auction", () => {
           true
         );
       },
+    },
+    {
+      desc: "(is valid, sold out sell mint, updates auction end), for send auction run",
+      expectedError: null,
+      // With decimals
+      sellAmount: new BN(1000).mul(D9),
+      maxBuyAmount: new BN(1000000000000),
+      sellOut: true,
+      auctionToUse: {
+        ...VALID_AUCTION,
+        buyLimit: {
+          ...VALID_AUCTION.buyLimit,
+          spot: new BN(1000).mul(D9),
+        },
+        auctionRunDetails: [
+          {
+            ...VALID_AUCTION.auctionRunDetails[0],
+            start: new BN(1),
+            end: new BN(2),
+            sellLimitSpot: new BN(100),
+            buyLimitSpot: new BN(100),
+          },
+          {
+            ...VALID_AUCTION.auctionRunDetails[0],
+            buyLimitSpot: new BN(1000).mul(D9),
+          },
+          ...VALID_AUCTION.auctionRunDetails.slice(1),
+        ],
+      },
+      indexOfRun: 1,
+      expectedTokenBalanceChanges: [
+        new BN(1000000000000),
+        new BN(1000000000000).neg(),
+        new BN(1000000000000).neg(),
+        new BN(1000000000000),
+      ],
     },
   ];
 
@@ -954,7 +1077,9 @@ describe("Bankrun - Auction", () => {
                 true
               );
               assert.equal(
-                auctionAfter.auctionRunDetails[0].k.eq(auctionToUse.k),
+                auctionAfter.auctionRunDetails[0].k.eq(
+                  auctionToUse.auctionRunDetails[0].k
+                ),
                 true
               );
               assert.deepEqual(auctionAfter.folio, folioPDA);
@@ -985,14 +1110,19 @@ describe("Bankrun - Auction", () => {
                 true
               );
               assert.equal(
+                auctionAfter.buyLimit.spot.eq(auctionToUse.buyLimit.spot),
+                true
+              );
+
+              assert.equal(
                 auctionAfter.auctionRunDetails[0].prices.start.eq(
-                  auctionToUse.prices.start
+                  auctionToUse.auctionRunDetails[0].prices.start
                 ),
                 true
               );
               assert.equal(
                 auctionAfter.auctionRunDetails[0].prices.end.eq(
-                  auctionToUse.prices.end
+                  auctionToUse.auctionRunDetails[0].prices.end
                 ),
                 true
               );
@@ -1006,6 +1136,8 @@ describe("Bankrun - Auction", () => {
   describe("Specific Cases - Kill Auction", () => {
     TEST_CASE_CLOSE_AUCTION.forEach(
       ({ desc, expectedError, ...restOfParams }) => {
+        let currentTime: BN;
+
         describe(`When ${desc}`, () => {
           let txnResult: BanksTransactionResultWithMeta;
 
@@ -1034,6 +1166,9 @@ describe("Bankrun - Auction", () => {
               getAuctionPDA(folioPDA, auctionToUse.id),
               true
             );
+            currentTime = new BN(
+              (await context.banksClient.getClock()).unixTimestamp.toString()
+            );
           });
 
           if (expectedError) {
@@ -1049,9 +1184,10 @@ describe("Bankrun - Auction", () => {
               );
 
               assert.equal(
-                auctionAfter.auctionRunDetails[0].end.eq(new BN(1)),
+                auctionAfter.auctionRunDetails[0].end.lte(currentTime),
                 true
               );
+              assert.equal(auctionAfter.closedForReruns === 1, true);
             });
           }
         });
@@ -1070,6 +1206,7 @@ describe("Bankrun - Auction", () => {
             auctionToUse,
             initialFolioBasket,
             auctionId,
+            indexOfRun,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
@@ -1085,8 +1222,6 @@ describe("Bankrun - Auction", () => {
             );
 
             // Set as approved and ready to be opened
-            auctionToUse.start = new BN(0);
-            auctionToUse.end = new BN(0);
             auctionToUse.launchTimeout = currentTime.add(new BN(1000000000));
 
             await createAndSetAuction(
@@ -1135,29 +1270,33 @@ describe("Bankrun - Auction", () => {
                 true
               );
               assert.equal(
-                auctionAfter.auctionRunDetails[0].prices.start.eq(
-                  auctionToUse.prices.start
+                auctionAfter.auctionRunDetails[indexOfRun].prices.start.eq(
+                  auctionToUse.initialProposedPrice.start
                 ),
                 true
               );
               assert.equal(
-                auctionAfter.auctionRunDetails[0].prices.end.eq(
-                  auctionToUse.prices.end
+                auctionAfter.auctionRunDetails[indexOfRun].prices.end.eq(
+                  auctionToUse.initialProposedPrice.end
                 ),
                 true
               );
               assert.equal(
-                auctionAfter.auctionRunDetails[0].start.eq(currentTime),
+                auctionAfter.auctionRunDetails[indexOfRun].start.eq(
+                  currentTime
+                ),
                 true
               );
               assert.equal(
-                auctionAfter.auctionRunDetails[0].end.eq(
+                auctionAfter.auctionRunDetails[indexOfRun].end.eq(
                   currentTime.add(folio.auctionLength)
                 ),
                 true
               );
               assert.equal(
-                auctionAfter.auctionRunDetails[0].k.eq(auctionToUse.k),
+                auctionAfter.auctionRunDetails[indexOfRun].k.eq(
+                  auctionToUse.auctionRunDetails[indexOfRun].k
+                ),
                 true
               );
             });
@@ -1179,6 +1318,7 @@ describe("Bankrun - Auction", () => {
             initialFolioBasket,
             auctionId,
             availableAt,
+            indexOfRun,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
@@ -1194,9 +1334,8 @@ describe("Bankrun - Auction", () => {
             );
 
             // Set as approved and ready to be opened (if available at is not provided)
-            auctionToUse.start = new BN(0);
-            auctionToUse.end = new BN(0);
             auctionToUse.availableAt = currentTime.add(availableAt);
+            auctionToUse.launchTimeout = currentTime.add(new BN(1000000000));
 
             await createAndSetAuction(
               context,
@@ -1243,29 +1382,51 @@ describe("Bankrun - Auction", () => {
                 true
               );
               assert.equal(
-                auctionAfter.auctionRunDetails[0].prices.start.eq(
-                  auctionToUse.prices.start
+                auctionAfter.auctionRunDetails[indexOfRun].sellLimitSpot.eq(
+                  indexOfRun == 0
+                    ? auctionToUse.sellLimit.spot
+                    : auctionAfter.auctionRunDetails[indexOfRun - 1]
+                        .sellLimitSpot
                 ),
                 true
               );
               assert.equal(
-                auctionAfter.auctionRunDetails[0].prices.end.eq(
-                  auctionToUse.prices.end
+                auctionAfter.auctionRunDetails[indexOfRun].buyLimitSpot.eq(
+                  indexOfRun == 0
+                    ? auctionToUse.buyLimit.spot
+                    : auctionAfter.auctionRunDetails[indexOfRun - 1]
+                        .buyLimitSpot
                 ),
                 true
               );
               assert.equal(
-                auctionAfter.auctionRunDetails[0].start.eq(currentTime),
+                auctionAfter.auctionRunDetails[indexOfRun].prices.start.eq(
+                  auctionToUse.initialProposedPrice.start
+                ),
                 true
               );
               assert.equal(
-                auctionAfter.auctionRunDetails[0].end.eq(
+                auctionAfter.auctionRunDetails[indexOfRun].prices.end.eq(
+                  auctionToUse.initialProposedPrice.end
+                ),
+                true
+              );
+              assert.equal(
+                auctionAfter.auctionRunDetails[indexOfRun].start.eq(
+                  currentTime
+                ),
+                true
+              );
+              assert.equal(
+                auctionAfter.auctionRunDetails[indexOfRun].end.eq(
                   currentTime.add(folio.auctionLength)
                 ),
                 true
               );
               assert.equal(
-                auctionAfter.auctionRunDetails[0].k.eq(auctionToUse.k),
+                auctionAfter.auctionRunDetails[indexOfRun].k.eq(
+                  auctionToUse.auctionRunDetails[indexOfRun].k
+                ),
                 true
               );
             });
@@ -1294,6 +1455,7 @@ describe("Bankrun - Auction", () => {
           sellOut,
           extraTokenAmountsForFolioBasket,
           folioSellBalance,
+          indexOfRun,
           beforeCallback,
         } = {
           ...DEFAULT_PARAMS,
@@ -1333,8 +1495,19 @@ describe("Bankrun - Auction", () => {
             (await context.banksClient.getClock()).unixTimestamp.toString()
           );
 
-          auctionToUse.start = currentTime;
-          auctionToUse.end = currentTime.add(new BN(1000000000));
+          auctionToUse.auctionRunDetails[indexOfRun].start = currentTime;
+          auctionToUse.auctionRunDetails[indexOfRun].end = currentTime.add(
+            new BN(1000000000)
+          );
+          auctionToUse.auctionRunDetails[indexOfRun].prices.start =
+            auctionToUse.initialProposedPrice.start;
+          auctionToUse.auctionRunDetails[indexOfRun].prices.end =
+            auctionToUse.initialProposedPrice.end;
+          auctionToUse.auctionRunDetails[indexOfRun].k = new BN(0);
+          auctionToUse.auctionRunDetails[indexOfRun].buyLimitSpot =
+            auctionToUse.buyLimit.spot;
+          auctionToUse.auctionRunDetails[indexOfRun].sellLimitSpot =
+            auctionToUse.sellLimit.spot;
 
           if (beforeCallback) {
             await beforeCallback();
@@ -1407,9 +1580,14 @@ describe("Bankrun - Auction", () => {
                 (token) => token.mint.equals(sellMint.publicKey)
               );
 
+              const currentTimeAfter = new BN(
+                (await context.banksClient.getClock()).unixTimestamp.toString()
+              );
               assert.equal(folioBasketSellMint, null);
               assert.equal(
-                auctionAfter.auctionRunDetails[0].end.eq(currentTime),
+                auctionAfter.auctionRunDetails[indexOfRun].end.lte(
+                  currentTimeAfter
+                ),
                 true
               );
             }

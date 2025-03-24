@@ -1,3 +1,4 @@
+use crate::state::FolioTokenMetadata;
 use crate::utils::structs::FolioStatus;
 use crate::utils::FolioTokenAmount;
 use crate::{
@@ -10,6 +11,7 @@ use anchor_spl::{
     associated_token::AssociatedToken,
     token_interface::{self, Mint, TokenAccount, TokenInterface, TransferChecked},
 };
+use shared::constants::FOLIO_TOKEN_METADATA_SEEDS;
 use shared::utils::math_util::Decimal;
 use shared::utils::{Rounding, TokenUtil};
 use shared::{
@@ -36,6 +38,7 @@ use shared::{
 /// * `folio_buy_token_account` - The folio buy token account (PDA) (mut, not signer).
 /// * `bidder_sell_token_account` - The bidder sell token account (PDA) (mut, not signer).
 /// * `bidder_buy_token_account` - The bidder buy token account (PDA) (mut, not signer).
+/// * `folio_sell_token_metadata` - The folio sell token metadata account (PDA) (mut, not signer).
 ///
 /// * `remaining_accounts` - The remaining accounts will be the accounts required for the "custom" CPI provided by the bidder.
 #[derive(Accounts)]
@@ -91,6 +94,15 @@ pub struct Bid<'info> {
     associated_token::authority = bidder,
     )]
     pub bidder_buy_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    #[account(
+        init_if_needed,
+        payer = bidder,
+        space = FolioTokenMetadata::SIZE,
+        seeds = [FOLIO_TOKEN_METADATA_SEEDS, folio.key().as_ref(), auction_sell_token_mint.key().as_ref()],
+        bump
+    )]
+    pub folio_sell_token_metadata: Account<'info, FolioTokenMetadata>,
     /*
     Remaining accounts will be the accounts required for the "custom" CPI provided by the bidder.
      */
@@ -198,11 +210,13 @@ pub fn handler(
 
     let raw_sell_balance = folio_basket.get_token_amount_in_folio_basket(&auction.sell)?;
     // {sellTok} = D18{sellTok/share} * {share} / D18
-    let raw_min_sell_balance = Decimal::from_scaled(auction.sell_limit.spot)
-        .mul(&scaled_folio_token_total_supply)?
-        .div(&Decimal::ONE_E18)?
-        .to_token_amount(Rounding::Ceiling)?
-        .0;
+    let raw_min_sell_balance = Decimal::from_scaled(
+        auction.auction_run_details[index_of_current_running_auction].sell_limit_spot,
+    )
+    .mul(&scaled_folio_token_total_supply)?
+    .div(&Decimal::ONE_E18)?
+    .to_token_amount(Rounding::Ceiling)?
+    .0;
 
     let raw_sell_available = match raw_min_sell_balance {
         raw_min_sell_balance if raw_sell_balance > raw_min_sell_balance => {
@@ -245,7 +259,6 @@ pub fn handler(
         bought_amount: raw_bought_amount,
     });
 
-    // QoL: close auction if we have reached the sell limit
     ctx.accounts.folio_sell_token_account.reload()?;
 
     // Remove the sell token from the basket
@@ -254,13 +267,19 @@ pub fn handler(
         amount: raw_sell_amount,
     }])?;
 
-    let raw_sell_balance_after =
-        folio_basket.get_token_amount_in_folio_basket_or_zero(&auction.sell);
-
-    // TODO: Change checks with dust limits.
-    if raw_sell_balance_after <= raw_min_sell_balance {
-        auction.auction_run_details[index_of_current_running_auction].end = current_time;
+    let dust_limit = ctx.accounts.folio_sell_token_metadata.dust_amount;
+    let basket_presence = folio_basket
+        .get_token_presence_per_share_in_basket(&auction.sell, &scaled_folio_token_total_supply)?;
+    // QoL: close auction if we have reached the sell limit
+    if basket_presence <= (raw_min_sell_balance as u128) + dust_limit {
+        auction.auction_run_details[index_of_current_running_auction].end = current_time - 1;
+        auction.closed_for_reruns = 1;
         // cannot update sellEnds/buyEnds due to possibility of parallel auctions
+        if basket_presence <= dust_limit {
+            // Remove all amounts from the basket
+            // As the basket presence this token is 0 or below the dust limit set.
+            folio_basket.remove_all_amounts_from_basket(auction.sell)?;
+        }
     }
 
     // collect payment from bidder
@@ -300,11 +319,12 @@ pub fn handler(
     }
 
     //  D18{buyTok/share} = D18{buyTok/share} * {share} / D18
-    let raw_max_buy_balance = Decimal::from_scaled(auction.buy_limit.spot)
-        .mul(&scaled_folio_token_total_supply)?
-        .div(&Decimal::ONE_E18)?
-        .to_token_amount(Rounding::Floor)?
-        .0;
+    let raw_max_buy_balance = Decimal::from_scaled(
+        auction.auction_run_details[index_of_current_running_auction].buy_limit_spot,
+    )
+    .mul(&scaled_folio_token_total_supply)?
+    .to_token_amount(Rounding::Floor)?
+    .0;
 
     // ensure post-bid buy balance does not exceed max
     ctx.accounts.folio_buy_token_account.reload()?;

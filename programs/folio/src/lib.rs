@@ -167,9 +167,8 @@ pub mod folio {
 
     pub fn remove_from_basket<'info>(
         ctx: Context<'_, '_, 'info, 'info, RemoveFromBasket<'info>>,
-        removed_mints: Vec<Pubkey>,
     ) -> Result<()> {
-        remove_from_basket::handler(ctx, removed_mints)
+        remove_from_basket::handler(ctx)
     }
 
     pub fn kill_folio(ctx: Context<KillFolio>) -> Result<()> {
@@ -317,6 +316,13 @@ pub mod folio {
             with_callback,
             callback_data,
         )
+    }
+
+    pub fn set_dust_limit_for_token<'info>(
+        ctx: Context<'_, '_, 'info, 'info, SetDustLimitForToken<'info>>,
+        dust_limit: u128,
+    ) -> Result<()> {
+        set_dust_limit_for_token::handler(ctx, dust_limit)
     }
 
     /*

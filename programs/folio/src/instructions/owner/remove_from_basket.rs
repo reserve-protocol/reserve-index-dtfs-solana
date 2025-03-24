@@ -1,8 +1,12 @@
-use crate::state::{Actor, Folio, FolioBasket};
+use crate::state::{Actor, Folio, FolioBasket, FolioTokenMetadata};
 use crate::utils::structs::{FolioStatus, Role};
 use anchor_lang::prelude::*;
-use shared::constants::{ACTOR_SEEDS, FOLIO_BASKET_SEEDS};
-
+use anchor_spl::token_interface::Mint;
+use shared::{
+    check_condition,
+    constants::{ACTOR_SEEDS, FOLIO_BASKET_SEEDS, FOLIO_TOKEN_METADATA_SEEDS},
+    errors::ErrorCode,
+};
 /// Remove tokens from the folio's basket.
 ///
 /// # Arguments
@@ -32,6 +36,21 @@ pub struct RemoveFromBasket<'info> {
         bump
     )]
     pub folio_basket: AccountLoader<'info, FolioBasket>,
+
+    #[account()]
+    pub folio_token_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    #[account()]
+    pub token_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    #[account(
+        init_if_needed,
+        payer = folio_owner,
+        space = FolioTokenMetadata::SIZE,
+        seeds = [FOLIO_TOKEN_METADATA_SEEDS, folio.key().as_ref(), token_mint.key().as_ref()],
+        bump
+    )]
+    pub folio_token_metadata: Account<'info, FolioTokenMetadata>,
 }
 
 impl RemoveFromBasket<'_> {
@@ -48,6 +67,11 @@ impl RemoveFromBasket<'_> {
             Some(vec![FolioStatus::Initializing, FolioStatus::Initialized]),
         )?;
 
+        check_condition!(
+            self.folio_token_mint.key() == folio.folio_token_mint,
+            InvalidFolioTokenMint
+        );
+
         Ok(())
     }
 }
@@ -56,20 +80,28 @@ impl RemoveFromBasket<'_> {
 ///
 /// # Arguments
 /// * `ctx` - The context of the instruction.
-/// * `removed_mints` - The mints of the tokens to remove from the basket.
-pub fn handler<'info>(
-    ctx: Context<'_, '_, 'info, 'info, RemoveFromBasket<'info>>,
-    removed_mints: Vec<Pubkey>,
-) -> Result<()> {
-    {
-        let folio = ctx.accounts.folio.load()?;
-        ctx.accounts.validate(&folio)?;
-    }
+pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, RemoveFromBasket<'info>>) -> Result<()> {
+    let folio = ctx.accounts.folio.load()?;
+    ctx.accounts.validate(&folio)?;
 
-    ctx.accounts
-        .folio_basket
-        .load_mut()?
-        .remove_all_amounts_from_basket(&removed_mints)?;
+    let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
+
+    let scaled_folio_token_total_supply =
+        folio.get_total_supply(ctx.accounts.folio_token_mint.supply)?;
+
+    let mint_to_remove = ctx.accounts.token_mint.key();
+    let basket_presence = folio_basket.get_token_presence_per_share_in_basket(
+        &mint_to_remove,
+        &scaled_folio_token_total_supply,
+    )?;
+
+    let dust_limit = ctx.accounts.folio_token_metadata.dust_amount;
+    check_condition!(
+        basket_presence <= dust_limit,
+        TokenPresenceInBasketMoreThanDustLimit
+    );
+
+    folio_basket.remove_all_amounts_from_basket(mint_to_remove)?;
 
     Ok(())
 }

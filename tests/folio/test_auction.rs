@@ -192,6 +192,7 @@ mod tests {
             launch_timeout: now + 1000,
             sell: sell_mint,
             buy: buy_mint,
+            max_runs: 1,
             ..Auction::default()
         };
 
@@ -249,6 +250,7 @@ mod tests {
                 low: buy_limit - 1,
                 high: buy_limit + 1,
             },
+            max_runs: 1,
             ..Auction::default()
         };
 
@@ -300,6 +302,7 @@ mod tests {
             launch_timeout: 1000, // timeout in past
             sell: sell_mint,
             buy: buy_mint,
+            max_runs: 1,
             ..Auction::default()
         };
 
@@ -351,6 +354,7 @@ mod tests {
             launch_timeout: now + 1000,
             sell: sell_mint, // Try to sell token that's in existing auction
             buy: buy_mint,
+            max_runs: 1,
             ..Auction::default()
         };
 
@@ -384,6 +388,7 @@ mod tests {
             launch_timeout: now + 1000,
             sell: sell_mint,
             buy: buy_mint,
+            max_runs: 1,
             ..Auction::default()
         };
 
@@ -434,6 +439,7 @@ mod tests {
             launch_timeout: now + 1000,
             sell: sell_mint,
             buy: buy_mint,
+            max_runs: 1,
             ..Auction::default()
         };
 

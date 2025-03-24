@@ -51,19 +51,19 @@ mod tests {
     }
 
     #[test]
-    fn test_remove_all_amounts_from_basket() {
+    fn test_remove_token_mint_from_basket() {
         let mut basket = setup_folio_basket();
         let mint_to_remove = basket.token_amounts[0].mint;
         basket.token_amounts[0].amount = 100;
 
         basket
-            .remove_all_amounts_from_basket(mint_to_remove)
+            .remove_token_mint_from_basket(mint_to_remove)
             .unwrap();
         assert_eq!(basket.token_amounts[0].mint, Pubkey::default());
         assert_eq!(basket.token_amounts[0].amount, 0);
 
         let invalid_mint = Pubkey::new_unique();
-        let error = basket.remove_all_amounts_from_basket(invalid_mint);
+        let error = basket.remove_token_mint_from_basket(invalid_mint);
         assert_eq!(error.unwrap_err(), InvalidRemovedTokenMints.into());
     }
 

@@ -47,7 +47,13 @@ import {
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
 import * as assert from "assert";
-import { D27, D9, DEFAULT_DECIMALS, MAX_TTL } from "../../../utils/constants";
+import {
+  D27,
+  D9,
+  DEFAULT_DECIMALS,
+  MAX_SINGLE_AUCTION_RUNS,
+  MAX_TTL,
+} from "../../../utils/constants";
 import {
   assertExpectedBalancesChanges,
   getOrCreateAtaAddress,

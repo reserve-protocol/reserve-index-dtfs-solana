@@ -7,7 +7,7 @@ use anchor_spl::token_interface::Mint;
 use shared::constants::{ACTOR_SEEDS, FOLIO_TOKEN_METADATA_SEEDS};
 
 /// Set the dust limit for a token
-/// Auction Launcher only.
+/// Owner or Auction Launcher only.
 ///
 /// # Arguments
 /// * `system_program` - The system program.
@@ -21,10 +21,10 @@ pub struct SetDustLimitForToken<'info> {
     pub system_program: Program<'info, System>,
 
     #[account(mut)]
-    pub user: Signer<'info>,
+    pub owner_or_auction_launcher: Signer<'info>,
 
     #[account(
-        seeds = [ACTOR_SEEDS, user.key().as_ref(), folio.key().as_ref()],
+        seeds = [ACTOR_SEEDS, owner_or_auction_launcher.key().as_ref(), folio.key().as_ref()],
         bump = actor.bump,
     )]
     pub actor: Account<'info, Actor>,
@@ -37,7 +37,7 @@ pub struct SetDustLimitForToken<'info> {
 
     #[account(
     init_if_needed,
-    payer = user,
+    payer = owner_or_auction_launcher,
     space = FolioTokenMetadata::SIZE,
     seeds = [FOLIO_TOKEN_METADATA_SEEDS, folio.key().as_ref(), token_mint.key().as_ref()],
     bump
@@ -71,13 +71,14 @@ pub fn handler(ctx: Context<SetDustLimitForToken>, dust_limit: u128) -> Result<(
     let folio = &mut ctx.accounts.folio.load()?;
     ctx.accounts.validate(folio)?;
 
-    if ctx.accounts.folio_token_metadata.mint == Pubkey::default() {
+    let folio_token_metadata = &mut ctx.accounts.folio_token_metadata;
+    if folio_token_metadata.mint == Pubkey::default() {
         // The account is not initialized, initialize it.
-        ctx.accounts.folio_token_metadata.bump = ctx.bumps.folio_token_metadata;
-        ctx.accounts.folio_token_metadata.mint = ctx.accounts.token_mint.key();
-        ctx.accounts.folio_token_metadata.folio = ctx.accounts.folio.key();
+        folio_token_metadata.bump = ctx.bumps.folio_token_metadata;
+        folio_token_metadata.mint = ctx.accounts.token_mint.key();
+        folio_token_metadata.folio = ctx.accounts.folio.key();
     }
-    ctx.accounts.folio_token_metadata.dust_amount = dust_limit;
+    folio_token_metadata.dust_amount = dust_limit;
 
     emit!(DustLimitSetForToken {
         token: ctx.accounts.token_mint.key(),

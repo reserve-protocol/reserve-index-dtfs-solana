@@ -280,7 +280,7 @@ pub fn handler(
         if basket_presence <= dust_limit {
             // Remove all amounts from the basket
             // As the basket presence this token is 0 or below the dust limit set.
-            folio_basket.remove_all_amounts_from_basket(auction.sell)?;
+            folio_basket.remove_token_mint_from_basket(auction.sell)?;
         }
     }
 

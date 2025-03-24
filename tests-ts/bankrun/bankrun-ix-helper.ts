@@ -1613,7 +1613,7 @@ export async function setDustLimitForToken<T extends boolean = true>(
       actor: getActorPDA(userKeypair.publicKey, folio),
       folio,
       tokenMint,
-      user: userKeypair.publicKey,
+      ownerOrAuctionLauncher: userKeypair.publicKey,
       folioTokenMetadata: getFolioTokenMetadataPDA(folio, tokenMint),
     })
     .instruction();

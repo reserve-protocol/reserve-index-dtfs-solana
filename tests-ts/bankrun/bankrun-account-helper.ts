@@ -42,10 +42,10 @@ import {
   MAX_FEE_FLOOR,
   MAX_PADDED_STRING_LENGTH,
   REWARDS_PROGRAM_ID,
+  MAX_SINGLE_AUCTION_RUNS,
 } from "../../utils/constants";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import assert from "assert";
 
 /**
  * Helper functions for creating and setting accounts in the Bankrun environment.
@@ -298,11 +298,6 @@ export class Auction {
     this.buyLimit = buyLimit;
     this.initialProposedPrice = initialProposedPrice;
     this.auctionRunDetails = auctionRunDetails;
-    assert.equal(
-      auctionRunDetails.length <= 10,
-      true,
-      "Auction run details length is greater than the max allowed"
-    );
     this.maxRuns = maxRuns;
     this.closedForReruns = closedForReruns;
   }
@@ -322,7 +317,9 @@ export class Auction {
       new BasketRange(new BN(0), new BN(0), new BN(0)),
       new BasketRange(new BN(0), new BN(0), new BN(0)),
       new AuctionPrices(new BN(0), new BN(0)),
-      Array.from({ length: 10 }, () => AuctionRunDetails.default()),
+      Array.from({ length: MAX_SINGLE_AUCTION_RUNS }, () =>
+        AuctionRunDetails.default()
+      ),
       1,
       0
     );
@@ -894,7 +891,7 @@ export async function createAndSetAuction(
   buffer.writeUInt8(auction.closedForReruns ? 1 : 0, offset);
   offset += 1;
 
-  Array.from({ length: 14 }).forEach((_, i) => {
+  Array.from({ length: 14 }).forEach(() => {
     buffer.writeUInt8(0, offset);
     offset += 1;
   });

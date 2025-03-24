@@ -101,7 +101,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, RemoveFromBasket<'info>
         TokenPresenceInBasketMoreThanDustLimit
     );
 
-    folio_basket.remove_all_amounts_from_basket(mint_to_remove)?;
+    folio_basket.remove_token_mint_from_basket(mint_to_remove)?;
 
     Ok(())
 }

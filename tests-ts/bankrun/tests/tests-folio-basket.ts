@@ -541,33 +541,6 @@ describe("Bankrun - Folio basket", () => {
                   basket.tokenAmounts[i].amount.eq(expectedAmount),
                   true
                 );
-                if (isRemoved) {
-                  assert.equal(
-                    basket.tokenAmounts[i].amount.eq(new BN(0)),
-                    true
-                  );
-                  assert.equal(
-                    basket.tokenAmounts[i].mint.equals(PublicKey.default),
-                    true
-                  );
-                } else {
-                  const alreadyIncludedAmount =
-                    alreadyIncludedTokens.find((ta) =>
-                      ta.mint.equals(expectedTokenAmounts[i].mint)
-                    )?.amount ?? new BN(0);
-
-                  const newAmountAdded =
-                    tokens.find((token) =>
-                      token.mint.equals(expectedTokenAmounts[i].mint)
-                    )?.amount ?? new BN(0);
-
-                  const expectedAmount =
-                    alreadyIncludedAmount.add(newAmountAdded);
-                  assert.equal(
-                    basket.tokenAmounts[i].amount.eq(expectedAmount),
-                    true
-                  );
-                }
               }
 
               // And assert transfer of token amounts & initial shares

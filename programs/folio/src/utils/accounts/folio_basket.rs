@@ -136,7 +136,7 @@ impl FolioBasket {
     /// # Arguments
     /// mint: The mint to remove from the basket
     ///
-    pub fn remove_all_amounts_from_basket(&mut self, mint: Pubkey) -> Result<()> {
+    pub fn remove_token_mint_from_basket(&mut self, mint: Pubkey) -> Result<()> {
         if let Some(slot_to_update) = self.token_amounts.iter_mut().find(|ta| ta.mint == mint) {
             slot_to_update.amount = 0;
             slot_to_update.mint = Pubkey::default();

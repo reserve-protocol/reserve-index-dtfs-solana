@@ -272,7 +272,9 @@ pub fn handler(
         .get_token_presence_per_share_in_basket(&auction.sell, &scaled_folio_token_total_supply)?;
     // QoL: close auction if we have reached the sell limit
     if basket_presence <= (raw_min_sell_balance as u128) + dust_limit {
-        auction.auction_run_details[index_of_current_running_auction].end = current_time - 1;
+        auction.auction_run_details[index_of_current_running_auction].end = current_time
+            .checked_sub(1)
+            .ok_or(error!(ErrorCode::MathOverflow))?;
         auction.closed_for_reruns = 1;
         // cannot update sellEnds/buyEnds due to possibility of parallel auctions
         if basket_presence <= dust_limit {

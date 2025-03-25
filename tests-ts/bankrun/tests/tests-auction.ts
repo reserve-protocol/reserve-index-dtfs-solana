@@ -116,6 +116,8 @@ describe("Bankrun - Auction", () => {
 
     customFolioTokenMint: Keypair;
 
+    extraTokenAmountsForFolioBasket: TokenAmount[];
+
     initialFolioBasket: TokenAmount[];
 
     buyMints: PublicKey[];
@@ -145,10 +147,12 @@ describe("Bankrun - Auction", () => {
 
     customFolioTokenMint: null,
 
+    extraTokenAmountsForFolioBasket: [],
+
     initialFolioBasket: MINTS_IN_FOLIO.map((mint) => ({
       mint: mint.publicKey,
-      amountForMinting: new BN(100),
-      amountForRedeeming: new BN(100),
+      amountForMinting: new BN(0),
+      amountForRedeeming: new BN(0),
     })),
 
     buyMints: BUY_MINTS.map((mint) => mint.publicKey),
@@ -322,8 +326,13 @@ describe("Bankrun - Auction", () => {
       },
       initialFolioBasket: MINTS_IN_FOLIO.map((mint) => ({
         mint: mint.publicKey,
-        amountForMinting: new BN(1000).mul(D9),
-        amountForRedeeming: new BN(1000).mul(D9),
+        amountForMinting: new BN(500).mul(D9),
+        amountForRedeeming: new BN(500).mul(D9),
+      })),
+      extraTokenAmountsForFolioBasket: MINTS_IN_FOLIO.map((mint) => ({
+        mint: mint.publicKey,
+        amountForMinting: new BN(1000),
+        amountForRedeeming: new BN(0),
       })),
       expectedTokenBalanceChanges: [
         new BN(1000).mul(D9),
@@ -358,7 +367,8 @@ describe("Bankrun - Auction", () => {
   async function initBaseCase(
     customFolioTokenMint: Keypair = null,
     initialFolioBasket: TokenAmount[] = [],
-    folioTokenSupply: BN = new BN(10_000)
+    folioTokenSupply: BN = new BN(10_000),
+    extraTokenAmountsForFolioBasket: TokenAmount[] = []
   ) {
     const folioTokenMintToUse = customFolioTokenMint || folioTokenMint;
 
@@ -397,7 +407,25 @@ describe("Bankrun - Auction", () => {
     for (const mint of MINTS_IN_FOLIO) {
       initToken(context, adminKeypair.publicKey, mint, DEFAULT_DECIMALS);
 
-      mintToken(context, mint.publicKey, 1_000, folioPDA);
+      // Mint the actual balance (not pending) for auction testing
+      const baseAmount = new BN(1_000);
+      mintToken(context, mint.publicKey, baseAmount.toNumber(), folioPDA);
+
+      // If you need pending amounts for specific tests, use extraTokenAmountsForFolioBasket
+      const extraTokenAmount = extraTokenAmountsForFolioBasket.find((t) =>
+        t.mint.equals(mint.publicKey)
+      );
+      if (extraTokenAmount) {
+        mintToken(
+          context,
+          mint.publicKey,
+          baseAmount
+            .add(extraTokenAmount.amountForMinting)
+            .add(extraTokenAmount.amountForRedeeming)
+            .toNumber(),
+          folioPDA
+        );
+      }
     }
 
     for (const mint of BUY_MINTS) {
@@ -1151,6 +1179,7 @@ describe("Bankrun - Auction", () => {
           expectedTokenBalanceChanges,
           folioTokenSupply,
           sellOut,
+          extraTokenAmountsForFolioBasket,
         } = {
           ...DEFAULT_PARAMS,
           ...restOfParams,
@@ -1165,7 +1194,12 @@ describe("Bankrun - Auction", () => {
         before(async () => {
           const mintToUse = customFolioTokenMint || folioTokenMint;
 
-          await initBaseCase(mintToUse, initialFolioBasket, folioTokenSupply);
+          await initBaseCase(
+            mintToUse,
+            initialFolioBasket,
+            folioTokenSupply,
+            extraTokenAmountsForFolioBasket
+          );
 
           initToken(
             context,

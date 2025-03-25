@@ -181,9 +181,14 @@ pub fn handler(
 
     check_condition!(raw_bought_amount <= raw_max_buy_amount, SlippageExceeded);
 
+    let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
+
     // totalSupply inflates over time due to TVL fee, causing buyLimits/sellLimits to be slightly stale
     let scaled_folio_token_total_supply = folio.get_total_supply(folio_token_mint.supply)?;
-    let raw_sell_balance = ctx.accounts.folio_sell_token_account.amount;
+    let raw_sell_balance = folio_basket.get_non_pending_balance(
+        ctx.accounts.folio_sell_token_account.amount,
+        &ctx.accounts.auction_sell_token_mint.key(),
+    )?;
 
     // {sellTok} = D18{sellTok/share} * {share} / D18
     let raw_min_sell_balance = Decimal::from_scaled(auction.sell_limit.spot)
@@ -203,7 +208,6 @@ pub fn handler(
     check_condition!(raw_sell_amount <= raw_sell_available, InsufficientBalance);
 
     // put buy token in basket
-    let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
     folio_basket.add_tokens_to_basket(&vec![auction.buy])?;
 
     // pay bidder
@@ -233,7 +237,12 @@ pub fn handler(
 
     // QoL: close auction if we have reached the sell limit
     ctx.accounts.folio_sell_token_account.reload()?;
-    let raw_sell_balance = ctx.accounts.folio_sell_token_account.amount;
+
+    let raw_sell_balance = folio_basket.get_non_pending_balance(
+        ctx.accounts.folio_sell_token_account.amount,
+        &ctx.accounts.auction_sell_token_mint.key(),
+    )?;
+
     if raw_sell_balance <= raw_min_sell_balance {
         auction.end = current_time;
         // cannot update sellEnds/buyEnds due to possibility of parallel auctions

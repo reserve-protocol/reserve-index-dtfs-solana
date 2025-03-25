@@ -225,7 +225,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
         };
 
         let raw_migrate_balance = old_folio_basket
-            .get_migrate_balance(raw_sender_token_account_amount, token_mint.key)?;
+            .get_non_pending_balance(raw_sender_token_account_amount, token_mint.key)?;
 
         let cpi_accounts = TransferChecked {
             from: sender_token_account.to_account_info(),

@@ -225,15 +225,16 @@ impl FolioBasket {
             .count() as u8
     }
 
-    /// Get the migrate balance by subtracting the token amounts from the token balance.
+    /// Get the non pending balance by subtracting the token amounts from the token balance.
     /// Will error out if the token mint is not found.
+    /// Is used for migrating, sell in Bid, etc.
     ///
     /// # Arguments
     /// * `raw_token_balance` - The token balance (D9)
     /// * `mint` - The mint to get the balance for.
     ///
-    /// # Returns the migrate balance in D9
-    pub fn get_migrate_balance(&self, raw_token_balance: u64, mint: &Pubkey) -> Result<u64> {
+    /// # Returns the non pending balance in D9
+    pub fn get_non_pending_balance(&self, raw_token_balance: u64, mint: &Pubkey) -> Result<u64> {
         let token_amount = self.token_amounts.iter().find(|ta| ta.mint == *mint);
 
         if let Some(token_amount) = token_amount {

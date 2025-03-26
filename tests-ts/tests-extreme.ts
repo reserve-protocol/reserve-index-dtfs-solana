@@ -169,10 +169,6 @@ describe("Extreme Folio Tests", () => {
       userKeypair,
       folioPDA,
       folioTokenMint.publicKey,
-      tokenMints.map((token) => ({
-        mint: token.mint.publicKey,
-        amount: new BN(0),
-      })),
       new BN(3 * DEFAULT_DECIMALS_MUL)
     );
   });

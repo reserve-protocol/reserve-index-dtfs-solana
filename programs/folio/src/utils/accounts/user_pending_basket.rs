@@ -232,6 +232,7 @@ impl UserPendingBasket {
         scaled_dao_fee_floor: u128,
     ) -> Result<()> {
         // Poke the folio to make sure we get the latest fee shares
+
         folio.poke(
             raw_folio_token_supply,
             current_time,
@@ -241,9 +242,10 @@ impl UserPendingBasket {
         )?;
 
         let scaled_total_supply_folio_token = folio.get_total_supply(raw_folio_token_supply)?;
+        let raw_shares = Decimal::from_token_amount(raw_shares)?;
 
         // Process each included token
-        for (i, folio_token_account) in folio_basket.token_amounts.iter_mut().enumerate() {
+        for folio_token_account in folio_basket.token_amounts.iter_mut() {
             if folio_token_account.mint == Pubkey::default() {
                 continue;
             }
@@ -264,7 +266,7 @@ impl UserPendingBasket {
                         folio_token_account,
                         &scaled_total_supply_folio_token,
                         &scaled_folio_token_balance,
-                        raw_shares,
+                        &raw_shares,
                     )?;
                 }
                 PendingBasketType::RedeemProcess => {
@@ -273,7 +275,7 @@ impl UserPendingBasket {
                         folio_token_account,
                         &scaled_total_supply_folio_token,
                         &scaled_folio_token_balance,
-                        raw_shares,
+                        &raw_shares,
                     )?;
                 }
             }
@@ -296,7 +298,7 @@ impl UserPendingBasket {
         folio_token_amount: &mut FolioTokenAmount,
         scaled_total_supply_folio_token: &Decimal,
         scaled_folio_token_balance: &Decimal,
-        raw_shares: u64,
+        raw_shares: &Decimal,
     ) -> Result<()> {
         let scaled_calculated_shares =
             Decimal::from_token_amount(raw_user_amount.amount_for_minting)?
@@ -304,12 +306,12 @@ impl UserPendingBasket {
                 .div(scaled_folio_token_balance)?;
 
         check_condition!(
-            scaled_calculated_shares.to_token_amount(Rounding::Floor)?.0 >= raw_shares,
+            scaled_calculated_shares.0 >= raw_shares.0,
             InvalidShareAmountProvided
         );
 
         // {tok} = {share} * {tok} / {share}
-        let raw_user_amount_taken = Decimal::from_token_amount(raw_shares)?
+        let raw_user_amount_taken = raw_shares
             .mul(scaled_folio_token_balance)?
             .div(scaled_total_supply_folio_token)?
             .to_token_amount(Rounding::Ceiling)?;
@@ -343,9 +345,9 @@ impl UserPendingBasket {
         folio_token_amount: &mut FolioTokenAmount,
         scaled_total_supply_folio_token: &Decimal,
         scaled_folio_token_balance: &Decimal,
-        raw_shares: u64,
+        raw_shares: &Decimal,
     ) -> Result<()> {
-        let raw_amount_to_give_to_user = Decimal::from_token_amount(raw_shares)?
+        let raw_amount_to_give_to_user = raw_shares
             .mul(scaled_folio_token_balance)?
             .div(scaled_total_supply_folio_token)?
             .to_token_amount(Rounding::Floor)?;

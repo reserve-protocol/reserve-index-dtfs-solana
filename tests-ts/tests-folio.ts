@@ -617,10 +617,6 @@ describe("Folio Tests", () => {
           userKeypair,
           folioPDA,
           folioTokenMint.publicKey,
-          tokenMints.map((token) => ({
-            mint: token.mint.publicKey,
-            amount: new BN(0),
-          })),
           new BN(1)
         ),
       "MintMismatch",
@@ -711,10 +707,6 @@ describe("Folio Tests", () => {
       userKeypair,
       folioPDA,
       folioTokenMint.publicKey,
-      tokenMints.map((token) => ({
-        mint: token.mint.publicKey,
-        amount: new BN(0),
-      })),
       sharesToMint
     );
 

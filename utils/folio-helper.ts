@@ -450,7 +450,7 @@ export async function mintFolioToken(
   userKeypair: Keypair,
   folio: PublicKey,
   folioTokenMint: PublicKey,
-  tokens: { mint: PublicKey; amount: BN }[],
+  // tokens: { mint: PublicKey; amount: BN }[],
   shares: BN,
   minRawShares: BN | null = null
 ) {
@@ -474,21 +474,21 @@ export async function mintFolioToken(
         userKeypair.publicKey
       ),
     })
-    .remainingAccounts(
-      await buildRemainingAccounts(
-        connection,
-        userKeypair,
-        tokens,
-        folio,
-        null,
-        false
-      )
-    )
+    // .remainingAccounts(
+    //   await buildRemainingAccounts(
+    //     connection,
+    //     userKeypair,
+    //     tokens,
+    //     folio,
+    //     null,
+    //     false
+    //   )
+    // )
     .instruction();
 
   await pSendAndConfirmTxn(
     folioProgram,
-    [...getComputeLimitInstruction(1_200_000), mintFolioToken],
+    [...getComputeLimitInstruction(1_400_000), mintFolioToken],
     [],
     {
       skipPreflight: SKIP_PREFLIGHT,

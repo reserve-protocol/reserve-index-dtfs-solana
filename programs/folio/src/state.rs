@@ -3,6 +3,7 @@ use crate::utils::{
     FixedSizeString, FolioTokenAmount, Prices,
 };
 use anchor_lang::prelude::*;
+use bytemuck::{Pod, Zeroable};
 use shared::constants::{
     MAX_CONCURRENT_AUCTIONS, MAX_FEE_RECIPIENTS, MAX_FOLIO_TOKEN_AMOUNTS,
     MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
@@ -208,6 +209,11 @@ impl FolioBasket {
     pub const SIZE: usize = 8 + FolioBasket::INIT_SPACE;
 }
 
+#[test]
+fn test_folio_basket_size() {
+    assert_eq!(FolioBasket::SIZE, 1 + FolioBasket::INIT_SPACE);
+}
+
 impl Default for FolioBasket {
     fn default() -> Self {
         Self {
@@ -249,6 +255,10 @@ pub struct UserPendingBasket {
 
 impl UserPendingBasket {
     pub const SIZE: usize = 8 + UserPendingBasket::INIT_SPACE;
+}
+#[test]
+fn test_user_pending_basket_size() {
+    assert_eq!(UserPendingBasket::SIZE, 1 + UserPendingBasket::INIT_SPACE);
 }
 
 impl Default for UserPendingBasket {

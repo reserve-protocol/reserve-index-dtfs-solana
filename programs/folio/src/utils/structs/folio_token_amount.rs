@@ -9,10 +9,10 @@ use bytemuck::{Pod, Zeroable};
     Copy,
     Default,
     InitSpace,
-    Zeroable,
     Pod,
     PartialEq,
     Debug,
+    Zeroable,
 )]
 #[repr(C)]
 pub struct FolioTokenAmount {

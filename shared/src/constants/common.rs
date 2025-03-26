@@ -53,11 +53,11 @@ pub const MAX_FEE_RECIPIENTS: usize = 64;
 /// MAX_FEE_RECIPIENTS_PORTION is the maximum portion of the fee that can be set for a fee recipient, 1e18.
 pub const MAX_FEE_RECIPIENTS_PORTION: u128 = 1_000_000_000_000_000_000;
 /// MAX_FOLIO_TOKEN_AMOUNTS is the maximum number of token amounts that can be set for a folio, 16.
-pub const MAX_FOLIO_TOKEN_AMOUNTS: usize = 1024;
+pub const MAX_FOLIO_TOKEN_AMOUNTS: usize = 128;
 
 /// MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS is the maximum number of token amounts that can be set for a user pending
 /// basket, 20, higher than our 16 maximum token, since they can have tokens that have been removed / added
-pub const MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS: usize = 1024;
+pub const MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS: usize = 128;
 /// MAX_CONCURRENT_AUCTIONS is the maximum number of concurrent auctions that can be set for a folio, 16.
 pub const MAX_CONCURRENT_AUCTIONS: usize = 16;
 /// MAX_REWARD_TOKENS is the maximum number of reward tokens that can be set for a folio, 4.

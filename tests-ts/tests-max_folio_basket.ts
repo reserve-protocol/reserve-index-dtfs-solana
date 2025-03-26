@@ -2,13 +2,10 @@ import { airdrop, getConnectors } from "../utils/program-helper";
 import { BN, Program } from "@coral-xyz/anchor";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import {
-  addOrUpdateActor,
   addToBasket,
   addToPendingBasket,
-  approveAuction,
   initFolio,
   mintFolioToken,
-  openAuction,
 } from "../utils/folio-helper";
 import { setDaoFeeConfig } from "../utils/folio-admin-helper";
 import { initToken, mintToken } from "../utils/token-helper";
@@ -19,15 +16,13 @@ import {
   DEFAULT_DECIMALS_MUL,
   MAX_MINT_FEE,
   MAX_FEE_FLOOR,
-  MAX_TOKENS_IN_BASKET,
   FEE_NUMERATOR,
-  MAX_TTL,
 } from "../utils/constants";
 import { Folio } from "../target/types/folio";
-import { getAuctionPDA, getFolioBasketPDA } from "../utils/pda-helper";
+import { getFolioBasketPDA } from "../utils/pda-helper";
 import { assert } from "chai";
 
-describe("Max tokens in basket", () => {
+describe.only("Max tokens in basket", () => {
   let connection: Connection;
   let programFolio: Program<Folio>;
   let keys: any;
@@ -44,10 +39,9 @@ describe("Max tokens in basket", () => {
   const BATCH_SIZE = 5;
 
   const feeRecipient: PublicKey = Keypair.generate().publicKey;
-
-  const tokenMints = Array.from({ length: 100 }, () => ({
+  const TOKEN_SIZE = 115;
+  const tokenMints = Array.from({ length: TOKEN_SIZE }, () => ({
     mint: Keypair.generate(),
-    // To test with different token decimals
     decimals: 9,
   }));
 
@@ -61,11 +55,11 @@ describe("Max tokens in basket", () => {
     userKeypair = Keypair.generate();
     auctionApproverKeypair = Keypair.generate();
 
-    await airdrop(connection, payerKeypair.publicKey, 1000);
-    await airdrop(connection, adminKeypair.publicKey, 1000);
-    await airdrop(connection, folioOwnerKeypair.publicKey, 1000);
-    await airdrop(connection, userKeypair.publicKey, 1000);
-    await airdrop(connection, auctionApproverKeypair.publicKey, 1000);
+    await airdrop(connection, payerKeypair.publicKey, 100000);
+    await airdrop(connection, adminKeypair.publicKey, 100000);
+    await airdrop(connection, folioOwnerKeypair.publicKey, 100000);
+    await airdrop(connection, userKeypair.publicKey, 100000);
+    await airdrop(connection, auctionApproverKeypair.publicKey, 100000);
 
     folioTokenMint = Keypair.generate();
 
@@ -83,6 +77,7 @@ describe("Max tokens in basket", () => {
       "https://test.com",
       "mandate"
     );
+    console.log(folioPDA.toBase58());
 
     // Create the tokens that can be included in the folio
     // Process tokens in batches of 100
@@ -121,83 +116,47 @@ describe("Max tokens in basket", () => {
       );
     }
 
-    // Add tokens to the folio basket
-    for (let i = 0; i < tokenMints.length; i += BATCH_SIZE) {
+    // Process tokens in batches of 100 for addToBasket
+    const allBatches = [];
+    for (let i = 0; i < tokenMints.length - BATCH_SIZE; i += BATCH_SIZE) {
       const batch = tokenMints.slice(i, i + BATCH_SIZE).map((token) => ({
         mint: token.mint.publicKey,
         amount: new BN(100 * 10 ** token.decimals),
       }));
 
-      if (i + BATCH_SIZE < tokenMints.length) {
-        await addToBasket(
-          connection,
-          folioOwnerKeypair,
-          folioPDA,
-          batch,
-          null,
-          folioTokenMint.publicKey
+      // Process each batch of 100 tokens in sub-batches of 10
+      for (let j = 0; j < batch.length; j += 10) {
+        const subBatch = batch.slice(j, j + 10);
+        allBatches.push(
+          addToBasket(
+            connection,
+            folioOwnerKeypair,
+            folioPDA,
+            subBatch,
+            null,
+            folioTokenMint.publicKey
+          )
         );
-      } else {
-        //10 shares, mint decimals for folio token is 9
-        // await addToBasket(
-        //   connection,
-        //   folioOwnerKeypair,
-        //   folioPDA,
-        //   batch,
-        //   new BN(10 * DEFAULT_DECIMALS_MUL),
-        //   folioTokenMint.publicKey
-        // );
       }
-      console.log(i);
+      console.log(`Processed batch ${i / BATCH_SIZE + 1}`);
     }
+    await Promise.all(allBatches);
 
-    // const batches = [];
+    // Handle the last batch separately
+    const lastBatch = tokenMints.slice(-BATCH_SIZE).map((token) => ({
+      mint: token.mint.publicKey,
+      amount: new BN(100 * 10 ** token.decimals),
+    }));
 
-    // // Process tokens in batches of 100 for addToBasket
-    // for (let i = 0; i < tokenMints.length - BATCH_SIZE; i += BATCH_SIZE) {
-    //   const batch = tokenMints.slice(i, i + BATCH_SIZE).map((token) => ({
-    //     mint: token.mint.publicKey,
-    //     amount: new BN(100 * 10 ** token.decimals),
-    //   }));
-
-    //   // Process each batch of 100 tokens in sub-batches of 10
-    //   const subBatches = [];
-    //   for (let j = 0; j < batch.length; j += 10) {
-    //     const subBatch = batch.slice(j, j + 10);
-    //     subBatches.push(
-    //       addToBasket(
-    //         connection,
-    //         folioOwnerKeypair,
-    //         folioPDA,
-    //         subBatch,
-    //         null,
-    //         folioTokenMint.publicKey
-    //       )
-    //     );
-    //   }
-
-    //   // Wait for all sub-batches to complete before moving to next batch
-    //   await Promise.all(subBatches);
-    //   console.log(`Processed batch ${i / BATCH_SIZE + 1}`);
-    // }
-
-    // await Promise.all(batches);
-
-    // // Handle the last batch separately
-    // const lastBatch = tokenMints.slice(-BATCH_SIZE).map((token) => ({
-    //   mint: token.mint.publicKey,
-    //   amount: new BN(100 * 10 ** token.decimals),
-    // }));
-
-    // //10 shares, mint decimals for folio token is 9
-    // await addToBasket(
-    //   connection,
-    //   folioOwnerKeypair,
-    //   folioPDA,
-    //   lastBatch,
-    //   new BN(10 * DEFAULT_DECIMALS_MUL),
-    //   folioTokenMint.publicKey
-    // );
+    //10 shares, mint decimals for folio token is 9
+    await addToBasket(
+      connection,
+      folioOwnerKeypair,
+      folioPDA,
+      lastBatch,
+      new BN(10 * DEFAULT_DECIMALS_MUL),
+      folioTokenMint.publicKey
+    );
 
     await setDaoFeeConfig(
       connection,
@@ -213,30 +172,40 @@ describe("Max tokens in basket", () => {
     const folioBasket = await programFolio.account.folioBasket.fetch(
       folioBasketPda
     );
-    console.log(
+    assert.equal(
       folioBasket.tokenAmounts.filter(
-        (token) => token.mint !== PublicKey.default
-      ).length
+        (token) => token.mint.toString() !== PublicKey.default.toString()
+      ).length,
+      TOKEN_SIZE
     );
-    // for (let i = 0; i < tokenMints.length; i += BATCH_SIZE) {
-    //   const batch = tokenMints.slice(i, i + BATCH_SIZE).map((token) => ({
-    //     mint: token.mint.publicKey,
-    //     amount: new BN(100 * 10 ** token.decimals),
-    //   }));
+  });
 
-    //   await addToPendingBasket(connection, userKeypair, folioPDA, batch);
-    // }
+  it("Should mint to user", async () => {
+    // Add tokens to pending basket.
+    const allBatches = [];
+    for (let i = 0; i < tokenMints.length; i += BATCH_SIZE) {
+      const batch = tokenMints.slice(i, i + BATCH_SIZE).map((token) => ({
+        mint: token.mint.publicKey,
+        amount: new BN(100 * 10 ** token.decimals),
+      }));
 
-    // await mintFolioToken(
-    //   connection,
-    //   userKeypair,
-    //   folioPDA,
-    //   folioTokenMint.publicKey,
-    //   tokenMints.map((token) => ({
-    //     mint: token.mint.publicKey,
-    //     amount: new BN(0),
-    //   })),
-    //   new BN(3 * DEFAULT_DECIMALS_MUL)
-    // );
+      for (let j = 0; j < batch.length; j += 10) {
+        const subBatch = batch.slice(j, j + 10);
+        allBatches.push(
+          addToPendingBasket(connection, userKeypair, folioPDA, subBatch)
+        );
+      }
+    }
+
+    await Promise.all(allBatches);
+    console.log(`Processed all batches`);
+
+    await mintFolioToken(
+      connection,
+      userKeypair,
+      folioPDA,
+      folioTokenMint.publicKey,
+      new BN(1 * DEFAULT_DECIMALS_MUL)
+    );
   });
 });

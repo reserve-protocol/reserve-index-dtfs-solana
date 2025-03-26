@@ -139,20 +139,10 @@ pub fn handler<'info>(
         folio.bump
     };
 
-    let remaining_accounts = &ctx.remaining_accounts;
-
-    let folio_key = ctx.accounts.folio.key();
     let token_mint_key = ctx.accounts.folio_token_mint.key();
-    let token_program_id = ctx.accounts.token_program.key();
     let current_time = Clock::get()?.unix_timestamp;
 
     let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
-
-    // Validate the user passes as many remaining accounts as the folio has mints (validation on those mints is done later)
-    check_condition!(
-        folio_basket.get_total_number_of_mints() == remaining_accounts.len() as u8,
-        InvalidNumberOfRemainingAccounts
-    );
 
     let token_amounts_user = &mut ctx.accounts.user_pending_basket.load_mut()?;
 
@@ -169,12 +159,9 @@ pub fn handler<'info>(
         token_amounts_user.to_assets(
             raw_shares,
             ctx.accounts.folio_token_mint.supply,
-            &folio_key,
-            &token_program_id,
             folio_basket,
             folio,
             PendingBasketType::MintProcess,
-            remaining_accounts,
             current_time,
             fee_details.scaled_fee_numerator,
             fee_details.scaled_fee_denominator,

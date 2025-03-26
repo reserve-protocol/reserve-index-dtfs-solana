@@ -3,11 +3,8 @@ use std::cell::RefMut;
 use crate::utils::structs::TokenAmount;
 use crate::utils::FolioTokenAmount;
 use anchor_lang::prelude::*;
-use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 use shared::check_condition;
-use shared::constants::{
-    PendingBasketType, MAX_FOLIO_TOKEN_AMOUNTS, MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
-};
+use shared::constants::{PendingBasketType, MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS};
 use shared::errors::ErrorCode;
 use shared::errors::ErrorCode::InvalidAddedTokenMints;
 use shared::errors::ErrorCode::*;
@@ -216,7 +213,6 @@ impl UserPendingBasket {
     /// * `folio_basket` - The basket of the folio.
     /// * `folio` - The folio.
     /// * `pending_basket_type` - The type of pending basket, wether it's for minting or redeeming.
-    /// * `included_tokens` - The tokens currently being processed (sent as remaining accounts).
     /// * `current_time` - The current time.
     /// * `scaled_dao_fee_numerator` - The numerator of the DAO fee (D18).
     /// * `scaled_dao_fee_denominator` - The denominator of the DAO fee (D18).
@@ -227,12 +223,9 @@ impl UserPendingBasket {
         &mut self,
         raw_shares: u64,
         raw_folio_token_supply: u64,
-        folio_key: &Pubkey,
-        token_program_id: &Pubkey,
         folio_basket: &mut RefMut<'_, FolioBasket>,
         folio: &mut RefMut<'_, Folio>,
         pending_basket_type: PendingBasketType,
-        included_tokens: &&[AccountInfo<'_>],
         current_time: i64,
         scaled_dao_fee_numerator: u128,
         scaled_dao_fee_denominator: u128,
@@ -249,64 +242,26 @@ impl UserPendingBasket {
 
         let scaled_total_supply_folio_token = folio.get_total_supply(raw_folio_token_supply)?;
 
-        // Create a map from ATA address to (basket_index, mint)
-        let mut ata_to_basket: [(Pubkey, usize, Pubkey); MAX_FOLIO_TOKEN_AMOUNTS] =
-            [(Pubkey::default(), 0, Pubkey::default()); MAX_FOLIO_TOKEN_AMOUNTS];
-
-        let mut valid_atas = 0;
-
-        for (i, token_amount) in folio_basket.token_amounts.iter().enumerate() {
-            if token_amount.mint == Pubkey::default() {
+        // Process each included token
+        for (i, folio_token_account) in folio_basket.token_amounts.iter_mut().enumerate() {
+            if folio_token_account.mint == Pubkey::default() {
                 continue;
             }
 
-            let expected_ata = get_associated_token_address_with_program_id(
-                folio_key,
-                &token_amount.mint,
-                token_program_id,
-            );
-
-            ata_to_basket[valid_atas] = (expected_ata, i, token_amount.mint);
-            valid_atas += 1;
-        }
-
-        // Process each included token
-        for folio_token_account in included_tokens.iter() {
-            let ata_address = folio_token_account.key();
-
-            // Find the basket index for this ATA using iterator
-            let (basket_index, related_mint_pubkey) = ata_to_basket
-                .iter()
-                .take(valid_atas)
-                .find_map(|(ata, idx, mint)| {
-                    if *ata == ata_address {
-                        Some((*idx, *mint))
-                    } else {
-                        None
-                    }
-                })
-                .ok_or(ErrorCode::InvalidRecipientTokenAccount)?;
-
-            let related_mint = &mut folio_basket.token_amounts[basket_index];
-
-            let user_index = match self
+            let raw_user_amount = &mut self
                 .token_amounts
-                .iter()
-                .position(|ta| ta.mint == related_mint_pubkey)
-            {
-                Some(idx) => idx,
-                None => return Err(error!(ErrorCode::MintMismatch)),
-            };
+                .iter_mut()
+                .find(|ta| ta.mint == folio_token_account.mint)
+                .ok_or(ErrorCode::MintMismatch)?;
 
-            let raw_user_amount = &mut self.token_amounts[user_index];
-
-            let scaled_folio_token_balance = Decimal::from_token_amount(related_mint.amount)?;
+            let scaled_folio_token_balance =
+                Decimal::from_token_amount(folio_token_account.amount)?;
 
             match pending_basket_type {
                 PendingBasketType::MintProcess => {
                     UserPendingBasket::to_assets_for_minting(
                         raw_user_amount,
-                        related_mint,
+                        folio_token_account,
                         &scaled_total_supply_folio_token,
                         &scaled_folio_token_balance,
                         raw_shares,
@@ -315,7 +270,7 @@ impl UserPendingBasket {
                 PendingBasketType::RedeemProcess => {
                     UserPendingBasket::to_assets_for_redeeming(
                         raw_user_amount,
-                        related_mint,
+                        folio_token_account,
                         &scaled_total_supply_folio_token,
                         &scaled_folio_token_balance,
                         raw_shares,

@@ -1,6 +1,6 @@
 //! Error codes for the program.
 //!
-//! Custom error for Anchr programs start at 6000. i.e. here Unauthorized error would be 6000 and
+//! Custom error for Anchor programs start at 6000. i.e. here Unauthorized error would be 6000 and
 //! InvalidProgramCount would be 6001.
 
 use anchor_lang::prelude::*;
@@ -145,6 +145,15 @@ pub enum ErrorCode {
     #[msg("Auction Cannot Be Opened")]
     AuctionCannotBeOpened,
 
+    #[msg("Max auction runs limit exceeded.")]
+    MaxAuctionRunsLimitExceeded,
+
+    #[msg("Auction Max Runs Reached")]
+    AuctionMaxRunsReached,
+
+    #[msg("No running auction found, for the auction")]
+    NoRunningAuctionFound,
+
     #[msg("Auction Timeout")]
     AuctionTimeout,
 
@@ -252,6 +261,9 @@ pub enum ErrorCode {
 
     #[msg("Invalid Callback Program")]
     InvalidCallbackProgram,
+
+    #[msg("Token presence in basket is more than dust limit")]
+    TokenPresenceInBasketMoreThanDustLimit,
 }
 
 /// Check a condition and return an error if it is not met.

@@ -6,6 +6,7 @@ use crate::{
 };
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::Mint;
+use shared::constants::MAX_SINGLE_AUCTION_RUNS;
 use shared::utils::TokenUtil;
 use shared::{
     check_condition,
@@ -79,6 +80,7 @@ impl ApproveAuction<'_> {
         buy_limit: &BasketRange,
         prices: &Prices,
         ttl: u64,
+        max_runs: u8,
     ) -> Result<()> {
         folio.validate_folio(
             &self.folio.key(),
@@ -96,6 +98,11 @@ impl ApproveAuction<'_> {
         check_condition!(
             TokenUtil::is_supported_spl_token(Some(&self.buy_mint.to_account_info()), None)?,
             UnsupportedSPLToken
+        );
+
+        check_condition!(
+            max_runs < MAX_SINGLE_AUCTION_RUNS as u8,
+            MaxAuctionRunsLimitExceeded
         );
 
         Ok(())
@@ -120,12 +127,20 @@ pub fn handler(
     buy_limit: BasketRange,
     prices: Prices,
     ttl: u64,
+    max_runs: u8,
 ) -> Result<()> {
     let folio_key = ctx.accounts.folio.key();
     let folio = &mut ctx.accounts.folio.load_mut()?;
 
-    ctx.accounts
-        .validate(folio, auction_id, &sell_limit, &buy_limit, &prices, ttl)?;
+    ctx.accounts.validate(
+        folio,
+        auction_id,
+        &sell_limit,
+        &buy_limit,
+        &prices,
+        ttl,
+        max_runs,
+    )?;
 
     folio.current_auction_id = auction_id;
 
@@ -140,13 +155,11 @@ pub fn handler(
     auction.buy = ctx.accounts.buy_mint.key();
     auction.sell_limit = sell_limit;
     auction.buy_limit = buy_limit;
-    auction.prices.start = prices.start;
-    auction.prices.end = prices.end;
+    auction.initial_proposed_price.start = prices.start;
+    auction.initial_proposed_price.end = prices.end;
     auction.available_at = current_time + folio.auction_delay;
     auction.launch_timeout = current_time + ttl;
-    auction.start = 0;
-    auction.end = 0;
-    auction.k = 0;
+    auction.max_runs = max_runs;
 
     emit!(AuctionApproved {
         auction_id,

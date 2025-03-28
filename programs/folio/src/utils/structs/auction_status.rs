@@ -1,10 +1,6 @@
-use anchor_lang::prelude::*;
-
 /// Status of the auction. It is not stored anywhere in an account.
 /// It's derived from the current timestamp and the start and end times of the auction.
-#[derive(
-    AnchorSerialize, AnchorDeserialize, Default, Clone, Copy, PartialEq, Eq, Debug, InitSpace,
-)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum AuctionStatus {
     #[default]
     /// start == 0 && end == 0

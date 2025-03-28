@@ -236,7 +236,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
         )?;
 
         // Remove the token from the old folio basket
-        old_folio_basket.remove_all_amounts_from_basket(&vec![token_mint.key()])?;
+        old_folio_basket.remove_token_mint_from_basket(token_mint.key())?;
     }
 
     Ok(())

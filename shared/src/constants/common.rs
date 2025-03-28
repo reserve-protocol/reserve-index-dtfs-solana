@@ -69,6 +69,8 @@ pub const MAX_REWARD_HALF_LIFE: u64 = 604800 * 2;
 pub const MIN_REWARD_HALF_LIFE: u64 = 86400;
 /// LN_2 is the natural logarithm of 2, 693147180559945309. Used in reward token calculations. In D18.
 pub const LN_2: u128 = 693_147_180_559_945_309;
+/// The maximum time a single auction can be run again.
+pub const MAX_SINGLE_AUCTION_RUNS: usize = 10;
 
 /// FOLIO_PROGRAM_ID is the program id of the folio program, used to validate the folio program seeds on the set folio fee config
 pub const FOLIO_PROGRAM_ID: Pubkey = pubkey!("n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG");

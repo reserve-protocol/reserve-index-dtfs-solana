@@ -277,6 +277,14 @@ impl Decimal {
 
         Ok(result)
     }
+
+    /// Check if the Decimal is zero
+    ///
+    /// # Returns
+    /// * `bool` - True if the Decimal is zero, false otherwise
+    pub fn is_zero(&self) -> bool {
+        self.0 == U256::from(0)
+    }
 }
 
 impl Decimal {

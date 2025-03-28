@@ -448,15 +448,24 @@ classDiagram
         +id: u64
         +available_at: u64
         +launch_timeout: u64
-        +start: u64
-        +end: u64
-        +k: u128
         +folio: Pubkey
         +sell: Pubkey
         +buy: Pubkey
         +sell_limit: BasketRange
         +buy_limit: BasketRange
-        +prices: Prices
+        +max_runs: u8
+        +closed_for_reruns: u8
+        +initial_proposed_price: Prices
+        +auction_run_details: AuctionRunDetails[]
+    }
+
+    class AuctionRunDetails{
+        +start: u64,
+        +end: u64,
+        +price: Prices
+        +sell_limit_spot: u128
+        +buy_limit_spot: u128
+        +k: u128
     }
 
     Folio --> Auction: has many

@@ -1,4 +1,5 @@
 use crate::utils::structs::{FolioStatus, Role};
+use crate::utils::{OpenAuctionConfig, Prices};
 use crate::{
     events::AuctionOpened,
     state::{Actor, Auction, Folio},
@@ -42,15 +43,7 @@ impl OpenAuction<'_> {
     /// * Folio has the correct status and actor has the correct role.
     /// * Auction is valid.
     /// * Auction parameters are valid.
-    pub fn validate(
-        &self,
-        folio: &Folio,
-        auction: &Auction,
-        scaled_sell_limit: u128,
-        scaled_buy_limit: u128,
-        scaled_start_price: u128,
-        scaled_end_price: u128,
-    ) -> Result<()> {
+    pub fn validate(&self, folio: &Folio, auction: &Auction) -> Result<()> {
         folio.validate_folio(
             &self.folio.key(),
             Some(&self.actor),
@@ -60,14 +53,6 @@ impl OpenAuction<'_> {
 
         // Validate auction
         auction.validate_auction(&self.auction.key(), &self.folio.key())?;
-
-        // Validate parameters
-        auction.validate_auction_opening_from_auction_launcher(
-            scaled_start_price,
-            scaled_end_price,
-            scaled_sell_limit,
-            scaled_buy_limit,
-        )?;
 
         Ok(())
     }
@@ -97,30 +82,33 @@ pub fn handler(
     let folio = &mut ctx.accounts.folio.load_mut()?;
     let auction = &mut ctx.accounts.auction.load_mut()?;
 
-    ctx.accounts.validate(
-        folio,
-        auction,
-        scaled_sell_limit,
-        scaled_buy_limit,
-        scaled_start_price,
-        scaled_end_price,
-    )?;
-
-    auction.sell_limit.spot = scaled_sell_limit;
-    auction.buy_limit.spot = scaled_buy_limit;
-    auction.prices.start = scaled_start_price;
-    auction.prices.end = scaled_end_price;
+    ctx.accounts.validate(folio, auction)?;
 
     let current_time = Clock::get()?.unix_timestamp as u64;
 
-    auction.open_auction(folio, current_time)?;
+    // Input is also validate in open_auction.
+    let auction_run_index = auction.open_auction(
+        folio,
+        current_time,
+        Some(OpenAuctionConfig {
+            price: Prices {
+                start: scaled_start_price,
+                end: scaled_end_price,
+            },
+            sell_limit_spot: scaled_sell_limit,
+            buy_limit_spot: scaled_buy_limit,
+        }),
+    )?;
+
+    let auction_run_details = auction.auction_run_details[auction_run_index];
 
     emit!(AuctionOpened {
         auction_id: auction.id,
-        start_price: auction.prices.start,
-        end_price: auction.prices.end,
-        start: auction.start,
-        end: auction.end,
+        start_price: auction_run_details.prices.start,
+        end_price: auction_run_details.prices.end,
+        start: auction_run_details.start,
+        end: auction_run_details.end,
+        auction_run_index: auction_run_index as u8
     });
 
     Ok(())

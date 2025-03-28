@@ -6,6 +6,7 @@ use shared::check_condition;
 use shared::constants::MAX_FOLIO_TOKEN_AMOUNTS;
 use shared::errors::ErrorCode;
 use shared::errors::ErrorCode::*;
+use shared::utils::{Decimal, Rounding};
 
 impl FolioBasket {
     /// Process the init if needed, meaning we initialize the account if it's not initialized yet and if it already is
@@ -121,13 +122,6 @@ impl FolioBasket {
                     .amount
                     .checked_sub(folio_token_amount.amount)
                     .ok_or(ErrorCode::MathOverflow)?;
-
-                if slot_to_update.amount == 0 {
-                    slot_to_update.mint = Pubkey::default();
-                    emit!(BasketTokenRemoved {
-                        token: folio_token_amount.mint
-                    });
-                }
             } else {
                 // Token haven't been found
                 return Err(error!(InvalidRemovedTokenMints));
@@ -137,22 +131,19 @@ impl FolioBasket {
         Ok(())
     }
 
-    /// Remove all amounts from the basket for the given mints.
+    /// Remove all amounts from the basket for the given mint.
     ///
     /// # Arguments
-    /// mints: The mints to tokens to remove from folio completely
+    /// mint: The mint to remove from the basket
     ///
-    pub fn remove_all_amounts_from_basket(&mut self, mints: &Vec<Pubkey>) -> Result<()> {
-        for mint in mints {
-            if let Some(slot_to_update) = self.token_amounts.iter_mut().find(|ta| ta.mint == *mint)
-            {
-                slot_to_update.amount = 0;
-                slot_to_update.mint = Pubkey::default();
-                emit!(BasketTokenRemoved { token: *mint });
-            } else {
-                // Token haven't been found
-                return Err(error!(InvalidRemovedTokenMints));
-            }
+    pub fn remove_token_mint_from_basket(&mut self, mint: Pubkey) -> Result<()> {
+        if let Some(slot_to_update) = self.token_amounts.iter_mut().find(|ta| ta.mint == mint) {
+            slot_to_update.amount = 0;
+            slot_to_update.mint = Pubkey::default();
+            emit!(BasketTokenRemoved { token: mint });
+        } else {
+            // Token haven't been found
+            return Err(error!(InvalidRemovedTokenMints));
         }
 
         Ok(())
@@ -194,5 +185,27 @@ impl FolioBasket {
     /// # Returns the token amount in the basket or zero if the token mint is not found.
     pub fn get_token_amount_in_folio_basket_or_zero(&self, mint: &Pubkey) -> u64 {
         self.get_token_amount_in_folio_basket(mint).unwrap_or(0)
+    }
+
+    /// Get the token amount in the basket or zero if the token mint is not found.
+    ///
+    /// # Arguments
+    /// * `mint` - The mint to get the balance for.
+    /// * `folio_token_supply` - The supply of the folio token.
+    ///
+    /// # Returns the token amount per share in the basket, scaled in D18
+    pub fn get_token_presence_per_share_in_basket(
+        &self,
+        mint: &Pubkey,
+        scaled_folio_token_total_supply: &Decimal,
+    ) -> Result<u128> {
+        let total_token_amount = self.get_token_amount_in_folio_basket_or_zero(mint);
+        if total_token_amount == 0 || scaled_folio_token_total_supply.is_zero() {
+            return Ok(0);
+        }
+
+        Decimal::from_token_amount(total_token_amount)?
+            .div(scaled_folio_token_total_supply)?
+            .to_scaled(Rounding::Ceiling)
     }
 }

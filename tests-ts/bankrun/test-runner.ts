@@ -14,4 +14,5 @@ describe("Bankrun", () => {
   require("./tests/tests-staking-user");
   require("./tests/tests-staking-governance");
   require("./tests/tests-staking-admin-2022");
+  require("./tests/tests-folio-token-metadata");
 });

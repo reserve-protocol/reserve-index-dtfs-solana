@@ -70,14 +70,17 @@ pub fn handler(ctx: Context<OpenAuctionPermissionless>) -> Result<()> {
 
     let current_time = Clock::get()?.unix_timestamp as u64;
 
-    auction.open_auction(folio, current_time)?;
+    let auction_run_index = auction.open_auction(folio, current_time, None)?;
+
+    let auction_run_details = auction.auction_run_details[auction_run_index];
 
     emit!(AuctionOpened {
         auction_id: auction.id,
-        start_price: auction.prices.start,
-        end_price: auction.prices.end,
-        start: auction.start,
-        end: auction.end,
+        auction_run_index: auction_run_index as u8,
+        start_price: auction_run_details.prices.start,
+        end_price: auction_run_details.prices.end,
+        start: auction_run_details.start,
+        end: auction_run_details.end,
     });
 
     Ok(())

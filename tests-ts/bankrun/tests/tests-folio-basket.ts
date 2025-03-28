@@ -15,7 +15,11 @@ import {
 } from "../bankrun-program-helper";
 
 import { getFolioBasketPDA, getFolioPDA } from "../../../utils/pda-helper";
-import { addToBasket, removeFromBasket } from "../bankrun-ix-helper";
+import {
+  addToBasket,
+  removeFromBasket,
+  setDustLimitForToken,
+} from "../bankrun-ix-helper";
 import {
   createAndSetFolio,
   Role,
@@ -76,26 +80,32 @@ describe("Bankrun - Folio basket", () => {
 
   const MINTS = [Keypair.generate(), Keypair.generate(), Keypair.generate()];
 
+  const notIncludedInFolioButInitalizedMint = Keypair.generate();
+
   const DEFAULT_PARAMS: {
     initialShares: BN;
     tokens: {
       mint: PublicKey;
       amount: BN;
     }[];
+    dustLimit: BN | null;
     alreadyIncludedTokens: FolioTokenAmount[];
-    removedMints: PublicKey[];
+    removedMint: PublicKey;
     remainingAccounts: () => AccountMeta[];
 
     // Expected changes
     expectedInitialBalanceSharesChange: BN;
     expectedTokenBalanceChanges: BN[];
     folioStatus: FolioStatus;
+    folioTokenMintSupply: BN | undefined;
   } = {
     initialShares: new BN(0),
     tokens: [],
+    dustLimit: null,
     alreadyIncludedTokens: [],
-    removedMints: [],
+    removedMint: MINTS[0].publicKey,
     remainingAccounts: () => [],
+    folioTokenMintSupply: undefined,
 
     // Expected changes
     expectedInitialBalanceSharesChange: new BN(0),
@@ -207,7 +217,8 @@ describe("Bankrun - Folio basket", () => {
       alreadyIncludedTokens: [
         new FolioTokenAmount(MINTS[0].publicKey, new BN(9000)),
       ],
-      removedMints: [Keypair.generate().publicKey],
+      folioTokenMintSupply: new BN(1),
+      removedMint: notIncludedInFolioButInitalizedMint.publicKey,
     },
     {
       desc: "(remove token that is in the basket, succeeds)",
@@ -215,16 +226,18 @@ describe("Bankrun - Folio basket", () => {
       alreadyIncludedTokens: [
         new FolioTokenAmount(MINTS[0].publicKey, new BN(18000)),
       ],
-      removedMints: [MINTS[0].publicKey],
+      removedMint: MINTS[0].publicKey,
     },
     {
-      desc: "(remove multiple tokens that are in the basket, succeeds)",
-      expectedError: null,
+      desc: "(removing token fails if the amount of token in folio is greater than the dust limit, fails)",
+      expectedError: "TokenPresenceInBasketMoreThanDustLimit",
       alreadyIncludedTokens: [
-        new FolioTokenAmount(MINTS[0].publicKey, new BN(12000)),
-        new FolioTokenAmount(MINTS[1].publicKey, new BN(300)),
+        new FolioTokenAmount(MINTS[0].publicKey, new BN(18000000)),
+        new FolioTokenAmount(MINTS[0].publicKey, new BN(18000000)),
       ],
-      removedMints: [MINTS[0].publicKey, MINTS[1].publicKey],
+      removedMint: MINTS[0].publicKey,
+      folioTokenMintSupply: new BN(18000000),
+      dustLimit: new BN(1),
     },
   ];
 
@@ -247,7 +260,10 @@ describe("Bankrun - Folio basket", () => {
     );
   }
 
-  async function initBaseCase(folioStatus?: FolioStatus) {
+  async function initBaseCase(
+    folioStatus?: FolioStatus,
+    folioTokenMintSupply?: BN
+  ) {
     await createAndSetFolio(
       context,
       programFolio,
@@ -256,13 +272,26 @@ describe("Bankrun - Folio basket", () => {
       folioStatus
     );
 
-    initToken(context, folioPDA, folioTokenMint, DEFAULT_DECIMALS);
+    initToken(
+      context,
+      folioPDA,
+      folioTokenMint,
+      DEFAULT_DECIMALS,
+      folioTokenMintSupply
+    );
 
     for (const mint of MINTS) {
       initToken(context, adminKeypair.publicKey, mint, DEFAULT_DECIMALS);
 
       mintToken(context, mint.publicKey, 1_000, folioOwnerKeypair.publicKey);
     }
+
+    initToken(
+      context,
+      adminKeypair.publicKey,
+      notIncludedInFolioButInitalizedMint.publicKey,
+      DEFAULT_DECIMALS
+    );
 
     await createAndSetActor(
       context,
@@ -318,8 +347,8 @@ describe("Bankrun - Folio basket", () => {
         programFolio,
         folioOwnerKeypair,
         folioPDA,
-        [],
-
+        MINTS[0].publicKey,
+        folioTokenMint.publicKey,
         true
       );
 
@@ -400,7 +429,6 @@ describe("Bankrun - Folio basket", () => {
           const {
             initialShares,
             tokens,
-            removedMints,
             alreadyIncludedTokens,
             remainingAccounts,
             expectedInitialBalanceSharesChange,
@@ -485,13 +513,10 @@ describe("Bankrun - Folio basket", () => {
                         ta.mint.equals(tokenAmount.mint)
                       )
                   ),
-                removedMints.map(
-                  (mint) => new TokenAmount(mint, new BN(0), new BN(0))
-                ),
+                [],
                 MAX_FOLIO_TOKEN_AMOUNTS,
                 new TokenAmount(PublicKey.default, new BN(0), new BN(0)),
-                (tokenAmount) =>
-                  !removedMints.some((ta) => ta.equals(tokenAmount.mint))
+                () => true
               );
 
               for (let i = 0; i < MAX_FOLIO_TOKEN_AMOUNTS; i++) {
@@ -499,36 +524,23 @@ describe("Bankrun - Folio basket", () => {
                   basket.tokenAmounts[i].mint.toString(),
                   expectedTokenAmounts[i].mint.toString()
                 );
-                const isRemoved = removedMints.some((ta) =>
-                  ta.equals(expectedTokenAmounts[i].mint)
+
+                const alreadyIncludedAmount =
+                  alreadyIncludedTokens.find((ta) =>
+                    ta.mint.equals(expectedTokenAmounts[i].mint)
+                  )?.amount ?? new BN(0);
+
+                const newAmountAdded =
+                  tokens.find((token) =>
+                    token.mint.equals(expectedTokenAmounts[i].mint)
+                  )?.amount ?? new BN(0);
+
+                const expectedAmount =
+                  alreadyIncludedAmount.add(newAmountAdded);
+                assert.equal(
+                  basket.tokenAmounts[i].amount.eq(expectedAmount),
+                  true
                 );
-                if (isRemoved) {
-                  assert.equal(
-                    basket.tokenAmounts[i].amount.eq(new BN(0)),
-                    true
-                  );
-                  assert.equal(
-                    basket.tokenAmounts[i].mint.equals(PublicKey.default),
-                    true
-                  );
-                } else {
-                  const alreadyIncludedAmount =
-                    alreadyIncludedTokens.find((ta) =>
-                      ta.mint.equals(expectedTokenAmounts[i].mint)
-                    )?.amount ?? new BN(0);
-
-                  const newAmountAdded =
-                    tokens.find((token) =>
-                      token.mint.equals(expectedTokenAmounts[i].mint)
-                    )?.amount ?? new BN(0);
-
-                  const expectedAmount =
-                    alreadyIncludedAmount.add(newAmountAdded);
-                  assert.equal(
-                    basket.tokenAmounts[i].amount.eq(expectedAmount),
-                    true
-                  );
-                }
               }
 
               // And assert transfer of token amounts & initial shares
@@ -557,13 +569,18 @@ describe("Bankrun - Folio basket", () => {
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {
           let txnResult: BanksTransactionResultWithMeta;
-          const { removedMints, alreadyIncludedTokens } = {
+          const {
+            removedMint,
+            alreadyIncludedTokens,
+            folioTokenMintSupply,
+            dustLimit,
+          } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
           };
 
           before(async () => {
-            await initBaseCase();
+            await initBaseCase(undefined, folioTokenMintSupply);
 
             if (alreadyIncludedTokens.length > 0) {
               await createAndSetFolioBasket(
@@ -574,6 +591,17 @@ describe("Bankrun - Folio basket", () => {
               );
               await travelFutureSlot(context);
             }
+            if (dustLimit) {
+              await setDustLimitForToken(
+                banksClient,
+                programFolio,
+                folioOwnerKeypair,
+                folioPDA,
+                removedMint,
+                dustLimit,
+                true
+              );
+            }
 
             await travelFutureSlot(context);
 
@@ -582,7 +610,8 @@ describe("Bankrun - Folio basket", () => {
               programFolio,
               folioOwnerKeypair,
               folioPDA,
-              removedMints,
+              folioTokenMint.publicKey,
+              removedMint,
 
               true
             );
@@ -603,13 +632,10 @@ describe("Bankrun - Folio basket", () => {
               const expectedTokenAmounts = buildExpectedArray(
                 alreadyIncludedTokens,
                 [],
-                removedMints.map(
-                  (mint) => new TokenAmount(mint, new BN(0), new BN(0))
-                ),
+                [new TokenAmount(removedMint, new BN(0), new BN(0))],
                 MAX_FOLIO_TOKEN_AMOUNTS,
                 new TokenAmount(PublicKey.default, new BN(0), new BN(0)),
-                (tokenAmount) =>
-                  !removedMints.some((ta) => ta.equals(tokenAmount.mint))
+                (tokenAmount) => !removedMint.equals(tokenAmount.mint)
               );
 
               for (let i = 0; i < MAX_FOLIO_TOKEN_AMOUNTS; i++) {
@@ -618,8 +644,8 @@ describe("Bankrun - Folio basket", () => {
                   expectedTokenAmounts[i].mint.toString()
                 );
 
-                const isRemoved = removedMints.some((ta) =>
-                  ta.equals(expectedTokenAmounts[i].mint)
+                const isRemoved = removedMint.equals(
+                  expectedTokenAmounts[i].mint
                 );
                 if (isRemoved) {
                   assert.equal(

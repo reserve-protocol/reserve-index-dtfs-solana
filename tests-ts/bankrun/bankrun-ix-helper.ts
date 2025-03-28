@@ -13,6 +13,7 @@ import {
   getUserPendingBasketPDA,
   getFolioFeeConfigPDA,
   getRewardTokensPDA,
+  getFolioTokenMetadataPDA,
 } from "../../utils/pda-helper";
 import {
   AccountMeta,
@@ -473,7 +474,8 @@ export async function removeFromBasket<T extends boolean = true>(
   programFolio: Program<Folio>,
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
-  tokensToRemove: PublicKey[],
+  folioTokenMint: PublicKey,
+  tokenToRemove: PublicKey,
   executeTxn: T = true as T
 ): Promise<
   T extends true
@@ -481,7 +483,7 @@ export async function removeFromBasket<T extends boolean = true>(
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
   const removeFromBasket = await programFolio.methods
-    .removeFromBasket(tokensToRemove)
+    .removeFromBasket()
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       folioOwner: !executeTxn
@@ -491,6 +493,9 @@ export async function removeFromBasket<T extends boolean = true>(
 
       folio: folio,
       folioBasket: getFolioBasketPDA(folio),
+      folioTokenMint: folioTokenMint,
+      tokenMint: tokenToRemove,
+      folioTokenMetadata: getFolioTokenMetadataPDA(folio, tokenToRemove),
     })
     .instruction();
 
@@ -874,6 +879,7 @@ export async function approveAuction<T extends boolean = true>(
   folio: PublicKey,
   auction: Auction,
   ttl: BN,
+  maxRuns: number = 1,
   executeTxn: T = true as T
 ): Promise<
   T extends true
@@ -885,8 +891,9 @@ export async function approveAuction<T extends boolean = true>(
       auction.id,
       auction.sellLimit,
       auction.buyLimit,
-      auction.prices,
-      ttl
+      auction.initialProposedPrice,
+      ttl,
+      maxRuns
     )
     .accountsPartial({
       systemProgram: SystemProgram.programId,
@@ -926,8 +933,8 @@ export async function openAuction<T extends boolean = true>(
     .openAuction(
       auctionData.sellLimit.spot,
       auctionData.buyLimit.spot,
-      auctionData.prices.start,
-      auctionData.prices.end
+      auctionData.initialProposedPrice.start,
+      auctionData.initialProposedPrice.end
     )
     .accountsPartial({
       systemProgram: SystemProgram.programId,
@@ -1584,4 +1591,38 @@ export async function withdrawLiquidityFromGovernance(
     ...getComputeLimitInstruction(800_000),
     withdrawIx,
   ]);
+}
+
+export async function setDustLimitForToken<T extends boolean = true>(
+  client: BanksClient,
+  programFolio: Program<Folio>,
+  userKeypair: Keypair,
+  folio: PublicKey,
+  tokenMint: PublicKey,
+  dustLimit: BN,
+  executeTxn: T = true as T
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const setDustLimitForToken = await programFolio.methods
+    .setDustLimitForToken(dustLimit)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      actor: getActorPDA(userKeypair.publicKey, folio),
+      folio,
+      tokenMint,
+      ownerOrAuctionLauncher: userKeypair.publicKey,
+      folioTokenMetadata: getFolioTokenMetadataPDA(folio, tokenMint),
+    })
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, userKeypair, [
+      setDustLimitForToken,
+    ]) as any;
+  }
+
+  return { ix: setDustLimitForToken, extraSigners: [] } as any;
 }

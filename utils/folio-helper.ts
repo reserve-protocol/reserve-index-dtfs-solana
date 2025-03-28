@@ -25,6 +25,7 @@ import {
   getAuctionPDA,
   getUserPendingBasketPDA,
   getFolioFeeConfigPDA,
+  getFolioTokenMetadataPDA,
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -331,18 +332,20 @@ export async function removeFromBasket(
   connection: Connection,
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
-  tokensToRemove: PublicKey[]
+  tokenToRemove: PublicKey
 ) {
   const folioProgram = getFolioProgram(connection, folioOwnerKeypair);
 
   const removeFromBasket = await folioProgram.methods
-    .removeFromBasket(tokensToRemove)
+    .removeFromBasket()
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       folioOwner: folioOwnerKeypair.publicKey,
       actor: getActorPDA(folioOwnerKeypair.publicKey, folio),
       folio: folio,
       folioBasket: getFolioBasketPDA(folio),
+      tokenMint: tokenToRemove,
+      folioTokenMetadata: getFolioTokenMetadataPDA(folio, tokenToRemove),
     })
     .instruction();
 
@@ -697,7 +700,8 @@ export async function approveAuction(
   buyLimit: { spot: BN; low: BN; high: BN },
   startPrice: BN,
   endPrice: BN,
-  ttl: BN
+  ttl: BN,
+  maxRuns: number = 1
 ) {
   const folioProgram = getFolioProgram(connection, auctionApproverKeypair);
 
@@ -707,7 +711,8 @@ export async function approveAuction(
       sellLimit,
       buyLimit,
       { start: startPrice, end: endPrice },
-      ttl
+      ttl,
+      maxRuns
     )
     .accountsPartial({
       systemProgram: SystemProgram.programId,

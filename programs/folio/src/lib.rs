@@ -167,9 +167,8 @@ pub mod folio {
 
     pub fn remove_from_basket<'info>(
         ctx: Context<'_, '_, 'info, 'info, RemoveFromBasket<'info>>,
-        removed_mints: Vec<Pubkey>,
     ) -> Result<()> {
-        remove_from_basket::handler(ctx, removed_mints)
+        remove_from_basket::handler(ctx)
     }
 
     pub fn kill_folio(ctx: Context<KillFolio>) -> Result<()> {
@@ -268,8 +267,11 @@ pub mod folio {
         buy_limit: BasketRange,
         prices: Prices,
         ttl: u64,
+        max_runs: u8,
     ) -> Result<()> {
-        approve_auction::handler(ctx, auction_id, sell_limit, buy_limit, prices, ttl)
+        approve_auction::handler(
+            ctx, auction_id, sell_limit, buy_limit, prices, ttl, max_runs,
+        )
     }
 
     pub fn open_auction<'info>(
@@ -314,6 +316,13 @@ pub mod folio {
             with_callback,
             callback_data,
         )
+    }
+
+    pub fn set_dust_limit_for_token<'info>(
+        ctx: Context<'_, '_, 'info, 'info, SetDustLimitForToken<'info>>,
+        dust_limit: u128,
+    ) -> Result<()> {
+        set_dust_limit_for_token::handler(ctx, dust_limit)
     }
 
     /*

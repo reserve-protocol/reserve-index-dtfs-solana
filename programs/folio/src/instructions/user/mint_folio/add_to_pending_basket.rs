@@ -6,7 +6,7 @@ use anchor_spl::{
 use shared::errors::ErrorCode;
 use shared::{
     check_condition,
-    constants::{PendingBasketType, FOLIO_BASKET_SEEDS, USER_PENDING_BASKET_SEEDS},
+    constants::{FOLIO_BASKET_SEEDS, USER_PENDING_BASKET_SEEDS},
 };
 
 use crate::state::{Folio, FolioBasket, UserPendingBasket};
@@ -166,10 +166,6 @@ pub fn handler<'info>(
             amount_for_redeeming: 0,
         });
     }
-
-    // Can't add new mints if it's for the folio, user should only be able to add what's in the folio's pending token amounts
-    let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
-    folio_basket.add_token_amounts_to_basket(&added_mints, PendingBasketType::MintProcess)?;
 
     UserPendingBasket::process_init_if_needed(
         &mut ctx.accounts.user_pending_basket,

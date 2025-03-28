@@ -69,7 +69,7 @@ pub fn handler<'info>(
     ctx.accounts
         .folio_basket
         .load_mut()?
-        .remove_tokens_from_basket(&removed_mints)?;
+        .remove_all_amounts_from_basket(&removed_mints)?;
 
     Ok(())
 }

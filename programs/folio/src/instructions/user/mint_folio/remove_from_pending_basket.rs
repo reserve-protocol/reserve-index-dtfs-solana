@@ -166,15 +166,6 @@ pub fn handler<'info>(
         });
     }
 
-    /*
-    Don't need to validate mint existence, as the folio might not have this mint anymore, but the user should
-    still be able to remove the amount his own pending token amounts.
-     */
-    ctx.accounts
-        .folio_basket
-        .load_mut()?
-        .remove_token_amounts_from_folio(&removed_mints, false, PendingBasketType::MintProcess)?;
-
     ctx.accounts
         .user_pending_basket
         .load_mut()?

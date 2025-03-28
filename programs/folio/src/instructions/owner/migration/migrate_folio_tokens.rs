@@ -4,11 +4,9 @@ use crate::{
     utils::FolioStatus,
 };
 use anchor_lang::{prelude::*, Discriminator};
+use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 use anchor_spl::token_interface;
 use anchor_spl::token_interface::{Mint, TokenInterface, TransferChecked};
-use anchor_spl::{
-    associated_token::get_associated_token_address_with_program_id, token_interface::TokenAccount,
-};
 use folio_admin::{state::ProgramRegistrar, ID as FOLIO_ADMIN_PROGRAM_ID};
 use shared::errors::ErrorCode;
 use shared::utils::account_util::next_account;
@@ -219,13 +217,8 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
             Mint::try_deserialize(&mut &data[..])?.decimals
         };
 
-        let raw_sender_token_account_amount = {
-            let data = sender_token_account.try_borrow_data()?;
-            TokenAccount::try_deserialize(&mut &data[..])?.amount
-        };
-
-        let raw_migrate_balance = old_folio_basket
-            .get_non_pending_balance(raw_sender_token_account_amount, token_mint.key)?;
+        let raw_migrate_balance =
+            old_folio_basket.get_token_amount_in_folio_basket(token_mint.key)?;
 
         let cpi_accounts = TransferChecked {
             from: sender_token_account.to_account_info(),
@@ -243,7 +236,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
         )?;
 
         // Remove the token from the old folio basket
-        old_folio_basket.remove_tokens_from_basket(&vec![token_mint.key()])?;
+        old_folio_basket.remove_all_amounts_from_basket(&vec![token_mint.key()])?;
     }
 
     Ok(())

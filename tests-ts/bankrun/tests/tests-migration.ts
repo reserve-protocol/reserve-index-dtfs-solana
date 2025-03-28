@@ -26,10 +26,10 @@ import {
   FolioStatus,
   createAndSetProgramRegistrar,
   createAndSetFolioBasket,
-  TokenAmount,
   createAndSetDaoFeeConfig,
   createAndSetFeeRecipients,
   createAndSetFeeDistribution,
+  FolioTokenAmount,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
 import {
@@ -105,7 +105,7 @@ describe("Bankrun - Folio migration", () => {
 
     secondFolioOwner: PublicKey;
 
-    initialFolioBasket: TokenAmount[];
+    initialFolioBasket: FolioTokenAmount[];
 
     isMigrating: boolean;
 
@@ -253,28 +253,24 @@ describe("Bankrun - Folio migration", () => {
       desc: "(migrate balance, has some pending redeeming and minting basket, valid)",
       expectedError: null,
       initialFolioBasket: [
-        new TokenAmount(MINTS[0].publicKey, new BN(100).mul(D9), new BN(0)),
-        new TokenAmount(
-          MINTS[1].publicKey,
-          new BN(200).mul(D9),
-          new BN(100).mul(D9)
-        ),
+        new FolioTokenAmount(MINTS[0].publicKey, new BN(100).mul(D9)),
+        new FolioTokenAmount(MINTS[1].publicKey, new BN(200).mul(D9)),
       ],
       tokens: [MINTS[0].publicKey, MINTS[1].publicKey],
       // Folio has 1000 in D9 total of each (negative as the old folio is losing them)
       expectedTokenBalanceChanges: [
-        new BN(900).mul(D9).neg(),
-        new BN(700).mul(D9).neg(),
-        new BN(900).mul(D9),
-        new BN(700).mul(D9),
+        new BN(100).mul(D9).neg(),
+        new BN(200).mul(D9).neg(),
+        new BN(100).mul(D9),
+        new BN(200).mul(D9),
       ],
     },
     {
       desc: "(migrate balance, has no pending redeeming and minting basket, valid)",
       expectedError: null,
       initialFolioBasket: [
-        new TokenAmount(MINTS[0].publicKey, new BN(0), new BN(0)),
-        new TokenAmount(MINTS[1].publicKey, new BN(0), new BN(0)),
+        new FolioTokenAmount(MINTS[0].publicKey, new BN(1000).mul(D9)),
+        new FolioTokenAmount(MINTS[1].publicKey, new BN(1000).mul(D9)),
       ],
       tokens: [MINTS[0].publicKey, MINTS[1].publicKey],
       // Folio has 1000 in D9 total of each (negative as the old folio is losing them)
@@ -316,7 +312,7 @@ describe("Bankrun - Folio migration", () => {
   async function initBaseCase(
     customFolioTokenMint: Keypair = null,
     secondFolioOwner: PublicKey = null,
-    initialFolioBasket: TokenAmount[] = [],
+    initialFolioBasket: FolioTokenAmount[] = [],
     // When second step of migration, we expect some changes to already be done
     isMigrating: boolean = false,
     includeSecondProgramInRegistrar: boolean = true,

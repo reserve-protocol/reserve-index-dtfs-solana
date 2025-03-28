@@ -5,6 +5,7 @@ mod tests {
     use anchor_lang::prelude::Pubkey;
     use folio::state::UserPendingBasket;
     use folio::utils::structs::TokenAmount;
+    use folio::utils::FolioTokenAmount;
     use shared::constants::{PendingBasketType, MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS};
     use shared::errors::ErrorCode;
     use shared::utils::Decimal;
@@ -14,7 +15,6 @@ mod tests {
         let mut pending = UserPendingBasket::default();
         let token = TokenAmount {
             mint: Pubkey::new_unique(),
-
             amount_for_minting: 100,
             amount_for_redeeming: 0,
         };
@@ -393,10 +393,9 @@ mod tests {
             amount_for_redeeming: 0,
         };
 
-        let mut folio_amount = TokenAmount {
+        let mut folio_amount = FolioTokenAmount {
             mint: user_amount.mint,
-            amount_for_minting: 100_000_000,
-            amount_for_redeeming: 0,
+            amount: 100_000_000,
         };
 
         // Total supply: 100 tokens
@@ -417,7 +416,7 @@ mod tests {
         assert!(result.is_ok());
 
         assert_eq!(user_amount.amount_for_minting, 0);
-        assert_eq!(folio_amount.amount_for_minting, 99_000_000);
+        assert_eq!(folio_amount.amount, 101_000_000);
     }
 
     #[test]
@@ -428,10 +427,9 @@ mod tests {
             amount_for_redeeming: 0,
         };
 
-        let mut related_mint = TokenAmount {
+        let mut related_mint = FolioTokenAmount {
             mint: user_amount.mint,
-            amount_for_minting: 100_000,
-            amount_for_redeeming: 0,
+            amount: 100_000,
         };
 
         let decimal_total_supply = Decimal::from_token_amount(100_000_000u128).unwrap();
@@ -461,10 +459,9 @@ mod tests {
             amount_for_redeeming: 0,
         };
 
-        let mut related_mint = TokenAmount {
+        let mut related_mint = FolioTokenAmount {
             mint: user_amount.mint,
-            amount_for_minting: u64::MAX,
-            amount_for_redeeming: 0,
+            amount: 0,
         };
 
         let decimal_total_supply = Decimal::from_token_amount(u64::MAX as u128).unwrap();
@@ -490,10 +487,9 @@ mod tests {
             amount_for_redeeming: 0,
         };
 
-        let mut related_mint = TokenAmount {
+        let mut related_mint = FolioTokenAmount {
             mint: user_amount.mint,
-            amount_for_minting: 1_000_000,
-            amount_for_redeeming: 0,
+            amount: 1_000_000,
         };
 
         let decimal_total_supply = Decimal::from_token_amount(100_000_000u128).unwrap();
@@ -510,7 +506,7 @@ mod tests {
 
         assert!(result.is_ok());
         assert_eq!(user_amount.amount_for_minting, 1_000_000); // Should remain unchanged
-        assert_eq!(related_mint.amount_for_minting, 1_000_000);
+        assert_eq!(related_mint.amount, 1_000_000);
     }
 
     #[test]
@@ -521,10 +517,9 @@ mod tests {
             amount_for_redeeming: 0,
         };
 
-        let mut related_mint = TokenAmount {
+        let mut related_mint = FolioTokenAmount {
             mint: user_amount.mint,
-            amount_for_minting: 1_000_000,
-            amount_for_redeeming: 0,
+            amount: 1_000_000,
         };
 
         let decimal_total_supply = Decimal::from_token_amount(0u128).unwrap();
@@ -550,10 +545,9 @@ mod tests {
             amount_for_redeeming: 0,
         };
 
-        let mut related_mint = TokenAmount {
+        let mut related_mint = FolioTokenAmount {
             mint: user_amount.mint,
-            amount_for_minting: 0,
-            amount_for_redeeming: 0,
+            amount: 20_000_000,
         };
 
         // Total supply: 100 tokens
@@ -575,7 +569,7 @@ mod tests {
 
         // Should receive 5 tokens (10% of 50 tokens)
         assert_eq!(user_amount.amount_for_redeeming, 5_000_000);
-        assert_eq!(related_mint.amount_for_redeeming, 5_000_000);
+        assert_eq!(related_mint.amount, 15_000_000);
     }
 
     #[test]
@@ -586,10 +580,9 @@ mod tests {
             amount_for_redeeming: 0,
         };
 
-        let mut related_mint = TokenAmount {
+        let mut related_mint = FolioTokenAmount {
             mint: user_amount.mint,
-            amount_for_minting: 0,
-            amount_for_redeeming: 0,
+            amount: 100_000_000,
         };
 
         let decimal_total_supply = Decimal::from_token_amount(3_000_000u128).unwrap();
@@ -607,7 +600,7 @@ mod tests {
         assert!(result.is_ok());
 
         assert_eq!(user_amount.amount_for_redeeming, 333_333);
-        assert_eq!(related_mint.amount_for_redeeming, 333_333);
+        assert_eq!(related_mint.amount, 99666667);
     }
 
     #[test]
@@ -618,10 +611,9 @@ mod tests {
             amount_for_redeeming: 0,
         };
 
-        let mut related_mint = TokenAmount {
+        let mut related_mint = FolioTokenAmount {
             mint: user_amount.mint,
-            amount_for_minting: 0,
-            amount_for_redeeming: 0,
+            amount: 0,
         };
 
         let decimal_total_supply = Decimal::from_token_amount(0u128).unwrap();
@@ -647,10 +639,9 @@ mod tests {
             amount_for_redeeming: 1_000_000,
         };
 
-        let mut related_mint = TokenAmount {
+        let mut related_mint = FolioTokenAmount {
             mint: user_amount.mint,
-            amount_for_minting: 0,
-            amount_for_redeeming: 1_000_000,
+            amount: 100_000_000,
         };
 
         let decimal_total_supply = Decimal::from_token_amount(100_000_000u128).unwrap();
@@ -667,7 +658,7 @@ mod tests {
 
         assert!(result.is_ok());
         assert_eq!(user_amount.amount_for_redeeming, 1_000_000); // Should remain unchanged
-        assert_eq!(related_mint.amount_for_redeeming, 1_000_000);
+        assert_eq!(related_mint.amount, 100000000);
     }
 
     #[test]
@@ -678,10 +669,9 @@ mod tests {
             amount_for_redeeming: 500_000,
         };
 
-        let mut related_mint = TokenAmount {
+        let mut related_mint = FolioTokenAmount {
             mint: user_amount.mint,
-            amount_for_minting: 1_000_000,
-            amount_for_redeeming: 500_000,
+            amount: 1_000_000,
         };
 
         let decimal_total_supply = Decimal::from_token_amount(100_000_000u128).unwrap();
@@ -699,6 +689,7 @@ mod tests {
 
         assert!(result.is_ok());
         assert_eq!(user_amount.amount_for_redeeming, 500_000); // Should remain unchanged
-        assert_eq!(related_mint.amount_for_redeeming, 500_000);
+        assert_eq!(user_amount.amount_for_minting, 500_000); // Is reduced to 1/2
+        assert_eq!(related_mint.amount, 1_500_000);
     }
 }

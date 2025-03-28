@@ -425,7 +425,7 @@ classDiagram
     class FolioBasket {
         +bump: u8
         +folio: Pubkey
-        +token_amounts: TokenAmount[]
+        +folio_token_amounts: FolioTokenAmount[]
     }
 
     class UserPendingBasket {

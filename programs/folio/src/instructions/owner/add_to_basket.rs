@@ -1,6 +1,7 @@
 use crate::events::BasketTokenAdded;
 use crate::state::{Actor, Folio, FolioBasket};
 use crate::utils::structs::{FolioStatus, Role};
+use crate::utils::FolioTokenAmount;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::{get_associated_token_address_with_program_id, AssociatedToken};
 use anchor_spl::token;
@@ -162,7 +163,7 @@ pub fn handler<'info>(
     let token_program_id = ctx.accounts.token_program.key();
     let folio_owner = ctx.accounts.folio_owner.to_account_info();
 
-    let mut added_mints: Vec<Pubkey> = vec![];
+    let mut folio_token_amounts: Vec<FolioTokenAmount> = vec![];
 
     check_condition!(
         remaining_accounts.len() % EXPECTED_REMAINING_ACCOUNTS_LENGTH == 0,
@@ -225,7 +226,10 @@ pub fn handler<'info>(
             mint.decimals,
         )?;
 
-        added_mints.push(token_mint.key());
+        folio_token_amounts.push(FolioTokenAmount {
+            mint: token_mint.key(),
+            amount: raw_amount,
+        });
 
         emit!(BasketTokenAdded {
             token: token_mint.key(),
@@ -236,7 +240,7 @@ pub fn handler<'info>(
         &mut ctx.accounts.folio_basket,
         ctx.bumps.folio_basket,
         &folio_key,
-        &added_mints,
+        &folio_token_amounts,
     )?;
 
     if raw_initial_shares.is_some() {

@@ -185,7 +185,7 @@ describe("Bankrun - Folio token metadata", () => {
                 );
 
               assert.equal(
-                folioTokenMetadata.dustAmount.toNumber(),
+                folioTokenMetadata.scaledDustAmount.toNumber(),
                 dustAmount.toNumber()
               );
               assert.equal(

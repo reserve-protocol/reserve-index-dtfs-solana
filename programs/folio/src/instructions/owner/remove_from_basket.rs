@@ -84,6 +84,12 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, RemoveFromBasket<'info>
     let folio = ctx.accounts.folio.load()?;
     ctx.accounts.validate(&folio)?;
 
+    FolioTokenMetadata::process_init_if_needed(
+        &mut ctx.accounts.folio_token_metadata,
+        ctx.bumps.folio_token_metadata,
+        &ctx.accounts.folio.key(),
+        &ctx.accounts.token_mint.key(),
+    )?;
     let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
 
     let scaled_folio_token_total_supply =
@@ -95,9 +101,9 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, RemoveFromBasket<'info>
         &scaled_folio_token_total_supply,
     )?;
 
-    let dust_limit = ctx.accounts.folio_token_metadata.dust_amount;
+    let scaled_dust_limit = ctx.accounts.folio_token_metadata.scaled_dust_amount;
     check_condition!(
-        basket_presence <= dust_limit,
+        basket_presence <= scaled_dust_limit,
         TokenPresenceInBasketMoreThanDustLimit
     );
 

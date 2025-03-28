@@ -358,7 +358,7 @@ pub struct FolioTokenMetadata {
     /// The dust limit of the token, Scaled in D18.
     /// Any amount of this token below this amount will be considered as dust and the overall token amount is less then or equal to this amount,
     /// the token will be removed from the basket.
-    pub dust_amount: u128,
+    pub scaled_dust_amount: u128,
 }
 
 impl FolioTokenMetadata {

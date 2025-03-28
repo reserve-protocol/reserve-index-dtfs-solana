@@ -49,7 +49,7 @@ impl SetDustLimitForToken<'_> {
     /// Validate the instruction.
     ///
     /// # Checks
-    /// * Folio has the correct status and actor has the correct role.
+    /// * Validate the folio and actor has the correct role.
     pub fn validate(&self, folio: &Folio) -> Result<()> {
         folio.validate_folio(
             &self.folio.key(),
@@ -67,23 +67,23 @@ impl SetDustLimitForToken<'_> {
 /// # Arguments
 /// * `ctx` - The context of the instruction.
 /// * `dust_limit` - The dust limit for the token.
-pub fn handler(ctx: Context<SetDustLimitForToken>, dust_limit: u128) -> Result<()> {
+pub fn handler(ctx: Context<SetDustLimitForToken>, scaled_dust_limit: u128) -> Result<()> {
     let folio = &mut ctx.accounts.folio.load()?;
     ctx.accounts.validate(folio)?;
 
     let folio_token_metadata = &mut ctx.accounts.folio_token_metadata;
-    if folio_token_metadata.mint == Pubkey::default() {
-        // The account is not initialized, initialize it.
-        folio_token_metadata.bump = ctx.bumps.folio_token_metadata;
-        folio_token_metadata.mint = ctx.accounts.token_mint.key();
-        folio_token_metadata.folio = ctx.accounts.folio.key();
-    }
-    folio_token_metadata.dust_amount = dust_limit;
+    FolioTokenMetadata::process_init_if_needed(
+        folio_token_metadata,
+        ctx.bumps.folio_token_metadata,
+        &ctx.accounts.folio.key(),
+        &ctx.accounts.token_mint.key(),
+    )?;
+    folio_token_metadata.scaled_dust_amount = scaled_dust_limit;
 
     emit!(DustLimitSetForToken {
         token: ctx.accounts.token_mint.key(),
         folio: ctx.accounts.folio.key(),
-        dust_limit,
+        scaled_dust_limit,
     });
 
     Ok(())

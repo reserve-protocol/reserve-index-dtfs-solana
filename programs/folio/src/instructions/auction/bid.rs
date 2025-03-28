@@ -179,6 +179,12 @@ pub fn handler(
     let auction = &mut ctx.accounts.auction.load_mut()?;
 
     ctx.accounts.validate(folio, auction)?;
+    FolioTokenMetadata::process_init_if_needed(
+        &mut ctx.accounts.folio_sell_token_metadata,
+        ctx.bumps.folio_sell_token_metadata,
+        &ctx.accounts.folio.key(),
+        &ctx.accounts.auction_sell_token_mint.key(),
+    )?;
 
     let current_time = Clock::get()?.unix_timestamp as u64;
 
@@ -267,17 +273,22 @@ pub fn handler(
         amount: raw_sell_amount,
     }])?;
 
-    let dust_limit = ctx.accounts.folio_sell_token_metadata.dust_amount;
+    let scaled_dust_limit = ctx.accounts.folio_sell_token_metadata.scaled_dust_amount;
     let basket_presence = folio_basket
         .get_token_presence_per_share_in_basket(&auction.sell, &scaled_folio_token_total_supply)?;
     // QoL: close auction if we have reached the sell limit
-    if basket_presence <= (raw_min_sell_balance as u128) + dust_limit {
+
+    let raw_min_sell_balance_with_dust_limit = scaled_dust_limit
+        .checked_add(raw_min_sell_balance.into())
+        .ok_or(error!(ErrorCode::MathOverflow))?;
+
+    if basket_presence <= raw_min_sell_balance_with_dust_limit {
         auction.auction_run_details[index_of_current_running_auction].end = current_time
             .checked_sub(1)
             .ok_or(error!(ErrorCode::MathOverflow))?;
         auction.closed_for_reruns = 1;
         // cannot update sellEnds/buyEnds due to possibility of parallel auctions
-        if basket_presence <= dust_limit {
+        if basket_presence <= scaled_dust_limit {
             // Remove all amounts from the basket
             // As the basket presence this token is 0 or below the dust limit set.
             folio_basket.remove_token_mint_from_basket(auction.sell)?;

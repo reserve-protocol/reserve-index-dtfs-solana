@@ -120,14 +120,15 @@ pub struct AuctionOpened {
 /// # Arguments
 /// * `token` - The token mint that the dust limit was set for.
 /// * `folio` - The folio that the dust limit was set for.
-/// * `dust_limit` - The dust limit for the token
+/// * `scaled_dust_limit` - The dust limit for the token, scaled in D18.
 #[event]
 pub struct DustLimitSetForToken {
     pub token: Pubkey,
 
     pub folio: Pubkey,
 
-    pub dust_limit: u128,
+    /// Scaled in D18
+    pub scaled_dust_limit: u128,
 }
 
 /// Event emitted when an auction is approved.

@@ -507,6 +507,10 @@ describe("Bankrun - Folio basket", () => {
                     basket.tokenAmounts[i].amount.eq(new BN(0)),
                     true
                   );
+                  assert.equal(
+                    basket.tokenAmounts[i].mint.equals(PublicKey.default),
+                    true
+                  );
                 } else {
                   const alreadyIncludedAmount =
                     alreadyIncludedTokens.find((ta) =>

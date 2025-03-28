@@ -101,7 +101,7 @@ impl FolioBasket {
         Ok(())
     }
 
-    /// Reduce the am
+    /// Reduce the amount of tokens in the basket.
     ///
     /// # Arguments
     /// * `folio_token_amounts` - The mints to remove from the basket.

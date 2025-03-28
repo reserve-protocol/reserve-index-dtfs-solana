@@ -23,7 +23,6 @@ const EXPECTED_REMAINING_ACCOUNTS_LENGTH: usize = 3;
 /// * `token_program` - The token program.
 /// * `user` - The user account (mut, signer).
 /// * `folio` - The folio account (PDA) (not mut, not signer).
-/// * `folio_basket` - The folio basket account (PDA) (mut, not signer).
 /// * `user_pending_basket` - The user pending basket account (PDA) (mut, not signer).
 ///
 /// * `remaining_accounts` - The remaining accounts will represent the tokens being redeemed from the pending basket.
@@ -45,7 +44,7 @@ pub struct RedeemFromPendingBasket<'info> {
     #[account()]
     pub folio: AccountLoader<'info, Folio>,
 
-    #[account(mut,
+    #[account(
         seeds = [FOLIO_BASKET_SEEDS, folio.key().as_ref()],
         bump
     )]
@@ -173,16 +172,6 @@ pub fn handler<'info>(
             amount_for_redeeming: raw_amount,
         });
     }
-
-    // Don't need to validate mint existence, as the folio might not have this mint anymore, but the user should
-    // still be able to remove the amount his own pending token amounts.
-    // let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
-    // TODO:
-    // folio_basket.remove_token_amounts_from_folio(
-    //     &removed_mints,
-    //     false,
-    //     PendingBasketType::RedeemProcess,
-    // )?;
 
     let user_pending_basket = &mut ctx.accounts.user_pending_basket.load_mut()?;
     user_pending_basket.remove_token_amounts_from_folio(

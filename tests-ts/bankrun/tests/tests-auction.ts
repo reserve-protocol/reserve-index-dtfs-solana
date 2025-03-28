@@ -19,6 +19,7 @@ import {
   getAuctionPDA,
 } from "../../../utils/pda-helper";
 import {
+  addToPendingBasket,
   approveAuction,
   bid,
   killAuction as closeAuction,
@@ -32,11 +33,11 @@ import {
   FolioStatus,
   createAndSetProgramRegistrar,
   createAndSetFolioBasket,
-  TokenAmount,
   Auction,
   createAndSetAuction,
   closeAccount,
   AuctionEnd,
+  FolioTokenAmount,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
 import {
@@ -116,9 +117,8 @@ describe("Bankrun - Auction", () => {
 
     customFolioTokenMint: Keypair;
 
-    extraTokenAmountsForFolioBasket: TokenAmount[];
-
-    initialFolioBasket: TokenAmount[];
+    extraTokenAmountsForFolioBasket: FolioTokenAmount[];
+    initialFolioBasket: FolioTokenAmount[];
 
     buyMints: PublicKey[];
     sellMints: PublicKey[];
@@ -135,8 +135,12 @@ describe("Bankrun - Auction", () => {
       data: Buffer;
       remainingAccounts: AccountMeta[];
     };
+    beforeCallback: () => Promise<void>;
 
     folioTokenSupply: BN;
+
+    // Tokens that are in folio basket of sell token
+    folioSellBalance: BN | null;
 
     sellOut: boolean;
 
@@ -151,8 +155,7 @@ describe("Bankrun - Auction", () => {
 
     initialFolioBasket: MINTS_IN_FOLIO.map((mint) => ({
       mint: mint.publicKey,
-      amountForMinting: new BN(0),
-      amountForRedeeming: new BN(0),
+      amount: new BN(100),
     })),
 
     buyMints: BUY_MINTS.map((mint) => mint.publicKey),
@@ -170,6 +173,8 @@ describe("Bankrun - Auction", () => {
       data: Buffer.from([]),
       remainingAccounts: [],
     }),
+    beforeCallback: () => Promise.resolve(),
+    folioSellBalance: null,
 
     folioTokenSupply: new BN(10_000),
 
@@ -248,6 +253,8 @@ describe("Bankrun - Auction", () => {
     {
       desc: "(sell amount > min sell balance, errors out)",
       expectedError: "InsufficientBalance",
+      // Tokens that are in folio basket of sell token
+      folioSellBalance: new BN(1000),
       sellAmount: new BN(1000000000001),
       maxBuyAmount: new BN(10000000000000),
     },
@@ -326,13 +333,11 @@ describe("Bankrun - Auction", () => {
       },
       initialFolioBasket: MINTS_IN_FOLIO.map((mint) => ({
         mint: mint.publicKey,
-        amountForMinting: new BN(500).mul(D9),
-        amountForRedeeming: new BN(500).mul(D9),
+        amount: new BN(1000).mul(D9),
       })),
       extraTokenAmountsForFolioBasket: MINTS_IN_FOLIO.map((mint) => ({
         mint: mint.publicKey,
-        amountForMinting: new BN(1000),
-        amountForRedeeming: new BN(0),
+        amount: new BN(1000),
       })),
       expectedTokenBalanceChanges: [
         new BN(1000).mul(D9),
@@ -340,6 +345,40 @@ describe("Bankrun - Auction", () => {
         new BN(1000).mul(D9).neg(),
         new BN(1000).mul(D9),
       ],
+    },
+    // Should be able to bid
+    {
+      desc: "(Should not be effected by pending basket, if is valid, sold out sell mint, updates auction end)",
+      expectedError: null,
+      // With decimals
+      sellAmount: new BN(1000).mul(D9),
+      maxBuyAmount: new BN(1000000000000),
+      sellOut: true,
+      auctionToUse: {
+        ...VALID_AUCTION,
+        buyLimit: {
+          ...VALID_AUCTION.buyLimit,
+          spot: new BN(1000).mul(D27),
+        },
+      },
+      expectedTokenBalanceChanges: [
+        new BN(1000000000000),
+        new BN(1000000000000).neg(),
+        new BN(1000000000000).neg(),
+        new BN(1000000000000),
+      ],
+      beforeCallback: async () => {
+        // Add to pending basket
+        await addToPendingBasket(
+          context,
+          banksClient,
+          programFolio,
+          bidderKeypair,
+          folioPDA,
+          [{ mint: DEFAULT_SELL_MINT.publicKey, amount: new BN(3000).mul(D9) }],
+          true
+        );
+      },
     },
   ];
 
@@ -366,9 +405,9 @@ describe("Bankrun - Auction", () => {
 
   async function initBaseCase(
     customFolioTokenMint: Keypair = null,
-    initialFolioBasket: TokenAmount[] = [],
+    initialFolioBasket: FolioTokenAmount[] = [],
     folioTokenSupply: BN = new BN(10_000),
-    extraTokenAmountsForFolioBasket: TokenAmount[] = []
+    extraTokenAmountsForFolioBasket: FolioTokenAmount[] = []
   ) {
     const folioTokenMintToUse = customFolioTokenMint || folioTokenMint;
 
@@ -406,10 +445,11 @@ describe("Bankrun - Auction", () => {
 
     for (const mint of MINTS_IN_FOLIO) {
       initToken(context, adminKeypair.publicKey, mint, DEFAULT_DECIMALS);
+      const amount =
+        initialFolioBasket.find((t) => t.mint.equals(mint.publicKey))?.amount ||
+        new BN(1_000);
 
-      // Mint the actual balance (not pending) for auction testing
-      const baseAmount = new BN(1_000);
-      mintToken(context, mint.publicKey, baseAmount.toNumber(), folioPDA);
+      mintToken(context, mint.publicKey, amount.toNumber(), folioPDA);
 
       // If you need pending amounts for specific tests, use extraTokenAmountsForFolioBasket
       const extraTokenAmount = extraTokenAmountsForFolioBasket.find((t) =>
@@ -419,10 +459,7 @@ describe("Bankrun - Auction", () => {
         mintToken(
           context,
           mint.publicKey,
-          baseAmount
-            .add(extraTokenAmount.amountForMinting)
-            .add(extraTokenAmount.amountForRedeeming)
-            .toNumber(),
+          amount.add(extraTokenAmount.amount).toNumber(),
           folioPDA
         );
       }
@@ -1180,6 +1217,8 @@ describe("Bankrun - Auction", () => {
           folioTokenSupply,
           sellOut,
           extraTokenAmountsForFolioBasket,
+          folioSellBalance,
+          beforeCallback,
         } = {
           ...DEFAULT_PARAMS,
           ...restOfParams,
@@ -1193,6 +1232,11 @@ describe("Bankrun - Auction", () => {
 
         before(async () => {
           const mintToUse = customFolioTokenMint || folioTokenMint;
+          initialFolioBasket.forEach((token) => {
+            if (token.mint.equals(sellMint.publicKey)) {
+              token.amount = folioSellBalance ?? new BN(sellAmount);
+            }
+          });
 
           await initBaseCase(
             mintToUse,
@@ -1215,6 +1259,10 @@ describe("Bankrun - Auction", () => {
 
           auctionToUse.start = currentTime;
           auctionToUse.end = currentTime.add(new BN(1000000000));
+
+          if (beforeCallback) {
+            await beforeCallback();
+          }
 
           await createAndSetAuction(
             context,

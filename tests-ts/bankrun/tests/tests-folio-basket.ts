@@ -26,6 +26,7 @@ import {
   TokenAmount,
   FolioStatus,
   getInvalidRemainingAccounts,
+  FolioTokenAmount,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
 import {
@@ -81,7 +82,7 @@ describe("Bankrun - Folio basket", () => {
       mint: PublicKey;
       amount: BN;
     }[];
-    alreadyIncludedTokens: TokenAmount[];
+    alreadyIncludedTokens: FolioTokenAmount[];
     removedMints: PublicKey[];
     remainingAccounts: () => AccountMeta[];
 
@@ -134,7 +135,7 @@ describe("Bankrun - Folio basket", () => {
       desc: "(basket being updated, mint already included, succeeds, no changes)",
       expectedError: null,
       alreadyIncludedTokens: [
-        new TokenAmount(MINTS[0].publicKey, new BN(0), new BN(0)),
+        new FolioTokenAmount(MINTS[0].publicKey, new BN(0)),
       ],
       tokens: [{ mint: MINTS[0].publicKey, amount: new BN(1_000_000_000) }],
       expectedTokenBalanceChanges: [
@@ -147,7 +148,7 @@ describe("Bankrun - Folio basket", () => {
       desc: "(basket being updated, max number of tokens added, fails)",
       expectedError: "MaxNumberOfTokensReached",
       alreadyIncludedTokens: Array(MAX_FOLIO_TOKEN_AMOUNTS).fill(
-        new TokenAmount(MINTS[0].publicKey, new BN(0), new BN(0))
+        new FolioTokenAmount(MINTS[0].publicKey, new BN(0))
       ),
       tokens: [{ mint: MINTS[1].publicKey, amount: new BN(1_000_000_000) }],
     },
@@ -169,7 +170,7 @@ describe("Bankrun - Folio basket", () => {
       desc: "(basket is updated successfully)",
       expectedError: null,
       alreadyIncludedTokens: [
-        new TokenAmount(MINTS[0].publicKey, new BN(0), new BN(0)),
+        new FolioTokenAmount(MINTS[0].publicKey, new BN(100)),
       ],
       tokens: [{ mint: MINTS[1].publicKey, amount: new BN(1_000_000_000) }],
       expectedTokenBalanceChanges: [
@@ -204,7 +205,7 @@ describe("Bankrun - Folio basket", () => {
       desc: "(remove token that is not in the basket, fails)",
       expectedError: "InvalidRemovedTokenMints",
       alreadyIncludedTokens: [
-        new TokenAmount(MINTS[0].publicKey, new BN(0), new BN(0)),
+        new FolioTokenAmount(MINTS[0].publicKey, new BN(9000)),
       ],
       removedMints: [Keypair.generate().publicKey],
     },
@@ -212,7 +213,7 @@ describe("Bankrun - Folio basket", () => {
       desc: "(remove token that is in the basket, succeeds)",
       expectedError: null,
       alreadyIncludedTokens: [
-        new TokenAmount(MINTS[0].publicKey, new BN(0), new BN(0)),
+        new FolioTokenAmount(MINTS[0].publicKey, new BN(18000)),
       ],
       removedMints: [MINTS[0].publicKey],
     },
@@ -220,8 +221,8 @@ describe("Bankrun - Folio basket", () => {
       desc: "(remove multiple tokens that are in the basket, succeeds)",
       expectedError: null,
       alreadyIncludedTokens: [
-        new TokenAmount(MINTS[0].publicKey, new BN(0), new BN(0)),
-        new TokenAmount(MINTS[1].publicKey, new BN(0), new BN(0)),
+        new FolioTokenAmount(MINTS[0].publicKey, new BN(12000)),
+        new FolioTokenAmount(MINTS[1].publicKey, new BN(300)),
       ],
       removedMints: [MINTS[0].publicKey, MINTS[1].publicKey],
     },
@@ -498,18 +499,36 @@ describe("Bankrun - Folio basket", () => {
                   basket.tokenAmounts[i].mint.toString(),
                   expectedTokenAmounts[i].mint.toString()
                 );
-                assert.equal(
-                  basket.tokenAmounts[i].amountForMinting.eq(
-                    expectedTokenAmounts[i].amountForMinting
-                  ),
-                  true
+                const isRemoved = removedMints.some((ta) =>
+                  ta.equals(expectedTokenAmounts[i].mint)
                 );
-                assert.equal(
-                  basket.tokenAmounts[i].amountForRedeeming.eq(
-                    expectedTokenAmounts[i].amountForRedeeming
-                  ),
-                  true
-                );
+                if (isRemoved) {
+                  assert.equal(
+                    basket.tokenAmounts[i].amount.eq(new BN(0)),
+                    true
+                  );
+                  assert.equal(
+                    basket.tokenAmounts[i].mint.equals(PublicKey.default),
+                    true
+                  );
+                } else {
+                  const alreadyIncludedAmount =
+                    alreadyIncludedTokens.find((ta) =>
+                      ta.mint.equals(expectedTokenAmounts[i].mint)
+                    )?.amount ?? new BN(0);
+
+                  const newAmountAdded =
+                    tokens.find((token) =>
+                      token.mint.equals(expectedTokenAmounts[i].mint)
+                    )?.amount ?? new BN(0);
+
+                  const expectedAmount =
+                    alreadyIncludedAmount.add(newAmountAdded);
+                  assert.equal(
+                    basket.tokenAmounts[i].amount.eq(expectedAmount),
+                    true
+                  );
+                }
               }
 
               // And assert transfer of token amounts & initial shares
@@ -598,18 +617,27 @@ describe("Bankrun - Folio basket", () => {
                   basket.tokenAmounts[i].mint.toString(),
                   expectedTokenAmounts[i].mint.toString()
                 );
-                assert.equal(
-                  basket.tokenAmounts[i].amountForMinting.eq(
-                    expectedTokenAmounts[i].amountForMinting
-                  ),
-                  true
+
+                const isRemoved = removedMints.some((ta) =>
+                  ta.equals(expectedTokenAmounts[i].mint)
                 );
-                assert.equal(
-                  basket.tokenAmounts[i].amountForRedeeming.eq(
-                    expectedTokenAmounts[i].amountForRedeeming
-                  ),
-                  true
-                );
+                if (isRemoved) {
+                  assert.equal(
+                    basket.tokenAmounts[i].amount.eq(new BN(0)),
+                    true
+                  );
+                } else {
+                  const alreadyIncludedAmount =
+                    alreadyIncludedTokens.find((ta) =>
+                      ta.mint.equals(expectedTokenAmounts[i].mint)
+                    )?.amount ?? new BN(0);
+
+                  const expectedAmount = alreadyIncludedAmount;
+                  assert.equal(
+                    basket.tokenAmounts[i].amount.eq(expectedAmount),
+                    true
+                  );
+                }
               }
             });
           }

@@ -1,9 +1,9 @@
 use std::cell::RefMut;
 
 use crate::utils::structs::TokenAmount;
+use crate::utils::FolioTokenAmount;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
-use anchor_spl::token::TokenAccount;
 use shared::check_condition;
 use shared::constants::{
     PendingBasketType, MAX_FOLIO_TOKEN_AMOUNTS, MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
@@ -300,13 +300,7 @@ impl UserPendingBasket {
 
             let raw_user_amount = &mut self.token_amounts[user_index];
 
-            let data = folio_token_account.try_borrow_data()?;
-            let folio_token_account = TokenAccount::try_deserialize(&mut &data[..])?;
-
-            let raw_folio_token_balance =
-                FolioBasket::get_clean_token_balance(folio_token_account.amount, related_mint)?;
-
-            let scaled_folio_token_balance = Decimal::from_token_amount(raw_folio_token_balance)?;
+            let scaled_folio_token_balance = Decimal::from_token_amount(related_mint.amount)?;
 
             match pending_basket_type {
                 PendingBasketType::MintProcess => {
@@ -338,13 +332,13 @@ impl UserPendingBasket {
     ///
     /// # Arguments
     /// * `raw_user_amount` - The user's pending amount for minting (D9).
-    /// * `raw_related_mint_amount` - The folio's amount for minting (D9).
+    /// * `folio_token_amount` - The folio token amount to update.
     /// * `scaled_total_supply_folio_token` - The total supply of the folio mint token (D9).
     /// * `scaled_folio_token_balance` - The balance of the folio in folio mint token (D9).
     /// * `raw_shares` - The shares to convert to assets. (the amount of shares the user wants to mint) (D9).
     pub fn to_assets_for_minting(
         raw_user_amount: &mut TokenAmount,
-        raw_related_mint_amount: &mut TokenAmount,
+        folio_token_amount: &mut FolioTokenAmount,
         scaled_total_supply_folio_token: &Decimal,
         scaled_folio_token_balance: &Decimal,
         raw_shares: u64,
@@ -365,14 +359,16 @@ impl UserPendingBasket {
             .div(scaled_total_supply_folio_token)?
             .to_token_amount(Rounding::Ceiling)?;
 
-        // Remove from pending amounts in both the folio's basket and the user's pending basket
+        // Remove from pending amounts from the user's pending basket
         raw_user_amount.amount_for_minting = raw_user_amount
             .amount_for_minting
             .checked_sub(raw_user_amount_taken.0)
             .ok_or(ErrorCode::MathOverflow)?;
-        raw_related_mint_amount.amount_for_minting = raw_related_mint_amount
-            .amount_for_minting
-            .checked_sub(raw_user_amount_taken.0)
+
+        // Add the amount to folio token amount
+        folio_token_amount.amount = folio_token_amount
+            .amount
+            .checked_add(raw_user_amount_taken.0)
             .ok_or(ErrorCode::MathOverflow)?;
 
         Ok(())
@@ -383,13 +379,13 @@ impl UserPendingBasket {
     ///
     /// # Arguments
     /// * `raw_user_amount` - The user's pending amount for redeeming (D9).
-    /// * `raw_related_mint_amount` - The folio's amount for redeeming (D9).
+    /// * `folio_token_amount` - The folio token amount to update.
     /// * `scaled_total_supply_folio_token` - The total supply of the folio mint token (D9).
     /// * `scaled_folio_token_balance` - The balance of the folio in folio mint token (D9).
     /// * `raw_shares` - The shares to convert to assets. (the amount of shares the user wants to redeem) (D9).
     pub fn to_assets_for_redeeming(
         raw_user_amount: &mut TokenAmount,
-        raw_related_mint_amount: &mut TokenAmount,
+        folio_token_amount: &mut FolioTokenAmount,
         scaled_total_supply_folio_token: &Decimal,
         scaled_folio_token_balance: &Decimal,
         raw_shares: u64,
@@ -399,14 +395,16 @@ impl UserPendingBasket {
             .div(scaled_total_supply_folio_token)?
             .to_token_amount(Rounding::Floor)?;
 
-        // Add to pending amounts in both the folio's basket and the user's pending basket
+        // Add to pending amounts in the user's pending basket
         raw_user_amount.amount_for_redeeming = raw_user_amount
             .amount_for_redeeming
             .checked_add(raw_amount_to_give_to_user.0)
             .ok_or(ErrorCode::MathOverflow)?;
-        raw_related_mint_amount.amount_for_redeeming = raw_related_mint_amount
-            .amount_for_redeeming
-            .checked_add(raw_amount_to_give_to_user.0)
+
+        // Remove the amount from folio token amount
+        folio_token_amount.amount = folio_token_amount
+            .amount
+            .checked_sub(raw_amount_to_give_to_user.0)
             .ok_or(ErrorCode::MathOverflow)?;
 
         Ok(())

@@ -521,7 +521,7 @@ describe("Bankrun - Folio basket", () => {
 
               for (let i = 0; i < MAX_FOLIO_TOKEN_AMOUNTS; i++) {
                 assert.equal(
-                  basket.tokenAmounts[i].mint.toString(),
+                  basket.basket.tokenAmounts[i].mint.toString(),
                   expectedTokenAmounts[i].mint.toString()
                 );
 
@@ -538,7 +538,7 @@ describe("Bankrun - Folio basket", () => {
                 const expectedAmount =
                   alreadyIncludedAmount.add(newAmountAdded);
                 assert.equal(
-                  basket.tokenAmounts[i].amount.eq(expectedAmount),
+                  basket.basket.tokenAmounts[i].amount.eq(expectedAmount),
                   true
                 );
               }
@@ -640,7 +640,7 @@ describe("Bankrun - Folio basket", () => {
 
               for (let i = 0; i < MAX_FOLIO_TOKEN_AMOUNTS; i++) {
                 assert.equal(
-                  basket.tokenAmounts[i].mint.toString(),
+                  basket.basket.tokenAmounts[i].mint.toString(),
                   expectedTokenAmounts[i].mint.toString()
                 );
 
@@ -649,7 +649,7 @@ describe("Bankrun - Folio basket", () => {
                 );
                 if (isRemoved) {
                   assert.equal(
-                    basket.tokenAmounts[i].amount.eq(new BN(0)),
+                    basket.basket.tokenAmounts[i].amount.eq(new BN(0)),
                     true
                   );
                 } else {
@@ -660,7 +660,7 @@ describe("Bankrun - Folio basket", () => {
 
                   const expectedAmount = alreadyIncludedAmount;
                   assert.equal(
-                    basket.tokenAmounts[i].amount.eq(expectedAmount),
+                    basket.basket.tokenAmounts[i].amount.eq(expectedAmount),
                     true
                   );
                 }

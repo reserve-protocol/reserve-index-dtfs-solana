@@ -180,10 +180,13 @@ export class TestHelper {
     if (expectedDifferences.length > 0) {
       indices.forEach((index) => {
         const afterValue =
-          after.userPendingAmounts.tokenAmounts[index][property].toNumber();
+          after.userPendingAmounts.basket.tokenAmounts[index][
+            property
+          ].toNumber();
         const expectedValue =
-          before.userPendingAmounts.tokenAmounts[index][property].toNumber() +
-          expectedDifferences[index][0];
+          before.userPendingAmounts.basket.tokenAmounts[index][
+            property
+          ].toNumber() + expectedDifferences[index][0];
 
         if (isEstimate) {
           assert.equal(this.floor(afterValue), this.floor(expectedValue));
@@ -192,9 +195,11 @@ export class TestHelper {
         }
 
         const afterFolioValue =
-          after.folioBasketAmounts.tokenAmounts[index].amount.toNumber();
+          after.folioBasketAmounts.basket.tokenAmounts[index].amount.toNumber();
         const beforeFolioValue =
-          before.folioBasketAmounts.tokenAmounts[index].amount.toNumber();
+          before.folioBasketAmounts.basket.tokenAmounts[
+            index
+          ].amount.toNumber();
         if (folioBasketChanged) {
           const expectedDifference = expectedDifferences[index][1];
           let expectedFolioValue =

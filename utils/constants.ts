@@ -56,8 +56,8 @@ export const MAX_TTL = new BN(604800 * 4);
 export const MAX_RATE = new BN("1000000000000000000000000000");
 
 export const MAX_FEE_RECIPIENTS = 64;
-export const MAX_FOLIO_TOKEN_AMOUNTS = 16;
-export const MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS = 20;
+export const MAX_FOLIO_TOKEN_AMOUNTS = 100;
+export const MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS = 110;
 export const TOTAL_PORTION_FEE_RECIPIENT = new BN("1000000000000000000");
 export const MAX_REWARD_TOKENS = 4;
 export const MAX_CONCURRENT_AUCTIONS = 16;
@@ -70,7 +70,7 @@ export const MIN_REWARD_HALF_LIFE = new BN(86400);
 /*
 Constants for variables used in the tests, don't match with anything on the on-chain program's side.
 */
-export const MAX_TOKENS_IN_BASKET = 16;
+export const MAX_TOKENS_IN_BASKET = 100;
 export const FEE_NUMERATOR: BN = new BN("500000000000000000"); // 50% in D18
 
 export const MAX_SINGLE_AUCTION_RUNS = 10;

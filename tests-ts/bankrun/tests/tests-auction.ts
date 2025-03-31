@@ -1582,9 +1582,10 @@ describe("Bankrun - Auction", () => {
                 getAuctionPDA(folioPDA, auctionToUse.id)
               );
 
-              const folioBasketSellMint = folioBasketAfter.tokenAmounts.find(
-                (token) => token.mint.equals(sellMint.publicKey)
-              );
+              const folioBasketSellMint =
+                folioBasketAfter.basket.tokenAmounts.find((token) =>
+                  token.mint.equals(sellMint.publicKey)
+                );
 
               const currentTimeAfter = new BN(
                 (await context.banksClient.getClock()).unixTimestamp.toString()
@@ -1599,9 +1600,10 @@ describe("Bankrun - Auction", () => {
             }
 
             // Buy mint should be added to the folio basket
-            const folioBasketBuyMint = folioBasketAfter.tokenAmounts.find(
-              (token) => token.mint.equals(buyMint.publicKey)
-            );
+            const folioBasketBuyMint =
+              folioBasketAfter.basket.tokenAmounts.find((token) =>
+                token.mint.equals(buyMint.publicKey)
+              );
 
             assert.notEqual(folioBasketBuyMint, null);
           });

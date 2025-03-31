@@ -6,6 +6,7 @@ import {
   addToBasket,
   addToPendingBasket,
   approveAuction,
+  burnFolioToken,
   initFolio,
   mintFolioToken,
   openAuction,
@@ -24,7 +25,7 @@ import {
   MAX_TTL,
 } from "../utils/constants";
 import { Folio } from "../target/types/folio";
-import { getAuctionPDA } from "../utils/pda-helper";
+import { getAuctionPDA, getFolioBasketPDA } from "../utils/pda-helper";
 import { assert } from "chai";
 
 /**
@@ -92,58 +93,57 @@ describe("Extreme Folio Tests", () => {
     );
 
     // Create the tokens that can be included in the folio
-    for (const tokenMint of tokenMints) {
-      await initToken(
-        connection,
-        adminKeypair,
-        tokenMint.mint,
-        tokenMint.decimals // to test different decimals
-      );
-      await mintToken(
-        connection,
-        adminKeypair,
-        tokenMint.mint.publicKey,
-        1_000,
-        folioOwnerKeypair.publicKey
-      );
+    await Promise.all(
+      tokenMints.map(async (tokenMint) => {
+        await initToken(
+          connection,
+          adminKeypair,
+          tokenMint.mint,
+          tokenMint.decimals // to test different decimals
+        );
+        await mintToken(
+          connection,
+          adminKeypair,
+          tokenMint.mint.publicKey,
+          1_000,
+          folioOwnerKeypair.publicKey
+        );
 
-      await mintToken(
-        connection,
-        adminKeypair,
-        tokenMint.mint.publicKey,
-        1_000,
-        userKeypair.publicKey
-      );
-    }
+        await mintToken(
+          connection,
+          adminKeypair,
+          tokenMint.mint.publicKey,
+          1_000,
+          userKeypair.publicKey
+        );
+      })
+    );
 
     // Add tokens to the folio basket
-    for (let i = 0; i < tokenMints.length; i += BATCH_SIZE) {
-      const batch = tokenMints.slice(i, i + BATCH_SIZE).map((token) => ({
-        mint: token.mint.publicKey,
-        amount: new BN(100 * 10 ** token.decimals),
-      }));
+    await Promise.all(
+      Array.from(
+        { length: Math.ceil(tokenMints.length / BATCH_SIZE) },
+        (_, index) => {
+          const start = index * BATCH_SIZE;
+          const batch = tokenMints
+            .slice(start, start + BATCH_SIZE)
+            .map((token) => ({
+              mint: token.mint.publicKey,
+              amount: new BN(100 * 10 ** token.decimals),
+            }));
 
-      if (i + BATCH_SIZE < tokenMints.length) {
-        await addToBasket(
-          connection,
-          folioOwnerKeypair,
-          folioPDA,
-          batch,
-          null,
-          folioTokenMint.publicKey
-        );
-      } else {
-        //10 shares, mint decimals for folio token is 9
-        await addToBasket(
-          connection,
-          folioOwnerKeypair,
-          folioPDA,
-          batch,
-          new BN(10 * DEFAULT_DECIMALS_MUL),
-          folioTokenMint.publicKey
-        );
-      }
-    }
+          const isLastBatch = start + BATCH_SIZE >= tokenMints.length;
+          return addToBasket(
+            connection,
+            folioOwnerKeypair,
+            folioPDA,
+            batch,
+            isLastBatch ? new BN(10 * DEFAULT_DECIMALS_MUL) : null, // 10 shares, mint decimals for folio token is 9
+            folioTokenMint.publicKey
+          );
+        }
+      )
+    );
 
     await setDaoFeeConfig(
       connection,
@@ -155,24 +155,28 @@ describe("Extreme Folio Tests", () => {
   });
 
   it("should allow user to init his pending basket and mint folio tokens with all token mints we have", async () => {
-    for (let i = 0; i < tokenMints.length; i += BATCH_SIZE) {
-      const batch = tokenMints.slice(i, i + BATCH_SIZE).map((token) => ({
-        mint: token.mint.publicKey,
-        amount: new BN(100 * 10 ** token.decimals),
-      }));
+    await Promise.all(
+      Array.from(
+        { length: Math.ceil(tokenMints.length / BATCH_SIZE) },
+        (_, index) => {
+          const start = index * BATCH_SIZE;
+          const batch = tokenMints
+            .slice(start, start + BATCH_SIZE)
+            .map((token) => ({
+              mint: token.mint.publicKey,
+              amount: new BN(100 * 10 ** token.decimals),
+            }));
 
-      await addToPendingBasket(connection, userKeypair, folioPDA, batch);
-    }
+          return addToPendingBasket(connection, userKeypair, folioPDA, batch);
+        }
+      )
+    );
 
     await mintFolioToken(
       connection,
       userKeypair,
       folioPDA,
       folioTokenMint.publicKey,
-      tokenMints.map((token) => ({
-        mint: token.mint.publicKey,
-        amount: new BN(0),
-      })),
       new BN(3 * DEFAULT_DECIMALS_MUL)
     );
   });
@@ -241,5 +245,34 @@ describe("Extreme Folio Tests", () => {
     assert.notEqual(sellEnd.endTime.toNumber(), 0);
     assert.strictEqual(buyEnd.mint.toString(), buyMint.toString());
     assert.notEqual(buyEnd.endTime.toNumber(), 0);
+  });
+
+  it("should burn and increase the user pending basket", async () => {
+    const folioBasketBefore = await programFolio.account.folioBasket.fetch(
+      getFolioBasketPDA(folioPDA)
+    );
+    await burnFolioToken(
+      connection,
+      userKeypair,
+      folioPDA,
+      folioTokenMint.publicKey,
+      new BN(2 * DEFAULT_DECIMALS_MUL)
+    );
+
+    const folioBasketAfter = await programFolio.account.folioBasket.fetch(
+      getFolioBasketPDA(folioPDA)
+    );
+    for (let i = 0; i < tokenMints.length; i++) {
+      const tokenAmountBefore = folioBasketBefore.basket.tokenAmounts[i];
+      if (tokenAmountBefore.mint.equals(PublicKey.default)) {
+        continue;
+      }
+      const tokenAmountAfter = folioBasketAfter.basket.tokenAmounts[i];
+
+      assert.isTrue(
+        tokenAmountAfter.amount.lte(tokenAmountBefore.amount),
+        `Burn failed: Token ${tokenAmountBefore.mint.toString()} amount after is greater than before.`
+      );
+    }
   });
 });

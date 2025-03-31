@@ -143,6 +143,9 @@ test-amman skip_build="":
     # Run tests
     @anchor test --skip-local-validator --skip-deploy --skip-build
 
+    # Kill solana-test-validator after tests
+    @killall solana-test-validator || true
+
 test-bankrun skip_build="":
     # Go to git workspace root
     @cd "$(git rev-parse --show-toplevel)" || exit 1

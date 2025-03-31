@@ -31,8 +31,6 @@ use shared::{
 /// * `folio_basket` - The folio basket account (PDA) (mut, not signer).
 /// * `user_pending_basket` - The user pending basket account (PDA) (mut, not signer).
 /// * `user_folio_token_account` - The user folio token account (PDA) (mut, not signer).
-///
-/// * `remaining_accounts` - The remaining accounts will represent the folio token accounts of the Folio
 #[derive(Accounts)]
 pub struct MintFolioToken<'info> {
     pub system_program: Program<'info, System>,
@@ -80,12 +78,6 @@ pub struct MintFolioToken<'info> {
         associated_token::authority = user,
     )]
     pub user_folio_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
-    /*
-    The remaining accounts need to match the order of amounts as parameter
-
-    Remaining accounts will have as many as possible of the following (always in the same order):
-        - Folio Token Account (in same order as pending token amounts)
-     */
 }
 
 impl MintFolioToken<'_> {
@@ -139,20 +131,10 @@ pub fn handler<'info>(
         folio.bump
     };
 
-    let remaining_accounts = &ctx.remaining_accounts;
-
-    let folio_key = ctx.accounts.folio.key();
     let token_mint_key = ctx.accounts.folio_token_mint.key();
-    let token_program_id = ctx.accounts.token_program.key();
     let current_time = Clock::get()?.unix_timestamp;
 
     let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
-
-    // Validate the user passes as many remaining accounts as the folio has mints (validation on those mints is done later)
-    check_condition!(
-        folio_basket.get_total_number_of_mints() == remaining_accounts.len() as u8,
-        InvalidNumberOfRemainingAccounts
-    );
 
     let token_amounts_user = &mut ctx.accounts.user_pending_basket.load_mut()?;
 
@@ -169,12 +151,9 @@ pub fn handler<'info>(
         token_amounts_user.to_assets(
             raw_shares,
             ctx.accounts.folio_token_mint.supply,
-            &folio_key,
-            &token_program_id,
             folio_basket,
             folio,
             PendingBasketType::MintProcess,
-            remaining_accounts,
             current_time,
             fee_details.scaled_fee_numerator,
             fee_details.scaled_fee_denominator,

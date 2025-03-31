@@ -545,7 +545,7 @@ describe("Folio Tests", () => {
       await programFolio.account.userPendingBasket.fetch(userPendingBasketPDA);
 
     assert.equal(
-      userPendingBasket.tokenAmounts[0].amountForMinting.toNumber(),
+      userPendingBasket.basket.tokenAmounts[0].amountForMinting.toNumber(),
       100 * 10 ** tokenMints[0].decimals
     );
   });
@@ -618,10 +618,6 @@ describe("Folio Tests", () => {
           userKeypair,
           folioPDA,
           folioTokenMint.publicKey,
-          tokenMints.map((token) => ({
-            mint: token.mint.publicKey,
-            amount: new BN(0),
-          })),
           new BN(1)
         ),
       "MintMismatch",
@@ -712,10 +708,6 @@ describe("Folio Tests", () => {
       userKeypair,
       folioPDA,
       folioTokenMint.publicKey,
-      tokenMints.map((token) => ({
-        mint: token.mint.publicKey,
-        amount: new BN(0),
-      })),
       sharesToMint
     );
 
@@ -767,11 +759,7 @@ describe("Folio Tests", () => {
       userKeypair,
       folioPDA,
       folioTokenMint.publicKey,
-      new BN(2).mul(new BN(DEFAULT_DECIMALS_MUL)),
-      tokenMints.map((token) => ({
-        mint: token.mint.publicKey,
-        amount: new BN(0),
-      }))
+      new BN(2).mul(new BN(DEFAULT_DECIMALS_MUL))
     );
 
     const afterSnapshot = await folioTestHelper.getBalanceSnapshot(

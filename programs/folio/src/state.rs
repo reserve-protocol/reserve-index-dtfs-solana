@@ -1,12 +1,9 @@
 use crate::utils::{
-    structs::{AuctionEnd, BasketRange, FeeRecipient, TokenAmount},
-    AuctionRunDetails, FixedSizeString, FolioTokenAmount, Prices,
+    structs::{AuctionEnd, BasketRange, FeeRecipient},
+    AuctionRunDetails, FixedSizeString, FolioTokenBasket, Prices, UserTokenBasket,
 };
 use anchor_lang::prelude::*;
-use shared::constants::{
-    MAX_CONCURRENT_AUCTIONS, MAX_FEE_RECIPIENTS, MAX_FOLIO_TOKEN_AMOUNTS, MAX_SINGLE_AUCTION_RUNS,
-    MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
-};
+use shared::constants::{MAX_CONCURRENT_AUCTIONS, MAX_FEE_RECIPIENTS, MAX_SINGLE_AUCTION_RUNS};
 
 /// Actor is used to track permissions of different addresses on a folio. This is done via
 /// the role property and a bitwise operation.
@@ -189,7 +186,7 @@ impl Default for FeeDistribution {
 /// zero_copy
 /// PDA Seeds ["folio_basket", folio pubkey]
 #[account(zero_copy)]
-#[derive(InitSpace)]
+#[derive(InitSpace, Default)]
 pub struct FolioBasket {
     pub bump: u8,
 
@@ -201,35 +198,24 @@ pub struct FolioBasket {
 
     /// Represents the amount frozen for minting as well as the amount frozen for redeeming PER token in the basket.
     /// Default pubkey means not set.
-    pub token_amounts: [FolioTokenAmount; MAX_FOLIO_TOKEN_AMOUNTS],
+    pub basket: FolioTokenBasket,
 }
 
 impl FolioBasket {
     pub const SIZE: usize = 8 + FolioBasket::INIT_SPACE;
 }
 
-impl Default for FolioBasket {
-    fn default() -> Self {
-        Self {
-            bump: 0,
-            _padding: [0; 7],
-            folio: Pubkey::default(),
-            token_amounts: [FolioTokenAmount::default(); MAX_FOLIO_TOKEN_AMOUNTS],
-        }
-    }
-}
-
 /// This is use to track the user's "pending" token amounts, for operations like minting or redeeming,
 /// because those operations are done in multiple steps. It directly relates to token_amounts in FolioBasket.
 ///
-/// Max of 20 tokens because of solana's restrictions on transaction size.
-///     Higher than the 16 of FolioBasket, because it could include removed coins from the FolioBasket that
+/// Max of 110 tokens because of solana's restrictions on transaction size.
+///     Higher than the 100 of FolioBasket, because it could include removed coins from the FolioBasket that
 ///     still need to be redeemed.
 ///
 /// zero_copy
 /// PDA Seeds ["user_pending_basket", folio pubkey, wallet pubkey]
 #[account(zero_copy)]
-#[derive(InitSpace)]
+#[derive(InitSpace, Default)]
 pub struct UserPendingBasket {
     pub bump: u8,
 
@@ -244,23 +230,11 @@ pub struct UserPendingBasket {
 
     /// Represents the amounts for minting as well as the amount for redeeming PER token in the user's pending basket.
     /// Default pubkey means not set.
-    pub token_amounts: [TokenAmount; MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS],
+    pub basket: UserTokenBasket,
 }
 
 impl UserPendingBasket {
     pub const SIZE: usize = 8 + UserPendingBasket::INIT_SPACE;
-}
-
-impl Default for UserPendingBasket {
-    fn default() -> Self {
-        Self {
-            bump: 0,
-            _padding: [0; 7],
-            owner: Pubkey::default(),
-            folio: Pubkey::default(),
-            token_amounts: [TokenAmount::default(); MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS],
-        }
-    }
 }
 
 /// This is used to track an auction's state.

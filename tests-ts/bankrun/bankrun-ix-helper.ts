@@ -612,7 +612,6 @@ export async function mintFolioToken<T extends boolean = true>(
   tokens: { mint: PublicKey; amount: BN }[],
   shares: BN,
   executeTxn: T = true as T,
-  remainingAccounts: AccountMeta[] = [],
   minRawShares: BN | null = null
 ) {
   const mintFolioToken = await programFolio.methods
@@ -633,11 +632,6 @@ export async function mintFolioToken<T extends boolean = true>(
         userKeypair.publicKey
       ),
     })
-    .remainingAccounts(
-      remainingAccounts.length > 0
-        ? remainingAccounts
-        : await buildRemainingAccounts(context, tokens, folio, null, false)
-    )
     .instruction();
 
   if (executeTxn) {
@@ -659,8 +653,7 @@ export async function burnFolioToken<T extends boolean = true>(
   folioTokenMint: PublicKey,
   amountToBurn: BN,
   tokens: { mint: PublicKey; amount: BN }[],
-  executeTxn: T = true as T,
-  remainingAccounts: AccountMeta[] = []
+  executeTxn: T = true as T
 ) {
   const burnFolioTokenIx = await programFolio.methods
     .burnFolioToken(amountToBurn)
@@ -681,11 +674,6 @@ export async function burnFolioToken<T extends boolean = true>(
         userKeypair.publicKey
       ),
     })
-    .remainingAccounts(
-      remainingAccounts.length > 0
-        ? remainingAccounts
-        : await buildRemainingAccounts(context, tokens, folio, null, false)
-    )
     .instruction();
 
   if (executeTxn) {

@@ -40,7 +40,8 @@ impl FolioBasket {
 
             folio_basket.bump = context_bump;
             folio_basket.folio = *folio;
-            folio_basket.token_amounts = [FolioTokenAmount::default(); MAX_FOLIO_TOKEN_AMOUNTS];
+            folio_basket.basket.token_amounts =
+                [FolioTokenAmount::default(); MAX_FOLIO_TOKEN_AMOUNTS];
 
             folio_basket.add_tokens_to_basket(added_folio_token_amounts)?;
         } else {
@@ -72,6 +73,7 @@ impl FolioBasket {
             );
 
             let token_is_present = self
+                .basket
                 .token_amounts
                 .iter_mut()
                 .find(|ta| ta.mint == folio_token_amount.mint);
@@ -86,6 +88,7 @@ impl FolioBasket {
             }
 
             let empty_slot = self
+                .basket
                 .token_amounts
                 .iter_mut()
                 .find(|ta| ta.mint == Pubkey::default());
@@ -114,6 +117,7 @@ impl FolioBasket {
     ) -> Result<()> {
         for folio_token_amount in folio_token_amounts {
             if let Some(slot_to_update) = self
+                .basket
                 .token_amounts
                 .iter_mut()
                 .find(|ta| ta.mint == folio_token_amount.mint)
@@ -137,7 +141,12 @@ impl FolioBasket {
     /// mint: The mint to remove from the basket
     ///
     pub fn remove_token_mint_from_basket(&mut self, mint: Pubkey) -> Result<()> {
-        if let Some(slot_to_update) = self.token_amounts.iter_mut().find(|ta| ta.mint == mint) {
+        if let Some(slot_to_update) = self
+            .basket
+            .token_amounts
+            .iter_mut()
+            .find(|ta| ta.mint == mint)
+        {
             slot_to_update.amount = 0;
             slot_to_update.mint = Pubkey::default();
             emit!(BasketTokenRemoved { token: mint });
@@ -153,7 +162,8 @@ impl FolioBasket {
     ///
     /// # Returns the total number of mints in the basket (non default pubkey).
     pub fn get_total_number_of_mints(&self) -> u8 {
-        self.token_amounts
+        self.basket
+            .token_amounts
             .iter()
             .filter(|ta| ta.mint != Pubkey::default())
             .count() as u8
@@ -168,7 +178,7 @@ impl FolioBasket {
     ///
     /// # Returns the token amount in the basket
     pub fn get_token_amount_in_folio_basket(&self, mint: &Pubkey) -> Result<u64> {
-        let token_amount = self.token_amounts.iter().find(|ta| ta.mint == *mint);
+        let token_amount = self.basket.token_amounts.iter().find(|ta| ta.mint == *mint);
 
         if let Some(token_amount) = token_amount {
             Ok(token_amount.amount)

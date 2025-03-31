@@ -276,12 +276,12 @@ pub fn handler(
     let scaled_dust_limit = ctx.accounts.folio_sell_token_metadata.scaled_dust_amount;
     let basket_presence = folio_basket
         .get_token_presence_per_share_in_basket(&auction.sell, &scaled_folio_token_total_supply)?;
-    // QoL: close auction if we have reached the sell limit
 
     let raw_min_sell_balance_with_dust_limit = scaled_dust_limit
         .checked_add(raw_min_sell_balance.into())
         .ok_or(error!(ErrorCode::MathOverflow))?;
 
+    // QoL: close auction if we have reached the sell limit
     if basket_presence <= raw_min_sell_balance_with_dust_limit {
         auction.auction_run_details[index_of_current_running_auction].end = current_time
             .checked_sub(1)

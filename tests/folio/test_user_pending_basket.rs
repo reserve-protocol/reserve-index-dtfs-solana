@@ -5,7 +5,7 @@ mod tests {
     use anchor_lang::prelude::Pubkey;
     use folio::state::UserPendingBasket;
     use folio::utils::structs::TokenAmount;
-    use folio::utils::FolioTokenAmount;
+    use folio::utils::{FolioTokenAmount, UserTokenBasket};
     use shared::constants::{PendingBasketType, MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS};
     use shared::errors::ErrorCode;
     use shared::utils::Decimal;
@@ -23,8 +23,8 @@ mod tests {
             pending.add_token_amounts_to_folio(&vec![token], true, PendingBasketType::MintProcess);
 
         assert!(result.is_ok());
-        assert_eq!(pending.token_amounts[0], token);
-        assert_eq!(pending.token_amounts[1], TokenAmount::default());
+        assert_eq!(pending.basket.token_amounts[0], token);
+        assert_eq!(pending.basket.token_amounts[1], TokenAmount::default());
     }
 
     #[test]
@@ -36,7 +36,7 @@ mod tests {
             amount_for_minting: 100,
             amount_for_redeeming: 0,
         };
-        pending.token_amounts[0] = token;
+        pending.basket.token_amounts[0] = token;
 
         let add_amount = TokenAmount {
             mint: token.mint,
@@ -52,13 +52,13 @@ mod tests {
         );
 
         assert!(result.is_ok());
-        assert_eq!(pending.token_amounts[0].amount_for_minting, 150);
+        assert_eq!(pending.basket.token_amounts[0].amount_for_minting, 150);
     }
 
     #[test]
     fn test_add_token_amounts_exceed_max() {
         let mut pending = UserPendingBasket::default();
-        let tokens: Vec<TokenAmount> = (0..65)
+        let tokens: Vec<TokenAmount> = (0..MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS + 1)
             .map(|_| TokenAmount {
                 mint: Pubkey::new_unique(),
                 amount_for_minting: 100,
@@ -112,8 +112,8 @@ mod tests {
         );
 
         assert!(result.is_ok());
-        assert_eq!(pending.token_amounts[0], token);
-        assert_eq!(pending.token_amounts[1], TokenAmount::default());
+        assert_eq!(pending.basket.token_amounts[0], token);
+        assert_eq!(pending.basket.token_amounts[1], TokenAmount::default());
     }
 
     #[test]
@@ -124,7 +124,7 @@ mod tests {
             amount_for_minting: 0,
             amount_for_redeeming: 100,
         };
-        pending.token_amounts[0] = token;
+        pending.basket.token_amounts[0] = token;
 
         let add_amount = TokenAmount {
             mint: token.mint,
@@ -139,13 +139,13 @@ mod tests {
         );
 
         assert!(result.is_ok());
-        assert_eq!(pending.token_amounts[0].amount_for_redeeming, 150);
+        assert_eq!(pending.basket.token_amounts[0].amount_for_redeeming, 150);
     }
 
     #[test]
     fn test_add_token_amounts_exceed_max_redeem() {
         let mut pending = UserPendingBasket::default();
-        let tokens: Vec<TokenAmount> = (0..65)
+        let tokens: Vec<TokenAmount> = (0..MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS + 1)
             .map(|_| TokenAmount {
                 mint: Pubkey::new_unique(),
                 amount_for_minting: 0,
@@ -194,7 +194,7 @@ mod tests {
             amount_for_minting: 100,
             amount_for_redeeming: 0,
         };
-        pending.token_amounts[0] = token;
+        pending.basket.token_amounts[0] = token;
 
         let remove_amount = TokenAmount {
             mint: token.mint,
@@ -210,7 +210,7 @@ mod tests {
         );
 
         assert!(result.is_ok());
-        assert_eq!(pending.token_amounts[0].amount_for_minting, 50);
+        assert_eq!(pending.basket.token_amounts[0].amount_for_minting, 50);
     }
 
     #[test]
@@ -221,7 +221,7 @@ mod tests {
             amount_for_minting: 0,
             amount_for_redeeming: 100,
         };
-        pending.token_amounts[0] = token;
+        pending.basket.token_amounts[0] = token;
 
         let remove_amount = TokenAmount {
             mint: token.mint,
@@ -236,7 +236,7 @@ mod tests {
         );
 
         assert!(result.is_ok());
-        assert_eq!(pending.token_amounts[0].amount_for_redeeming, 50);
+        assert_eq!(pending.basket.token_amounts[0].amount_for_redeeming, 50);
     }
 
     #[test]
@@ -248,7 +248,7 @@ mod tests {
             amount_for_minting: 50,
             amount_for_redeeming: 0,
         };
-        pending.token_amounts[0] = token;
+        pending.basket.token_amounts[0] = token;
 
         let remove_amount = TokenAmount {
             mint: token.mint,
@@ -316,69 +316,81 @@ mod tests {
     fn test_is_empty() {
         // Test completely empty basket
         let basket = UserPendingBasket {
-            token_amounts: [TokenAmount::default(); MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS],
+            basket: UserTokenBasket {
+                token_amounts: [TokenAmount::default(); MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS],
+            },
             ..UserPendingBasket::default()
         };
         assert!(basket.is_empty());
 
         // Test basket with minting amount
         let mut basket_with_mint = UserPendingBasket {
-            token_amounts: [TokenAmount::default(); MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS],
+            basket: UserTokenBasket {
+                token_amounts: [TokenAmount::default(); MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS],
+            },
             ..UserPendingBasket::default()
         };
-        basket_with_mint.token_amounts[0].amount_for_minting = 100;
+        basket_with_mint.basket.token_amounts[0].amount_for_minting = 100;
         assert!(!basket_with_mint.is_empty());
 
         // Test basket with redeeming amount
         let mut basket_with_redeem = UserPendingBasket {
-            token_amounts: [TokenAmount::default(); MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS],
+            basket: UserTokenBasket {
+                token_amounts: [TokenAmount::default(); MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS],
+            },
             ..UserPendingBasket::default()
         };
-        basket_with_redeem.token_amounts[0].amount_for_redeeming = 100;
+        basket_with_redeem.basket.token_amounts[0].amount_for_redeeming = 100;
         assert!(!basket_with_redeem.is_empty());
 
         // Test basket with both amounts
         let mut basket_with_both = UserPendingBasket {
-            token_amounts: [TokenAmount::default(); MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS],
+            basket: UserTokenBasket {
+                token_amounts: [TokenAmount::default(); MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS],
+            },
             ..UserPendingBasket::default()
         };
-        basket_with_both.token_amounts[0].amount_for_minting = 100;
-        basket_with_both.token_amounts[0].amount_for_redeeming = 100;
+        basket_with_both.basket.token_amounts[0].amount_for_minting = 100;
+        basket_with_both.basket.token_amounts[0].amount_for_redeeming = 100;
         assert!(!basket_with_both.is_empty());
 
         // Test basket with amounts in different slots
         let mut basket_multiple_slots = UserPendingBasket {
-            token_amounts: [TokenAmount::default(); MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS],
+            basket: UserTokenBasket {
+                token_amounts: [TokenAmount::default(); MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS],
+            },
             ..UserPendingBasket::default()
         };
-        basket_multiple_slots.token_amounts[0].amount_for_minting = 100;
-        basket_multiple_slots.token_amounts[1].amount_for_redeeming = 100;
+        basket_multiple_slots.basket.token_amounts[0].amount_for_minting = 100;
+        basket_multiple_slots.basket.token_amounts[1].amount_for_redeeming = 100;
         assert!(!basket_multiple_slots.is_empty());
     }
 
     #[test]
     fn test_reset() {
         // Setup basket with various amounts
-        let mut basket = UserPendingBasket {
-            token_amounts: [TokenAmount::default(); MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS],
+        let mut user_basket = UserPendingBasket {
+            basket: UserTokenBasket {
+                token_amounts: [TokenAmount::default(); MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS],
+            },
             ..UserPendingBasket::default()
         };
 
         // Add some mints and amounts
-        basket.token_amounts[0].mint = Pubkey::new_unique();
-        basket.token_amounts[0].amount_for_minting = 100;
-        basket.token_amounts[0].amount_for_redeeming = 200;
+        user_basket.basket.token_amounts[0].mint = Pubkey::new_unique();
+        user_basket.basket.token_amounts[0].amount_for_minting = 100;
+        user_basket.basket.token_amounts[0].amount_for_redeeming = 200;
 
-        basket.token_amounts[1].mint = Pubkey::new_unique();
-        basket.token_amounts[1].amount_for_minting = 300;
-        basket.token_amounts[1].amount_for_redeeming = 400;
+        user_basket.basket.token_amounts[1].mint = Pubkey::new_unique();
+        user_basket.basket.token_amounts[1].amount_for_minting = 300;
+        user_basket.basket.token_amounts[1].amount_for_redeeming = 400;
 
         // Reset the basket
-        basket.reset();
+        user_basket.reset();
 
         // Verify everything is reset to default
-        assert!(basket.is_empty());
-        for token_amount in basket.token_amounts.iter() {
+        assert!(user_basket.is_empty());
+        for token_amount in user_basket.basket.token_amounts.iter() {
             assert_eq!(token_amount.mint, Pubkey::default());
             assert_eq!(token_amount.amount_for_minting, 0);
             assert_eq!(token_amount.amount_for_redeeming, 0);
@@ -403,16 +415,16 @@ mod tests {
         // Shares to mint: 1 tokens
         let decimal_total_supply = Decimal::from_token_amount(100_000_000u128).unwrap();
         let decimal_folio_balance = Decimal::from_token_amount(100_000_000u128).unwrap();
-        let shares = 1_000_000; // D9
+        let shares = Decimal::from_token_amount(1_000_000u64).unwrap(); // D9
 
         let result = UserPendingBasket::to_assets_for_minting(
             &mut user_amount,
             &mut folio_amount,
             &decimal_total_supply,
             &decimal_folio_balance,
-            shares,
+            &shares,
         );
-
+        dbg!(&result);
         assert!(result.is_ok());
 
         assert_eq!(user_amount.amount_for_minting, 0);
@@ -434,14 +446,14 @@ mod tests {
 
         let decimal_total_supply = Decimal::from_token_amount(100_000_000u128).unwrap();
         let decimal_folio_balance = Decimal::from_token_amount(50_000_000u128).unwrap();
-        let shares = 1_000_000; // Trying to mint more shares than possible
+        let shares = Decimal::from_token_amount(1_000_000u64).unwrap(); // Trying to mint more shares than possible
 
         let result = UserPendingBasket::to_assets_for_minting(
             &mut user_amount,
             &mut related_mint,
             &decimal_total_supply,
             &decimal_folio_balance,
-            shares,
+            &shares,
         );
 
         assert!(result.is_err());
@@ -466,14 +478,14 @@ mod tests {
 
         let decimal_total_supply = Decimal::from_token_amount(u64::MAX as u128).unwrap();
         let decimal_folio_balance = Decimal::from_token_amount(u64::MAX as u128).unwrap();
-        let shares = u64::MAX;
+        let shares = Decimal::from_token_amount(u64::MAX).unwrap();
 
         let result = UserPendingBasket::to_assets_for_minting(
             &mut user_amount,
             &mut related_mint,
             &decimal_total_supply,
             &decimal_folio_balance,
-            shares,
+            &shares,
         );
 
         assert!(result.is_ok());
@@ -494,14 +506,14 @@ mod tests {
 
         let decimal_total_supply = Decimal::from_token_amount(100_000_000u128).unwrap();
         let decimal_folio_balance = Decimal::from_token_amount(50_000_000u128).unwrap();
-        let shares = 0;
+        let shares = Decimal::from_plain(0).unwrap();
 
         let result = UserPendingBasket::to_assets_for_minting(
             &mut user_amount,
             &mut related_mint,
             &decimal_total_supply,
             &decimal_folio_balance,
-            shares,
+            &shares,
         );
 
         assert!(result.is_ok());
@@ -524,14 +536,14 @@ mod tests {
 
         let decimal_total_supply = Decimal::from_token_amount(0u128).unwrap();
         let decimal_folio_balance = Decimal::from_token_amount(0u128).unwrap();
-        let shares = 1_000_000;
+        let shares = Decimal::from_token_amount(1_000_000u64).unwrap();
 
         let result = UserPendingBasket::to_assets_for_minting(
             &mut user_amount,
             &mut related_mint,
             &decimal_total_supply,
             &decimal_folio_balance,
-            shares,
+            &shares,
         );
 
         assert!(result.is_err()); // Should fail due to division by zero
@@ -555,14 +567,14 @@ mod tests {
         // Shares to redeem: 10 tokens
         let decimal_total_supply = Decimal::from_token_amount(100_000_000u128).unwrap();
         let decimal_folio_balance = Decimal::from_token_amount(50_000_000u128).unwrap();
-        let shares = 10_000_000; // D9
+        let shares = Decimal::from_token_amount(10_000_000u64).unwrap(); // D9
 
         let result = UserPendingBasket::to_assets_for_redeeming(
             &mut user_amount,
             &mut related_mint,
             &decimal_total_supply,
             &decimal_folio_balance,
-            shares,
+            &shares,
         );
 
         assert!(result.is_ok());
@@ -587,14 +599,14 @@ mod tests {
 
         let decimal_total_supply = Decimal::from_token_amount(3_000_000u128).unwrap();
         let decimal_folio_balance = Decimal::from_token_amount(1_000_000u128).unwrap();
-        let shares = 1_000_000; // D9
+        let shares = Decimal::from_token_amount(1_000_000u64).unwrap(); // D9
 
         let result = UserPendingBasket::to_assets_for_redeeming(
             &mut user_amount,
             &mut related_mint,
             &decimal_total_supply,
             &decimal_folio_balance,
-            shares,
+            &shares,
         );
 
         assert!(result.is_ok());
@@ -618,14 +630,14 @@ mod tests {
 
         let decimal_total_supply = Decimal::from_token_amount(0u128).unwrap();
         let decimal_folio_balance = Decimal::from_token_amount(0u128).unwrap();
-        let shares = 1_000_000;
+        let shares = Decimal::from_token_amount(1_000_000u64).unwrap();
 
         let result = UserPendingBasket::to_assets_for_redeeming(
             &mut user_amount,
             &mut related_mint,
             &decimal_total_supply,
             &decimal_folio_balance,
-            shares,
+            &shares,
         );
 
         assert!(result.is_err()); // Should fail due to division by zero
@@ -646,14 +658,14 @@ mod tests {
 
         let decimal_total_supply = Decimal::from_token_amount(100_000_000u128).unwrap();
         let decimal_folio_balance = Decimal::from_token_amount(50_000_000u128).unwrap();
-        let shares = 0;
+        let shares = Decimal::from_token_amount(0u64).unwrap();
 
         let result = UserPendingBasket::to_assets_for_redeeming(
             &mut user_amount,
             &mut related_mint,
             &decimal_total_supply,
             &decimal_folio_balance,
-            shares,
+            &shares,
         );
 
         assert!(result.is_ok());
@@ -676,7 +688,7 @@ mod tests {
 
         let decimal_total_supply = Decimal::from_token_amount(100_000_000u128).unwrap();
         let decimal_folio_balance = Decimal::from_token_amount(50_000_000u128).unwrap();
-        let shares = 1_000_000;
+        let shares = Decimal::from_token_amount(1_000_000u64).unwrap();
 
         // Test minting doesn't affect redeeming amounts
         let result = UserPendingBasket::to_assets_for_minting(
@@ -684,7 +696,7 @@ mod tests {
             &mut related_mint,
             &decimal_total_supply,
             &decimal_folio_balance,
-            shares,
+            &shares,
         );
 
         assert!(result.is_ok());

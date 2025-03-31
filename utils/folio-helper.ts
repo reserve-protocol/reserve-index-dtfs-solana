@@ -453,7 +453,6 @@ export async function mintFolioToken(
   userKeypair: Keypair,
   folio: PublicKey,
   folioTokenMint: PublicKey,
-  tokens: { mint: PublicKey; amount: BN }[],
   shares: BN,
   minRawShares: BN | null = null
 ) {
@@ -477,16 +476,6 @@ export async function mintFolioToken(
         userKeypair.publicKey
       ),
     })
-    .remainingAccounts(
-      await buildRemainingAccounts(
-        connection,
-        userKeypair,
-        tokens,
-        folio,
-        null,
-        false
-      )
-    )
     .instruction();
 
   await pSendAndConfirmTxn(
@@ -505,8 +494,7 @@ export async function burnFolioToken(
   userKeypair: Keypair,
   folio: PublicKey,
   folioTokenMint: PublicKey,
-  amountToBurn: BN,
-  tokens: { mint: PublicKey; amount: BN }[]
+  amountToBurn: BN
 ) {
   const folioProgram = getFolioProgram(connection, userKeypair);
 
@@ -530,16 +518,6 @@ export async function burnFolioToken(
         userKeypair.publicKey
       ),
     })
-    .remainingAccounts(
-      await buildRemainingAccounts(
-        connection,
-        userKeypair,
-        tokens,
-        folio,
-        null,
-        false
-      )
-    )
     .instruction();
 
   await pSendAndConfirmTxn(

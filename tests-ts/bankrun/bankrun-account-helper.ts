@@ -691,7 +691,7 @@ export async function createAndSetFolioBasket(
     foliotokenAmounts: foliotokenAmounts,
   };
 
-  const buffer = Buffer.alloc(688);
+  const buffer = Buffer.alloc(4048);
   let offset = 0;
 
   // Encode discriminator
@@ -756,7 +756,7 @@ export async function createAndSetUserPendingBasket(
     tokenAmounts: tokenAmounts,
   };
 
-  const buffer = Buffer.alloc(1040);
+  const buffer = Buffer.alloc(5360);
   let offset = 0;
 
   // Encode discriminator

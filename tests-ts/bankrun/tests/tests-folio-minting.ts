@@ -22,7 +22,6 @@ import {
 } from "../bankrun-account-helper";
 import {
   assertExpectedBalancesChanges,
-  getAtaAddress,
   getTokenBalancesFromMints,
   mintToken,
 } from "../bankrun-token-helper";
@@ -199,19 +198,6 @@ describe("Bankrun - Folio Minting", () => {
       tokens: [{ mint: MINTS[0].publicKey, amount: new BN(1_000_000_000) }],
     },
     {
-      desc: "(user tries to add too many tokens at the same time, transaction size issue, errors out)",
-      expectedError: "TransactionTooLarge",
-      folioBasketTokens: MINTS.map(
-        (mint) => new FolioTokenAmount(mint.publicKey, new BN(0))
-      ),
-      // Tries to add all the tokens at the same time
-      tokens: MINTS.map((mint) => ({
-        mint: mint.publicKey,
-        amount: new BN(1_000_000_000),
-      })),
-      isPreTransactionValidated: true,
-    },
-    {
       desc: "(user adding two tokens, one he had already added, other one is new, succeeds)",
       expectedError: null,
       folioBasketTokens: [
@@ -297,21 +283,6 @@ describe("Bankrun - Folio Minting", () => {
       tokens: [{ mint: MINTS[1].publicKey, amount: new BN(1_000_000) }],
     },
     {
-      desc: "(user tries to remove too many tokens at the same time, transaction size issue, errors out)",
-      expectedError: "TransactionTooLarge",
-      folioBasketTokens: MINTS.map(
-        (mint) => new FolioTokenAmount(mint.publicKey, new BN(0))
-      ),
-      alreadyIncludedTokens: MINTS.map(
-        (mint) => new TokenAmount(mint.publicKey, new BN(1_000_000), new BN(0))
-      ),
-      isPreTransactionValidated: true,
-      tokens: MINTS.map((mint) => ({
-        mint: mint.publicKey,
-        amount: new BN(1_000_000),
-      })),
-    },
-    {
       desc: "(user remove two tokens, one he had already removed part of, other one is new, succeeds)",
       expectedError: null,
       folioBasketTokens: [
@@ -355,49 +326,6 @@ describe("Bankrun - Folio Minting", () => {
         new FolioTokenAmount(MINTS[0].publicKey, new BN(1_000_000)),
       ],
       tokens: [{ mint: MINTS[0].publicKey, amount: new BN(1_000_000) }],
-    },
-    {
-      desc: "(trying to mint, user is passing no remaining accounts, errors out)",
-      expectedError: "InvalidNumberOfRemainingAccounts",
-      folioBasketTokens: [
-        new FolioTokenAmount(MINTS[0].publicKey, new BN(1_000_000)),
-        new FolioTokenAmount(MINTS[1].publicKey, new BN(1_000_000)),
-      ],
-      alreadyIncludedTokens: [
-        new TokenAmount(MINTS[0].publicKey, new BN(1_000_000), new BN(0)),
-        new TokenAmount(MINTS[1].publicKey, new BN(1_000_000), new BN(0)),
-      ],
-      tokens: [],
-      shares: new BN(1),
-    },
-    {
-      desc: "(trying to mint, user is passing the wrong remaining accounts, errors out)",
-      expectedError: "InvalidRecipientTokenAccount",
-      remainingAccounts: () => [
-        {
-          pubkey: getAtaAddress(MINTS[2].publicKey, folioPDA),
-          isSigner: false,
-          isWritable: false,
-        },
-        {
-          pubkey: getAtaAddress(MINTS[1].publicKey, folioPDA),
-          isSigner: false,
-          isWritable: false,
-        },
-      ],
-      folioBasketTokens: [
-        new FolioTokenAmount(MINTS[0].publicKey, new BN(1_000_000)),
-        new FolioTokenAmount(MINTS[1].publicKey, new BN(1_000_000)),
-      ],
-      alreadyIncludedTokens: [
-        new TokenAmount(MINTS[0].publicKey, new BN(1_000_000), new BN(0)),
-        new TokenAmount(MINTS[1].publicKey, new BN(1_000_000), new BN(0)),
-      ],
-      tokens: [
-        { mint: MINTS[0].publicKey, amount: new BN(0) },
-        { mint: MINTS[2].publicKey, amount: new BN(0) },
-      ],
-      shares: new BN(1),
     },
     {
       desc: "(trying to mint, user is missing some tokens that are part of the folio's basket)",
@@ -843,7 +771,7 @@ describe("Bankrun - Folio Minting", () => {
               await programFolio.account.folioBasket.fetch(
                 getFolioBasketPDA(folioPDA)
               )
-            ).tokenAmounts;
+            ).basket.tokenAmounts;
 
             try {
               txnResult = await addToPendingBasket<true>(
@@ -904,12 +832,14 @@ describe("Bankrun - Folio Minting", () => {
 
               for (let i = 0; i < MAX_FOLIO_TOKEN_AMOUNTS; i++) {
                 assert.equal(
-                  basket.tokenAmounts[i].mint.toString(),
+                  basket.basket.tokenAmounts[i].mint.toString(),
                   expectedTokenAmountsForFolioBasket[i].mint.toString()
                 );
                 // Change in pending basket does not effect folio basket
                 assert.equal(
-                  basket.tokenAmounts[i].amount.eq(basketBefore[i].amount),
+                  basket.basket.tokenAmounts[i].amount.eq(
+                    basketBefore[i].amount
+                  ),
                   true
                 );
               }
@@ -943,12 +873,14 @@ describe("Bankrun - Folio Minting", () => {
 
               for (let i = 0; i < MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS; i++) {
                 assert.equal(
-                  userPendingBasket.tokenAmounts[i].mint.toString(),
+                  userPendingBasket.basket.tokenAmounts[i].mint.toString(),
                   expectedTokenAmountsForUserPendingBasket[i].mint.toString()
                 );
                 // Amount for minting will be asserted below
                 assert.equal(
-                  userPendingBasket.tokenAmounts[i].amountForRedeeming.eq(
+                  userPendingBasket.basket.tokenAmounts[
+                    i
+                  ].amountForRedeeming.eq(
                     expectedTokenAmountsForUserPendingBasket[i]
                       .amountForRedeeming
                   ),
@@ -1014,7 +946,7 @@ describe("Bankrun - Folio Minting", () => {
               await programFolio.account.folioBasket.fetch(
                 getFolioBasketPDA(folioPDA)
               )
-            ).tokenAmounts;
+            ).basket.tokenAmounts;
 
             await createAndSetUserPendingBasket(
               context,
@@ -1084,12 +1016,14 @@ describe("Bankrun - Folio Minting", () => {
 
               for (let i = 0; i < MAX_FOLIO_TOKEN_AMOUNTS; i++) {
                 assert.equal(
-                  basket.tokenAmounts[i].mint.toString(),
+                  basket.basket.tokenAmounts[i].mint.toString(),
                   expectedTokenAmountsForFolioBasket[i].mint.toString()
                 );
                 // Removing from pending should not make any change to folio basket
                 assert.equal(
-                  basket.tokenAmounts[i].amount.eq(basketBefore[i].amount),
+                  basket.basket.tokenAmounts[i].amount.eq(
+                    basketBefore[i].amount
+                  ),
                   true
                 );
               }
@@ -1123,12 +1057,14 @@ describe("Bankrun - Folio Minting", () => {
 
               for (let i = 0; i < MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS; i++) {
                 assert.equal(
-                  userPendingBasket.tokenAmounts[i].mint.toString(),
+                  userPendingBasket.basket.tokenAmounts[i].mint.toString(),
                   expectedTokenAmountsForUserPendingBasket[i].mint.toString()
                 );
                 // Amount for minting will be asserted below
                 assert.equal(
-                  userPendingBasket.tokenAmounts[i].amountForRedeeming.eq(
+                  userPendingBasket.basket.tokenAmounts[
+                    i
+                  ].amountForRedeeming.eq(
                     expectedTokenAmountsForUserPendingBasket[i]
                       .amountForRedeeming
                   ),
@@ -1167,7 +1103,6 @@ describe("Bankrun - Folio Minting", () => {
         describe(`When ${desc}`, () => {
           let txnResult: BanksTransactionResultWithMeta;
           const {
-            remainingAccounts,
             tokens,
             folioBasketTokens,
             alreadyIncludedTokens,
@@ -1228,13 +1163,13 @@ describe("Bankrun - Folio Minting", () => {
               await programFolio.account.folioBasket.fetch(
                 getFolioBasketPDA(folioPDA)
               )
-            ).tokenAmounts;
+            ).basket.tokenAmounts;
 
             userPendingBasketBefore = (
               await programFolio.account.userPendingBasket.fetch(
                 getUserPendingBasketPDA(folioPDA, userKeypair.publicKey)
               )
-            ).tokenAmounts;
+            ).basket.tokenAmounts;
 
             try {
               txnResult = await mintFolioToken<true>(
@@ -1247,7 +1182,6 @@ describe("Bankrun - Folio Minting", () => {
                 tokens,
                 shares,
                 true,
-                remainingAccounts(),
                 minRawShares
               );
             } catch (e) {
@@ -1302,7 +1236,7 @@ describe("Bankrun - Folio Minting", () => {
 
               for (let i = 0; i < MAX_FOLIO_TOKEN_AMOUNTS; i++) {
                 assert.equal(
-                  basket.tokenAmounts[i].mint.toString(),
+                  basket.basket.tokenAmounts[i].mint.toString(),
                   expectedTokenAmountsForFolioBasket[i].mint.toString()
                 );
               }
@@ -1336,12 +1270,14 @@ describe("Bankrun - Folio Minting", () => {
 
               for (let i = 0; i < MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS; i++) {
                 assert.equal(
-                  userPendingBasket.tokenAmounts[i].mint.toString(),
+                  userPendingBasket.basket.tokenAmounts[i].mint.toString(),
                   expectedTokenAmountsForUserPendingBasket[i].mint.toString()
                 );
                 // Amount for minting done below
                 assert.equal(
-                  userPendingBasket.tokenAmounts[i].amountForRedeeming.eq(
+                  userPendingBasket.basket.tokenAmounts[
+                    i
+                  ].amountForRedeeming.eq(
                     expectedTokenAmountsForUserPendingBasket[i]
                       .amountForRedeeming
                   ),
@@ -1353,13 +1289,13 @@ describe("Bankrun - Folio Minting", () => {
               for (let i = 0; i < folioBasketTokens.length; i++) {
                 // Both user and folio should have the same amount removed from minting
                 assert.equal(
-                  basket.tokenAmounts[i].amount.eq(
+                  basket.basket.tokenAmounts[i].amount.eq(
                     basketBefore[i].amount.add(expectedTokenBalanceChanges[i])
                   ),
                   true
                 );
                 assert.equal(
-                  userPendingBasket.tokenAmounts[i].amountForMinting.eq(
+                  userPendingBasket.basket.tokenAmounts[i].amountForMinting.eq(
                     userPendingBasketBefore[i].amountForMinting.sub(
                       expectedTokenBalanceChanges[i]
                     )

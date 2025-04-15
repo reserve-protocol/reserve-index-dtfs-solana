@@ -511,6 +511,38 @@ describe("Bankrun - Staking User", () => {
       rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
       expectedRewardBalanceChanges: [new BN(5).mul(D9)],
     },
+    {
+      desc: "(claimable rewards != 0, claims rewards multiple)",
+      expectedError: null,
+      rewardTokenBalances: {
+        [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100).mul(D9),
+        [REWARD_TOKEN_MINTS[1].publicKey.toBase58()]: new BN(100).mul(D9),
+      },
+      rewardInfosAlreadyThere: async () => [
+        await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
+        await RewardInfo.default(context, REWARD_TOKEN_MINTS[1].publicKey),
+      ],
+      userRewardInfosAlreadyThere: [
+        new UserRewardInfo(
+          REWARD_TOKEN_MINTS[0].publicKey,
+          rewardedUser1.publicKey,
+          new BN(1),
+          // Is stored in D18 for increase precision
+          new BN(5).mul(D18)
+        ),
+        new UserRewardInfo(
+          REWARD_TOKEN_MINTS[1].publicKey,
+          rewardedUser1.publicKey,
+          new BN(1),
+          new BN(5).mul(D18)
+        ),
+      ],
+      rewardsTokenToClaim: [
+        REWARD_TOKEN_MINTS[0].publicKey,
+        REWARD_TOKEN_MINTS[1].publicKey,
+      ],
+      expectedRewardBalanceChanges: [new BN(5).mul(D9), new BN(5).mul(D9)],
+    },
   ];
 
   function getInvalidGovernanceAccount(): PublicKey {

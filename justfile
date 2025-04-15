@@ -132,7 +132,10 @@ test-amman skip_build="":
     else \
       just build-local; \
     fi
+    
+    # Kill existing processes
     @killall solana-test-validator || true
+    @pkill -f "node.*amman start" || true
 
     # Start amman in background
     @npx amman start --reset >/dev/null &
@@ -143,8 +146,10 @@ test-amman skip_build="":
     # Run tests
     @anchor test --skip-local-validator --skip-deploy --skip-build
 
-    # Kill solana-test-validator after tests
+    # Kill existing processes
+    @pkill -f "node.*amman start" || true
     @killall solana-test-validator || true
+    @pkill -f "npm exec amman" || true
 
 test-bankrun skip_build="":
     # Go to git workspace root

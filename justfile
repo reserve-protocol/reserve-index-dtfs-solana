@@ -83,7 +83,8 @@ build-local:
     @cp utils/keys/folio-2-keypair-local.json target/deploy/folio-keypair.json
 
     # Anchor build with dev feature flag
-    @anchor build -- --features dev
+    @anchor build
+    @echo "✅ Built second instance of the program"
 
     # Update program ID in IDL and type files (Mac compatible)
     @sed -i '' 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt/g' target/idl/folio.json
@@ -98,7 +99,8 @@ build-local:
     # Build first Folio instance
     @echo "Building first instance of the program..."
     @cp utils/keys/folio-keypair-local.json target/deploy/folio-keypair.json
-    @anchor build
+    @anchor build -- --features prod
+    @echo "✅ Built first instance of the program"
 
 download-programs:
     # Exit on error

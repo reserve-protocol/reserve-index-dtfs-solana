@@ -17,12 +17,12 @@ solana-program = "=1.18.26"
 [build-dependencies]
 dotenv = "0.15"
 
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }
+[lints]
+workspace = true 
 
 [features]
-default = ["localnet"]
 localnet = []
 devnet = []
 mainnet = []
+default = ["localnet"]
 

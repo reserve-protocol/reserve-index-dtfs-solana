@@ -55,10 +55,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Clippy Check
-        run: |
-          cargo clippy -- \
-            -A ambiguous_glob_reexports \
-            -D warnings
+        run: cargo clippy -- -A ambiguous_glob_reexports -D warnings
 
   build-dependencies:
     needs: setup-tools
@@ -88,7 +85,7 @@ jobs:
         run: |
           # Create directories
           mkdir -p tests-ts/programs
-          
+
           cd "$WORKSPACE"
 
           # Build SPL Governance
@@ -111,7 +108,7 @@ jobs:
 
           mkdir -p target/deploy target/idl target/types
           cp utils/keys/folio-2-keypair-local.json target/deploy/folio-keypair.json
-          anchor build -- --features dev
+          anchor build
 
           # Update program IDs
           sed -i 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt/g' target/idl/folio.json
@@ -125,7 +122,7 @@ jobs:
 
           # Build first instance
           cp utils/keys/folio-keypair-local.json target/deploy/folio-keypair.json
-          anchor build
+          anchor build -- --features prod
 
       - name: Upload built programs
         uses: actions/upload-artifact@v4

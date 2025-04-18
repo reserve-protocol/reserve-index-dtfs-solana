@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use crate::state::Folio;
 use anchor_lang::prelude::*;
+#[cfg(not(feature = "prod"))]
 use anchor_spl::token;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use shared::check_condition;
@@ -77,38 +78,42 @@ pub fn handler<'info>(
     amount: u64,
 ) -> Result<()> {
     // If by mistake it's included in the program, if we don't see dev flag, we return ok
-    #[cfg(not(feature = "dev"))]
-    return Ok(());
-
-    #[allow(unreachable_code)]
-    let new_folio_bump: u8;
-
-    let token_mint_key = ctx.accounts.folio_token_mint.key();
-
+    #[cfg(feature = "prod")]
     {
-        let new_folio = &ctx.accounts.new_folio.load()?;
-
-        new_folio_bump = new_folio.bump;
-
-        ctx.accounts.validate(new_folio)?;
+        return Ok(());
     }
 
-    let signer_seeds = &[FOLIO_SEEDS, token_mint_key.as_ref(), &[new_folio_bump]];
+    #[cfg(not(feature = "prod"))]
+    {
+        // #[allow(unreachable_code)]
+        let new_folio_bump: u8;
 
-    let cpi_accounts = token::MintTo {
-        mint: ctx.accounts.folio_token_mint.to_account_info(),
-        to: ctx.accounts.to.to_account_info(),
-        authority: ctx.accounts.new_folio.to_account_info(),
-    };
+        let token_mint_key = ctx.accounts.folio_token_mint.key();
 
-    token::mint_to(
-        CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
-            cpi_accounts,
-            &[signer_seeds],
-        ),
-        amount,
-    )?;
+        {
+            let new_folio = &ctx.accounts.new_folio.load()?;
 
-    Ok(())
+            new_folio_bump = new_folio.bump;
+
+            ctx.accounts.validate(new_folio)?;
+        }
+
+        let signer_seeds = &[FOLIO_SEEDS, token_mint_key.as_ref(), &[new_folio_bump]];
+
+        let cpi_accounts = token::MintTo {
+            mint: ctx.accounts.folio_token_mint.to_account_info(),
+            to: ctx.accounts.to.to_account_info(),
+            authority: ctx.accounts.new_folio.to_account_info(),
+        };
+
+        token::mint_to(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                cpi_accounts,
+                &[signer_seeds],
+            ),
+            amount,
+        )?;
+        Ok(())
+    }
 }

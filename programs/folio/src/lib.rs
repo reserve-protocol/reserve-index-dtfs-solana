@@ -7,7 +7,7 @@
 //!     - Buy into and redeem from folios.
 //!     - Migrate between different folio versions.
 //!
-//! ** Also has a `declare_id` with a feature flag "dev" to allow for easy local testing between
+//! ** Also has a `declare_id` with a feature flag "prod" to allow for easy local testing between
 //! ** different versions of the program.
 //!
 //! # Auction lifecycle:
@@ -53,10 +53,10 @@ pub mod state;
 pub mod utils;
 
 // This is a second instance to test migration, only deployed with specific flag
-#[cfg(feature = "dev")]
+#[cfg(not(feature = "prod"))]
 declare_id!("7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt");
 
-#[cfg(not(feature = "dev"))]
+#[cfg(feature = "prod")]
 declare_id!("n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG");
 
 #[program]
@@ -333,11 +333,11 @@ pub mod folio {
         ctx: Context<'_, '_, 'info, 'info, MintFromNewFolioProgram<'info>>,
         amount: u64,
     ) -> Result<()> {
-        #[cfg(feature = "dev")]
+        #[cfg(not(feature = "prod"))]
         {
             mint_from_new_folio_program::handler(ctx, amount)
         }
-        #[cfg(not(feature = "dev"))]
+        #[cfg(feature = "prod")]
         {
             Ok(())
         }

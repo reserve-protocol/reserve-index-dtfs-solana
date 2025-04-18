@@ -78,8 +78,6 @@ build-local:
     # Install node modules
     @yarn install
 
-    @cp .env.example .env
-
     # Build second Folio instance with feature flag
     @echo "Building second instance of the program..."
     @cp utils/keys/folio-2-keypair-local.json target/deploy/folio-keypair.json

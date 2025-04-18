@@ -22,9 +22,9 @@ default = []
 
 
 [dependencies]
-anchor-lang = { version = "=0.30.1", features = ["init-if-needed"] }
-anchor-spl = "=0.30.1"
-bytemuck = "=1.20.0"
+anchor-lang = { workspace = true, features = ["init-if-needed"] }
+anchor-spl = { workspace = true }
+bytemuck = { workspace = true }
 mpl-token-metadata = "=5.1.0"
 folio_admin = { path = "../folio-admin", features = ["no-entrypoint"] }
 shared = { path = "../../shared" }

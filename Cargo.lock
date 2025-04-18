@@ -1878,7 +1878,6 @@ dependencies = [
  "anchor-spl",
  "bytemuck",
  "dotenv",
- "solana-program",
  "spl-math",
 ]
 

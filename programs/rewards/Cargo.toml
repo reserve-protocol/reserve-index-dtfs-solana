@@ -21,9 +21,9 @@ mainnet = ["shared/mainnet"]
 default = []
 
 [dependencies]
-anchor-lang = { version = "=0.30.1", features = ["init-if-needed"] }
-anchor-spl = "=0.30.1"
-bytemuck = "=1.20.0"
+anchor-lang = { workspace = true, features = ["init-if-needed"] }
+anchor-spl = { workspace = true }
+bytemuck = { workspace = true }
 shared = { path = "../../shared" }
 
 [lints]

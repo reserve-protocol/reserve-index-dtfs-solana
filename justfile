@@ -14,8 +14,8 @@ install-tools:
     @if command -v cargo >/dev/null 2>&1; then \
         echo "Rust is already installed. Version: $(rustc --version)"; \
     else \
-        echo "Installing Rust v1.83"; \
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.83; \
+        echo "Installing Rust 1.85.0"; \
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.85.0; \
         source "$HOME/.cargo/env"; \
     fi
 
@@ -24,12 +24,12 @@ install-tools:
     @if command -v solana >/dev/null 2>&1; then \
         echo "Solana CLI is already installed. Version: $(solana --version)"; \
     else \
-        echo "Installing Solana v2.1.0"; \
+        echo "Installing Solana v2.1.15"; \
         sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"; \
         echo 'export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"' >> ~/.zshrc; \
     fi
-    @echo "Use Solana v2.1.0"
-    @agave-install init 2.1.0
+    @echo "Use Solana v2.1.15"
+    @agave-install init 2.1.15
 
     # Install Anchor
     @echo "Checking for Anchor..."
@@ -38,12 +38,12 @@ install-tools:
     else \
         echo "Installing Anchor..."; \
         cargo install --git https://github.com/coral-xyz/anchor avm --force; \
-        avm install 0.30.1; \
+        avm install 0.31.0; \
     fi
 
     # Setup Anchor version
-    @echo "Setting up Anchor version 0.30.1"
-    @avm use 0.30.1
+    @echo "Setting up Anchor version 0.31.0"
+    @avm use 0.31.0
 
     # Verification
     @echo "Installation complete! Please restart your terminal or run 'source ~/.bashrc' (or ~/.zshrc if you use zsh)"
@@ -53,6 +53,8 @@ install-tools:
     @echo "Anchor: $(anchor --version 2>/dev/null || echo 'not found')"
 
 build-local:
+    @just install-tools
+
     # Exit on error
     @set -e
 
@@ -83,7 +85,7 @@ build-local:
     @cp utils/keys/folio-2-keypair-local.json target/deploy/folio-keypair.json
 
     # Anchor build with dev feature flag
-    @anchor build
+    @RUSTFLAGS='--cfg procmacro2_semver_exempt' anchor build
     @echo "✅ Built second instance of the program"
 
     # Update program ID in IDL and type files (Mac compatible)
@@ -99,7 +101,7 @@ build-local:
     # Build first Folio instance
     @echo "Building first instance of the program..."
     @cp utils/keys/folio-keypair-local.json target/deploy/folio-keypair.json
-    @anchor build -- --features prod
+    @RUSTFLAGS='--cfg procmacro2_semver_exempt' anchor build -- --features prod
     @echo "✅ Built first instance of the program"
 
 download-programs:

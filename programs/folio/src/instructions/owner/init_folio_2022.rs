@@ -216,7 +216,7 @@ pub fn handler(
         CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
             TokenMetadataInitialize {
-                token_program_id: ctx.accounts.token_program.to_account_info(),
+                program_id: ctx.accounts.token_program.to_account_info(),
                 mint: ctx.accounts.folio_token_mint.to_account_info(),
                 metadata: ctx.accounts.folio_token_mint.to_account_info(),
                 mint_authority: ctx.accounts.folio.to_account_info(),

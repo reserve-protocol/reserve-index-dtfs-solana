@@ -25,6 +25,7 @@ anchor-lang = { workspace = true, features = ["init-if-needed"] }
 anchor-spl = { workspace = true }
 bytemuck = { workspace = true }
 shared = { path = "../../shared" }
+proc-macro2 = { workspace = true }
 
 [lints]
 workspace = true 

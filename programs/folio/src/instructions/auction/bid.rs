@@ -202,8 +202,8 @@ pub fn handler(
     );
 
     // {buyTok} = {sellTok} * D18{buyTok/sellTok} / D18
-    let raw_bought_amount = Decimal::from_token_amount(raw_sell_amount)?
-        .mul(&scaled_price)?
+    let raw_bought_amount = (Decimal::from_token_amount(raw_sell_amount)?.mul(&scaled_price)?)
+        .div(&Decimal::ONE_E18)?
         .to_token_amount(Rounding::Floor)?
         .0;
 

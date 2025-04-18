@@ -18,6 +18,5 @@ incremental = false
 codegen-units = 1
 
 [workspace.lints.rust]
-# unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }
 unexpected_cfgs = { level = "allow" }
 ambiguous_glob_reexports = { level = "allow" }

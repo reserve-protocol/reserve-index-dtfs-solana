@@ -19,7 +19,7 @@ impl RewardsProgramInternal {
     /// * `reward_tokens` - The reward tokens account.
     /// * `remaining_accounts` - The remaining accounts.
     /// * `token_reward_token_account_is_mutable` - Say if the token rewards' token account is mutable or not, as we do a check on the accrue_rewards side,
-    ///                                              but depending on where the instruction is called from, it might be mutable or not.
+    ///   but depending on where the instruction is called from, it might be mutable or not.
     #[allow(clippy::too_many_arguments)]
     pub fn accrue_rewards<'info>(
         system_program: &AccountInfo<'info>,

@@ -100,8 +100,8 @@ pub struct AccrueRewards<'info> {
 /// * `reward_tokens` - The reward tokens account
 /// * `remaining_accounts` - The remaining accounts will represent the rewards tokens to accrue rewards for.
 /// * `token_reward_token_account_is_mutable` - Whether the token rewards' token account is mutable. This is needed because the next_account function
-///                                            needs to know if the account is mutable or not, so it can check if the account is valid, but accrue rewards is called from multiple different instructions, some
-///                                            that do require the token rewards' token account to be mutable, some don't.
+///   needs to know if the account is mutable or not, so it can check if the account is valid, but accrue rewards is called from multiple different instructions, some
+///   that do require the token rewards' token account to be mutable, some don't.
 #[allow(clippy::too_many_arguments)]
 pub fn accrue_rewards<'info>(
     system_program: &AccountInfo<'info>,

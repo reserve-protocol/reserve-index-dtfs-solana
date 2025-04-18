@@ -35,7 +35,7 @@ import { assert } from "chai";
  * They are not meant to be run on a regular basis and are more like a stress test.
  */
 
-describe.only("Extreme Folio Tests", () => {
+describe("Extreme Folio Tests", () => {
   let connection: Connection;
   let programFolio: Program<Folio>;
   let keys: any;

@@ -3,7 +3,7 @@ members = [
     "programs/folio",
     "programs/folio-admin",
     "programs/rewards",
-    "tests",
+    "tests"
 ]
 resolver = "2"
 

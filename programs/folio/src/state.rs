@@ -34,6 +34,10 @@ impl Actor {
 ///
 /// zero_copy
 /// PDA Seeds ["folio", folio token pubkey]
+///
+/// Note: This is 16 byte aligned due to the u128 fields.
+/// In order to deserialize you must use `bytemuck::try_pod_read_unaligned(&mut data[8..])`
+/// where the 8 byte discriminant is skipped.
 #[account(zero_copy)]
 #[derive(InitSpace, Default)]
 #[repr(C)]

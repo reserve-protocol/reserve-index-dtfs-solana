@@ -1,3 +1,4 @@
+pub mod serde;
 pub mod test_actor;
 pub mod test_auction;
 pub mod test_fee_distribution;

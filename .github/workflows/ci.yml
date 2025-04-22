@@ -112,7 +112,7 @@ jobs:
           npm install
 
           # When anchor tries to build Idl, it uses the nightly toolchain.
-          export RUSTUP_TOOLCHAIN=nightly-2025-04-01
+          export RUSTUP_TOOLCHAIN=nightly-2025-03-05
 
           mkdir -p target/deploy target/idl target/types
           cp utils/keys/folio-2-keypair-local.json target/deploy/folio-keypair.json

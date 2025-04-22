@@ -11,6 +11,8 @@
 //! * `remove_reward_token` - Remove a tracked reward token.
 //! * `claim_rewards` - Claim rewards from a token, which means transferring the rewards accrued by a user to the user.
 //! * `accrue_rewards` - Accrue rewards to a token, meaning updating accrued rewards.
+#![allow(unexpected_cfgs)]
+#![allow(clippy::doc_overindented_list_items)]
 use anchor_lang::prelude::*;
 
 use instructions::*;

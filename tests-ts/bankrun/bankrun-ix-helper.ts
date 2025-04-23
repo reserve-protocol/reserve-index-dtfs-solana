@@ -13,7 +13,6 @@ import {
   getUserPendingBasketPDA,
   getFolioFeeConfigPDA,
   getRewardTokensPDA,
-  getFolioTokenMetadataPDA,
 } from "../../utils/pda-helper";
 import {
   AccountMeta,
@@ -495,7 +494,6 @@ export async function removeFromBasket<T extends boolean = true>(
       folioBasket: getFolioBasketPDA(folio),
       folioTokenMint: folioTokenMint,
       tokenMint: tokenToRemove,
-      folioTokenMetadata: getFolioTokenMetadataPDA(folio, tokenToRemove),
     })
     .instruction();
 
@@ -1579,38 +1577,4 @@ export async function withdrawLiquidityFromGovernance(
     ...getComputeLimitInstruction(800_000),
     withdrawIx,
   ]);
-}
-
-export async function setDustLimitForToken<T extends boolean = true>(
-  client: BanksClient,
-  programFolio: Program<Folio>,
-  userKeypair: Keypair,
-  folio: PublicKey,
-  tokenMint: PublicKey,
-  dustLimit: BN,
-  executeTxn: T = true as T
-): Promise<
-  T extends true
-    ? BanksTransactionResultWithMeta
-    : { ix: TransactionInstruction; extraSigners: any[] }
-> {
-  const setDustLimitForToken = await programFolio.methods
-    .setDustLimitForToken(dustLimit)
-    .accountsPartial({
-      systemProgram: SystemProgram.programId,
-      actor: getActorPDA(userKeypair.publicKey, folio),
-      folio,
-      tokenMint,
-      ownerOrAuctionLauncher: userKeypair.publicKey,
-      folioTokenMetadata: getFolioTokenMetadataPDA(folio, tokenMint),
-    })
-    .instruction();
-
-  if (executeTxn) {
-    return createAndProcessTransaction(client, userKeypair, [
-      setDustLimitForToken,
-    ]) as any;
-  }
-
-  return { ix: setDustLimitForToken, extraSigners: [] } as any;
 }

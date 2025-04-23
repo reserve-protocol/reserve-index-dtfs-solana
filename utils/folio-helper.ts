@@ -25,7 +25,6 @@ import {
   getAuctionPDA,
   getUserPendingBasketPDA,
   getFolioFeeConfigPDA,
-  getFolioTokenMetadataPDA,
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -345,7 +344,6 @@ export async function removeFromBasket(
       folio: folio,
       folioBasket: getFolioBasketPDA(folio),
       tokenMint: tokenToRemove,
-      folioTokenMetadata: getFolioTokenMetadataPDA(folio, tokenToRemove),
     })
     .instruction();
 

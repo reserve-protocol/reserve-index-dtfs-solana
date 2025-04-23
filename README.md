@@ -1,6 +1,7 @@
 # Folio Protocol
 
 ## Table of Contents
+
 - [Overview](#overview)
 - [Decimal Precision](#decimal-precision)
 - [Mathematical Utilities](#mathematical-utilities)
@@ -13,28 +14,31 @@
 
 Reserve Folio is a protocol for creating and managing portfolios of SPL-compliant assets entirely onchain. Folios are designed to be used as a single-source of truth for asset allocations, enabling composability of complex, multi-asset portfolios.
 
-Folios support rebalancing via Dutch Auction over an exponential decay curve between two prices. Control flow over the auction is shared between two parties, with a AUCTION_APPROVER approving auctions in advance and a AUCTION_LAUNCHER opening them, optionally providing some amount of additional detail. Permissionless execution is available after a delay.
+Folios support rebalancing via Dutch Auction over an exponential decay curve between two prices. Control flow over the auction is shared between two parties, with a REBALANCE_MANAGER approving rebalances in advance and a AUCTION_LAUNCHER opening them, optionally providing some amount of additional detail. Permissionless execution is available after a delay.
 
-AUCTION_APPROVER is expected to be the SPL Governance account configured for fast-moving decisions associated with the Folio
+REBALANCE_MANAGER is expected to be the SPL Governance account configured for fast-moving decisions associated with the Folio
 
 AUCTION_LAUNCHER is expected to be a semi-trusted wallet or multisig; They can open auctions within the bounds set by governance, hopefully adding basket definition and pricing precision. If they are offline the auction can be opened permissionlessly after a preset delay. If they are evil, at-best they can deviate rebalancing within the governance-granted range, or prevent a Folio from rebalancing entirely by repeatedly closing-out auctions.
-
 
 ## Decimal Precision
 
 ### Precision Levels
+
 The protocol implements two precision levels for different operations:
+
 - **D9 (1e9)**: Standard Solana token decimal precision
 - **D18 (1e18)**: Enhanced precision for complex calculations
 
 ### Implementation Details
 
 #### Solana Token Standard (D9)
+
 - Native precision level for Solana token mints
 - Used for all token-related transactions
 - Maximum supported decimal precision in protocol
 
 #### Enhanced Precision (D18)
+
 - Used for advanced calculations requiring higher precision
 - Handles precision loss mitigation
 - Conversion process to D9:
@@ -43,6 +47,7 @@ The protocol implements two precision levels for different operations:
   - Accumulated dust compounds into complete D9 units over time
 
 ### Variable Naming Conventions
+
 > Note: These conventions exclude `state.rs` account definitions to maintain Solidity compatibility.
 
 - `raw_`: Indicates D9 precision (token amounts)
@@ -51,16 +56,20 @@ The protocol implements two precision levels for different operations:
 ## Mathematical Utilities
 
 ### Core Operations
+
 The `math_util.rs` module provides high-precision mathematical operations:
+
 - Basic arithmetic (`add`, `sub`, `mul`, `div`)
 - Power function (`pow`) using binary exponentiation
 
 ### Advanced Functions
 
 #### Nth Root Implementation
+
 Two-tiered approach based on input size:
 
 1. Large Values (n > 1,000,000):
+
    - Taylor series approximation near x = 1
    - Three-term series expansion
    - Formula: 1 - x/n + (n-1)x²/(2n²) - (n-1)(n-2)x³/(6n³)
@@ -71,20 +80,25 @@ Two-tiered approach based on input size:
    - Optimized for accuracy/performance balance
 
 #### Natural Logarithm (ln)
+
 Implementation features:
+
 - Input normalization (1 to e range)
 - arctanh Taylor series expansion
-- Formula: ln((1+x)/(1-x)) = 2 * arctanh(x)
+- Formula: ln((1+x)/(1-x)) = 2 \* arctanh(x)
 - Epsilon precision: 1e-18
 
 #### Exponential Function (exp)
+
 Implementation features:
+
 - Taylor series: e^x = 1 + x + x²/2! + x³/3! + ...
 - Dynamic iteration termination
 - Bi-directional exponent support
 - Epsilon precision: 1e-18
 
 ### Error Handling
+
 - D18 precision maintenance
 - Comprehensive overflow protection
 - U256 internal calculations
@@ -93,12 +107,15 @@ Implementation features:
 ## Protocol Flows
 
 ### Folio Initialization
+
 1. Execute `init_folio`
 2. Add tokens via `add_to_basket` (supports multiple transactions for large baskets)
    > Note: Providing `initial_shares` enables immediate minting capability
 
 ### Minting Process
+
 1. Add tokens to pending basket:
+
    - Use `add_to_pending_basket` for 1-N tokens
    - Tokens transfer immediately but remain "pending"
    - Reversible via `remove_from_pending_basket`
@@ -108,7 +125,9 @@ Implementation features:
    - Maximum 16 tokens without lookup table
 
 ### Redemption Process
+
 1. Burn tokens:
+
    - Execute `burn_folio_token`
    - Irreversible operation
    - Adds proportional tokens to pending basket
@@ -118,13 +137,16 @@ Implementation features:
    - Supports multiple transactions for large baskets
 
 ### Migration Protocol
+
 For security, the program is non-upgradeable. Migration process:
+
 - Program owner initiates migration
 - Permissionless token transfer
 - New version handles account structure migration
 - Whitelist-restricted program migration
 
 ### Governance Integration
+
 - Integrated with custom SPL governance program
 - Reward-enabled Folios owned by DAO via Governance PDA
 - Administrative functions require DAO voting:
@@ -143,9 +165,9 @@ A Folio has 3 roles:
 1. `OWNER`
    - Expected: SPL Governance account of Realm with slow configuration
    - Can add/remove assets, set fees, configure auction length, set the auction delay, and closeout auctions
-   - Can configure the `AUCTION_APPROVER`/ `AUCTION_LAUNCHER`
+   - Can configure the `REBALANCE_MANAGER`/ `AUCTION_LAUNCHER`
    - Primary owner of the Folio
-2. `AUCTION_APPROVER`
+2. `REBALANCE_MANAGER`
    - Expected: SPL Governance account of Relam with fast configuration
    - Can approve auctions
 3. `AUCTION_LAUNCHER`
@@ -184,7 +206,7 @@ During `open_auction` the `AUCTION_LAUNCHER` can set the buy and sell limits wit
 
 ###### Price
 
-There are broadly 3 ways to parametrize `[start_price, end_price]`, as the `AUCTION_APPROVER`:
+There are broadly 3 ways to parametrize `[start_price, end_price]`, as the `REBALANCE_MANAGER`:
 
 1. Can provide `[0, 0]` to _fully_ defer to the auction launcher for pricing. In this mode the auction CANNOT be opened permissionlessly. Loss can arise either due to the auction launcher setting `start_price` too low, or due to precision issues from traversing too large a range.
 2. Can provide `[start_price, 0]` to defer to the auction launcher for _just_ the `end_price`. In this mode the auction CANNOT be opened permissionlessly. Loss can arise due solely to precision issues only.
@@ -230,15 +252,18 @@ The universal 15 bps fee floor can be lowered by the DAO, as well as set (only l
 ## Build Guide
 
 ### Prerequisites
+
 Development Tools:
-   ```bash
-   cargo install just
-   just install-tools
-   ```
+
+```bash
+cargo install just
+just install-tools
+```
 
 ### Environment Setup
 
 1. Configuration Files:
+
    - Copy `.env.example` to `.env`
    - Configure required variables:
      ```
@@ -258,7 +283,9 @@ Development Tools:
 ### Build Configuration
 
 #### Environment Settings
+
 Configure `Anchor.toml` for target environment:
+
 ```toml
 [provider]
 cluster = "Localnet"  # Options: Localnet, Devnet, Mainnet
@@ -271,10 +298,13 @@ rewards = "7GiMvNDHVY8PXWQLHjSf1REGKpiDsVzRr4p7Y3xGbSuf"
 ```
 
 #### Build Process
+
 Execute:
+
 ```bash
 just build-local
 ```
+
 1. SPL Governance compilation
 2. Dual Folio program builds:
    - Standard instance
@@ -284,6 +314,7 @@ just build-local
 ### Key Management
 
 #### Program ID Generation
+
 ```bash
 # Generate new keypairs
 solana-keygen new -o folio_admin-keypair.json --no-bip39-passphrase
@@ -307,11 +338,13 @@ The protocol implements three distinct testing approaches to ensure comprehensiv
 Located under the `tests/` directory, these tests focus on pure Rust functions without Anchor-specific parameters.
 
 #### Characteristics
+
 - Tests functions without `Account`, `AccountInfo`, or `AccountLoader` parameters
 - Fast execution and simple setup
 - Ideal for testing mathematical operations and utility functions
 
 #### Running Unit Tests
+
 ```bash
 # Standard test execution
 cargo test
@@ -336,11 +369,13 @@ cargo tarpaulin --workspace \
 Located under `tests-ts/bankrun/`, these tests provide a middle ground between unit and integration tests.
 
 #### Features
+
 - Simulates on-chain behavior without requiring a validator
 - Faster than full integration tests
 - Tests program instructions and account interactions
 
 #### Setup and Execution
+
 ```bash
 just test-bankrun
 ```
@@ -352,6 +387,7 @@ just test-bankrun
 Located under `tests-ts/tests-*.ts`, these tests provide full end-to-end testing of the protocol.
 
 #### Features
+
 - Complete on-chain interaction testing
 - Tests cross-program interactions
 - Validates real-world scenarios
@@ -359,16 +395,19 @@ Located under `tests-ts/tests-*.ts`, these tests provide full end-to-end testing
 #### Setup and Execution
 
 Start the test environment and run tests:
-   ```bash
-   just test-amman
-   ```
+
+```bash
+just test-amman
+```
 
 #### Test Configuration
+
 - Uses Amman for transaction monitoring
 - Skips local validator (using Amman instead)
 - Skips deployment and build (assuming programs are pre-built)
 
 ### Test Organization
+
 ```bash
 project/
 ├── tests/ # Rust unit tests
@@ -381,11 +420,13 @@ project/
 ### Best Practices
 
 1. **Unit Tests**
+
    - Write for all pure functions
    - Focus on edge cases and error conditions
    - Maintain high coverage for non-Account functions
 
 2. **Bankrun Tests**
+
    - Test instruction logic
    - Validate account constraints
    - Verify state transitions
@@ -398,6 +439,7 @@ project/
 ## Architecture Diagrams
 
 ### Core Account Structure
+
 ```mermaid
 classDiagram
     class Folio {
@@ -441,6 +483,7 @@ classDiagram
 ```
 
 ### Auction System
+
 ```mermaid
 classDiagram
     class Auction {
@@ -472,6 +515,7 @@ classDiagram
 ```
 
 ### Fee Management
+
 ```mermaid
 classDiagram
     class FeeRecipients {
@@ -510,6 +554,7 @@ classDiagram
 ```
 
 ### Reward System
+
 ```mermaid
 classDiagram
     class RewardTokens {
@@ -545,6 +590,7 @@ classDiagram
 ```
 
 ### Program Registry
+
 ```mermaid
 classDiagram
     class ProgramRegistrar {
@@ -556,29 +602,30 @@ classDiagram
 ```
 
 ### Core Program Flow
+
 ```mermaid
 sequenceDiagram
     participant Owner as Folio Owner (DAO)
-    participant Approver as Auction Approver
+    participant RebalanceManager as Rebalance Manager
     participant Launcher as Auction Launcher
     participant User
     participant Folio
     participant Rewards
     participant Admin as Reward Admin
-    
+
     %% Initialization Flow
     rect rgb(106, 106, 116)
         Note over Owner, Folio: Initialization Phase
         Owner->>Folio: init_folio()
-        Owner->>Folio: init_or_update_actor(AUCTION_APPROVER)
+        Owner->>Folio: init_or_update_actor(REBALANCE_MANAGER)
         Owner->>Folio: init_or_update_actor(AUCTION_LAUNCHER)
         Owner->>Folio: add_to_basket(initial_tokens)
     end
 
     %% Auction Flow
     rect rgb(91, 81, 81)
-        Note over Approver, Folio: Auction Phase
-        Approver->>Folio: approve_auction(price_range, limits)
+        Note over RebalanceManager, Folio: Auction Phase
+        RebalanceManager->>Folio: approve_auction(price_range, limits)
         alt Immediate Launch
             Launcher->>Folio: open_auction()
         else After Delay
@@ -602,8 +649,8 @@ sequenceDiagram
     %% Reward Management
     rect rgb(42, 36, 36)
         Note over Admin, Rewards: Reward Management
-        Admin->>Rewards: set_rewards_admin()        
-        Admin->>Rewards: init_or_set_reward_ratio()        
+        Admin->>Rewards: set_rewards_admin()
+        Admin->>Rewards: init_or_set_reward_ratio()
         Admin->>Rewards: add_reward_token()
         Admin->>Rewards: remove_reward_token()
         User->>Rewards: accrue_rewards()
@@ -617,3 +664,4 @@ sequenceDiagram
         User->>Folio: distribute_fees()
         User->>Folio: crank_fee_distribution()
     end
+```

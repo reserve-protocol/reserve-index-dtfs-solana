@@ -66,7 +66,7 @@ import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 export enum Role {
   Owner = 0b00000001, // 1
-  AuctionApprover = 0b00000010, // 2
+  RebalanceManager = 0b00000010, // 2
   AuctionLauncher = 0b00000100, // 4
   BrandManager = 0b00001000, // 8
 }
@@ -75,7 +75,7 @@ export enum Role {
 export function roleToStruct(role: Role) {
   return {
     [Role.Owner]: { owner: {} },
-    [Role.AuctionApprover]: { auctionApprover: {} },
+    [Role.RebalanceManager]: { rebalanceManager: {} },
     [Role.AuctionLauncher]: { auctionLauncher: {} },
     [Role.BrandManager]: { brandManager: {} },
   }[role];

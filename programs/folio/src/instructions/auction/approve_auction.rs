@@ -1,7 +1,7 @@
 use crate::utils::structs::{BasketRange, FolioStatus, Role};
 use crate::utils::Prices;
 use crate::{
-    events::AuctionApproved,
+    events::RebalanceStarted,
     state::{Actor, Auction, Folio},
 };
 use anchor_lang::prelude::*;
@@ -15,13 +15,13 @@ use shared::{
 };
 
 /// Approve an auction.
-/// Auction Approver only.
+/// Rebalance Manager only.
 ///
 /// # Arguments
 /// * `auction_id` - The id of the auction to approve.
 /// * `system_program` - The system program.
 /// * `rent` - The rent sysvar.
-/// * `auction_approver` - The account that is approving the auction (mut, signer).
+/// * `rebalance_manager` - The account that is approving the auction (mut, signer).
 /// * `actor` - The actor account (PDA) (not mut, not signer).
 /// * `folio` - The folio account (PDA) (mut, not signer).
 /// * `auction` - The auction account (PDA) (init, not signer).
@@ -34,10 +34,10 @@ pub struct ApproveAuction<'info> {
     pub rent: Sysvar<'info, Rent>,
 
     #[account(mut)]
-    pub auction_approver: Signer<'info>,
+    pub rebalance_manager: Signer<'info>,
 
     #[account(
-        seeds = [ACTOR_SEEDS, auction_approver.key().as_ref(), folio.key().as_ref()],
+        seeds = [ACTOR_SEEDS, rebalance_manager.key().as_ref(), folio.key().as_ref()],
         bump = actor.bump,
     )]
     pub actor: Account<'info, Actor>,
@@ -47,7 +47,7 @@ pub struct ApproveAuction<'info> {
 
     #[account(
         init,
-        payer = auction_approver,
+        payer = rebalance_manager,
         space = Auction::SIZE,
         seeds = [AUCTION_SEEDS, folio.key().as_ref(), auction_id.to_le_bytes().as_ref()],
         bump
@@ -85,7 +85,7 @@ impl ApproveAuction<'_> {
         folio.validate_folio(
             &self.folio.key(),
             Some(&self.actor),
-            Some(vec![Role::AuctionApprover]),
+            Some(vec![Role::RebalanceManager]),
             Some(vec![FolioStatus::Initialized]),
         )?;
         check_condition!(folio.current_auction_id + 1 == auction_id, InvalidAuctionId);
@@ -161,7 +161,7 @@ pub fn handler(
     auction.launch_timeout = current_time + ttl;
     auction.max_runs = max_runs;
 
-    emit!(AuctionApproved {
+    emit!(RebalanceStarted {
         auction_id,
         from: ctx.accounts.sell_mint.key(),
         to: ctx.accounts.buy_mint.key(),

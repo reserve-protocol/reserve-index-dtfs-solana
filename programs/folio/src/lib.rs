@@ -320,13 +320,6 @@ pub mod folio {
         )
     }
 
-    pub fn set_dust_limit_for_token<'info>(
-        ctx: Context<'_, '_, 'info, 'info, SetDustLimitForToken<'info>>,
-        dust_limit: u128,
-    ) -> Result<()> {
-        set_dust_limit_for_token::handler(ctx, dust_limit)
-    }
-
     /*
     Development functions, used to show implementation for future folio program versions.
      */

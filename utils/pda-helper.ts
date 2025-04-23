@@ -105,27 +105,6 @@ export function getFolioBasketPDAWithBump(folio: PublicKey) {
   );
 }
 
-export function getFolioTokenMetadataPDA(
-  folio: PublicKey,
-  tokenMint: PublicKey
-) {
-  return getFolioTokenMetadataPDAWithBump(folio, tokenMint)[0];
-}
-
-export function getFolioTokenMetadataPDAWithBump(
-  folio: PublicKey,
-  tokenMint: PublicKey
-) {
-  return PublicKey.findProgramAddressSync(
-    [
-      Buffer.from("folio_token_metadata"),
-      folio.toBuffer(),
-      tokenMint.toBuffer(),
-    ],
-    FOLIO_PROGRAM_ID
-  );
-}
-
 export function getUserPendingBasketPDA(folio: PublicKey, user: PublicKey) {
   return getUserPendingBasketPDAWithBump(folio, user)[0];
 }

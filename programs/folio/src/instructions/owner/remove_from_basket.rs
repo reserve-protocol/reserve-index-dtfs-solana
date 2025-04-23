@@ -1,10 +1,10 @@
-use crate::state::{Actor, Folio, FolioBasket, FolioTokenMetadata};
+use crate::state::{Actor, Folio, FolioBasket};
 use crate::utils::structs::{FolioStatus, Role};
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::Mint;
 use shared::{
     check_condition,
-    constants::{ACTOR_SEEDS, FOLIO_BASKET_SEEDS, FOLIO_TOKEN_METADATA_SEEDS},
+    constants::{ACTOR_SEEDS, FOLIO_BASKET_SEEDS},
     errors::ErrorCode,
 };
 /// Remove tokens from the folio's basket.
@@ -42,15 +42,6 @@ pub struct RemoveFromBasket<'info> {
 
     #[account()]
     pub token_mint: Box<InterfaceAccount<'info, Mint>>,
-
-    #[account(
-        init_if_needed,
-        payer = folio_owner,
-        space = FolioTokenMetadata::SIZE,
-        seeds = [FOLIO_TOKEN_METADATA_SEEDS, folio.key().as_ref(), token_mint.key().as_ref()],
-        bump
-    )]
-    pub folio_token_metadata: Account<'info, FolioTokenMetadata>,
 }
 
 impl RemoveFromBasket<'_> {
@@ -84,29 +75,12 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, RemoveFromBasket<'info>
     let folio = ctx.accounts.folio.load()?;
     ctx.accounts.validate(&folio)?;
 
-    FolioTokenMetadata::process_init_if_needed(
-        &mut ctx.accounts.folio_token_metadata,
-        ctx.bumps.folio_token_metadata,
-        &ctx.accounts.folio.key(),
-        &ctx.accounts.token_mint.key(),
-    )?;
     let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
 
-    let scaled_folio_token_total_supply =
+    let _scaled_folio_token_total_supply =
         folio.get_total_supply(ctx.accounts.folio_token_mint.supply)?;
 
     let mint_to_remove = ctx.accounts.token_mint.key();
-    let basket_presence = folio_basket.get_token_presence_per_share_in_basket(
-        &mint_to_remove,
-        &scaled_folio_token_total_supply,
-    )?;
-
-    let scaled_dust_limit = ctx.accounts.folio_token_metadata.scaled_dust_amount;
-    check_condition!(
-        basket_presence <= scaled_dust_limit,
-        TokenPresenceInBasketMoreThanDustLimit
-    );
-
     folio_basket.remove_token_mint_from_basket(mint_to_remove)?;
 
     Ok(())

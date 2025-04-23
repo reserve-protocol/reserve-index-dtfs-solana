@@ -15,11 +15,7 @@ import {
 } from "../bankrun-program-helper";
 
 import { getFolioBasketPDA, getFolioPDA } from "../../../utils/pda-helper";
-import {
-  addToBasket,
-  removeFromBasket,
-  setDustLimitForToken,
-} from "../bankrun-ix-helper";
+import { addToBasket, removeFromBasket } from "../bankrun-ix-helper";
 import {
   createAndSetFolio,
   Role,
@@ -88,7 +84,6 @@ describe("Bankrun - Folio basket", () => {
       mint: PublicKey;
       amount: BN;
     }[];
-    dustLimit: BN | null;
     alreadyIncludedTokens: FolioTokenAmount[];
     removedMint: PublicKey;
     remainingAccounts: () => AccountMeta[];
@@ -101,7 +96,6 @@ describe("Bankrun - Folio basket", () => {
   } = {
     initialShares: new BN(0),
     tokens: [],
-    dustLimit: null,
     alreadyIncludedTokens: [],
     removedMint: MINTS[0].publicKey,
     remainingAccounts: () => [],
@@ -227,17 +221,6 @@ describe("Bankrun - Folio basket", () => {
         new FolioTokenAmount(MINTS[0].publicKey, new BN(18000)),
       ],
       removedMint: MINTS[0].publicKey,
-    },
-    {
-      desc: "(removing token fails if the amount of token in folio is greater than the dust limit, fails)",
-      expectedError: "TokenPresenceInBasketMoreThanDustLimit",
-      alreadyIncludedTokens: [
-        new FolioTokenAmount(MINTS[0].publicKey, new BN(18000000)),
-        new FolioTokenAmount(MINTS[0].publicKey, new BN(18000000)),
-      ],
-      removedMint: MINTS[0].publicKey,
-      folioTokenMintSupply: new BN(18000000),
-      dustLimit: new BN(1),
     },
   ];
 
@@ -569,12 +552,7 @@ describe("Bankrun - Folio basket", () => {
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {
           let txnResult: BanksTransactionResultWithMeta;
-          const {
-            removedMint,
-            alreadyIncludedTokens,
-            folioTokenMintSupply,
-            dustLimit,
-          } = {
+          const { removedMint, alreadyIncludedTokens, folioTokenMintSupply } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
           };
@@ -590,17 +568,6 @@ describe("Bankrun - Folio basket", () => {
                 alreadyIncludedTokens
               );
               await travelFutureSlot(context);
-            }
-            if (dustLimit) {
-              await setDustLimitForToken(
-                banksClient,
-                programFolio,
-                folioOwnerKeypair,
-                folioPDA,
-                removedMint,
-                dustLimit,
-                true
-              );
             }
 
             await travelFutureSlot(context);

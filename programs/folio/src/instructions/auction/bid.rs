@@ -151,8 +151,8 @@ impl Bid<'_> {
 ///
 /// # Arguments
 /// * `ctx` - The context of the instruction.
-/// * `raw_sell_amount` - The amount of sell tokens to sell (D9) (how much the bidder wants to buy from the folio).
-/// * `raw_max_buy_amount` - The maximum amount of buy tokens to buy (D9) (how much the bidder is willing to pay for the sell tokens from the folio).
+/// * `raw_sell_amount` - The amount of sell tokens to sell (how much the bidder wants to buy from the folio).
+/// * `raw_max_buy_amount` - The maximum amount of buy tokens to buy (how much the bidder is willing to pay for the sell tokens from the folio).
 /// * `with_callback` - Whether there is a provided callback that needs to be called before finishing the transfer.
 /// * `callback_data` - The data to pass to the callback.
 pub fn handler(

@@ -62,22 +62,22 @@ describe("Bankrun - Actor", () => {
       expectedError: "InstructionDidNotDeserialize",
     },
     {
-      desc: "(already have role to give, doesn't change anything, sucess)",
-      currentRole: Role.AuctionApprover,
-      newRole: Role.AuctionApprover,
+      desc: "(already have role to give, doesn't change anything, success)",
+      currentRole: Role.RebalanceManager,
+      newRole: Role.RebalanceManager,
       expectedError: null,
     },
     {
       desc: "(doesn't have role, give, success)",
       currentRole: Role.AuctionLauncher,
-      newRole: Role.AuctionApprover,
+      newRole: Role.RebalanceManager,
       expectedError: null,
     },
 
     {
       desc: "(already have one role, gives 1 new roles, success)",
       currentRole: Role.Owner,
-      newRole: Role.AuctionApprover,
+      newRole: Role.RebalanceManager,
       expectedError: null,
     },
   ];
@@ -86,7 +86,7 @@ describe("Bankrun - Actor", () => {
     {
       desc: "(already have role, remove random role, success)",
       currentRole: Role.Owner,
-      roleToRemove: Role.AuctionApprover,
+      roleToRemove: Role.RebalanceManager,
       accountIsClosed: false,
       expectedError: null,
     },
@@ -184,7 +184,7 @@ describe("Bankrun - Actor", () => {
           programFolio,
           newActorKeypair,
           folioPDA,
-          Role.AuctionApprover
+          Role.RebalanceManager
         );
       });
 

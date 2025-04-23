@@ -7,8 +7,8 @@ use anchor_lang::prelude::*;
 pub enum Role {
     /// The owner of the Folio.
     Owner = 0b0000_0001,
-    /// The auction approver of the Folio.
-    AuctionApprover = 0b0000_0010,
+    /// The rebalance manager of the Folio.
+    RebalanceManager = 0b0000_0010,
     /// The auction launcher of the Folio.
     AuctionLauncher = 0b0000_0100,
     /// The brand manager of the Folio.

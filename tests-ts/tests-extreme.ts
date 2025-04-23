@@ -47,7 +47,7 @@ describe.only("Extreme Folio Tests", () => {
   let folioOwnerKeypair: Keypair;
   let folioTokenMint: Keypair;
   let folioPDA: PublicKey;
-  let auctionApproverKeypair: Keypair;
+  let rebalanceManagerKeypair: Keypair;
 
   const BATCH_SIZE = 5;
 
@@ -67,13 +67,13 @@ describe.only("Extreme Folio Tests", () => {
 
     folioOwnerKeypair = Keypair.generate();
     userKeypair = Keypair.generate();
-    auctionApproverKeypair = Keypair.generate();
+    rebalanceManagerKeypair = Keypair.generate();
 
     await airdrop(connection, payerKeypair.publicKey, 1000);
     await airdrop(connection, adminKeypair.publicKey, 1000);
     await airdrop(connection, folioOwnerKeypair.publicKey, 1000);
     await airdrop(connection, userKeypair.publicKey, 1000);
-    await airdrop(connection, auctionApproverKeypair.publicKey, 1000);
+    await airdrop(connection, rebalanceManagerKeypair.publicKey, 1000);
 
     folioTokenMint = Keypair.generate();
 
@@ -186,9 +186,9 @@ describe.only("Extreme Folio Tests", () => {
       connection,
       folioOwnerKeypair,
       folioPDA,
-      auctionApproverKeypair.publicKey,
+      rebalanceManagerKeypair.publicKey,
       {
-        auctionApprover: {},
+        rebalanceManager: {},
       }
     );
 
@@ -200,7 +200,7 @@ describe.only("Extreme Folio Tests", () => {
     // Approve auction with id 1
     await approveAuction(
       connection,
-      auctionApproverKeypair,
+      rebalanceManagerKeypair,
       folioPDA,
       buyMint,
       sellMint,
@@ -216,7 +216,7 @@ describe.only("Extreme Folio Tests", () => {
       connection,
       folioOwnerKeypair,
       folioPDA,
-      auctionApproverKeypair.publicKey,
+      rebalanceManagerKeypair.publicKey,
       {
         auctionLauncher: {},
       }
@@ -227,7 +227,7 @@ describe.only("Extreme Folio Tests", () => {
     // Open auction with id 1
     await openAuction(
       connection,
-      auctionApproverKeypair,
+      rebalanceManagerKeypair,
       folioPDA,
       auctionPDA,
       new BN(5),

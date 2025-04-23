@@ -42,10 +42,7 @@ mod tests {
         // Test with UTF-8 characters
         let utf8_str = "Hello 世界!";
         let fixed = FixedSizeString::new(utf8_str);
-        assert_eq!(
-            &fixed.value[..utf8_str.as_bytes().len()],
-            utf8_str.as_bytes()
-        );
+        assert_eq!(&fixed.value[..utf8_str.len()], utf8_str.as_bytes());
 
         // Test with special characters
         let special_chars = "!@#$%^&*()_+";

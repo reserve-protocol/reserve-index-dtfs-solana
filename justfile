@@ -14,8 +14,8 @@ install-tools:
     @if command -v cargo >/dev/null 2>&1; then \
         echo "Rust is already installed. Version: $(rustc --version)"; \
     else \
-        echo "Installing Rust v1.83"; \
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.83; \
+        echo "Installing Rust nightly-2025-03-05"; \
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2025-03-05; \
         source "$HOME/.cargo/env"; \
     fi
 

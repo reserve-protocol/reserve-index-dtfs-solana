@@ -50,7 +50,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.83.0"
+          toolchain: "nightly-2025-03-05"
           components: rustfmt, clippy
 
       - name: Rust Format Check
@@ -71,7 +71,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.83.0"
+          toolchain: "nightly-2025-03-05"
 
       - name: Restore cached tools
         uses: actions/cache@v4
@@ -90,7 +90,7 @@ jobs:
         run: |
           # Create directories
           mkdir -p tests-ts/programs
-          
+
           cd "$WORKSPACE"
 
           # Build SPL Governance
@@ -110,6 +110,9 @@ jobs:
 
           # Build Folio programs
           npm install
+
+          # When anchor tries to build Idl, it uses the nightly toolchain.
+          export RUSTUP_TOOLCHAIN=nightly-2025-03-05
 
           mkdir -p target/deploy target/idl target/types
           cp utils/keys/folio-2-keypair-local.json target/deploy/folio-keypair.json
@@ -149,7 +152,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.83.0"
+          toolchain: "nightly-2025-03-05"
 
       - name: Restore cached tools
         uses: actions/cache@v4

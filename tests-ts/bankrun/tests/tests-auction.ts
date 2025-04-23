@@ -48,6 +48,7 @@ import {
 } from "../bankrun-general-tests-helper";
 import * as assert from "assert";
 import {
+  D18,
   D27,
   D9,
   DEFAULT_DECIMALS,
@@ -112,7 +113,7 @@ describe("Bankrun - Auction", () => {
     DEFAULT_BUY_MINT.publicKey,
     { low: new BN(1), high: new BN(1), spot: new BN(1) },
     { low: new BN(1), high: new BN(1), spot: new BN(1) },
-    { start: new BN(1), end: new BN(1) },
+    { start: new BN(1).mul(D18), end: new BN(1).mul(D18) },
     Array.from({ length: MAX_SINGLE_AUCTION_RUNS }, () =>
       AuctionRunDetails.default()
     ),

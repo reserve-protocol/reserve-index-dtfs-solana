@@ -3,14 +3,13 @@
 #[cfg(test)]
 mod tests {
 
-    use std::cell::RefCell;
-
     use anchor_lang::prelude::Pubkey;
     use folio::state::{Auction, Folio};
     use folio::utils::structs::AuctionStatus;
     use folio::utils::{AuctionEnd, AuctionRunDetails, BasketRange, OpenAuctionConfig, Prices};
     use shared::constants::{MAX_RATE, MAX_TTL};
     use shared::errors::ErrorCode::{self, *};
+    use std::cell::RefCell;
 
     fn setup_auction() -> Auction {
         let mut auction = Auction::default();

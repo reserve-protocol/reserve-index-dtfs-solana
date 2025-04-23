@@ -53,6 +53,8 @@ install-tools:
     @echo "Anchor: $(anchor --version 2>/dev/null || echo 'not found')"
 
 build-local:
+    @just install-tools
+
     # Exit on error
     @set -e
 

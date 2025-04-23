@@ -140,7 +140,8 @@ pub struct DustLimitSetForToken {
 /// * `amount` - The amount of the auction, scaled in D9.
 /// * `start_price` - The start price of the auction, scaled in D18.
 #[event]
-pub struct AuctionApproved {
+// TODO: Change content of event to be more informative
+pub struct RebalanceStarted {
     pub auction_id: u64,
     pub from: Pubkey,
     pub to: Pubkey,

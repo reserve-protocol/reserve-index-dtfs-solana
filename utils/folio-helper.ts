@@ -669,7 +669,7 @@ export async function crankFeeDistribution(
 
 export async function approveAuction(
   connection: Connection,
-  auctionApproverKeypair: Keypair,
+  rebalanceManagerKeypair: Keypair,
   folio: PublicKey,
   buyMint: PublicKey,
   sellMint: PublicKey,
@@ -681,7 +681,7 @@ export async function approveAuction(
   ttl: BN,
   maxRuns: number = 1
 ) {
-  const folioProgram = getFolioProgram(connection, auctionApproverKeypair);
+  const folioProgram = getFolioProgram(connection, rebalanceManagerKeypair);
 
   const approveAuction = await folioProgram.methods
     .approveAuction(
@@ -695,8 +695,8 @@ export async function approveAuction(
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
-      auctionApprover: auctionApproverKeypair.publicKey,
-      actor: getActorPDA(auctionApproverKeypair.publicKey, folio),
+      rebalanceManager: rebalanceManagerKeypair.publicKey,
+      actor: getActorPDA(rebalanceManagerKeypair.publicKey, folio),
       folio,
       auction: getAuctionPDA(folio, auctionId),
       buyMint: buyMint,

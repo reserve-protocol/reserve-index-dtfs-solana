@@ -87,7 +87,7 @@ describe("Bankrun - Auction", () => {
   let adminKeypair: Keypair;
 
   let folioOwnerKeypair: Keypair;
-  let auctionApproverKeypair: Keypair;
+  let rebalanceManagerKeypair: Keypair;
   let auctionLauncherKeypair: Keypair;
   let bidderKeypair: Keypair;
 
@@ -645,9 +645,9 @@ describe("Bankrun - Auction", () => {
     await createAndSetActor(
       context,
       programFolio,
-      auctionApproverKeypair,
+      rebalanceManagerKeypair,
       folioPDA,
-      Role.AuctionApprover
+      Role.RebalanceManager
     );
 
     await createAndSetActor(
@@ -697,14 +697,14 @@ describe("Bankrun - Auction", () => {
     folioOwnerKeypair = Keypair.generate();
     folioTokenMint = Keypair.generate();
 
-    auctionApproverKeypair = Keypair.generate();
+    rebalanceManagerKeypair = Keypair.generate();
     auctionLauncherKeypair = Keypair.generate();
     bidderKeypair = Keypair.generate();
 
     await airdrop(context, payerKeypair.publicKey, 1000);
     await airdrop(context, adminKeypair.publicKey, 1000);
     await airdrop(context, folioOwnerKeypair.publicKey, 1000);
-    await airdrop(context, auctionApproverKeypair.publicKey, 1000);
+    await airdrop(context, rebalanceManagerKeypair.publicKey, 1000);
     await airdrop(context, auctionLauncherKeypair.publicKey, 1000);
     await airdrop(context, bidderKeypair.publicKey, 1000);
 
@@ -718,7 +718,7 @@ describe("Bankrun - Auction", () => {
       approveAuction<true>(
         banksClient,
         programFolio,
-        auctionApproverKeypair,
+        rebalanceManagerKeypair,
         folioPDA,
         Auction.default(
           folioPDA,
@@ -734,7 +734,7 @@ describe("Bankrun - Auction", () => {
       closeAuction<true>(
         banksClient,
         programFolio,
-        auctionApproverKeypair,
+        rebalanceManagerKeypair,
         folioPDA,
         getAuctionPDA(folioPDA, new BN(0)),
         true
@@ -792,7 +792,7 @@ describe("Bankrun - Auction", () => {
         await assertNotValidRoleTestCase(
           context,
           programFolio,
-          auctionApproverKeypair,
+          rebalanceManagerKeypair,
           folioPDA,
           generalIxApproveAuction,
           Role.AuctionLauncher
@@ -844,7 +844,7 @@ describe("Bankrun - Auction", () => {
         await assertNotValidRoleTestCase(
           context,
           programFolio,
-          auctionApproverKeypair,
+          rebalanceManagerKeypair,
           folioPDA,
           generalIxCloseAuction,
           Role.BrandManager
@@ -891,7 +891,7 @@ describe("Bankrun - Auction", () => {
           auctionLauncherKeypair,
           folioPDA,
           generalIxOpenAuction,
-          Role.AuctionApprover
+          Role.RebalanceManager
         );
       });
 
@@ -1041,7 +1041,7 @@ describe("Bankrun - Auction", () => {
             txnResult = await approveAuction<true>(
               banksClient,
               programFolio,
-              auctionApproverKeypair,
+              rebalanceManagerKeypair,
               folioPDA,
               auctionToUse,
               MAX_TTL,
@@ -1167,7 +1167,7 @@ describe("Bankrun - Auction", () => {
             txnResult = await closeAuction<true>(
               banksClient,
               programFolio,
-              auctionApproverKeypair,
+              rebalanceManagerKeypair,
               folioPDA,
               getAuctionPDA(folioPDA, auctionToUse.id),
               true

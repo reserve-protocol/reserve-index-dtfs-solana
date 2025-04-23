@@ -83,7 +83,7 @@ describe("Folio Tests", () => {
   let userKeypair: Keypair;
 
   let auctionLauncherKeypair: Keypair;
-  let auctionApproverKeypair: Keypair;
+  let rebalanceManagerKeypair: Keypair;
 
   let folioOwnerKeypair: Keypair;
   let folioTokenMint: Keypair;
@@ -136,14 +136,14 @@ describe("Folio Tests", () => {
 
     folioOwnerKeypair = Keypair.generate();
     userKeypair = Keypair.generate();
-    auctionApproverKeypair = Keypair.generate();
+    rebalanceManagerKeypair = Keypair.generate();
     auctionLauncherKeypair = Keypair.generate();
 
     await airdrop(connection, payerKeypair.publicKey, 1000);
     await airdrop(connection, adminKeypair.publicKey, 1000);
     await airdrop(connection, folioOwnerKeypair.publicKey, 1000);
     await airdrop(connection, userKeypair.publicKey, 1000);
-    await airdrop(connection, auctionApproverKeypair.publicKey, 1000);
+    await airdrop(connection, rebalanceManagerKeypair.publicKey, 1000);
     await airdrop(connection, auctionLauncherKeypair.publicKey, 1000);
 
     // Create the tokens that can be included in the folio
@@ -346,23 +346,23 @@ describe("Folio Tests", () => {
     );
   });
 
-  it("should add auction approver", async () => {
+  it("should add rebalance manager", async () => {
     await addOrUpdateActor(
       connection,
       folioOwnerKeypair,
       folioPDA,
-      auctionApproverKeypair.publicKey,
+      rebalanceManagerKeypair.publicKey,
       {
-        auctionApprover: {},
+        rebalanceManager: {},
       }
     );
 
     const actor = await programFolio.account.actor.fetch(
-      getActorPDA(auctionApproverKeypair.publicKey, folioPDA)
+      getActorPDA(rebalanceManagerKeypair.publicKey, folioPDA)
     );
 
-    assert.deepEqual(actor.roles, 2); //  binary 10 = 2 for auction approver
-    assert.deepEqual(actor.authority, auctionApproverKeypair.publicKey);
+    assert.deepEqual(actor.roles, 2); //  binary 10 = 2 for rebalance manager
+    assert.deepEqual(actor.authority, rebalanceManagerKeypair.publicKey);
     assert.deepEqual(actor.folio, folioPDA);
     assert.notEqual(actor.bump, 0);
   });
@@ -388,23 +388,23 @@ describe("Folio Tests", () => {
     assert.notEqual(actor.bump, 0);
   });
 
-  it("should update auction approver to also have auction launcher role", async () => {
+  it("should update rebalance manager to also have auction launcher role", async () => {
     await addOrUpdateActor(
       connection,
       folioOwnerKeypair,
       folioPDA,
-      auctionApproverKeypair.publicKey,
+      rebalanceManagerKeypair.publicKey,
       {
         auctionLauncher: {},
       }
     );
 
     const actor = await programFolio.account.actor.fetch(
-      getActorPDA(auctionApproverKeypair.publicKey, folioPDA)
+      getActorPDA(rebalanceManagerKeypair.publicKey, folioPDA)
     );
 
-    assert.deepEqual(actor.roles, 6); //  binary 110 = 6 for auction approver and auction launcher
-    assert.deepEqual(actor.authority, auctionApproverKeypair.publicKey);
+    assert.deepEqual(actor.roles, 6); //  binary 110 = 6 for rebalance manager and auction launcher
+    assert.deepEqual(actor.authority, rebalanceManagerKeypair.publicKey);
     assert.deepEqual(actor.folio, folioPDA);
     assert.notEqual(actor.bump, 0);
   });
@@ -830,6 +830,9 @@ describe("Folio Tests", () => {
 
   it("should allow user to poke folio and update pending fees", async () => {
     const folioBefore = await programFolio.account.folio.fetch(folioPDA);
+    // Wait for 1 second to ensure the pokeFolio updates the fees,
+    // otherwise the test is flaky
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     await pokeFolio(
       connection,
@@ -1004,7 +1007,7 @@ describe("Folio Tests", () => {
 
     await approveAuction(
       connection,
-      auctionApproverKeypair,
+      rebalanceManagerKeypair,
       folioPDA,
       buyMint.publicKey,
       sellMint,
@@ -1058,7 +1061,7 @@ describe("Folio Tests", () => {
 
     await openAuction(
       connection,
-      auctionApproverKeypair,
+      rebalanceManagerKeypair,
       folioPDA,
       auctionPDA,
       new BN(2),
@@ -1113,7 +1116,12 @@ describe("Folio Tests", () => {
 
     const currentTimeOnSolana = await getSolanaCurrentTime(connection);
 
-    await killAuction(connection, auctionApproverKeypair, folioPDA, auctionPDA);
+    await killAuction(
+      connection,
+      rebalanceManagerKeypair,
+      folioPDA,
+      auctionPDA
+    );
 
     const folioAfter = await programFolio.account.folio.fetch(folioPDA);
 

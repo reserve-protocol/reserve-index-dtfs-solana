@@ -8,7 +8,7 @@ use shared::constants::ACTOR_SEEDS;
 use shared::errors::ErrorCode;
 
 /// Close an auction.
-/// Auction Approver, Auction Launcher, or Owner.
+/// Rebalance Manager, Auction Launcher, or Owner.
 ///
 /// # Arguments
 /// * `system_program` - The system program.
@@ -47,7 +47,7 @@ impl CloseAuction<'_> {
             &self.folio.key(),
             Some(&self.actor),
             Some(vec![
-                Role::AuctionApprover,
+                Role::RebalanceManager,
                 Role::AuctionLauncher,
                 Role::Owner,
             ]),

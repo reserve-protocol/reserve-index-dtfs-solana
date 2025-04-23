@@ -495,7 +495,6 @@ export async function removeFromBasket<T extends boolean = true>(
       folioBasket: getFolioBasketPDA(folio),
       folioTokenMint: folioTokenMint,
       tokenMint: tokenToRemove,
-      folioTokenMetadata: getFolioTokenMetadataPDA(folio, tokenToRemove),
     })
     .instruction();
 
@@ -863,7 +862,7 @@ export async function crankFeeDistribution<T extends boolean = true>(
 export async function approveAuction<T extends boolean = true>(
   client: BanksClient,
   programFolio: Program<Folio>,
-  auctionApproverKeypair: Keypair,
+  RebalanceManagerKeypair: Keypair,
   folio: PublicKey,
   auction: Auction,
   ttl: BN,
@@ -886,8 +885,8 @@ export async function approveAuction<T extends boolean = true>(
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
-      auctionApprover: auctionApproverKeypair.publicKey,
-      actor: getActorPDA(auctionApproverKeypair.publicKey, folio),
+      rebalanceManager: RebalanceManagerKeypair.publicKey,
+      actor: getActorPDA(RebalanceManagerKeypair.publicKey, folio),
       folio,
       auction: getAuctionPDA(folio, auction.id),
       buyMint: auction.buy,
@@ -896,7 +895,7 @@ export async function approveAuction<T extends boolean = true>(
     .instruction();
 
   if (executeTxn) {
-    return createAndProcessTransaction(client, auctionApproverKeypair, [
+    return createAndProcessTransaction(client, RebalanceManagerKeypair, [
       approveAuction,
     ]) as any;
   }

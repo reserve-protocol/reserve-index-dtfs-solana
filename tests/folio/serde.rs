@@ -2,7 +2,7 @@
 mod tests {
     use crate::shared::logger::init_logger;
     use anchor_lang::__private::bytemuck;
-    use anchor_lang::__private::bytemuck::{AnyBitPattern, NoUninit, Pod};
+
     use anchor_lang::prelude::*;
     use anchor_lang::{AccountSerialize, Discriminator, ZeroCopy};
     use folio::state::*;
@@ -87,9 +87,9 @@ mod tests {
     }
 
     #[test]
-    fn folio_token_metadata() {
+    fn actor() {
         init_logger();
-        let data = serialize_account::<FolioTokenMetadata>();
-        let _rehydrated = deserialize_account::<FolioTokenMetadata>(&mut &data[..]);
+        let data = serialize_account::<Actor>();
+        let _rehydrated = deserialize_account::<Actor>(&mut &data[..]);
     }
 }

@@ -261,9 +261,6 @@ pub enum ErrorCode {
 
     #[msg("Invalid Callback Program")]
     InvalidCallbackProgram,
-
-    #[msg("Token presence in basket is more than dust limit")]
-    TokenPresenceInBasketMoreThanDustLimit,
 }
 
 /// Check a condition and return an error if it is not met.

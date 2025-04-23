@@ -5,5 +5,4 @@ pub mod fee_distribution;
 pub mod fee_recipients;
 pub mod folio;
 pub mod folio_basket;
-pub mod folio_token_metadata;
 pub mod user_pending_basket;

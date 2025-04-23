@@ -13,6 +13,8 @@
 //!
 //! * `ProgramRegistryUpdate` - Emitted when the program registrar is updated.
 //!
+#![allow(unexpected_cfgs)]
+#![allow(clippy::doc_overindented_list_items)]
 use anchor_lang::prelude::*;
 
 use instructions::*;

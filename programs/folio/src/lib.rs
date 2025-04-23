@@ -42,6 +42,8 @@
 //! * `open_auction_permissionless` - Open an auction permissionlessly (after a delay, if not done by allowed actors).
 //! * `bid` - Bid in an auction.
 #![allow(clippy::too_many_arguments)]
+#![allow(unexpected_cfgs)]
+#![allow(clippy::doc_overindented_list_items)]
 use anchor_lang::prelude::*;
 
 use instructions::*;

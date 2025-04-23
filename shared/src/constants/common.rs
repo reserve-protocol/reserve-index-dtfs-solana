@@ -1,13 +1,40 @@
 //! Common constants for the program.
-//!
-//! # Constants (provided via the build script that uses .env file)
-//! * ADMIN - The admin of the program.
-//! * SPL_GOVERNANCE_PROGRAM_ID - The program id of the SPL Governance program.
 
 use anchor_lang::prelude::*;
 use spl_math::uint::U256;
 
-include!(concat!(env!("OUT_DIR"), "/config.rs"));
+#[cfg(feature = "localnet")]
+mod localnet {
+    use super::*;
+    pub const ADMIN: Pubkey = pubkey!("AXF3tTrMUD5BLzv5Fmyj63KXwvkuGdxMQemSJHtTag4j");
+    pub const SPL_GOVERNANCE_PROGRAM_ID: Pubkey =
+        pubkey!("HwXcHGabc19PxzYFVSfKvuaDSNpbLGL8fhVtkcTyEymj");
+}
+
+#[cfg(feature = "devnet")]
+mod devnet {
+    todo!("Set devnet constants");
+    use super::*;
+    pub const ADMIN: Pubkey = pubkey!("AXF3tTrMUD5BLzv5Fmyj63KXwvkuGdxMQemSJHtTag4j");
+    pub const SPL_GOVERNANCE_PROGRAM_ID: Pubkey =
+        pubkey!("HwXcHGabc19PxzYFVSfKvuaDSNpbLGL8fhVtkcTyEymj");
+}
+
+#[cfg(feature = "mainnet")]
+mod mainnet {
+    todo!("Set mainnet constants");
+    use super::*;
+    pub const ADMIN: Pubkey = pubkey!("AXF3tTrMUD5BLzv5Fmyj63KXwvkuGdxMQemSJHtTag4j");
+    pub const SPL_GOVERNANCE_PROGRAM_ID: Pubkey =
+        pubkey!("HwXcHGabc19PxzYFVSfKvuaDSNpbLGL8fhVtkcTyEymj");
+}
+
+#[cfg(feature = "devnet")]
+use devnet::*;
+#[cfg(feature = "localnet")]
+pub use localnet::*;
+#[cfg(feature = "mainnet")]
+pub use mainnet::*;
 
 // Constants for scaling
 pub const ONE_U256: U256 = U256([1, 0, 0, 0]); // 1

@@ -9,7 +9,7 @@ crate-type = ["cdylib", "lib"]
 name = "folio"
 
 [features]
-default = []
+default = ["localnet"]
 cpi = ["no-entrypoint"]
 no-entrypoint = []
 no-idl = []
@@ -17,6 +17,9 @@ no-log-ix-name = []
 idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 
 dev = []
+localnet = ["shared/localnet"]
+devnet = ["shared/devnet"]
+mainnet = ["shared/mainnet"]
 
 [dependencies]
 anchor-lang = { version = "=0.30.1", features = ["init-if-needed"] }

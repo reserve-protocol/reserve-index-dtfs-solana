@@ -24,6 +24,7 @@ import { FolioAdmin } from "../../../target/types/folio_admin";
 import {
   D18,
   D9,
+  DAYS_IN_SECONDS,
   DEFAULT_DECIMALS,
   MAX_MINT_FEE,
   TOTAL_PORTION_FEE_RECIPIENT,
@@ -143,6 +144,8 @@ describe("Bankrun - Fees", () => {
     expectedFeeRecipientShares: BN;
 
     expectedFeeDistributed: BN[];
+
+    startUnixTimestamp: BN | null;
   } = {
     remainingAccounts: () => [],
     customFolioTokenMint: null,
@@ -182,6 +185,8 @@ describe("Bankrun - Fees", () => {
     expectedFeeRecipientShares: new BN(0),
 
     expectedFeeDistributed: [],
+
+    startUnixTimestamp: null,
   };
 
   const TEST_CASES_POKE_FOLIO = [
@@ -197,27 +202,38 @@ describe("Bankrun - Fees", () => {
       expectedFeeRecipientShares: new BN(0),
     },
     {
-      desc: "(current time is after last poke 10 seconds, succeeds)",
+      desc: "(current time is 10 seconds after last poke, no change, as we are in same day)",
       expectedError: null,
-      expectedDaoFeeShares: new BN(1667406588755), // In D18
-      expectedFeeRecipientShares: new BN(31680725186342), // In D18
+      expectedDaoFeeShares: new BN(0), // In D18
+      expectedFeeRecipientShares: new BN(0), // In D18
       addedClockTime: 10,
+      // Required as otherwise the test will become flaky
+      // They will fail if current time is just 10 seconds before the end of the day.
+      startUnixTimestamp: new BN(1714003200),
     },
     {
-      desc: "(current time is after last poke 60 seconds, succeeds)",
+      desc: "(current time is 1 day - 100 seconds after last poke , no change, as we are in same day)",
       expectedError: null,
-      expectedDaoFeeShares: new BN(10004440366677),
-      expectedFeeRecipientShares: new BN(190084366966845),
-      addedClockTime: 60,
+      expectedDaoFeeShares: new BN(0), // In D18
+      expectedFeeRecipientShares: new BN(0), // In D18
+      addedClockTime: 86400 - 100,
+      startUnixTimestamp: new BN(1714003200),
+    },
+    {
+      desc: "(current time is one day after last poke, succeeds)",
+      expectedError: null,
+      expectedDaoFeeShares: new BN("14408468327699472"),
+      expectedFeeRecipientShares: new BN("273760898226289967"),
+      addedClockTime: 86400,
       initialDaoPendingFeeShares: new BN(1000),
       initialFeeRecipientPendingFeeShares: new BN(2000),
     },
     {
-      desc: "(current time is after last poke 3600 seconds, succeeds)",
+      desc: "(current time is 2 and 1/2 days after last poke, succeeds)",
       expectedError: null,
-      expectedDaoFeeShares: new BN(600269965163606),
-      expectedFeeRecipientShares: new BN("11405129338108512"),
-      addedClockTime: 3600,
+      expectedDaoFeeShares: new BN("28821088734589935"),
+      expectedFeeRecipientShares: new BN("547600685957208750"),
+      addedClockTime: 86400 * 2 + 86400 / 2,
       customFolioFeeConfig: true,
     },
   ];
@@ -638,6 +654,7 @@ describe("Bankrun - Fees", () => {
             initialDaoPendingFeeShares,
             initialFeeRecipientPendingFeeShares,
             customFolioFeeConfig,
+            startUnixTimestamp,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
@@ -645,6 +662,7 @@ describe("Bankrun - Fees", () => {
 
           let folioBefore: any;
           let currentClock: Clock;
+          let unixTimestamp: bigint;
 
           before(async () => {
             await initBaseCase(
@@ -654,14 +672,22 @@ describe("Bankrun - Fees", () => {
             );
 
             currentClock = await context.banksClient.getClock();
+            let currentUnixTimestamp = currentClock.unixTimestamp;
+            if (startUnixTimestamp) {
+              currentUnixTimestamp = BigInt(startUnixTimestamp.toString());
+            }
 
+            const endOfCurrentDay =
+              (currentUnixTimestamp / BigInt(DAYS_IN_SECONDS)) *
+              BigInt(DAYS_IN_SECONDS);
             await createAndSetFolio(
               context,
               programFolio,
               folioTokenMint.publicKey,
               undefined,
               undefined,
-              new BN(currentClock.unixTimestamp.toString()),
+              // Set as end of current day
+              new BN(endOfCurrentDay.toString()),
               initialDaoPendingFeeShares,
               initialFeeRecipientPendingFeeShares
             );
@@ -669,16 +695,16 @@ describe("Bankrun - Fees", () => {
             await travelFutureSlot(context);
 
             const tokenMintToUse = customFolioTokenMint || folioTokenMint;
-
             folioBefore = await programFolio.account.folio.fetch(folioPDA);
 
+            unixTimestamp = currentUnixTimestamp + BigInt(addedClockTime);
             context.setClock(
               new Clock(
                 currentClock.slot,
                 currentClock.epochStartTimestamp,
                 currentClock.epoch,
                 currentClock.leaderScheduleEpoch,
-                currentClock.unixTimestamp + BigInt(addedClockTime)
+                unixTimestamp
               )
             );
 
@@ -702,14 +728,12 @@ describe("Bankrun - Fees", () => {
 
               // Folio should have updated fees
               const folio = await programFolio.account.folio.fetch(folioPDA);
-
               assert.equal(
                 folio.daoPendingFeeShares.eq(
                   folioBefore.daoPendingFeeShares.add(expectedDaoFeeShares)
                 ),
                 true
               );
-
               assert.equal(
                 folio.feeRecipientsPendingFeeShares.eq(
                   folioBefore.feeRecipientsPendingFeeShares.add(
@@ -718,10 +742,18 @@ describe("Bankrun - Fees", () => {
                 ),
                 true
               );
-              assert.equal(
-                folio.lastPoke,
-                currentClock.unixTimestamp + BigInt(addedClockTime)
-              );
+
+              if (folio.daoPendingFeeShares.gt(new BN(0))) {
+                const endOfDay =
+                  (unixTimestamp / BigInt(DAYS_IN_SECONDS)) *
+                  BigInt(DAYS_IN_SECONDS);
+                assert.equal(folio.lastPoke.toString(), endOfDay.toString());
+              } else {
+                assert.equal(
+                  folio.lastPoke.toString(),
+                  folioBefore.lastPoke.toString()
+                );
+              }
             });
           }
         });

@@ -74,7 +74,7 @@ pub struct Folio {
     pub current_auction_id: u64,
 
     /// Last time the folio was poked, scaled in seconds
-    pub last_poke: i64,
+    pub last_poke: u64,
 
     /// Timestamp of latest ongoing auction for sells
     pub sell_ends: [AuctionEnd; MAX_CONCURRENT_AUCTIONS],

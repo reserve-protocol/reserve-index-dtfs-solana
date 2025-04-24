@@ -743,7 +743,7 @@ describe("Folio Tests", () => {
       true,
       "amountForMinting",
       true,
-      [129999999900, 129999999900, 13000000, 129999999900, 129999999900]
+      [130000000000, 130000000000, 13000000, 130000000000, 130000000000]
     );
   });
 
@@ -772,8 +772,8 @@ describe("Folio Tests", () => {
       beforeSnapshot,
       afterSnapshot,
       Array.from({ length: 5 }).map((_, i) => [
-        19.99999999 * 10 ** tokenMints[i].decimals,
-        19.99999999 * 10 ** tokenMints[i].decimals,
+        20 * 10 ** tokenMints[i].decimals,
+        20 * 10 ** tokenMints[i].decimals,
       ]),
       [],
       [0, -2],
@@ -843,16 +843,18 @@ describe("Folio Tests", () => {
 
     const folioAfter = await programFolio.account.folio.fetch(folioPDA);
 
-    const daoFeeDiff = folioAfter.daoPendingFeeShares.sub(
-      folioBefore.daoPendingFeeShares
+    // Values will not change, unless the test has a sleep for 24 hours, or 1 day is passed after creation of folio, i.e folio created at 11:59:50 UTC
+    // and this test executes 10 seconds after 12:00:00 UTC
+    assert.equal(
+      folioAfter.daoPendingFeeShares.gte(folioBefore.daoPendingFeeShares),
+      true
     );
-    const recipientFeeDiff = folioAfter.feeRecipientsPendingFeeShares.sub(
-      folioBefore.feeRecipientsPendingFeeShares
+    assert.equal(
+      folioAfter.feeRecipientsPendingFeeShares.gte(
+        folioBefore.feeRecipientsPendingFeeShares
+      ),
+      true
     );
-
-    assert.equal(daoFeeDiff.gt(new BN(500000000)), true);
-    // 0 because been taking by dao fee numerator
-    assert.equal(recipientFeeDiff.eq(new BN(0)), true);
   });
 
   it("should allow user to distribute fees", async () => {

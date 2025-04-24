@@ -196,7 +196,7 @@ pub fn handler(
         folio.set_tvl_fee(scaled_tvl_fee)?;
         folio.mint_fee = scaled_mint_fee;
         folio.status = FolioStatus::Initializing as u8;
-        folio.last_poke = Clock::get()?.unix_timestamp;
+        folio.last_poke = Clock::get()?.unix_timestamp as u64;
         folio.dao_pending_fee_shares = 0;
         folio.fee_recipients_pending_fee_shares = 0;
         folio.auction_delay = auction_delay;

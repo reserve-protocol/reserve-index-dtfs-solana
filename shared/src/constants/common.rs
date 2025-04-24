@@ -53,8 +53,11 @@ pub const FEE_DENOMINATOR: u128 = 1_000_000_000_000_000_000;
 /// MAX_TVL_FEE is the maximum fee that can be set for the TVL fee, D18{1/year} -> 10% annually in D18.
 pub const MAX_TVL_FEE: u128 = 100_000_000_000_000_000;
 
+/// DAYS_IN_SECONDS is the number of seconds in a day.
+pub const DAYS_IN_SECONDS: u64 = 86400;
+
 /// YEAR_IN_SECONDS is the number of seconds in a year.
-pub const YEAR_IN_SECONDS: u64 = 31_536_000;
+pub const YEAR_IN_SECONDS: u64 = 365 * DAYS_IN_SECONDS;
 
 /// MAX_MINT_FEE is the maximum fee that can be set for the mint fee, 5% in D18 (D18{1} 5%).
 pub const MAX_MINT_FEE: u128 = 50_000_000_000_000_000;

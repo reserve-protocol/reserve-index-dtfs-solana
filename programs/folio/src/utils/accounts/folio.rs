@@ -4,7 +4,7 @@ use crate::{
     state::{Actor, Folio},
 };
 use anchor_lang::prelude::*;
-use shared::constants::YEAR_IN_SECONDS;
+use shared::constants::{DAYS_IN_SECONDS, YEAR_IN_SECONDS};
 use shared::utils::{Decimal, Rounding, TokenResult};
 use shared::{
     check_condition,
@@ -210,14 +210,21 @@ impl Folio {
         scaled_dao_fee_denominator: u128,
         scaled_dao_fee_floor: u128,
     ) -> Result<()> {
-        if current_time.saturating_sub(self.last_poke) == 0 {
+        let current_time = current_time as u64;
+        let account_fee_until = current_time
+            .checked_div(DAYS_IN_SECONDS)
+            .ok_or(ErrorCode::MathOverflow)?
+            .checked_mul(DAYS_IN_SECONDS)
+            .ok_or(ErrorCode::MathOverflow)?;
+
+        if account_fee_until.saturating_sub(self.last_poke) == 0 {
             return Ok(());
         }
 
         let (scaled_fee_recipients_pending_fee, scaled_dao_pending_fee_shares) = self
             .get_pending_fee_shares(
                 raw_folio_token_supply,
-                current_time,
+                account_fee_until,
                 scaled_dao_fee_numerator,
                 scaled_dao_fee_denominator,
                 scaled_dao_fee_floor,
@@ -233,7 +240,7 @@ impl Folio {
             .checked_add(scaled_fee_recipients_pending_fee.to_scaled(Rounding::Floor)?)
             .ok_or(ErrorCode::MathOverflow)?;
 
-        self.last_poke = current_time;
+        self.last_poke = account_fee_until;
 
         Ok(())
     }
@@ -262,14 +269,14 @@ impl Folio {
     ///
     /// # Arguments
     /// * `raw_folio_token_supply` - The total supply of the folio token (D9).
-    /// * `current_time` - The current time (seconds).
+    /// * `account_until` - The time (seconds) until the account is closed.
     /// * `scaled_dao_fee_numerator` - The numerator of the DAO fee (D18).
     /// * `scaled_dao_fee_denominator` - The denominator of the DAO fee (D18).
     /// * `scaled_dao_fee_floor` - The floor of the DAO fee (D18).
     pub fn get_pending_fee_shares(
         &self,
         raw_folio_token_supply: u64,
-        current_time: i64,
+        account_until: u64,
         scaled_dao_fee_numerator: u128,
         scaled_dao_fee_denominator: u128,
         scaled_dao_fee_floor: u128,
@@ -277,7 +284,7 @@ impl Folio {
         let scaled_total_supply_with_pending_fees =
             self.get_total_supply(raw_folio_token_supply)?;
 
-        let elapsed = (current_time - self.last_poke) as u64;
+        let elapsed = account_until.saturating_sub(self.last_poke);
 
         // convert annual percentage to per-second for comparison with stored tvlFee
         // = 1 - (1 - feeFloor) ^ (1 / 31536000)

@@ -342,7 +342,7 @@ mod tests {
 
         let result = folio.poke(
             1_000_000_000,             // 1.0 token supply
-            1,                         // 1 second elapsed
+            86400,                     // 1 day elapsed
             200_000_000_000_000_000,   // 20% dao fee
             1_000_000_000_000_000_000, // denominator
             1_000_000_000_000_000,     // 0.1% floor
@@ -357,6 +357,7 @@ mod tests {
     fn test_poke_multiple_times() {
         let mut folio = Folio {
             tvl_fee: 3_340_959_957, // 10% annual
+            last_poke: 0,
             ..Folio::default()
         };
 
@@ -364,7 +365,7 @@ mod tests {
         folio
             .poke(
                 1_000_000_000,             // 1.0 token supply
-                1,                         // 1 second elapsed
+                86401,                     // 1 day elapsed
                 200_000_000_000_000_000,   // 20% dao fee
                 1_000_000_000_000_000_000, // denominator
                 1_000_000_000_000_000,     // 0.1% floor
@@ -378,7 +379,7 @@ mod tests {
         folio
             .poke(
                 1_000_000_000,             // 1.0 token supply
-                2,                         // 2 seconds elapsed
+                86400 * 2 + 1,             // 2 day elapsed
                 200_000_000_000_000_000,   // 20% dao fee
                 1_000_000_000_000_000_000, // denominator
                 1_000_000_000_000_000,     // 0.1% floor
@@ -409,7 +410,7 @@ mod tests {
         assert!(result.is_ok());
         assert!(folio.dao_pending_fee_shares > 0);
         assert!(folio.fee_recipients_pending_fee_shares > 0);
-        assert_eq!(folio.last_poke, one_day);
+        assert_eq!(folio.last_poke, one_day as u64);
     }
 
     #[test]

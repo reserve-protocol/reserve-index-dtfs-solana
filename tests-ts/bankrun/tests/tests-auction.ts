@@ -486,7 +486,7 @@ describe("Bankrun - Auction", () => {
         ...VALID_AUCTION,
         buyLimit: {
           ...VALID_AUCTION.buyLimit,
-          spot: new BN(1000).mul(D9),
+          spot: new BN(1000).mul(D27),
         },
       },
       expectedTokenBalanceChanges: [
@@ -519,7 +519,7 @@ describe("Bankrun - Auction", () => {
         ...VALID_AUCTION,
         buyLimit: {
           ...VALID_AUCTION.buyLimit,
-          spot: new BN(1000).mul(D9),
+          spot: new BN(1000).mul(D27),
         },
         auctionRunDetails: [
           {

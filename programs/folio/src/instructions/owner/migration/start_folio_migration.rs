@@ -165,7 +165,7 @@ impl<'info> StartFolioMigration<'info> {
                 folio.status.into()
             };
 
-            // Don't distribute fees if the isn't INITIALIZED or KILLED
+            // Don't distribute fees if the folio isn't INITIALIZED or KILLED
             if ![FolioStatus::Killed, FolioStatus::Initialized].contains(&folio_status) {
                 return Ok(());
             }
@@ -254,14 +254,18 @@ pub fn handler<'info>(
         old_folio_bump = old_folio.bump;
 
         ctx.accounts.validate(old_folio)?;
-
-        // Update old folio status
-        old_folio.status = FolioStatus::Migrating as u8;
     }
 
     // Distribute the fees
     ctx.accounts
         .distribute_fees(ctx.remaining_accounts, index_for_fee_distribution)?;
+
+    {
+        let old_folio = &mut ctx.accounts.old_folio.load_mut()?;
+
+        // Update old folio status
+        old_folio.status = FolioStatus::Migrating as u8;
+    }
 
     // Transfer the mint and freeze authority to the new folio
     let token_mint_key = ctx.accounts.folio_token_mint.key();

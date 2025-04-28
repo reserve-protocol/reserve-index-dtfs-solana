@@ -1437,7 +1437,7 @@ export async function buildRemainingAccountsForStartFolioMigration(
     {
       pubkey: getTVLFeeRecipientsPDA(oldFolio),
       isSigner: false,
-      isWritable: false,
+      isWritable: true,
     },
   ];
 

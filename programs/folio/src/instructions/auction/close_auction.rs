@@ -1,3 +1,4 @@
+use crate::state::AuctionEnds;
 use crate::utils::structs::{FolioStatus, Role};
 use crate::{
     events::AuctionClosed,
@@ -34,6 +35,9 @@ pub struct CloseAuction<'info> {
 
     #[account(mut)]
     pub auction: AccountLoader<'info, Auction>,
+
+    #[account(mut)]
+    pub auction_ends: Account<'info, AuctionEnds>,
 }
 
 impl CloseAuction<'_> {
@@ -56,6 +60,9 @@ impl CloseAuction<'_> {
 
         auction.validate_auction(&self.auction.key(), &self.folio.key())?;
 
+        self.auction_ends
+            .validate_auction_ends(&self.auction_ends.key(), auction)?;
+
         Ok(())
     }
 }
@@ -73,15 +80,12 @@ pub fn handler(ctx: Context<CloseAuction>) -> Result<()> {
 
     let current_time = Clock::get()?.unix_timestamp as u64;
 
-    let index_of_current_running_auction = auction.index_of_last_or_current_auction_run();
-    if let Some(index) = index_of_current_running_auction {
-        if auction.auction_run_details[index].end > current_time {
-            auction.auction_run_details[index].end = current_time
-                .checked_sub(1)
-                .ok_or(error!(ErrorCode::MathOverflow))?;
-        }
+    if auction.end > current_time {
+        auction.end = current_time
+            .checked_sub(1)
+            .ok_or(error!(ErrorCode::MathOverflow))?;
+        ctx.accounts.auction_ends.end_time = auction.end;
     }
-    auction.closed_for_reruns = 1;
 
     emit!(AuctionClosed {
         auction_id: auction.id

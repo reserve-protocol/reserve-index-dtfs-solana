@@ -260,20 +260,30 @@ pub mod folio {
     }
 
     /*
-    Auction functions
-     */
-    pub fn approve_auction<'info>(
-        ctx: Context<'_, '_, 'info, 'info, ApproveAuction<'info>>,
-        auction_id: u64,
-        sell_limit: BasketRange,
-        buy_limit: BasketRange,
-        prices: Prices,
+    Rebalancing and Auction functions
+    */
+    pub fn start_rebalance<'info>(
+        ctx: Context<'_, '_, 'info, 'info, StartRebalance<'info>>,
+        auction_launcher_window: u64,
         ttl: u64,
-        max_runs: u8,
+        prices_and_limits: Vec<RebalancePriceAndLimits>,
+        all_rebalance_details_added: bool,
     ) -> Result<()> {
-        approve_auction::handler(
-            ctx, auction_id, sell_limit, buy_limit, prices, ttl, max_runs,
+        start_rebalance::handler(
+            ctx,
+            auction_launcher_window,
+            ttl,
+            prices_and_limits,
+            all_rebalance_details_added,
         )
+    }
+
+    pub fn add_rebalance_details<'info>(
+        ctx: Context<'_, '_, 'info, 'info, AddRebalanceDetails<'info>>,
+        prices_and_limits: Vec<RebalancePriceAndLimits>,
+        all_rebalance_details_added: bool,
+    ) -> Result<()> {
+        add_rebalance_details::handler(ctx, prices_and_limits, all_rebalance_details_added)
     }
 
     pub fn open_auction<'info>(

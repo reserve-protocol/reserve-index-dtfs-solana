@@ -17,8 +17,8 @@ use anchor_spl::{
 use shared::{
     check_condition,
     constants::{
-        ACTOR_SEEDS, FOLIO_SEEDS, MAX_AUCTION_DELAY, MAX_AUCTION_LENGTH, MAX_CONCURRENT_AUCTIONS,
-        MAX_MINT_FEE, MAX_TVL_FEE, MIN_AUCTION_LENGTH,
+        ACTOR_SEEDS, FOLIO_SEEDS, MAX_AUCTION_DELAY, MAX_AUCTION_LENGTH, MAX_MINT_FEE, MAX_TVL_FEE,
+        MIN_AUCTION_LENGTH,
     },
     errors::ErrorCode,
 };
@@ -170,9 +170,6 @@ pub fn handler(
         folio.fee_recipients_pending_fee_shares = 0;
         folio.auction_delay = auction_delay;
         folio.auction_length = auction_length;
-        folio.current_auction_id = 0;
-        folio.sell_ends = [Default::default(); MAX_CONCURRENT_AUCTIONS];
-        folio.buy_ends = [Default::default(); MAX_CONCURRENT_AUCTIONS];
         folio.mandate = FixedSizeString::new(&mandate);
     }
 

@@ -24,7 +24,7 @@ import { FolioAdmin } from "../../../target/types/folio_admin";
 import {
   D18,
   D9,
-  DAYS_IN_SECONDS,
+  DAY_IN_SECONDS,
   DEFAULT_DECIMALS,
   MAX_MINT_FEE,
   TOTAL_PORTION_FEE_RECIPIENT,
@@ -678,8 +678,8 @@ describe("Bankrun - Fees", () => {
             }
 
             const endOfCurrentDay =
-              (currentUnixTimestamp / BigInt(DAYS_IN_SECONDS)) *
-              BigInt(DAYS_IN_SECONDS);
+              (currentUnixTimestamp / BigInt(DAY_IN_SECONDS)) *
+              BigInt(DAY_IN_SECONDS);
             await createAndSetFolio(
               context,
               programFolio,
@@ -745,8 +745,8 @@ describe("Bankrun - Fees", () => {
 
               if (folio.daoPendingFeeShares.gt(new BN(0))) {
                 const endOfDay =
-                  (unixTimestamp / BigInt(DAYS_IN_SECONDS)) *
-                  BigInt(DAYS_IN_SECONDS);
+                  (unixTimestamp / BigInt(DAY_IN_SECONDS)) *
+                  BigInt(DAY_IN_SECONDS);
                 assert.equal(folio.lastPoke.toString(), endOfDay.toString());
               } else {
                 assert.equal(

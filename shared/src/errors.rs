@@ -130,6 +130,12 @@ pub enum ErrorCode {
     #[msg("Mint Can't Be Equal")]
     MintCantBeEqual,
 
+    #[msg("Invalid Rebalance Limit")]
+    InvalidRebalanceLimit,
+
+    #[msg("Invalid Rebalance Limit: All Zero Or All Greater Than Zero")]
+    InvalidRebalanceLimitAllZeroOrAllGreaterThanZero,
+
     #[msg("Invalid Sell Limit")]
     InvalidSellLimit,
 
@@ -162,6 +168,12 @@ pub enum ErrorCode {
 
     #[msg("Auction Cannot Be Opened Permissionlessly Yet")]
     AuctionCannotBeOpenedPermissionlesslyYet,
+
+    #[msg("Folio Not Rebalancing")]
+    FolioNotRebalancing,
+
+    #[msg("Auction Cannot Be Opened Permissionlessly With Deferred Price")]
+    AuctionCannotBeOpenedPermissionlesslyWithDeferredPrice,
 
     #[msg("Auction Not Ongoing")]
     AuctionNotOngoing,
@@ -261,6 +273,33 @@ pub enum ErrorCode {
 
     #[msg("Invalid Callback Program")]
     InvalidCallbackProgram,
+
+    #[msg("Rebalance TTL Exceeded")]
+    RebalanceTTLExceeded,
+
+    #[msg("Rebalance auction launcher window is longer than the ttl")]
+    RebalanceAuctionLauncherWindowTooLong,
+
+    #[msg("Rebalance Not Open for detail updates")]
+    RebalanceNotOpenForDetailUpdates,
+
+    #[msg("Rebalance Token Already Added")]
+    RebalanceTokenAlreadyAdded,
+
+    #[msg("Tokens not available for rebalance")]
+    TokensNotAvailableForRebalance,
+
+    #[msg("Sell token not surplus")]
+    SellTokenNotSurplus,
+
+    #[msg("Buy token not deficit")]
+    BuyTokenNotDeficit,
+
+    #[msg("Invalid Rebalance Nonce, Auction Ended")]
+    InvalidRebalanceNonceAuctionEnded,
+
+    #[msg("Bid invariant violated")]
+    BidInvariantViolated,
 }
 
 /// Check a condition and return an error if it is not met.

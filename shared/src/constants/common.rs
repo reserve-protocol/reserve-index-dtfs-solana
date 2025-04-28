@@ -66,8 +66,6 @@ pub const MAX_MINT_FEE: u128 = 50_000_000_000_000_000;
 pub const MIN_AUCTION_LENGTH: u64 = 60;
 /// MAX_AUCTION_LENGTH is the maximum auction length, 1 week.
 pub const MAX_AUCTION_LENGTH: u64 = 604800;
-/// MAX_AUCTION_DELAY is the maximum auction delay, 1 week.
-pub const MAX_AUCTION_DELAY: u64 = 604800;
 
 /// MAX_TTL is the maximum TTL, 4 weeks.
 pub const MAX_TTL: u64 = 604800 * 4;

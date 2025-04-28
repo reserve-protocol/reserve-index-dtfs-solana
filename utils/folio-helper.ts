@@ -22,7 +22,6 @@ import {
   getFolioPDA,
   getMetadataPDA,
   getProgramRegistrarPDA,
-  getAuctionPDA,
   getUserPendingBasketPDA,
   getFolioFeeConfigPDA,
 } from "./pda-helper";
@@ -95,7 +94,6 @@ export async function initFolio(
   folioTokenMint: Keypair,
   tvlFee: BN,
   mintFee: BN,
-  auctionDelay: BN,
   auctionLength: BN,
   name: string,
   symbol: string,
@@ -110,16 +108,7 @@ export async function initFolio(
   const folioPDA = getFolioPDA(folioTokenMint.publicKey, useSecondFolioProgram);
 
   const initFolio = await folioProgram.methods
-    .initFolio(
-      tvlFee,
-      mintFee,
-      auctionDelay,
-      auctionLength,
-      name,
-      symbol,
-      uri,
-      mandate
-    )
+    .initFolio(tvlFee, mintFee, auctionLength, name, symbol, uri, mandate)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
@@ -150,7 +139,6 @@ export async function updateFolio(
   tvlFee: BN | null,
   indexForFeeDistribution: BN | null,
   mintFee: BN | null,
-  auctionDelay: BN | null,
   auctionLength: BN | null,
   feeRecipientsToAdd: { recipient: PublicKey; portion: BN }[],
   feeRecipientsToRemove: PublicKey[],
@@ -163,7 +151,6 @@ export async function updateFolio(
       tvlFee,
       indexForFeeDistribution,
       mintFee,
-      auctionDelay,
       auctionLength,
       feeRecipientsToAdd,
       feeRecipientsToRemove,
@@ -665,44 +652,45 @@ export async function crankFeeDistribution(
   });
 }
 
-export async function approveAuction(
+export async function startRebalance(
   connection: Connection,
   rebalanceManagerKeypair: Keypair,
   folio: PublicKey,
-  buyMint: PublicKey,
-  sellMint: PublicKey,
-  auctionId: BN,
-  sellLimit: { spot: BN; low: BN; high: BN },
-  buyLimit: { spot: BN; low: BN; high: BN },
-  startPrice: BN,
-  endPrice: BN,
-  ttl: BN,
-  maxRuns: number = 1
+  auctionLauncherWindow: number,
+  ttl: number,
+  pricesAndLimits: {
+    prices: { low: BN; high: BN };
+    limits: { spot: BN; low: BN; high: BN };
+  }[],
+  allRebalanceDetailsAdded: boolean,
+  mints: PublicKey[]
 ) {
   const folioProgram = getFolioProgram(connection, rebalanceManagerKeypair);
 
-  const approveAuction = await folioProgram.methods
-    .approveAuction(
-      auctionId,
-      sellLimit,
-      buyLimit,
-      { start: startPrice, end: endPrice },
-      ttl,
-      maxRuns
+  const remainingAccounts = mints.map((mint) => {
+    return {
+      isWritable: false,
+      isSigner: false,
+      pubkey: mint,
+    };
+  });
+  const startRebalance = await folioProgram.methods
+    .startRebalance(
+      new BN(auctionLauncherWindow),
+      new BN(ttl),
+      pricesAndLimits,
+      allRebalanceDetailsAdded
     )
     .accountsPartial({
       systemProgram: SystemProgram.programId,
-      rent: SYSVAR_RENT_PUBKEY,
       rebalanceManager: rebalanceManagerKeypair.publicKey,
       actor: getActorPDA(rebalanceManagerKeypair.publicKey, folio),
       folio,
-      auction: getAuctionPDA(folio, auctionId),
-      buyMint: buyMint,
-      sellMint: sellMint,
     })
+    .remainingAccounts(remainingAccounts)
     .instruction();
 
-  await pSendAndConfirmTxn(folioProgram, [approveAuction], [], {
+  await pSendAndConfirmTxn(folioProgram, [startRebalance], [], {
     skipPreflight: SKIP_PREFLIGHT,
   });
 }
@@ -818,29 +806,29 @@ export async function bid(
       folioBasket: getFolioBasketPDA(folio),
       auction,
       folioTokenMint,
-      auctionSellTokenMint: auctionFetched.sell,
-      auctionBuyTokenMint: auctionFetched.buy,
+      auctionSellTokenMint: auctionFetched.sellMint,
+      auctionBuyTokenMint: auctionFetched.buyMint,
       folioSellTokenAccount: await getOrCreateAtaAddress(
         connection,
-        auctionFetched.sell,
+        auctionFetched.sellMint,
         bidderKeypair,
         folio
       ),
       folioBuyTokenAccount: await getOrCreateAtaAddress(
         connection,
-        auctionFetched.buy,
+        auctionFetched.buyMint,
         bidderKeypair,
         folio
       ),
       bidderSellTokenAccount: await getOrCreateAtaAddress(
         connection,
-        auctionFetched.sell,
+        auctionFetched.sellMint,
         bidderKeypair,
         bidderKeypair.publicKey
       ),
       bidderBuyTokenAccount: await getOrCreateAtaAddress(
         connection,
-        auctionFetched.buy,
+        auctionFetched.buyMint,
         bidderKeypair,
         bidderKeypair.publicKey
       ),

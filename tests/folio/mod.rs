@@ -7,5 +7,6 @@ pub mod test_fixed_size_string;
 pub mod test_folio;
 pub mod test_folio_basket;
 pub mod test_folio_status;
+pub mod test_rebalance;
 pub mod test_roles;
 pub mod test_user_pending_basket;

@@ -30,9 +30,7 @@ import { FolioAdmin } from "../../target/types/folio_admin";
 import { Rewards } from "../../target/types/rewards";
 import { Folio as FolioSecond } from "../../target/types/second_folio";
 import {
-  MAX_CONCURRENT_AUCTIONS,
   MAX_AUCTION_LENGTH,
-  MAX_AUCTION_DELAY,
   MAX_FOLIO_TOKEN_AMOUNTS,
   MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS,
   MAX_REWARD_TOKENS,
@@ -386,8 +384,6 @@ export async function createAndSetFolio(
   daoPendingFeeShares: BN = new BN(0),
   feeRecipientsPendingFeeShares: BN = new BN(0),
   useSecondFolioProgram: boolean = false,
-  buyEnds: AuctionEnd[] = [],
-  sellEnds: AuctionEnd[] = [],
   mandate: string = "",
   feeRecipientsPendingFeeSharesToBeMinted: BN = new BN(0)
 ) {
@@ -403,7 +399,7 @@ export async function createAndSetFolio(
     useSecondFolioProgram
   );
 
-  const buffer = Buffer.alloc(1576);
+  const buffer = Buffer.alloc(280);
   let offset = 0;
 
   // Encode discriminator
@@ -443,43 +439,11 @@ export async function createAndSetFolio(
     .copy(buffer, offset);
   offset += 16;
 
-  MAX_AUCTION_DELAY.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
-  offset += 8;
-
   MAX_AUCTION_LENGTH.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
-  offset += 8;
-
-  new BN(0).toArrayLike(Buffer, "le", 8).copy(buffer, offset);
   offset += 8;
 
   lastPoke.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
   offset += 8;
-
-  // Write sell ends
-  for (let i = 0; i < MAX_CONCURRENT_AUCTIONS; i++) {
-    if (i < sellEnds.length) {
-      sellEnds[i].mint.toBuffer().copy(buffer, offset);
-      sellEnds[i].endTime
-        .toArrayLike(Buffer, "le", 8)
-        .copy(buffer, offset + 32);
-    } else {
-      PublicKey.default.toBuffer().copy(buffer, offset);
-      new BN(0).toArrayLike(Buffer, "le", 8).copy(buffer, offset + 32);
-    }
-    offset += 40;
-  }
-
-  // Write buy ends
-  for (let i = 0; i < MAX_CONCURRENT_AUCTIONS; i++) {
-    if (i < buyEnds.length) {
-      buyEnds[i].mint.toBuffer().copy(buffer, offset);
-      buyEnds[i].endTime.toArrayLike(Buffer, "le", 8).copy(buffer, offset + 32);
-    } else {
-      PublicKey.default.toBuffer().copy(buffer, offset);
-      new BN(0).toArrayLike(Buffer, "le", 8).copy(buffer, offset + 32);
-    }
-    offset += 40;
-  }
 
   // Write mandate
   Buffer.from(mandate).copy(buffer, offset);

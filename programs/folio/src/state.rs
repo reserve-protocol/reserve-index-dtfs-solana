@@ -64,17 +64,11 @@ pub struct Folio {
     /// Shares pending to be distributed ONLY to the fee recipients, scaled in D18
     pub fee_recipients_pending_fee_shares: u128,
 
-    /// Delay in the APPROVED state before an auction can be permissionlessly opened, scaled in seconds
-    pub auction_delay: u64,
-
     /// Duration of an auction, scaled in seconds
     pub auction_length: u64,
 
     /// Last time the folio was poked, scaled in seconds
     pub last_poke: u64,
-
-    /// Padding for zero copy alignment
-    pub _padding2: [u8; 8],
 
     /// Describes mission/brand of the Folio (max size 128 bytes)
     pub mandate: FixedSizeString,

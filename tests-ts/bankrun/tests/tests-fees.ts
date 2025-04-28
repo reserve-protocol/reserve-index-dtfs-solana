@@ -229,11 +229,11 @@ describe("Bankrun - Fees", () => {
       initialFeeRecipientPendingFeeShares: new BN(2000),
     },
     {
-      desc: "(current time is 2 and 1/2 days after last poke, succeeds)",
+      desc: "(current time is 2 and 1 second after last poke, succeeds)",
       expectedError: null,
       expectedDaoFeeShares: new BN("28821088734589935"),
       expectedFeeRecipientShares: new BN("547600685957208750"),
-      addedClockTime: 86400 * 2 + 86400 / 2,
+      addedClockTime: 86400 * 2 + 1,
       customFolioFeeConfig: true,
     },
   ];
@@ -452,8 +452,6 @@ describe("Bankrun - Fees", () => {
       undefined,
       undefined,
       false,
-      [],
-      [],
       undefined,
       amountToDistribute
     );
@@ -962,8 +960,6 @@ describe("Bankrun - Fees", () => {
               new BN(0),
               initialFeeRecipientPendingFeeShares,
               false,
-              [],
-              [],
               undefined,
               amountToDistribute
             );

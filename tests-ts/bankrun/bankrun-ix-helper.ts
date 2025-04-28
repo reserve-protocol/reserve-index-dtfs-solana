@@ -9,7 +9,6 @@ import {
   getMetadataPDA,
   getProgramRegistrarPDA,
   getRewardInfoPDA,
-  getAuctionPDA,
   getUserPendingBasketPDA,
   getFolioFeeConfigPDA,
   getRewardTokensPDA,
@@ -212,7 +211,6 @@ export async function initFolio<T extends boolean = true>(
   params: {
     tvlFee: BN;
     mintFee: BN;
-    auctionDelay: BN;
     auctionLength: BN;
     name: string;
     symbol: string;
@@ -231,7 +229,6 @@ export async function initFolio<T extends boolean = true>(
     .initFolio(
       params.tvlFee,
       params.mintFee,
-      params.auctionDelay,
       params.auctionLength,
       params.name,
       params.symbol,
@@ -277,7 +274,6 @@ export async function updateFolio<T extends boolean = true>(
   tvlFee: BN | null,
   indexForFeeDistribution: BN | null,
   mintFee: BN | null,
-  auctionDelay: BN | null,
   auctionLength: BN | null,
   feeRecipientsToAdd: { recipient: PublicKey; portion: BN }[],
   feeRecipientsToRemove: PublicKey[],
@@ -293,7 +289,6 @@ export async function updateFolio<T extends boolean = true>(
       tvlFee,
       indexForFeeDistribution,
       mintFee,
-      auctionDelay,
       auctionLength,
       feeRecipientsToAdd,
       feeRecipientsToRemove,
@@ -858,48 +853,55 @@ export async function crankFeeDistribution<T extends boolean = true>(
   return { ix: crankFeeDistribution, extraSigners: [] } as any;
 }
 
-export async function approveAuction<T extends boolean = true>(
+export async function startRebalance<T extends boolean = true>(
   client: BanksClient,
   programFolio: Program<Folio>,
-  RebalanceManagerKeypair: Keypair,
+  rebalanceManagerKeypair: Keypair,
   folio: PublicKey,
-  auction: Auction,
-  ttl: BN,
-  maxRuns: number = 1,
+  auctionLauncherWindow: number,
+  ttl: number,
+  pricesAndLimits: {
+    prices: { low: BN; high: BN };
+    limits: { spot: BN; low: BN; high: BN };
+  }[],
+  allRebalanceDetailsAdded: boolean,
+  mints: PublicKey[],
   executeTxn: T = true as T
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  const approveAuction = await programFolio.methods
-    .approveAuction(
-      auction.id,
-      auction.sellLimit,
-      auction.buyLimit,
-      auction.initialProposedPrice,
-      ttl,
-      maxRuns
+  const remainingAccounts = mints.map((mint) => {
+    return {
+      isWritable: false,
+      isSigner: false,
+      pubkey: mint,
+    };
+  });
+  const startRebalance = await programFolio.methods
+    .startRebalance(
+      new BN(auctionLauncherWindow),
+      new BN(ttl),
+      pricesAndLimits,
+      allRebalanceDetailsAdded
     )
     .accountsPartial({
       systemProgram: SystemProgram.programId,
-      rent: SYSVAR_RENT_PUBKEY,
-      rebalanceManager: RebalanceManagerKeypair.publicKey,
-      actor: getActorPDA(RebalanceManagerKeypair.publicKey, folio),
+      rebalanceManager: rebalanceManagerKeypair.publicKey,
+      actor: getActorPDA(rebalanceManagerKeypair.publicKey, folio),
       folio,
-      auction: getAuctionPDA(folio, auction.id),
-      buyMint: auction.buy,
-      sellMint: auction.sell,
     })
+    .remainingAccounts(remainingAccounts)
     .instruction();
 
   if (executeTxn) {
-    return createAndProcessTransaction(client, RebalanceManagerKeypair, [
-      approveAuction,
+    return createAndProcessTransaction(client, rebalanceManagerKeypair, [
+      startRebalance,
     ]) as any;
   }
 
-  return { ix: approveAuction, extraSigners: [] } as any;
+  return { ix: startRebalance, extraSigners: [] } as any;
 }
 
 export async function openAuction<T extends boolean = true>(
@@ -1026,8 +1028,8 @@ export async function bid<T extends boolean = true>(
 > {
   const auctionFetched = await programFolio.account.auction.fetch(auction);
 
-  const sellMintToUse = sellMint ?? auctionFetched.sell;
-  const buyMintToUse = buyMint ?? auctionFetched.buy;
+  const sellMintToUse = sellMint ?? auctionFetched.sellMint;
+  const buyMintToUse = buyMint ?? auctionFetched.buyMint;
 
   const bid = await programFolio.methods
     .bid(sellAmount, maxBuyAmount, withCallback, callbackData)

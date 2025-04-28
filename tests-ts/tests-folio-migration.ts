@@ -14,7 +14,6 @@ import * as assert from "assert";
 import {
   MAX_AUCTION_LENGTH,
   MAX_TVL_FEE,
-  MAX_AUCTION_DELAY,
   MAX_MINT_FEE,
   DEFAULT_DECIMALS,
   FEE_NUMERATOR,
@@ -113,7 +112,6 @@ describe("Folio Migration Tests", () => {
       folioTokenMint,
       MAX_TVL_FEE,
       MAX_MINT_FEE,
-      MAX_AUCTION_DELAY,
       MAX_AUCTION_LENGTH,
       "Test Folio",
       "TFOL",
@@ -146,7 +144,6 @@ describe("Folio Migration Tests", () => {
       otherFolioTokenMint,
       MAX_TVL_FEE,
       MAX_MINT_FEE,
-      MAX_AUCTION_DELAY,
       MAX_AUCTION_LENGTH,
       "Test Folio",
       "TFOL",

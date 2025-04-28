@@ -163,16 +163,6 @@ pub struct AuctionBid {
     pub bought_amount: u64,
 }
 
-/// Event emitted when an auction delay is set.
-///
-/// # Arguments
-/// * `new_auction_delay` - The new auction delay, scaled in seconds.
-#[event]
-pub struct AuctionDelaySet {
-    /// Scaled in seconds
-    pub new_auction_delay: u64,
-}
-
 /// Event emitted when an auction length is set.
 ///
 /// # Arguments

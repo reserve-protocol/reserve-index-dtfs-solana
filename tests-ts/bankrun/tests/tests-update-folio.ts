@@ -44,7 +44,6 @@ import {
   MIN_AUCTION_LENGTH,
 } from "../../../utils/constants";
 import { MAX_AUCTION_LENGTH } from "../../../utils/constants";
-import { MAX_AUCTION_DELAY } from "../../../utils/constants";
 import { MAX_TVL_FEE } from "../../../utils/constants";
 import { FolioAdmin } from "../../../target/types/folio_admin";
 import { initToken } from "../bankrun-token-helper";
@@ -84,7 +83,6 @@ describe("Bankrun - Update Folio", () => {
   const DEFAULT_PARAMS: {
     tvlFee: BN;
     mintFee: BN;
-    auctionDelay: BN;
     auctionLength: BN;
     mandate: string;
     preAddedRecipients: FeeRecipient[];
@@ -93,7 +91,6 @@ describe("Bankrun - Update Folio", () => {
   } = {
     tvlFee: MAX_TVL_FEE,
     mintFee: MAX_MINT_FEE,
-    auctionDelay: MAX_AUCTION_DELAY,
     auctionLength: MAX_AUCTION_LENGTH,
     mandate: "a".repeat(MAX_PADDED_STRING_LENGTH),
     preAddedRecipients: [],
@@ -120,16 +117,6 @@ describe("Bankrun - Update Folio", () => {
     {
       desc: "(should update minting fee, success)",
       mintFee: MAX_MINT_FEE.sub(new BN(1)),
-      expectedError: null,
-    },
-    {
-      desc: "(should update auction delay, delay too high)",
-      auctionDelay: MAX_AUCTION_DELAY.add(new BN(1)),
-      expectedError: "InvalidAuctionDelay",
-    },
-    {
-      desc: "(should update auction delay, success)",
-      auctionDelay: MAX_AUCTION_DELAY.sub(new BN(1)),
       expectedError: null,
     },
     {
@@ -275,7 +262,6 @@ describe("Bankrun - Update Folio", () => {
         null,
         null,
         null,
-        null,
         [],
         [],
         null,
@@ -304,7 +290,6 @@ describe("Bankrun - Update Folio", () => {
         const {
           tvlFee,
           mintFee,
-          auctionDelay,
           auctionLength,
           feeRecipientsToAdd,
           feeRecipientsToRemove,
@@ -340,7 +325,6 @@ describe("Bankrun - Update Folio", () => {
             tvlFee,
             new BN(1),
             mintFee,
-            auctionDelay,
             auctionLength,
             feeRecipientsToAdd,
             feeRecipientsToRemove,
@@ -364,7 +348,6 @@ describe("Bankrun - Update Folio", () => {
             }
 
             assert.equal(folio.mintFee.eq(mintFee), true);
-            assert.equal(folio.auctionDelay.eq(auctionDelay), true);
             assert.equal(folio.auctionLength.eq(auctionLength), true);
 
             const feeRecipients =

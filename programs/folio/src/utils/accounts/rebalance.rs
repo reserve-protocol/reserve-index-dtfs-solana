@@ -33,6 +33,7 @@ impl Rebalance {
 
             rebalance.bump = context_bump;
             rebalance.folio = *folio;
+            rebalance.nonce = 0;
         } else {
             let rebalance = &mut account_loader_rebalance.load_mut()?;
 

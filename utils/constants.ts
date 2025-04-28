@@ -50,7 +50,6 @@ export const MAX_MINT_FEE = new BN("50000000000000000");
 
 export const MIN_AUCTION_LENGTH = new BN(60);
 export const MAX_AUCTION_LENGTH = new BN(604800);
-export const MAX_AUCTION_DELAY = new BN(604800);
 export const MAX_TTL = new BN(604800 * 4);
 // 1e27 = 1000000000000000000000000000
 export const MAX_RATE = new BN("1000000000000000000000000000");

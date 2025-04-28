@@ -407,7 +407,7 @@ describe("Bankrun - Folio migration", () => {
     await createAndSetDaoFeeConfig(
       context,
       programFolioAdmin,
-      adminKeypair.publicKey,
+      feeRecipient,
       MAX_MINT_FEE
     );
 

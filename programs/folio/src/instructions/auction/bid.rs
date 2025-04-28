@@ -311,6 +311,7 @@ pub fn handler(
         auction.auction_run_details[index_of_current_running_auction].buy_limit_spot,
     )
     .mul(&scaled_folio_token_total_supply)?
+    .div(&Decimal::ONE_E18)?
     .to_token_amount(Rounding::Floor)?
     .0;
 

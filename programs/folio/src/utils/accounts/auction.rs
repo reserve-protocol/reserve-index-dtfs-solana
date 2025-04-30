@@ -21,7 +21,12 @@ impl Auction {
         check_condition!(
             (*auction_pubkey, self.bump)
                 == Pubkey::find_program_address(
-                    &[AUCTION_SEEDS, folio_pubkey.as_ref(), auction_id.as_ref()],
+                    &[
+                        AUCTION_SEEDS,
+                        folio_pubkey.as_ref(),
+                        self.nonce.to_le_bytes().as_ref(),
+                        auction_id.as_ref()
+                    ],
                     &crate::id()
                 ),
             InvalidPda
@@ -88,7 +93,6 @@ impl Auction {
         check_condition!(current_time <= rebalance.restricted_until, AuctionTimeout);
 
         let (sell_details, buy_details) = rebalance.get_token_details_pair(sell_mint, buy_mint);
-
         check_condition!(
             sell_details.is_some() && buy_details.is_some(),
             TokensNotAvailableForRebalance
@@ -112,7 +116,7 @@ impl Auction {
         }
         check_condition!(
             current_time >= rebalance.started_at + auction_buffer
-                && current_time >= rebalance.available_until
+                && current_time <= rebalance.available_until
                 && rebalance.rebalance_ready(),
             FolioNotRebalancing
         );
@@ -150,6 +154,7 @@ impl Auction {
 
         // Confirm sell is surplus and buy is deficit
         {
+            msg!("sell_mint: {:?}", sell_mint);
             let scaled_folio_token_total_supply = folio.get_total_supply(raw_folio_token_supply)?;
             // {sellTok} = D18{sellTok/share} * {share} / D18
             let sell_tokens = scaled_folio_token_total_supply
@@ -174,23 +179,26 @@ impl Auction {
                 .into();
 
             check_condition!(balance < buy_tokens, BuyTokenNotDeficit);
+            msg!("balance: {:?}", balance);
         }
 
+        msg!("sell_details.prices.high: {:?}", sell_details.prices.high);
         // D27{buyTok/sellTok} = D27 * D27{UoA/sellTok} / D27{UoA/buyTok}
         let old_start_price = Decimal::from_scaled(sell_details.prices.high)
-            .sub(&Decimal::from_scaled(buy_details.prices.low))?
+            .add(&Decimal::from_scaled(buy_details.prices.low))?
             .sub(&Decimal::ONE)?
             .mul(&Decimal::ONE_E18)?
             .div(&Decimal::from_scaled(buy_details.prices.low))?
             .to_scaled(Rounding::Ceiling)?;
+        msg!("old_start_price: {:?}", old_start_price);
 
         let old_end_price = Decimal::from_scaled(sell_details.prices.low)
-            .sub(&Decimal::from_scaled(buy_details.prices.high))?
+            .add(&Decimal::from_scaled(buy_details.prices.high))?
             .sub(&Decimal::ONE)?
             .mul(&Decimal::ONE_E18)?
             .div(&Decimal::from_scaled(buy_details.prices.high))?
             .to_scaled(Rounding::Ceiling)?;
-
+        msg!("old_end_price: {:?}", old_end_price);
         let auction_price = match config {
             Some(config) => {
                 let prices = config.price;
@@ -237,6 +245,8 @@ impl Auction {
         self.start = current_time;
         self.end = current_time + folio.auction_length;
         self.prices = auction_price;
+        self.sell_limit = auction_spot_sell_limit;
+        self.buy_limit = auction_spot_buy_limit;
         rebalance.current_auction_id = auction_index;
 
         Ok(())

@@ -85,7 +85,7 @@ build-local:
     @cp utils/keys/folio-2-keypair-local.json target/deploy/folio-keypair.json
 
     # Anchor build with dev feature flag
-    @anchor build -- --features dev
+    @anchor build -- --features dev 
 
     # Update program ID in IDL and type files (Mac compatible)
     @sed -i '' 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt/g' target/idl/folio.json
@@ -138,11 +138,10 @@ test-amman skip_build="":
     @pkill -f "node.*amman start" || true
 
     # Start amman in background
-    @npx amman start --reset >/dev/null &
+    @npx amman start --reset &> .anchor/logs &
 
     # Wait for validator to start
-    @sleep 15
-
+    @npx wait-on http://localhost:8899/health && echo "Validator is ready"
     # Run tests
     @anchor test --skip-local-validator --skip-deploy --skip-build
 

@@ -911,14 +911,30 @@ export async function openAuction<T extends boolean = true>(
   folio: PublicKey,
   auction: PublicKey,
   auctionData: Auction,
+  sellMint: PublicKey,
+  buyMint: PublicKey,
   executeTxn: T = true as T
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
+  const compare = new PublicKey(sellMint)
+    .toBuffer()
+    .compare(new PublicKey(buyMint).toBuffer());
+  let token1, token2: PublicKey;
+  if (compare < 0) {
+    token1 = sellMint;
+    token2 = buyMint;
+  } else {
+    token1 = buyMint;
+    token2 = sellMint;
+  }
+
   const openAuction = await programFolio.methods
     .openAuction(
+      token1,
+      token2,
       auctionData.sellLimit.spot,
       auctionData.buyLimit.spot,
       auctionData.initialProposedPrice.start,
@@ -930,6 +946,8 @@ export async function openAuction<T extends boolean = true>(
       actor: getActorPDA(auctionLauncherKeypair.publicKey, folio),
       folio,
       auction,
+      sellMint,
+      buyMint,
     })
     .instruction();
 
@@ -948,19 +966,34 @@ export async function openAuctionPermissionless<T extends boolean = true>(
   userKeypair: Keypair,
   folio: PublicKey,
   auction: PublicKey,
-  executeTxn: T = true as T
+  executeTxn: T = true as T,
+  sellMint: PublicKey,
+  buyMint: PublicKey
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
+  const compare = new PublicKey(sellMint)
+    .toBuffer()
+    .compare(new PublicKey(buyMint).toBuffer());
+  let token1, token2: PublicKey;
+  if (compare < 0) {
+    token1 = sellMint;
+    token2 = buyMint;
+  } else {
+    token1 = buyMint;
+    token2 = sellMint;
+  }
   const openAuctionPermissionless = await programFolio.methods
-    .openAuctionPermissionless()
+    .openAuctionPermissionless(token1, token2)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       user: userKeypair.publicKey,
       folio,
       auction,
+      sellMint,
+      buyMint,
     })
     .instruction();
 

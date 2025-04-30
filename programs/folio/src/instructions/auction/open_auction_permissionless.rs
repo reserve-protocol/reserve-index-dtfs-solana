@@ -11,8 +11,8 @@ use folio_admin::state::DAOFeeConfig;
 use folio_admin::ID as FOLIO_ADMIN_PROGRAM_ID;
 use shared::check_condition;
 use shared::constants::{
-    AUCTION_SEEDS, DAO_FEE_CONFIG_SEEDS, FOLIO_BASKET_SEEDS, FOLIO_FEE_CONFIG_SEEDS,
-    REBALANCE_SEEDS, RESTRICTED_AUCTION_BUFFER,
+    AUCTION_ENDS_SEEDS, AUCTION_SEEDS, DAO_FEE_CONFIG_SEEDS, FOLIO_BASKET_SEEDS,
+    FOLIO_FEE_CONFIG_SEEDS, REBALANCE_SEEDS, RESTRICTED_AUCTION_BUFFER,
 };
 use shared::errors::ErrorCode;
 
@@ -25,6 +25,9 @@ use shared::errors::ErrorCode;
 /// * `folio` - The folio account (PDA) (mut, not signer).
 /// * `auction` - The auction account (PDA) (mut, not signer).
 #[derive(Accounts)]
+// Anchor IDL generator fails if we try to add any custom logic to sort sell_mint and buy_mints in accounts
+// To solve for this, the instruction requires these to be passed in as arguments
+#[instruction(token_1: Pubkey, token_2: Pubkey)]
 pub struct OpenAuctionPermissionless<'info> {
     pub system_program: Program<'info, System>,
 
@@ -39,7 +42,7 @@ pub struct OpenAuctionPermissionless<'info> {
         payer = user,
         seeds = [AUCTION_SEEDS, folio.key().as_ref(), rebalance.load()?.nonce.to_le_bytes().as_ref(), rebalance.load()?.get_next_auction_id().to_le_bytes().as_ref()],
         bump,
-        space = Auction::INIT_SPACE,
+        space = Auction::SIZE,
     )]
     pub auction: AccountLoader<'info, Auction>,
 
@@ -70,6 +73,14 @@ pub struct OpenAuctionPermissionless<'info> {
     #[account(
         init_if_needed,
         payer = user,
+        seeds = [
+            AUCTION_ENDS_SEEDS,
+            folio.key().as_ref(),
+            &rebalance.load()?.nonce.to_le_bytes(),
+            token_1.to_bytes().as_ref(),
+            token_2.to_bytes().as_ref(),
+        ],
+        bump,
         space = AuctionEnds::SIZE,
     )]
     pub auction_ends: Account<'info, AuctionEnds>,
@@ -95,7 +106,13 @@ impl OpenAuctionPermissionless<'_> {
     ///
     /// # Checks
     /// * Folio has the correct status.
-    pub fn validate(&self, folio: &Folio, rebalance: &Rebalance) -> Result<u8> {
+    pub fn validate(
+        &self,
+        folio: &Folio,
+        rebalance: &Rebalance,
+        token_1: Pubkey,
+        token_2: Pubkey,
+    ) -> Result<u8> {
         folio.validate_folio(
             &self.folio.key(),
             None,
@@ -111,10 +128,15 @@ impl OpenAuctionPermissionless<'_> {
             .auction_ends
             .validate_auction_ends_with_keys_and_get_bump(
                 &self.auction_ends.key(),
+                &self.folio.key(),
                 self.sell_mint.key(),
                 self.buy_mint.key(),
                 rebalance.nonce,
             )?;
+        let (token_1_expected, token_2_expected) =
+            AuctionEnds::keys_pair_in_order(self.sell_mint.key(), self.buy_mint.key());
+        check_condition!(token_1 == token_1_expected, InvalidTokenMint);
+        check_condition!(token_2 == token_2_expected, InvalidTokenMint);
 
         Ok(bump)
     }
@@ -124,13 +146,18 @@ impl OpenAuctionPermissionless<'_> {
 ///
 /// # Arguments
 /// * `ctx` - The context of the instruction.
-pub fn handler(ctx: Context<OpenAuctionPermissionless>) -> Result<()> {
+pub fn handler(
+    ctx: Context<OpenAuctionPermissionless>,
+    token_1: Pubkey,
+    token_2: Pubkey,
+) -> Result<()> {
     let folio = &mut ctx.accounts.folio.load_mut()?;
-    let auction = &mut ctx.accounts.auction.load_mut()?;
+    let auction = &mut ctx.accounts.auction.load_init()?;
+    auction.bump = ctx.bumps.auction;
     let rebalance = &mut ctx.accounts.rebalance.load_mut()?;
     let folio_basket = &ctx.accounts.folio_basket.load()?;
 
-    let auction_ends_bump = ctx.accounts.validate(folio, rebalance)?;
+    let auction_ends_bump = ctx.accounts.validate(folio, rebalance, token_1, token_2)?;
 
     let current_time = Clock::get()?.unix_timestamp;
     {

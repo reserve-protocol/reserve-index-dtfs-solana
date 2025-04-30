@@ -8,6 +8,8 @@ import {
   burnFolioToken,
   initFolio,
   mintFolioToken,
+  openAuction,
+  startRebalance,
 } from "../utils/folio-helper";
 import { setDaoFeeConfig } from "../utils/folio-admin-helper";
 import { initToken, mintToken } from "../utils/token-helper";
@@ -20,9 +22,15 @@ import {
   MAX_TOKENS_IN_BASKET,
   FEE_NUMERATOR,
   MAX_TTL,
+  D18,
 } from "../utils/constants";
 import { Folio } from "../target/types/folio";
-import { getFolioBasketPDA } from "../utils/pda-helper";
+import {
+  getAuctionEndsPDA,
+  getAuctionPDA,
+  getFolioBasketPDA,
+  getRebalancePDA,
+} from "../utils/pda-helper";
 import { assert } from "chai";
 
 /**
@@ -193,56 +201,106 @@ describe("Extreme Folio Tests", () => {
     const auctionId = new BN(1);
     const ttl = MAX_TTL;
 
+    const auctionLauncherWindow = 1;
     // TODO: Fix
     // Approve auction with id 1
-    // await approveAuction(
-    //   connection,
-    //   rebalanceManagerKeypair,
-    //   folioPDA,
-    //   buyMint,
-    //   sellMint,
-    //   auctionId,
-    //   { spot: new BN(5), low: new BN(0), high: new BN(20) },
-    //   { spot: new BN(5), low: new BN(0), high: new BN(20) },
-    //   new BN(20),
-    //   new BN(1),
-    //   ttl
-    // );
+    await startRebalance(
+      connection,
+      rebalanceManagerKeypair,
+      folioPDA,
+      folioTokenMint.publicKey,
+      auctionLauncherWindow,
+      ttl.toNumber(),
+      [
+        {
+          prices: {
+            low: new BN(1),
+            high: new BN(2),
+          },
+          limits: {
+            low: new BN(1),
+            spot: new BN(7000).mul(D18),
+            high: new BN(7000).mul(D18),
+          },
+        },
+        {
+          prices: {
+            low: new BN(1),
+            high: new BN(2),
+          },
+          limits: {
+            low: new BN(1),
+            spot: new BN(2),
+            high: new BN(2),
+          },
+        },
+      ],
+      true,
+      [buyMint, sellMint]
+    );
 
-    // await addOrUpdateActor(
-    //   connection,
-    //   folioOwnerKeypair,
-    //   folioPDA,
-    //   rebalanceManagerKeypair.publicKey,
-    //   {
-    //     auctionLauncher: {},
-    //   }
-    // );
+    await addOrUpdateActor(
+      connection,
+      folioOwnerKeypair,
+      folioPDA,
+      rebalanceManagerKeypair.publicKey,
+      {
+        auctionLauncher: {},
+      }
+    );
+    const rebalance = await programFolio.account.rebalance.fetch(
+      getRebalancePDA(folioPDA)
+    );
 
-    // const auctionPDA = getAuctionPDA(folioPDA, auctionId);
+    const auctionPDA = getAuctionPDA(folioPDA, rebalance.nonce, auctionId);
 
-    // // Open auction with id 1
-    // await openAuction(
-    //   connection,
-    //   rebalanceManagerKeypair,
-    //   folioPDA,
-    //   auctionPDA,
-    //   new BN(5),
-    //   new BN(5),
-    //   new BN(20),
-    //   new BN(1)
-    // );
+    // Open auction with id 1
+    await openAuction(
+      connection,
+      rebalanceManagerKeypair,
+      folioPDA,
+      folioTokenMint.publicKey,
+      auctionPDA,
+      rebalance.nonce,
+      new BN(2),
+      new BN(7000).mul(D18),
+      new BN(2).mul(D18),
+      new BN(1).mul(D18),
+      sellMint,
+      buyMint
+    );
 
-    // const folioAccount = await programFolio.account.folio.fetch(folioPDA);
-    // TODO: Fix
-    // const sellEnd = folioAccount.sellEnds[0];
-    // const buyEnd = folioAccount.buyEnds[0];
-    // assert.isNotNull(sellEnd);
-    // assert.isNotNull(buyEnd);
-    // assert.strictEqual(sellEnd.mint.toString(), sellMint.toString());
-    // assert.notEqual(sellEnd.endTime.toNumber(), 0);
-    // assert.strictEqual(buyEnd.mint.toString(), buyMint.toString());
-    // assert.notEqual(buyEnd.endTime.toNumber(), 0);
+    const auctionEnds = getAuctionEndsPDA(
+      folioPDA,
+      rebalance.nonce,
+      sellMint,
+      buyMint
+    );
+    const auctionEndsAccount = await programFolio.account.auctionEnds.fetch(
+      auctionEnds
+    );
+
+    const compare = sellMint.toBuffer().compare(buyMint.toBuffer());
+    let token1, token2: PublicKey;
+    if (compare > 0) {
+      token1 = buyMint;
+      token2 = sellMint;
+    } else {
+      token1 = sellMint;
+      token2 = buyMint;
+    }
+    assert.isNotNull(auctionEndsAccount);
+
+    assert.strictEqual(
+      auctionEndsAccount.tokenMint1.toString(),
+      token1.toString()
+    );
+    assert.strictEqual(
+      auctionEndsAccount.tokenMint2.toString(),
+      token2.toString()
+    );
+
+    assert.notEqual(auctionEndsAccount.endTime.toNumber(), 0);
   });
 
   it("should burn and increase the user pending basket", async () => {

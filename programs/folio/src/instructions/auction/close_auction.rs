@@ -60,8 +60,11 @@ impl CloseAuction<'_> {
 
         auction.validate_auction(&self.auction.key(), &self.folio.key())?;
 
-        self.auction_ends
-            .validate_auction_ends(&self.auction_ends.key(), auction)?;
+        self.auction_ends.validate_auction_ends(
+            &self.auction_ends.key(),
+            auction,
+            &self.folio.key(),
+        )?;
 
         Ok(())
     }

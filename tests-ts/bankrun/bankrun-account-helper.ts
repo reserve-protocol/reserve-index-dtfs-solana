@@ -782,7 +782,12 @@ export async function createAndSetAuction(
   auction: Auction,
   folio: PublicKey
 ) {
-  const auctionPDAWithBump = getAuctionPDAWithBump(folio, auction.id);
+  // TODO: Fix
+  const auctionPDAWithBump = getAuctionPDAWithBump(
+    folio,
+    auction.id,
+    auction.id
+  );
 
   // Manual encoding for fee recipients
   const buffer = Buffer.alloc(1240);

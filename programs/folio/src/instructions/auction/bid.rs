@@ -173,8 +173,11 @@ impl Bid<'_> {
             UnsupportedSPLToken
         );
 
-        self.auction_ends
-            .validate_auction_ends(&self.auction_ends.key(), auction)?;
+        self.auction_ends.validate_auction_ends(
+            &self.auction_ends.key(),
+            auction,
+            &self.folio.key(),
+        )?;
 
         check_condition!(
             rebalance.nonce == self.auction_ends.rebalance_nonce,
@@ -216,17 +219,21 @@ pub fn handler(
     with_callback: bool,
     callback_data: Vec<u8>,
 ) -> Result<()> {
-    let folio = &mut ctx.accounts.folio.load_mut()?;
     let folio_token_mint_key = &ctx.accounts.folio_token_mint.key();
     let auction = &mut ctx.accounts.auction.load_mut()?;
     let rebalance = &mut ctx.accounts.rebalance.load()?;
     let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
     let current_time = Clock::get()?.unix_timestamp;
     let raw_folio_token_supply = ctx.accounts.folio_token_mint.supply;
-    // checks auction is ongoing
-    ctx.accounts
-        .validate(folio, current_time as u64, auction, rebalance)?;
-    {
+
+    let folio_bump: u8;
+
+    let (raw_sell_amount, raw_bought_amount, _price, scaled_folio_token_total_supply) = {
+        let folio = &mut ctx.accounts.folio.load_mut()?;
+        // checks auction is ongoing
+        ctx.accounts
+            .validate(folio, current_time as u64, auction, rebalance)?;
+
         // Poke folio
         let fee_details = ctx
             .accounts
@@ -240,19 +247,17 @@ pub fn handler(
             fee_details.scaled_fee_denominator,
             fee_details.scaled_fee_floor,
         )?;
-    }
+        folio_bump = folio.bump;
 
-    let current_time = current_time as u64;
-
-    let (raw_sell_amount, raw_bought_amount, _price, scaled_folio_token_total_supply) = auction
-        .get_bid(
+        auction.get_bid(
             folio,
             folio_basket,
             raw_folio_token_supply,
-            current_time,
+            current_time as u64,
             raw_sell_amount,
             raw_max_buy_amount,
-        )?;
+        )?
+    };
 
     // Virtual transfer of sell token from basket to bidder
     folio_basket.remove_tokens_from_basket(&vec![FolioTokenAmount {
@@ -279,7 +284,6 @@ pub fn handler(
     }
 
     // pay bidder
-    let folio_bump = folio.bump;
     let signer_seeds = &[FOLIO_SEEDS, folio_token_mint_key.as_ref(), &[folio_bump]];
 
     token_interface::transfer_checked(
@@ -350,6 +354,7 @@ pub fn handler(
         ctx.accounts.folio_buy_token_account.amount <= raw_max_buy_amount,
         ExcessiveBid
     );
+    let current_time = current_time as u64;
 
     // end auction at limits
     // can still be griefed
@@ -358,6 +363,5 @@ pub fn handler(
         auction.end = current_time - 1;
         ctx.accounts.auction_ends.end_time = current_time - 1;
     }
-
     Ok(())
 }

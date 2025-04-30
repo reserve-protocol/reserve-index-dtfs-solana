@@ -284,7 +284,7 @@ impl Rebalance {
 ///   - All auctions are dutch auctions with the same price curve, but it's possible to pass startPrice = endPrice
 ///
 /// zero_copy
-/// PDA Seeds ["auction", folio pubkey, auction id]
+/// PDA Seeds ["auction", folio pubkey, rebalance nonce, auction id]
 #[account(zero_copy)]
 #[derive(Default, InitSpace)]
 #[repr(C)]

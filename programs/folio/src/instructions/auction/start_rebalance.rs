@@ -12,6 +12,7 @@ use shared::utils::TokenUtil;
 use shared::{check_condition, constants::ACTOR_SEEDS, errors::ErrorCode};
 
 /// Start an rebalance.
+/// Ending rebalance is done by starting a new rebalance when none exists with `all_rebalance_details_added` false.
 /// Rebalance Manager only.
 ///
 /// # Arguments

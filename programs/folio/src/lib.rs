@@ -282,6 +282,8 @@ pub mod folio {
 
     pub fn open_auction<'info>(
         ctx: Context<'_, '_, 'info, 'info, OpenAuction<'info>>,
+        token_1: Pubkey,
+        token_2: Pubkey,
         scaled_sell_limit: u128,
         scaled_buy_limit: u128,
         scaled_start_price: u128,
@@ -289,6 +291,8 @@ pub mod folio {
     ) -> Result<()> {
         open_auction::handler(
             ctx,
+            token_1,
+            token_2,
             scaled_sell_limit,
             scaled_buy_limit,
             scaled_start_price,
@@ -304,8 +308,10 @@ pub mod folio {
 
     pub fn open_auction_permissionless<'info>(
         ctx: Context<'_, '_, 'info, 'info, OpenAuctionPermissionless<'info>>,
+        token_1: Pubkey,
+        token_2: Pubkey,
     ) -> Result<()> {
-        open_auction_permissionless::handler(ctx)
+        open_auction_permissionless::handler(ctx, token_1, token_2)
     }
 
     pub fn bid<'info>(

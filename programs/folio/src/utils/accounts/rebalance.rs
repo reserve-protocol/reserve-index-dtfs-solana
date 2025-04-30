@@ -171,9 +171,16 @@ impl Rebalance {
         Option<&RebalanceDetailsToken>,
         Option<&RebalanceDetailsToken>,
     ) {
-        let mut mut_iter = self.details.tokens.iter();
-        let sell_details = mut_iter.find(|detail| detail.mint == *sell_mint);
-        let buy_details = mut_iter.find(|detail| detail.mint == *buy_mint);
+        let mut sell_details = None;
+        let mut buy_details = None;
+
+        for detail in self.details.tokens.iter() {
+            if detail.mint == *sell_mint {
+                sell_details = Some(detail);
+            } else if detail.mint == *buy_mint {
+                buy_details = Some(detail);
+            }
+        }
 
         (sell_details, buy_details)
     }
@@ -186,9 +193,16 @@ impl Rebalance {
         Option<&mut RebalanceDetailsToken>,
         Option<&mut RebalanceDetailsToken>,
     ) {
-        let mut mut_iter = self.details.tokens.iter_mut();
-        let sell_details = mut_iter.find(|detail| detail.mint == *sell_mint);
-        let buy_details = mut_iter.find(|detail| detail.mint == *buy_mint);
+        let mut sell_details = None;
+        let mut buy_details = None;
+
+        for detail in self.details.tokens.iter_mut() {
+            if detail.mint == *sell_mint {
+                sell_details = Some(detail);
+            } else if detail.mint == *buy_mint {
+                buy_details = Some(detail);
+            }
+        }
 
         (sell_details, buy_details)
     }

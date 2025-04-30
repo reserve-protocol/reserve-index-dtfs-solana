@@ -5,6 +5,7 @@ use shared::{check_condition, constants::AUCTION_ENDS_SEEDS};
 use crate::state::{Auction, AuctionEnds};
 
 impl AuctionEnds {
+    #[inline(always)]
     pub fn keys_pair_in_order(sell_token: Pubkey, buy_token: Pubkey) -> (Pubkey, Pubkey) {
         if sell_token < buy_token {
             (sell_token, buy_token)
@@ -35,9 +36,11 @@ impl AuctionEnds {
         &self,
         auction_ends_pubkey: &Pubkey,
         auction: &Auction,
+        folio: &Pubkey,
     ) -> Result<()> {
         let bump = self.validate_auction_ends_with_keys_and_get_bump(
             auction_ends_pubkey,
+            folio,
             auction.sell_mint,
             auction.buy_mint,
             auction.nonce,
@@ -50,6 +53,7 @@ impl AuctionEnds {
     pub fn validate_auction_ends_with_keys_and_get_bump(
         &self,
         auction_ends_pubkey: &Pubkey,
+        folio: &Pubkey,
         sell_token: Pubkey,
         buy_token: Pubkey,
         rebalance_nonce: u64,
@@ -59,6 +63,7 @@ impl AuctionEnds {
         let pubkey = Pubkey::find_program_address(
             &[
                 AUCTION_ENDS_SEEDS,
+                folio.to_bytes().as_ref(),
                 &rebalance_nonce.to_le_bytes(),
                 keys.0.to_bytes().as_ref(),
                 keys.1.to_bytes().as_ref(),

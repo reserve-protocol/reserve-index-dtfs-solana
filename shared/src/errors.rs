@@ -31,6 +31,9 @@ pub enum ErrorCode {
     #[msg("Invalid Actor PDA")]
     InvalidActorPda,
 
+    #[msg("Invalid Token Mint")]
+    InvalidTokenMint,
+
     #[msg("Invalid Program")]
     InvalidProgram,
 

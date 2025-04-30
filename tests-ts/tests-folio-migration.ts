@@ -8,6 +8,7 @@ import {
   initFolio,
   migrateFolioTokens,
   startFolioMigration,
+  updateFolio,
 } from "../utils/folio-helper";
 import * as assert from "assert";
 
@@ -151,6 +152,21 @@ describe("Folio Migration Tests", () => {
       "mandate",
       true
     );
+    // Call update folio for creation of fee recipients
+    await updateFolio(
+      connection,
+      folioOwnerKeypair,
+      folioPDA,
+      folioTokenMint.publicKey,
+      feeRecipient,
+      null,
+      new BN(0),
+      null,
+      null,
+      [],
+      [],
+      null
+    );
 
     // Set dao fee recipient
     await setDaoFeeConfig(
@@ -164,7 +180,6 @@ describe("Folio Migration Tests", () => {
 
   it("should allow user to migrate from first to second instance", async () => {
     const mintInfoBefore = await getMint(connection, folioTokenMint.publicKey);
-
     // Now migrate from first to second instance
     await startFolioMigration(
       connection,

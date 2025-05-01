@@ -51,6 +51,7 @@ import {
   DEFAULT_DECIMALS,
   FEE_NUMERATOR,
   D18,
+  D9,
 } from "../utils/constants";
 import { TestHelper } from "../utils/test-helper";
 import {
@@ -73,7 +74,7 @@ import { FolioAdmin } from "../target/types/folio_admin";
  * initializing the folio to adding tokens to the basket. Auctions to fees.
  */
 
-describe("Folio Tests", () => {
+describe.only("Folio Tests", () => {
   let connection: Connection;
   let programFolio: Program<Folio>;
   let programFolioAdmin: Program<FolioAdmin>;
@@ -1014,7 +1015,7 @@ describe("Folio Tests", () => {
         {
           prices: {
             low: new BN(1),
-            high: new BN(2),
+            high: new BN(1),
           },
           limits: {
             low: new BN(1),
@@ -1025,12 +1026,12 @@ describe("Folio Tests", () => {
         {
           prices: {
             low: new BN(1),
-            high: new BN(2),
+            high: new BN(1),
           },
           limits: {
-            low: new BN(1),
-            spot: new BN(2),
-            high: new BN(2),
+            low: new BN(0),
+            spot: new BN(0),
+            high: new BN(0),
           },
         },
       ],
@@ -1062,9 +1063,9 @@ describe("Folio Tests", () => {
     );
 
     assert.equal(rebalance.details.tokens[0].prices.low.eq(new BN(1)), true);
-    assert.equal(rebalance.details.tokens[0].prices.high.eq(new BN(2)), true);
+    assert.equal(rebalance.details.tokens[0].prices.high.eq(new BN(1)), true);
     assert.equal(rebalance.details.tokens[1].prices.low.eq(new BN(1)), true);
-    assert.equal(rebalance.details.tokens[1].prices.high.eq(new BN(2)), true);
+    assert.equal(rebalance.details.tokens[1].prices.high.eq(new BN(1)), true);
     assert.equal(
       rebalance.details.tokens[2].mint.toBase58(),
       PublicKey.default.toBase58()
@@ -1089,9 +1090,9 @@ describe("Folio Tests", () => {
       folioTokenMint.publicKey,
       auctionPDA,
       rebalance.nonce,
-      new BN(2),
-      new BN(2000),
-      new BN(2).mul(D18),
+      new BN(0),
+      new BN(1).mul(D18),
+      new BN(1).mul(D18),
       new BN(1).mul(D18),
       sellMint,
       buyMint.publicKey
@@ -1099,9 +1100,9 @@ describe("Folio Tests", () => {
 
     const auction = await programFolio.account.auction.fetch(auctionPDA);
 
-    assert.equal(auction.sellLimit.eq(new BN(2)), true);
-    assert.equal(auction.buyLimit.eq(new BN(2000)), true);
-    assert.equal(auction.prices.start.eq(new BN(2).mul(D18)), true);
+    assert.equal(auction.sellLimit.eq(new BN(0)), true);
+    assert.equal(auction.buyLimit.eq(new BN(1).mul(D18)), true);
+    assert.equal(auction.prices.start.eq(new BN(1).mul(D18)), true);
     assert.equal(auction.prices.end.eq(new BN(1).mul(D18)), true);
     TestHelper.assertTime(auction.start, new BN(currentTimeOnSolana));
     TestHelper.assertTime(
@@ -1138,8 +1139,8 @@ describe("Folio Tests", () => {
       folioPDA,
       folioTokenMint.publicKey,
       auctionPDA,
-      new BN(1000),
-      new BN(30000)
+      new BN(1),
+      new BN(100).mul(D9)
     );
 
     const balancesAfter = await folioTestHelper.getBalanceSnapshot(

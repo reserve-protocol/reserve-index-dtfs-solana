@@ -75,3 +75,7 @@ export const FEE_NUMERATOR: BN = new BN("500000000000000000"); // 50% in D18
 export const MAX_SINGLE_AUCTION_RUNS = 10;
 
 export const DAY_IN_SECONDS = 86400;
+
+export const MAX_REBALANCE_DETAILS = 30;
+
+export const RESTRICTED_AUCTION_BUFFER = 120;

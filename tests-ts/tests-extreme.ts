@@ -202,7 +202,7 @@ describe("Extreme Folio Tests", () => {
     const ttl = MAX_TTL;
 
     const auctionLauncherWindow = 1;
-    // TODO: Fix
+
     // Approve auction with id 1
     await startRebalance(
       connection,
@@ -281,14 +281,14 @@ describe("Extreme Folio Tests", () => {
     );
 
     const compare = sellMint.toBuffer().compare(buyMint.toBuffer());
-    let token1, token2: PublicKey;
+    let token1 = sellMint;
+    let token2 = buyMint;
+
     if (compare > 0) {
       token1 = buyMint;
       token2 = sellMint;
-    } else {
-      token1 = sellMint;
-      token2 = buyMint;
     }
+
     assert.isNotNull(auctionEndsAccount);
 
     assert.strictEqual(

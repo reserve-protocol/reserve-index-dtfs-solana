@@ -343,17 +343,17 @@ pub fn handler(
         )?;
     }
 
+    // Virtual transfer of buy token from bidder to basket
+    folio_basket.add_tokens_to_basket(&vec![FolioTokenAmount {
+        mint: auction.buy_mint,
+        amount: raw_bought_amount,
+    }])?;
+
     let buy_basket_presence = folio_basket.get_token_presence_per_share_in_basket(
         &auction.buy_mint,
         &scaled_folio_token_total_supply,
     )?;
 
-    // ensure post-bid buy balance does not exceed max
-    ctx.accounts.folio_buy_token_account.reload()?;
-    check_condition!(
-        ctx.accounts.folio_buy_token_account.amount <= raw_max_buy_amount,
-        ExcessiveBid
-    );
     let current_time = current_time as u64;
 
     // end auction at limits

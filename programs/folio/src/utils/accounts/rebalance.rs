@@ -90,6 +90,11 @@ impl Rebalance {
         );
         let mut hash_set = HashSet::new();
 
+        check_condition!(
+            mints.len() == prices_and_limits.len(),
+            RebalanceMintsAndPricesAndLimitsLengthMismatch
+        );
+
         // If there is already a token in the rebalance, then we check if the price is deferred.
         // Otherwise, we check if the price is deferred for the first token, in the batch we are adding.
         let is_price_deferred = if self.details.tokens[0].mint != Pubkey::default() {

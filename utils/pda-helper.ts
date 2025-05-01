@@ -67,14 +67,13 @@ export function getAuctionEndsPDA(
   token2Input: PublicKey
 ) {
   const compare = token1Input.toBuffer().compare(token2Input.toBuffer());
-  let token1, token2: PublicKey;
+  let token1 = token1Input;
+  let token2 = token2Input;
   if (compare > 0) {
     token1 = token2Input;
     token2 = token1Input;
-  } else {
-    token1 = token1Input;
-    token2 = token2Input;
   }
+
   return getAuctionEndsPDAWithBump(folio, rebalanceNonce, token1, token2)[0];
 }
 

@@ -257,6 +257,7 @@ pub struct Rebalance {
     pub folio: Pubkey,
 
     /// Current auction id, starts at 0
+    /// Resets to 0 when a new rebalance is started
     pub current_auction_id: u64,
 
     pub nonce: u64,

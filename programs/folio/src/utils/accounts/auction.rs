@@ -90,7 +90,7 @@ impl Auction {
         is_permissionless: bool,
     ) -> Result<()> {
         // Do not open auctions that have timed out from ttl
-        check_condition!(current_time <= rebalance.restricted_until, AuctionTimeout);
+        check_condition!(current_time <= rebalance.available_until, AuctionTimeout);
 
         let (sell_details, buy_details) = rebalance.get_token_details_pair(sell_mint, buy_mint);
         check_condition!(
@@ -104,8 +104,8 @@ impl Auction {
         if is_permissionless {
             // Only open auctions that have not timed out (ttl check) and are available to be opened permissionlessly.
             check_condition!(
-                current_time >= rebalance.available_until
-                    && current_time <= rebalance.restricted_until,
+                current_time >= rebalance.restricted_until
+                    && current_time <= rebalance.available_until,
                 AuctionCannotBeOpenedPermissionlesslyYet
             );
             // If any price is non-zero, all are non-zero.
@@ -127,8 +127,6 @@ impl Auction {
                 current_time > auction_ends.end_time + auction_buffer,
                 AuctionCollision
             );
-
-            auction_ends.end_time = current_time + self.auction_length()?;
         }
 
         let auction_spot_sell_limit = match config {
@@ -154,7 +152,6 @@ impl Auction {
 
         // Confirm sell is surplus and buy is deficit
         {
-            msg!("sell_mint: {:?}", sell_mint);
             let scaled_folio_token_total_supply = folio.get_total_supply(raw_folio_token_supply)?;
             // {sellTok} = D18{sellTok/share} * {share} / D18
             let sell_tokens = scaled_folio_token_total_supply
@@ -179,26 +176,18 @@ impl Auction {
                 .into();
 
             check_condition!(balance < buy_tokens, BuyTokenNotDeficit);
-            msg!("balance: {:?}", balance);
         }
 
-        msg!("sell_details.prices.high: {:?}", sell_details.prices.high);
         // D27{buyTok/sellTok} = D27 * D27{UoA/sellTok} / D27{UoA/buyTok}
         let old_start_price = Decimal::from_scaled(sell_details.prices.high)
-            .add(&Decimal::from_scaled(buy_details.prices.low))?
-            .sub(&Decimal::ONE)?
             .mul(&Decimal::ONE_E18)?
             .div(&Decimal::from_scaled(buy_details.prices.low))?
             .to_scaled(Rounding::Ceiling)?;
-        msg!("old_start_price: {:?}", old_start_price);
 
         let old_end_price = Decimal::from_scaled(sell_details.prices.low)
-            .add(&Decimal::from_scaled(buy_details.prices.high))?
-            .sub(&Decimal::ONE)?
             .mul(&Decimal::ONE_E18)?
             .div(&Decimal::from_scaled(buy_details.prices.high))?
             .to_scaled(Rounding::Ceiling)?;
-        msg!("old_end_price: {:?}", old_end_price);
         let auction_price = match config {
             Some(config) => {
                 let prices = config.price;
@@ -248,6 +237,7 @@ impl Auction {
         self.sell_limit = auction_spot_sell_limit;
         self.buy_limit = auction_spot_buy_limit;
         rebalance.current_auction_id = auction_index;
+        auction_ends.end_time = current_time + self.auction_length()?;
 
         Ok(())
     }
@@ -368,17 +358,19 @@ impl Auction {
 
         let raw_sell_available = raw_sell_balance.saturating_sub(raw_limit_sell_balance);
 
-        let raw_buy_balance = folio_basket.get_token_amount_in_folio_basket(&self.sell_mint)?;
+        let raw_buy_balance = folio_basket.get_token_amount_in_folio_basket_or_zero(&self.buy_mint);
         //  D18{buyTok/share} = D18{buyTok/share} * {share} / D18
+
         let buy_limit_balance = Decimal::from_scaled(self.buy_limit)
             .mul(&scaled_folio_token_total_supply)?
+            .div(&Decimal::ONE_E18)?
             .to_token_amount(Rounding::Floor)?
             .0;
         let buy_amount_available = buy_limit_balance.saturating_sub(raw_buy_balance);
 
         // Calculate the sell amount from the buy amount
         // {sellTok} = {buyTok} * D18 / D18{buyTok/sellTok}
-        let sell_amount_available_from_buy = Decimal::from_scaled(buy_amount_available)
+        let sell_amount_available_from_buy = Decimal::from_token_amount(buy_amount_available)?
             .mul(&Decimal::ONE_E18)?
             .div(&scaled_price)?
             .to_token_amount(Rounding::Floor)?
@@ -394,11 +386,11 @@ impl Auction {
 
         check_condition!(
             sell_amount_available >= raw_sell_amount,
-            SellTokenNotSurplus
+            InsufficientBalance
         );
         check_condition!(
             bid_amount != 0 && bid_amount <= raw_max_buy_amount,
-            BuyTokenNotDeficit
+            SlippageExceeded
         );
 
         Ok((

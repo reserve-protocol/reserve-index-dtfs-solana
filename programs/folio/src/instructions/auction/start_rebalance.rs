@@ -142,7 +142,12 @@ pub fn handler(
         &folio_key,
     )?;
 
-    let rebalance = &mut ctx.accounts.rebalance.load_init()?;
+    let rebalance_res = &mut ctx.accounts.rebalance.load_mut();
+    let rebalance = match rebalance_res {
+        Ok(rebalance) => rebalance,
+        Err(_) => &mut ctx.accounts.rebalance.load_init()?,
+    };
+
     let current_time = current_time as u64;
     rebalance.start_rebalance(
         current_time,

@@ -300,6 +300,9 @@ pub enum ErrorCode {
 
     #[msg("Bid invariant violated")]
     BidInvariantViolated,
+
+    #[msg("Rebalance mints and prices and limits length mismatch")]
+    RebalanceMintsAndPricesAndLimitsLengthMismatch,
 }
 
 /// Check a condition and return an error if it is not met.

@@ -74,7 +74,7 @@ import { FolioAdmin } from "../target/types/folio_admin";
  * initializing the folio to adding tokens to the basket. Auctions to fees.
  */
 
-describe.only("Folio Tests", () => {
+describe("Folio Tests", () => {
   let connection: Connection;
   let programFolio: Program<Folio>;
   let programFolioAdmin: Program<FolioAdmin>;

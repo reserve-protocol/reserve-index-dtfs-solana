@@ -12,7 +12,6 @@ import {
   addOrUpdateActor,
   addToBasket,
   addToPendingBasket,
-  approveAuction,
   bid,
   burnFolioToken,
   crankFeeDistribution,
@@ -25,6 +24,7 @@ import {
   redeemFromPendingBasket,
   removeActor,
   removeFromPendingBasket,
+  startRebalance,
   updateFolio,
 } from "../utils/folio-helper";
 import * as assert from "assert";
@@ -36,12 +36,13 @@ import {
   getTVLFeeRecipientsPDA,
   getAuctionPDA,
   getUserPendingBasketPDA,
+  getRebalancePDA,
+  getAuctionEndsPDA,
 } from "../utils/pda-helper";
 import {
   DEFAULT_DECIMALS_MUL,
   MAX_AUCTION_LENGTH,
   MAX_TVL_FEE,
-  MAX_AUCTION_DELAY,
   MAX_TTL,
   MAX_MINT_FEE,
   MAX_FEE_FLOOR,
@@ -50,6 +51,7 @@ import {
   DEFAULT_DECIMALS,
   FEE_NUMERATOR,
   D18,
+  D9,
 } from "../utils/constants";
 import { TestHelper } from "../utils/test-helper";
 import {
@@ -206,7 +208,6 @@ describe("Folio Tests", () => {
       folioTokenMint,
       MAX_TVL_FEE,
       MAX_MINT_FEE,
-      MAX_AUCTION_DELAY,
       MAX_AUCTION_LENGTH,
       "Test Folio",
       "TFOL",
@@ -226,7 +227,6 @@ describe("Folio Tests", () => {
     assert.equal(folio.mintFee.eq(MAX_MINT_FEE), true);
     assert.deepEqual(folio.folioTokenMint, folioTokenMint.publicKey);
     assert.equal(feeRecipients, null);
-    assert.equal(folio.auctionDelay.eq(MAX_AUCTION_DELAY), true);
     assert.equal(folio.auctionLength.eq(MAX_AUCTION_LENGTH), true);
 
     const ownerActorPDA = getActorPDA(folioOwnerKeypair.publicKey, folioPDA);
@@ -269,7 +269,6 @@ describe("Folio Tests", () => {
       currentFeeDistributionIndex,
       null,
       null,
-      null,
       [],
       [],
       null
@@ -296,7 +295,6 @@ describe("Folio Tests", () => {
       getAndIncreaseCurrentFeeDistributionIndex(),
       null,
       null,
-      null,
       [],
       [],
       null
@@ -317,7 +315,6 @@ describe("Folio Tests", () => {
       feeRecipient,
       null,
       getAndIncreaseCurrentFeeDistributionIndex(),
-      null,
       null,
       null,
       newFeeRecipient,
@@ -999,64 +996,89 @@ describe("Folio Tests", () => {
     assert.equal(feeDistributionAfter, null);
   });
 
-  it("should allow user to approve auction", async () => {
+  it("should allow user to start rebalance", async () => {
     const sellMint = tokenMints[1].mint.publicKey;
 
     const currentTimeOnSolana = await getSolanaCurrentTime(connection);
-    const folio = await programFolio.account.folio.fetch(folioPDA);
 
     const ttl = MAX_TTL;
 
-    await approveAuction(
+    const auctionLauncherWindow = 1;
+    await startRebalance(
       connection,
       rebalanceManagerKeypair,
       folioPDA,
-      buyMint.publicKey,
-      sellMint,
-      new BN(1),
-      { spot: new BN(1), low: new BN(0), high: new BN(2) },
-      {
-        spot: new BN(2000).mul(D18),
-        low: new BN(0),
-        high: new BN(2000).mul(D18),
-      },
-      new BN(2),
-      new BN(1),
-      ttl
+      folioTokenMint.publicKey,
+      auctionLauncherWindow,
+      ttl.toNumber(),
+      [
+        {
+          prices: {
+            low: new BN(1),
+            high: new BN(1),
+          },
+          limits: {
+            low: new BN(1),
+            spot: new BN(2000).mul(D18),
+            high: new BN(2000).mul(D18),
+          },
+        },
+        {
+          prices: {
+            low: new BN(1),
+            high: new BN(1),
+          },
+          limits: {
+            low: new BN(0),
+            spot: new BN(0),
+            high: new BN(0),
+          },
+        },
+      ],
+      true,
+      [buyMint.publicKey, sellMint]
     );
 
-    const auction = await programFolio.account.auction.fetch(
-      getAuctionPDA(folioPDA, new BN(1))
+    const rebalance = await programFolio.account.rebalance.fetch(
+      getRebalancePDA(folioPDA)
+    );
+    assert.equal(rebalance.nonce.toNumber(), 1);
+    TestHelper.assertTime(rebalance.startedAt, new BN(currentTimeOnSolana));
+
+    TestHelper.assertTime(
+      rebalance.restrictedUntil,
+      new BN(currentTimeOnSolana + auctionLauncherWindow)
+    );
+    TestHelper.assertTime(
+      rebalance.availableUntil,
+      new BN(currentTimeOnSolana + ttl.toNumber())
+    );
+    assert.equal(
+      rebalance.details.tokens[0].mint.toBase58(),
+      buyMint.publicKey.toBase58()
+    );
+    assert.equal(
+      rebalance.details.tokens[1].mint.toBase58(),
+      sellMint.toBase58()
     );
 
-    assert.equal(auction.id.toNumber(), 1);
-    assert.equal(auction.folio.toBase58(), folioPDA.toBase58());
-    assert.equal(auction.sell.toBase58(), sellMint.toBase58());
-    assert.equal(auction.buy.toBase58(), buyMint.publicKey.toBase58());
-    assert.equal(auction.sellLimit.spot.eq(new BN(1)), true);
-    assert.equal(auction.sellLimit.low.eq(new BN(0)), true);
-    assert.equal(auction.sellLimit.high.eq(new BN(2)), true);
-    assert.equal(auction.buyLimit.spot.eq(new BN(2000).mul(D18)), true);
-    assert.equal(auction.buyLimit.low.eq(new BN(0)), true);
-    assert.equal(auction.buyLimit.high.eq(new BN(2000).mul(D18)), true);
-    assert.equal(auction.initialProposedPrice.start.eq(new BN(2)), true);
-    assert.equal(auction.initialProposedPrice.end.eq(new BN(1)), true);
+    assert.equal(rebalance.details.tokens[0].prices.low.eq(new BN(1)), true);
+    assert.equal(rebalance.details.tokens[0].prices.high.eq(new BN(1)), true);
+    assert.equal(rebalance.details.tokens[1].prices.low.eq(new BN(1)), true);
+    assert.equal(rebalance.details.tokens[1].prices.high.eq(new BN(1)), true);
     assert.equal(
-      auction.availableAt.toNumber() >=
-        currentTimeOnSolana + folio.auctionDelay.toNumber(),
-      true
+      rebalance.details.tokens[2].mint.toBase58(),
+      PublicKey.default.toBase58()
     );
-    assert.equal(
-      auction.launchTimeout.toNumber() >= currentTimeOnSolana + ttl.toNumber(),
-      true
-    );
-    assert.equal(auction.auctionRunDetails[0].start.eq(new BN(0)), true);
-    assert.equal(auction.auctionRunDetails[0].end.eq(new BN(0)), true);
-    assert.equal(auction.auctionRunDetails[0].k.eq(new BN(0)), true);
   });
 
   it("should allow user to open auction", async () => {
-    const auctionPDA = getAuctionPDA(folioPDA, new BN(1));
+    const sellMint = tokenMints[1].mint.publicKey;
+
+    const rebalance = await programFolio.account.rebalance.fetch(
+      getRebalancePDA(folioPDA)
+    );
+    const auctionPDA = getAuctionPDA(folioPDA, rebalance.nonce, new BN(1));
     const folio = await programFolio.account.folio.fetch(folioPDA);
 
     const currentTimeOnSolana = await getSolanaCurrentTime(connection);
@@ -1065,107 +1087,41 @@ describe("Folio Tests", () => {
       connection,
       rebalanceManagerKeypair,
       folioPDA,
+      folioTokenMint.publicKey,
       auctionPDA,
-      new BN(2),
-      new BN(2000).mul(D18),
-      new BN(2),
-      new BN(1)
+      rebalance.nonce,
+      new BN(0),
+      new BN(1).mul(D18),
+      new BN(1).mul(D18),
+      new BN(1).mul(D18),
+      sellMint,
+      buyMint.publicKey
     );
 
     const auction = await programFolio.account.auction.fetch(auctionPDA);
 
-    // Update limits and prices
-    assert.equal(
-      auction.auctionRunDetails[0].sellLimitSpot.eq(new BN(2)),
-      true
+    assert.equal(auction.sellLimit.eq(new BN(0)), true);
+    assert.equal(auction.buyLimit.eq(new BN(1).mul(D18)), true);
+    assert.equal(auction.prices.start.eq(new BN(1).mul(D18)), true);
+    assert.equal(auction.prices.end.eq(new BN(1).mul(D18)), true);
+    TestHelper.assertTime(auction.start, new BN(currentTimeOnSolana));
+    TestHelper.assertTime(
+      auction.end,
+      new BN(currentTimeOnSolana + folio.auctionLength.toNumber())
     );
-    assert.equal(
-      auction.auctionRunDetails[0].sellLimitSpot.eq(new BN(2)),
-      true
-    );
-    assert.equal(auction.auctionRunDetails[0].prices.start.eq(new BN(2)), true);
-    assert.equal(auction.auctionRunDetails[0].prices.end.eq(new BN(1)), true);
-
-    // Assert auction is opened
-    assert.equal(
-      auction.auctionRunDetails[0].start.toNumber() >= currentTimeOnSolana,
-      true
-    );
-    assert.equal(
-      auction.auctionRunDetails[0].end.toNumber() >=
-        currentTimeOnSolana + folio.auctionLength.toNumber(),
-      true
-    );
-
-    assert.equal(
-      auction.auctionRunDetails[0].k.eq(new BN(1146076687433)),
-      true
-    );
-  });
-
-  it.skip("should allow auction actor to kill auction", async () => {
-    const auctionPDA = getAuctionPDA(folioPDA, new BN(1));
-    const auction = await programFolio.account.auction.fetch(auctionPDA);
-
-    const folioBefore = await programFolio.account.folio.fetch(folioPDA);
-
-    const auctionEndBuyBefore = folioBefore.buyEnds.find(
-      (auctionEnd) => auctionEnd.mint.toBase58() === auction.buy.toBase58()
-    );
-    const auctionEndSellBefore = folioBefore.sellEnds.find(
-      (auctionEnd) => auctionEnd.mint.toBase58() === auction.sell.toBase58()
-    );
-
-    const currentTimeOnSolana = await getSolanaCurrentTime(connection);
-
-    await killAuction(
-      connection,
-      rebalanceManagerKeypair,
-      folioPDA,
-      auctionPDA
-    );
-
-    const folioAfter = await programFolio.account.folio.fetch(folioPDA);
-
-    assert.equal(
-      (
-        await programFolio.account.auction.fetch(auctionPDA)
-      ).auctionRunDetails[0].end.toNumber(),
-      1
-    );
-
-    const auctionEndBuyAfter = folioAfter.buyEnds.find(
-      (auctionEnd) => auctionEnd.mint.toBase58() === auction.buy.toBase58()
-    );
-    const auctionEndSellAfter = folioAfter.sellEnds.find(
-      (auctionEnd) => auctionEnd.mint.toBase58() === auction.sell.toBase58()
-    );
-
-    assert.notEqual(
-      auctionEndBuyAfter!.endTime.toNumber(),
-      auctionEndBuyBefore!.endTime.toNumber()
-    );
-    assert.notEqual(
-      auctionEndSellAfter!.endTime.toNumber(),
-      auctionEndSellBefore!.endTime.toNumber()
-    );
-
-    assert.equal(
-      auctionEndBuyAfter!.endTime.toNumber() >= currentTimeOnSolana,
-      true
-    );
-    assert.equal(
-      auctionEndSellAfter!.endTime.toNumber() >= currentTimeOnSolana,
-      true
-    );
+    assert.equal(auction.sellMint.toBase58(), sellMint.toBase58());
+    assert.equal(auction.buyMint.toBase58(), buyMint.publicKey.toBase58());
   });
 
   it("should allow user to bid without callback", async () => {
-    const auctionPDA = getAuctionPDA(folioPDA, new BN(1));
+    const rebalance = await programFolio.account.rebalance.fetch(
+      getRebalancePDA(folioPDA)
+    );
+    const auctionPDA = getAuctionPDA(folioPDA, rebalance.nonce, new BN(1));
     const auctionFetched = await programFolio.account.auction.fetch(auctionPDA);
 
-    const buyMint = await getMint(connection, auctionFetched.buy);
-    const sellMint = await getMint(connection, auctionFetched.sell);
+    const buyMint = await getMint(connection, auctionFetched.buyMint);
+    const sellMint = await getMint(connection, auctionFetched.sellMint);
 
     folioTestHelper.setTokenMints([
       { mint: buyMint.address, decimals: buyMint.decimals },
@@ -1183,8 +1139,8 @@ describe("Folio Tests", () => {
       folioPDA,
       folioTokenMint.publicKey,
       auctionPDA,
-      new BN(1000),
-      new BN(2000)
+      new BN(1),
+      new BN(100).mul(D9)
     );
 
     const balancesAfter = await folioTestHelper.getBalanceSnapshot(
@@ -1209,13 +1165,62 @@ describe("Folio Tests", () => {
     );
   });
 
+  it("should allow auction actor to kill auction", async () => {
+    const rebalance = await programFolio.account.rebalance.fetch(
+      getRebalancePDA(folioPDA)
+    );
+    const auctionPDA = getAuctionPDA(folioPDA, rebalance.nonce, new BN(1));
+    const auction = await programFolio.account.auction.fetch(auctionPDA);
+
+    const auctionEndPda = getAuctionEndsPDA(
+      folioPDA,
+      rebalance.nonce,
+      auction.sellMint,
+      auction.buyMint
+    );
+
+    const auctionEnds = await programFolio.account.auctionEnds.fetch(
+      auctionEndPda
+    );
+
+    const auctionEndBefore = auctionEnds.endTime;
+
+    const currentTimeOnSolana = await getSolanaCurrentTime(connection);
+
+    await killAuction(
+      connection,
+      rebalanceManagerKeypair,
+      folioPDA,
+      auctionPDA,
+      rebalance.nonce,
+      auction.sellMint,
+      auction.buyMint
+    );
+
+    const auctionAfter = await programFolio.account.auction.fetch(auctionPDA);
+
+    assert.equal(auctionAfter.end.toNumber() <= currentTimeOnSolana, true);
+    const auctionEndAfter = await programFolio.account.auctionEnds.fetch(
+      auctionEndPda
+    );
+
+    assert.notEqual(auctionEndAfter.endTime, auctionEndBefore);
+    assert.equal(
+      auctionEndAfter.endTime.toNumber() <= currentTimeOnSolana,
+      true
+    );
+  });
+
   // Works, but for CI seemed to give issue, so skipping (tested in Bankrun anyways)
   it.skip("should allow user to bid with callback", async () => {
-    const auctionPDA = getAuctionPDA(folioPDA, new BN(1));
+    const rebalance = await programFolio.account.rebalance.fetch(
+      getRebalancePDA(folioPDA)
+    );
+    const auctionPDA = getAuctionPDA(folioPDA, rebalance.nonce, new BN(1));
     const auctionFetched = await programFolio.account.auction.fetch(auctionPDA);
 
-    const buyMint = await getMint(connection, auctionFetched.buy);
-    const sellMint = await getMint(connection, auctionFetched.sell);
+    const buyMint = await getMint(connection, auctionFetched.buyMint);
+    const sellMint = await getMint(connection, auctionFetched.sellMint);
 
     folioTestHelper.setTokenMints([
       { mint: buyMint.address, decimals: buyMint.decimals },

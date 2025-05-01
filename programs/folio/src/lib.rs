@@ -74,7 +74,6 @@ pub mod folio {
         ctx: Context<InitFolio>,
         scaled_tvl_fee: u128,
         scaled_mint_fee: u128,
-        auction_delay: u64,
         auction_length: u64,
         name: String,
         symbol: String,
@@ -85,7 +84,6 @@ pub mod folio {
             ctx,
             scaled_tvl_fee,
             scaled_mint_fee,
-            auction_delay,
             auction_length,
             name,
             symbol,
@@ -99,7 +97,6 @@ pub mod folio {
         ctx: Context<InitFolio2022>,
         scaled_tvl_fee: u128,
         scaled_mint_fee: u128,
-        auction_delay: u64,
         auction_length: u64,
         name: String,
         symbol: String,
@@ -110,7 +107,6 @@ pub mod folio {
             ctx,
             scaled_tvl_fee,
             scaled_mint_fee,
-            auction_delay,
             auction_length,
             name,
             symbol,
@@ -125,7 +121,6 @@ pub mod folio {
         scaled_tvl_fee: Option<u128>,
         index_for_fee_distribution: Option<u64>,
         scaled_mint_fee: Option<u128>,
-        auction_delay: Option<u64>,
         auction_length: Option<u64>,
         fee_recipients_to_add: Vec<FeeRecipient>,
         fee_recipients_to_remove: Vec<Pubkey>,
@@ -136,7 +131,6 @@ pub mod folio {
             scaled_tvl_fee,
             index_for_fee_distribution,
             scaled_mint_fee,
-            auction_delay,
             auction_length,
             fee_recipients_to_add,
             fee_recipients_to_remove,
@@ -260,24 +254,36 @@ pub mod folio {
     }
 
     /*
-    Auction functions
-     */
-    pub fn approve_auction<'info>(
-        ctx: Context<'_, '_, 'info, 'info, ApproveAuction<'info>>,
-        auction_id: u64,
-        sell_limit: BasketRange,
-        buy_limit: BasketRange,
-        prices: Prices,
+    Rebalancing and Auction functions
+    */
+    pub fn start_rebalance<'info>(
+        ctx: Context<'_, '_, 'info, 'info, StartRebalance<'info>>,
+        auction_launcher_window: u64,
         ttl: u64,
-        max_runs: u8,
+        prices_and_limits: Vec<RebalancePriceAndLimits>,
+        all_rebalance_details_added: bool,
     ) -> Result<()> {
-        approve_auction::handler(
-            ctx, auction_id, sell_limit, buy_limit, prices, ttl, max_runs,
+        start_rebalance::handler(
+            ctx,
+            auction_launcher_window,
+            ttl,
+            prices_and_limits,
+            all_rebalance_details_added,
         )
+    }
+
+    pub fn add_rebalance_details<'info>(
+        ctx: Context<'_, '_, 'info, 'info, AddRebalanceDetails<'info>>,
+        prices_and_limits: Vec<RebalancePriceAndLimits>,
+        all_rebalance_details_added: bool,
+    ) -> Result<()> {
+        add_rebalance_details::handler(ctx, prices_and_limits, all_rebalance_details_added)
     }
 
     pub fn open_auction<'info>(
         ctx: Context<'_, '_, 'info, 'info, OpenAuction<'info>>,
+        token_1: Pubkey,
+        token_2: Pubkey,
         scaled_sell_limit: u128,
         scaled_buy_limit: u128,
         scaled_start_price: u128,
@@ -285,6 +291,8 @@ pub mod folio {
     ) -> Result<()> {
         open_auction::handler(
             ctx,
+            token_1,
+            token_2,
             scaled_sell_limit,
             scaled_buy_limit,
             scaled_start_price,
@@ -300,8 +308,10 @@ pub mod folio {
 
     pub fn open_auction_permissionless<'info>(
         ctx: Context<'_, '_, 'info, 'info, OpenAuctionPermissionless<'info>>,
+        token_1: Pubkey,
+        token_2: Pubkey,
     ) -> Result<()> {
-        open_auction_permissionless::handler(ctx)
+        open_auction_permissionless::handler(ctx, token_1, token_2)
     }
 
     pub fn bid<'info>(

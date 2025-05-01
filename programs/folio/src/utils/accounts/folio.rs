@@ -1,10 +1,10 @@
-use crate::utils::structs::{AuctionEnd, FolioStatus, Role};
+use crate::utils::structs::{FolioStatus, Role};
 use crate::{
     events::TVLFeeSet,
     state::{Actor, Folio},
 };
 use anchor_lang::prelude::*;
-use shared::constants::{DAYS_IN_SECONDS, YEAR_IN_SECONDS};
+use shared::constants::{DAY_IN_SECONDS, YEAR_IN_SECONDS};
 use shared::utils::{Decimal, Rounding, TokenResult};
 use shared::{
     check_condition,
@@ -212,9 +212,9 @@ impl Folio {
     ) -> Result<()> {
         let current_time = current_time as u64;
         let account_fee_until = current_time
-            .checked_div(DAYS_IN_SECONDS)
+            .checked_div(DAY_IN_SECONDS)
             .ok_or(ErrorCode::MathOverflow)?
-            .checked_mul(DAYS_IN_SECONDS)
+            .checked_mul(DAY_IN_SECONDS)
             .ok_or(ErrorCode::MathOverflow)?;
 
         if account_fee_until.saturating_sub(self.last_poke) == 0 {
@@ -344,86 +344,5 @@ impl Folio {
         let scaled_fee_recipient_shares = scaled_fee_shares.sub(&scaled_dao_shares)?;
 
         Ok((scaled_fee_recipient_shares, scaled_dao_shares))
-    }
-
-    /// Get the auction end for the mints. The auction ends are the timestamp {s} of the latest ongoing auction (sell or buy).
-    ///
-    /// # Arguments
-    /// * `sell_mint` - The mint of the sell auction.
-    /// * `buy_mint` - The mint of the buy auction.
-    ///
-    /// # Returns
-    /// * `Option<&AuctionEnd>` - The auction end for the sell auction if it exists.
-    /// * `Option<&AuctionEnd>` - The auction end for the buy auction if it exists.
-    pub fn get_auction_end_for_mints(
-        &self,
-        sell_mint: &Pubkey,
-        buy_mint: &Pubkey,
-    ) -> Result<(Option<&AuctionEnd>, Option<&AuctionEnd>)> {
-        let mut sell_auction = None;
-        let mut buy_auction = None;
-
-        for auction_end in self.sell_ends.iter() {
-            if auction_end.mint == *sell_mint {
-                sell_auction = Some(auction_end);
-                break;
-            }
-        }
-
-        for auction_end in self.buy_ends.iter() {
-            if auction_end.mint == *buy_mint {
-                buy_auction = Some(auction_end);
-                break;
-            }
-        }
-
-        Ok((sell_auction, buy_auction))
-    }
-
-    /// Set the auction end for the mints.
-    ///
-    /// # Arguments
-    /// * `sell_mint` - The mint of the sell auction.
-    /// * `buy_mint` - The mint of the buy auction.
-    /// * `end_time_sell` - The end time of the sell auction {s}.
-    /// * `end_time_buy` - The end time of the buy auction {s}.
-    pub fn set_auction_end_for_mints(
-        &mut self,
-        sell_mint: &Pubkey,
-        buy_mint: &Pubkey,
-        end_time_sell: u64,
-        end_time_buy: u64,
-    ) {
-        let mut sell_index_available = None;
-        for (index, auction_end) in self.sell_ends.iter_mut().enumerate() {
-            if auction_end.mint == Pubkey::default() && sell_index_available.is_none() {
-                sell_index_available = Some(index);
-            }
-            if auction_end.mint == *sell_mint {
-                auction_end.end_time = end_time_sell;
-                sell_index_available = None;
-                break;
-            }
-        }
-        if let Some(index) = sell_index_available {
-            self.sell_ends[index].mint = *sell_mint;
-            self.sell_ends[index].end_time = end_time_sell;
-        }
-
-        let mut buy_index_available = None;
-        for (index, auction_end) in self.buy_ends.iter_mut().enumerate() {
-            if auction_end.mint == Pubkey::default() && buy_index_available.is_none() {
-                buy_index_available = Some(index);
-            }
-            if auction_end.mint == *buy_mint {
-                auction_end.end_time = end_time_buy;
-                buy_index_available = None;
-                break;
-            }
-        }
-        if let Some(index) = buy_index_available {
-            self.buy_ends[index].mint = *buy_mint;
-            self.buy_ends[index].end_time = end_time_buy;
-        }
     }
 }

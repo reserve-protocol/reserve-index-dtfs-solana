@@ -1,5 +1,6 @@
+use crate::state::{AuctionEnds, Rebalance};
 use crate::utils::structs::FolioStatus;
-use crate::utils::FolioTokenAmount;
+use crate::utils::{AuctionStatus, FolioTokenAmount};
 use crate::{
     cpi_call,
     events::AuctionBid,
@@ -10,11 +11,13 @@ use anchor_spl::{
     associated_token::AssociatedToken,
     token_interface::{self, Mint, TokenAccount, TokenInterface, TransferChecked},
 };
-use shared::utils::math_util::Decimal;
-use shared::utils::{Rounding, TokenUtil};
+use folio_admin::state::DAOFeeConfig;
+use folio_admin::ID as FOLIO_ADMIN_PROGRAM_ID;
+use shared::constants::REBALANCE_SEEDS;
+use shared::utils::TokenUtil;
 use shared::{
     check_condition,
-    constants::{FOLIO_BASKET_SEEDS, FOLIO_SEEDS},
+    constants::{DAO_FEE_CONFIG_SEEDS, FOLIO_BASKET_SEEDS, FOLIO_FEE_CONFIG_SEEDS, FOLIO_SEEDS},
     errors::ErrorCode,
 };
 
@@ -92,6 +95,30 @@ pub struct Bid<'info> {
     associated_token::authority = bidder,
     )]
     pub bidder_buy_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    #[account(
+        seeds = [REBALANCE_SEEDS, folio.key().as_ref()],
+        bump = rebalance.load()?.bump,
+    )]
+    pub rebalance: AccountLoader<'info, Rebalance>,
+
+    #[account(mut)]
+    pub auction_ends: Account<'info, AuctionEnds>,
+
+    #[account(
+        seeds = [DAO_FEE_CONFIG_SEEDS],
+        bump,
+        seeds::program = FOLIO_ADMIN_PROGRAM_ID,
+    )]
+    pub dao_fee_config: Account<'info, DAOFeeConfig>,
+
+    /// CHECK: Could be empty or could be set, if set we use that one, else we use dao fee config
+    #[account(
+        seeds = [FOLIO_FEE_CONFIG_SEEDS, folio.key().as_ref()],
+        bump,
+        seeds::program = FOLIO_ADMIN_PROGRAM_ID,
+    )]
+    pub folio_fee_config: UncheckedAccount<'info>,
     /*
     Remaining accounts will be the accounts required for the "custom" CPI provided by the bidder.
      */
@@ -106,7 +133,15 @@ impl Bid<'_> {
     /// * Auction sell token mint provided is the same as the sell mint on the auction account.
     /// * Auction buy token mint provided is the same as the buy mint on the auction account.
     /// * Buy token is a supported SPL token (mean it doesn't have any forbidden extensions).
-    pub fn validate(&self, folio: &Folio, auction: &Auction) -> Result<()> {
+    /// * Validate auction ends account.
+    /// * Validate rebalance nonce.
+    pub fn validate(
+        &self,
+        folio: &Folio,
+        current_time: u64,
+        auction: &Auction,
+        rebalance: &Rebalance,
+    ) -> Result<()> {
         folio.validate_folio(
             &self.folio.key(),
             None,
@@ -120,12 +155,12 @@ impl Bid<'_> {
         );
 
         check_condition!(
-            self.auction_sell_token_mint.key() == auction.sell,
+            self.auction_sell_token_mint.key() == auction.sell_mint,
             InvalidAuctionSellTokenMint
         );
 
         check_condition!(
-            self.auction_buy_token_mint.key() == auction.buy,
+            self.auction_buy_token_mint.key() == auction.buy_mint,
             InvalidAuctionBuyTokenMint
         );
 
@@ -136,6 +171,28 @@ impl Bid<'_> {
                 Some(&self.bidder_buy_token_account.to_account_info())
             )?,
             UnsupportedSPLToken
+        );
+
+        self.auction_ends.validate_auction_ends(
+            &self.auction_ends.key(),
+            auction,
+            &self.folio.key(),
+        )?;
+
+        check_condition!(
+            rebalance.nonce == self.auction_ends.rebalance_nonce,
+            InvalidRebalanceNonceAuctionEnded
+        );
+        check_condition!(
+            rebalance.nonce == auction.nonce,
+            InvalidRebalanceNonceAuctionEnded
+        );
+
+        let auction_status = auction.try_get_status(current_time);
+
+        check_condition!(
+            auction_status == Some(AuctionStatus::Open),
+            AuctionNotOngoing
         );
 
         Ok(())
@@ -162,68 +219,71 @@ pub fn handler(
     with_callback: bool,
     callback_data: Vec<u8>,
 ) -> Result<()> {
-    let folio = &ctx.accounts.folio.load()?;
     let folio_token_mint_key = &ctx.accounts.folio_token_mint.key();
-    let folio_token_mint = &ctx.accounts.folio_token_mint;
     let auction = &mut ctx.accounts.auction.load_mut()?;
-
-    ctx.accounts.validate(folio, auction)?;
-    let current_time = Clock::get()?.unix_timestamp as u64;
-
-    let index_of_current_running_auction = auction.index_of_last_or_current_auction_run();
-    check_condition!(
-        index_of_current_running_auction.is_some(),
-        AuctionNotOngoing
-    );
-    let index_of_current_running_auction = index_of_current_running_auction.unwrap();
-
-    // checks auction is ongoing
-    // D18{buyTok/sellTok}
-    let scaled_price = Decimal::from_scaled(
-        auction.auction_run_details[index_of_current_running_auction].get_price(current_time)?,
-    );
-
-    // {buyTok} = {sellTok} * D18{buyTok/sellTok} / D18
-    let raw_bought_amount = (Decimal::from_token_amount(raw_sell_amount)?.mul(&scaled_price)?)
-        .div(&Decimal::ONE_E18)?
-        .to_token_amount(Rounding::Floor)?
-        .0;
-
-    check_condition!(raw_bought_amount <= raw_max_buy_amount, SlippageExceeded);
-
+    let rebalance = &mut ctx.accounts.rebalance.load()?;
     let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
+    let current_time = Clock::get()?.unix_timestamp;
+    let raw_folio_token_supply = ctx.accounts.folio_token_mint.supply;
 
-    // totalSupply inflates over time due to TVL fee, causing buyLimits/sellLimits to be slightly stale
-    let scaled_folio_token_total_supply = folio.get_total_supply(folio_token_mint.supply)?;
+    let folio_bump: u8;
 
-    let raw_sell_balance = folio_basket.get_token_amount_in_folio_basket(&auction.sell)?;
-    // {sellTok} = D18{sellTok/share} * {share} / D18
-    let raw_min_sell_balance = Decimal::from_scaled(
-        auction.auction_run_details[index_of_current_running_auction].sell_limit_spot,
-    )
-    .mul(&scaled_folio_token_total_supply)?
-    .div(&Decimal::ONE_E18)?
-    .to_token_amount(Rounding::Ceiling)?
-    .0;
+    let (raw_sell_amount, raw_bought_amount, _price, scaled_folio_token_total_supply) = {
+        let folio = &mut ctx.accounts.folio.load_mut()?;
+        // checks auction is ongoing
+        ctx.accounts
+            .validate(folio, current_time as u64, auction, rebalance)?;
 
-    let raw_sell_available = match raw_min_sell_balance {
-        raw_min_sell_balance if raw_sell_balance > raw_min_sell_balance => {
-            raw_sell_balance - raw_min_sell_balance
-        }
-        _ => 0,
+        // Poke folio
+        let fee_details = ctx
+            .accounts
+            .dao_fee_config
+            .get_fee_details(&ctx.accounts.folio_fee_config)?;
+
+        folio.poke(
+            ctx.accounts.folio_token_mint.supply,
+            current_time,
+            fee_details.scaled_fee_numerator,
+            fee_details.scaled_fee_denominator,
+            fee_details.scaled_fee_floor,
+        )?;
+        folio_bump = folio.bump;
+
+        auction.get_bid(
+            folio,
+            folio_basket,
+            raw_folio_token_supply,
+            current_time as u64,
+            raw_sell_amount,
+            raw_max_buy_amount,
+        )?
     };
 
-    // ensure auction is large enough to cover bid
-    check_condition!(raw_sell_amount <= raw_sell_available, InsufficientBalance);
-
-    // put buy token in basket
-    folio_basket.add_tokens_to_basket(&vec![FolioTokenAmount {
-        mint: auction.buy,
-        amount: raw_bought_amount,
+    // Virtual transfer of sell token from basket to bidder
+    folio_basket.remove_tokens_from_basket(&vec![FolioTokenAmount {
+        mint: auction.sell_mint,
+        amount: raw_sell_amount,
     }])?;
+    let sell_basket_presence: u128;
+    {
+        let sell_balance = folio_basket.get_token_amount_in_folio_basket(&auction.sell_mint)?;
+        // remove sell token from basket at 0 balance
+        if sell_balance == 0 {
+            folio_basket.remove_token_mint_from_basket(auction.sell_mint)?;
+        }
+
+        sell_basket_presence = folio_basket.get_token_presence_per_share_in_basket(
+            &auction.sell_mint,
+            &scaled_folio_token_total_supply,
+        )?;
+
+        check_condition!(
+            sell_basket_presence >= auction.sell_limit,
+            BidInvariantViolated
+        );
+    }
 
     // pay bidder
-    let folio_bump = folio.bump;
     let signer_seeds = &[FOLIO_SEEDS, folio_token_mint_key.as_ref(), &[folio_bump]];
 
     token_interface::transfer_checked(
@@ -246,29 +306,6 @@ pub fn handler(
         sell_amount: raw_sell_amount,
         bought_amount: raw_bought_amount,
     });
-
-    ctx.accounts.folio_sell_token_account.reload()?;
-
-    // Remove the sell token from the basket
-    folio_basket.remove_tokens_from_basket(&vec![FolioTokenAmount {
-        mint: auction.sell,
-        amount: raw_sell_amount,
-    }])?;
-
-    let basket_presence = folio_basket
-        .get_token_presence_per_share_in_basket(&auction.sell, &scaled_folio_token_total_supply)?;
-
-    // QoL: close auction if we have reached the sell limit
-    // TODO: update check, to check if the sell limit is reached
-    if basket_presence == 0 {
-        auction.auction_run_details[index_of_current_running_auction].end = current_time
-            .checked_sub(1)
-            .ok_or(error!(ErrorCode::MathOverflow))?;
-        auction.closed_for_reruns = 1;
-
-        // Remove the sell token from the basket, as the basket presence is 0
-        folio_basket.remove_token_mint_from_basket(auction.sell)?;
-    }
 
     // collect payment from bidder
     if with_callback {
@@ -306,20 +343,25 @@ pub fn handler(
         )?;
     }
 
-    //  D18{buyTok/share} = D18{buyTok/share} * {share} / D18
-    let raw_max_buy_balance = Decimal::from_scaled(
-        auction.auction_run_details[index_of_current_running_auction].buy_limit_spot,
-    )
-    .mul(&scaled_folio_token_total_supply)?
-    .to_token_amount(Rounding::Floor)?
-    .0;
+    // Virtual transfer of buy token from bidder to basket
+    folio_basket.add_tokens_to_basket(&vec![FolioTokenAmount {
+        mint: auction.buy_mint,
+        amount: raw_bought_amount,
+    }])?;
 
-    // ensure post-bid buy balance does not exceed max
-    ctx.accounts.folio_buy_token_account.reload()?;
-    check_condition!(
-        ctx.accounts.folio_buy_token_account.amount <= raw_max_buy_balance,
-        ExcessiveBid
-    );
+    let buy_basket_presence = folio_basket.get_token_presence_per_share_in_basket(
+        &auction.buy_mint,
+        &scaled_folio_token_total_supply,
+    )?;
 
+    let current_time = current_time as u64;
+
+    // end auction at limits
+    // can still be griefed
+    // limits may not be reacheable due to limited precision + defensive roundings
+    if sell_basket_presence == auction.sell_limit || buy_basket_presence >= auction.buy_limit {
+        auction.end = current_time - 1;
+        ctx.accounts.auction_ends.end_time = current_time - 1;
+    }
     Ok(())
 }

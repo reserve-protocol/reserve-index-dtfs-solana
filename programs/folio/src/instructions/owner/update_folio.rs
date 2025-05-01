@@ -1,4 +1,4 @@
-use crate::events::{AuctionDelaySet, AuctionLengthSet, MintFeeSet};
+use crate::events::{AuctionLengthSet, MintFeeSet};
 
 use crate::instructions::distribute_fees;
 use crate::state::{Actor, FeeDistribution, FeeRecipients, Folio};
@@ -9,8 +9,8 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::system_program;
 use anchor_spl::token_interface::Mint;
 use shared::constants::{
-    FEE_DISTRIBUTION_SEEDS, FEE_RECIPIENTS_SEEDS, MAX_AUCTION_DELAY, MAX_AUCTION_LENGTH,
-    MAX_MINT_FEE, MAX_TVL_FEE, MIN_AUCTION_LENGTH,
+    FEE_DISTRIBUTION_SEEDS, FEE_RECIPIENTS_SEEDS, MAX_AUCTION_LENGTH, MAX_MINT_FEE, MAX_TVL_FEE,
+    MIN_AUCTION_LENGTH,
 };
 use shared::errors::ErrorCode;
 use shared::utils::init_pda_account_rent;
@@ -207,7 +207,6 @@ impl<'info> UpdateFolio<'info> {
 /// * `scaled_tvl_fee` - The TVL fee if we want to update it. [trigger fee distribution]
 /// * `index_for_fee_distribution` - The index of the next fee distribution account to create if we're updating a field that will trigger a fee distribution.
 /// * `scaled_mint_fee` - The mint fee if we want to update it. [trigger fee distribution]
-/// * `auction_delay` - The auction delay if we want to update it.
 /// * `auction_length` - The auction length if we want to update it.
 /// * `fee_recipients_to_add` - The fee recipients to add. [trigger fee distribution]
 /// * `fee_recipients_to_remove` - The fee recipients to remove. [trigger fee distribution]
@@ -219,7 +218,6 @@ pub fn handler<'info>(
     // Only needed if we need to distribute the fees
     index_for_fee_distribution: Option<u64>,
     scaled_mint_fee: Option<u128>,
-    auction_delay: Option<u64>,
     auction_length: Option<u64>,
     fee_recipients_to_add: Vec<FeeRecipient>,
     fee_recipients_to_remove: Vec<Pubkey>,
@@ -287,19 +285,6 @@ pub fn handler<'info>(
             fee_recipients
                 .update_fee_recipients(fee_recipients_to_add, fee_recipients_to_remove)?;
         }
-    }
-
-    if let Some(auction_delay) = auction_delay {
-        check_condition!(auction_delay <= MAX_AUCTION_DELAY, InvalidAuctionDelay);
-
-        {
-            let mut folio = ctx.accounts.folio.load_mut()?;
-            folio.auction_delay = auction_delay;
-        }
-
-        emit!(AuctionDelaySet {
-            new_auction_delay: auction_delay
-        });
     }
 
     if let Some(auction_length) = auction_length {

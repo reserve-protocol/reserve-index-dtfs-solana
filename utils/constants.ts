@@ -50,7 +50,6 @@ export const MAX_MINT_FEE = new BN("50000000000000000");
 
 export const MIN_AUCTION_LENGTH = new BN(60);
 export const MAX_AUCTION_LENGTH = new BN(604800);
-export const MAX_AUCTION_DELAY = new BN(604800);
 export const MAX_TTL = new BN(604800 * 4);
 // 1e27 = 1000000000000000000000000000
 export const MAX_RATE = new BN("1000000000000000000000000000");
@@ -75,4 +74,8 @@ export const FEE_NUMERATOR: BN = new BN("500000000000000000"); // 50% in D18
 
 export const MAX_SINGLE_AUCTION_RUNS = 10;
 
-export const DAYS_IN_SECONDS = 86400;
+export const DAY_IN_SECONDS = 86400;
+
+export const MAX_REBALANCE_DETAILS = 30;
+
+export const RESTRICTED_AUCTION_BUFFER = 120;

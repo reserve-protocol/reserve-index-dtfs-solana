@@ -450,7 +450,6 @@ classDiagram
         +mint_fee: u128
         +dao_pending_fee_shares: u128
         +fee_recipients_pending_fee_shares: u128
-        +auction_delay: u64
         +auction_length: u64
         +current_auction_id: u64
         +last_poke: i64

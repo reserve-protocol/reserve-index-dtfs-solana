@@ -71,6 +71,8 @@ impl SetRewardsAdmin<'_> {
 /// # Arguments
 /// * `ctx` - The context of the instruction.
 pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, SetRewardsAdmin<'info>>) -> Result<()> {
+    ctx.accounts.validate()?;
+
     RewardTokens::process_init_if_needed(
         &mut ctx.accounts.reward_tokens,
         ctx.bumps.reward_tokens,

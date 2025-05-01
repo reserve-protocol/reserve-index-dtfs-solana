@@ -4,7 +4,7 @@ import { getFolioBasketPDA } from "./pda-helper";
 import { getUserPendingBasketPDA } from "./pda-helper";
 import { PublicKey } from "@solana/web3.js";
 import { Folio } from "../target/types/folio";
-import { Program } from "@coral-xyz/anchor";
+import { BN, Program } from "@coral-xyz/anchor";
 import { Connection } from "@solana/web3.js";
 import { getOrCreateAtaAddress, getTokenBalance } from "./token-helper";
 import * as assert from "assert";
@@ -280,5 +280,15 @@ export class TestHelper {
         assert.equal(afterUserValue, expectedUserValue);
       }
     }
+  }
+
+  /**
+   * Asserts the time is between the expected time and the expected time plus 100.
+   * @param time - The time to check.
+   * @param expectedTime - The expected time.
+   */
+  static assertTime(time: BN, expectedTime: BN) {
+    assert.equal(time.gte(expectedTime), true);
+    assert.equal(time.lt(expectedTime.add(new BN(100))), true);
   }
 }

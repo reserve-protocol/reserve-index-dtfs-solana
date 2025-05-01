@@ -9,10 +9,10 @@ import {
   getMetadataPDA,
   getProgramRegistrarPDA,
   getRewardInfoPDA,
-  getAuctionPDA,
   getUserPendingBasketPDA,
   getFolioFeeConfigPDA,
   getRewardTokensPDA,
+  getAuctionEndsPDA,
 } from "../../utils/pda-helper";
 import {
   AccountMeta,
@@ -44,7 +44,6 @@ import {
   buildRemainingAccountsForClaimRewards,
   buildRemainingAccountsForMigrateFolioTokens,
   roleToStruct,
-  Auction,
   buildRemainingAccountsForAccruesRewards,
   buildRemainingAccountsForUpdateFolio,
   buildRemainingAccountsForStartFolioMigration,
@@ -212,7 +211,6 @@ export async function initFolio<T extends boolean = true>(
   params: {
     tvlFee: BN;
     mintFee: BN;
-    auctionDelay: BN;
     auctionLength: BN;
     name: string;
     symbol: string;
@@ -231,7 +229,6 @@ export async function initFolio<T extends boolean = true>(
     .initFolio(
       params.tvlFee,
       params.mintFee,
-      params.auctionDelay,
       params.auctionLength,
       params.name,
       params.symbol,
@@ -277,7 +274,6 @@ export async function updateFolio<T extends boolean = true>(
   tvlFee: BN | null,
   indexForFeeDistribution: BN | null,
   mintFee: BN | null,
-  auctionDelay: BN | null,
   auctionLength: BN | null,
   feeRecipientsToAdd: { recipient: PublicKey; portion: BN }[],
   feeRecipientsToRemove: PublicKey[],
@@ -293,7 +289,6 @@ export async function updateFolio<T extends boolean = true>(
       tvlFee,
       indexForFeeDistribution,
       mintFee,
-      auctionDelay,
       auctionLength,
       feeRecipientsToAdd,
       feeRecipientsToRemove,
@@ -858,48 +853,101 @@ export async function crankFeeDistribution<T extends boolean = true>(
   return { ix: crankFeeDistribution, extraSigners: [] } as any;
 }
 
-export async function approveAuction<T extends boolean = true>(
+export async function startRebalance<T extends boolean = true>(
   client: BanksClient,
   programFolio: Program<Folio>,
-  RebalanceManagerKeypair: Keypair,
+  rebalanceManagerKeypair: Keypair,
   folio: PublicKey,
-  auction: Auction,
-  ttl: BN,
-  maxRuns: number = 1,
+  folioTokenMint: PublicKey,
+  auctionLauncherWindow: BN | number,
+  ttl: BN | number,
+  pricesAndLimits: {
+    prices: { low: BN; high: BN };
+    limits: { spot: BN; low: BN; high: BN };
+  }[],
+  allRebalanceDetailsAdded: boolean,
+  mints: PublicKey[],
   executeTxn: T = true as T
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  const approveAuction = await programFolio.methods
-    .approveAuction(
-      auction.id,
-      auction.sellLimit,
-      auction.buyLimit,
-      auction.initialProposedPrice,
-      ttl,
-      maxRuns
+  const remainingAccounts = mints.map((mint) => {
+    return {
+      isWritable: false,
+      isSigner: false,
+      pubkey: mint,
+    };
+  });
+  const startRebalance = await programFolio.methods
+    .startRebalance(
+      new BN(auctionLauncherWindow.toString()),
+      new BN(ttl.toString()),
+      pricesAndLimits,
+      allRebalanceDetailsAdded
     )
     .accountsPartial({
       systemProgram: SystemProgram.programId,
-      rent: SYSVAR_RENT_PUBKEY,
-      rebalanceManager: RebalanceManagerKeypair.publicKey,
-      actor: getActorPDA(RebalanceManagerKeypair.publicKey, folio),
+      rebalanceManager: rebalanceManagerKeypair.publicKey,
+      actor: getActorPDA(rebalanceManagerKeypair.publicKey, folio),
       folio,
-      auction: getAuctionPDA(folio, auction.id),
-      buyMint: auction.buy,
-      sellMint: auction.sell,
+      folioTokenMint,
     })
+    .remainingAccounts(remainingAccounts)
     .instruction();
 
   if (executeTxn) {
-    return createAndProcessTransaction(client, RebalanceManagerKeypair, [
-      approveAuction,
+    return createAndProcessTransaction(client, rebalanceManagerKeypair, [
+      startRebalance,
     ]) as any;
   }
 
-  return { ix: approveAuction, extraSigners: [] } as any;
+  return { ix: startRebalance, extraSigners: [] } as any;
+}
+
+export async function addRebalanceDetails<T extends boolean = true>(
+  client: BanksClient,
+  programFolio: Program<Folio>,
+  rebalanceManagerKeypair: Keypair,
+  folio: PublicKey,
+  pricesAndLimits: {
+    prices: { low: BN; high: BN };
+    limits: { spot: BN; low: BN; high: BN };
+  }[],
+  allRebalanceDetailsAdded: boolean,
+  mints: PublicKey[],
+  executeTxn: T = true as T
+): Promise<
+  T extends true
+    ? BanksTransactionResultWithMeta
+    : { ix: TransactionInstruction; extraSigners: any[] }
+> {
+  const remainingAccounts = mints.map((mint) => {
+    return {
+      isWritable: false,
+      isSigner: false,
+      pubkey: mint,
+    };
+  });
+  const addRebalanceDetails = await programFolio.methods
+    .addRebalanceDetails(pricesAndLimits, allRebalanceDetailsAdded)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      rebalanceManager: rebalanceManagerKeypair.publicKey,
+      actor: getActorPDA(rebalanceManagerKeypair.publicKey, folio),
+      folio,
+    })
+    .remainingAccounts(remainingAccounts)
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, rebalanceManagerKeypair, [
+      addRebalanceDetails,
+    ]) as any;
+  }
+
+  return { ix: startRebalance, extraSigners: [] } as any;
 }
 
 export async function openAuction<T extends boolean = true>(
@@ -907,20 +955,45 @@ export async function openAuction<T extends boolean = true>(
   programFolio: Program<Folio>,
   auctionLauncherKeypair: Keypair,
   folio: PublicKey,
+  folioTokenMint: PublicKey,
+  rebalanceNonce: BN,
   auction: PublicKey,
-  auctionData: Auction,
+  auctionData: {
+    sellLimitSpot: BN;
+    buyLimitSpot: BN;
+    prices: {
+      start: BN;
+      end: BN;
+    };
+  },
+  sellMint: PublicKey,
+  buyMint: PublicKey,
   executeTxn: T = true as T
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
+  const compare = new PublicKey(sellMint)
+    .toBuffer()
+    .compare(new PublicKey(buyMint).toBuffer());
+  let token1, token2: PublicKey;
+  if (compare < 0) {
+    token1 = sellMint;
+    token2 = buyMint;
+  } else {
+    token1 = buyMint;
+    token2 = sellMint;
+  }
+
   const openAuction = await programFolio.methods
     .openAuction(
-      auctionData.sellLimit.spot,
-      auctionData.buyLimit.spot,
-      auctionData.initialProposedPrice.start,
-      auctionData.initialProposedPrice.end
+      token1,
+      token2,
+      auctionData.sellLimitSpot,
+      auctionData.buyLimitSpot,
+      auctionData.prices.start,
+      auctionData.prices.end
     )
     .accountsPartial({
       systemProgram: SystemProgram.programId,
@@ -928,6 +1001,10 @@ export async function openAuction<T extends boolean = true>(
       actor: getActorPDA(auctionLauncherKeypair.publicKey, folio),
       folio,
       auction,
+      sellMint,
+      buyMint,
+      folioTokenMint,
+      auctionEnds: getAuctionEndsPDA(folio, rebalanceNonce, sellMint, buyMint),
     })
     .instruction();
 
@@ -945,20 +1022,39 @@ export async function openAuctionPermissionless<T extends boolean = true>(
   programFolio: Program<Folio>,
   userKeypair: Keypair,
   folio: PublicKey,
+  folioTokenMint: PublicKey,
+  rebalanceNonce: BN,
   auction: PublicKey,
+  sellMint: PublicKey,
+  buyMint: PublicKey,
   executeTxn: T = true as T
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
+  const compare = new PublicKey(sellMint)
+    .toBuffer()
+    .compare(new PublicKey(buyMint).toBuffer());
+  let token1, token2: PublicKey;
+  if (compare < 0) {
+    token1 = sellMint;
+    token2 = buyMint;
+  } else {
+    token1 = buyMint;
+    token2 = sellMint;
+  }
   const openAuctionPermissionless = await programFolio.methods
-    .openAuctionPermissionless()
+    .openAuctionPermissionless(token1, token2)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       user: userKeypair.publicKey,
       folio,
       auction,
+      sellMint,
+      buyMint,
+      folioTokenMint,
+      auctionEnds: getAuctionEndsPDA(folio, rebalanceNonce, sellMint, buyMint),
     })
     .instruction();
 
@@ -977,6 +1073,9 @@ export async function killAuction<T extends boolean = true>(
   auctionActorKeypair: Keypair,
   folio: PublicKey,
   auction: PublicKey,
+  nonce: BN,
+  sellMint: PublicKey,
+  buyMint: PublicKey,
   executeTxn: T = true as T
 ): Promise<
   T extends true
@@ -991,6 +1090,7 @@ export async function killAuction<T extends boolean = true>(
       actor: getActorPDA(auctionActorKeypair.publicKey, folio),
       folio,
       auction,
+      auctionEnds: getAuctionEndsPDA(folio, nonce, sellMint, buyMint),
     })
     .instruction();
 
@@ -1011,6 +1111,7 @@ export async function bid<T extends boolean = true>(
   folio: PublicKey,
   folioTokenMint: PublicKey,
   auction: PublicKey,
+  rebalanceNonce: BN,
   sellAmount: BN,
   maxBuyAmount: BN,
   withCallback: boolean = false,
@@ -1026,8 +1127,8 @@ export async function bid<T extends boolean = true>(
 > {
   const auctionFetched = await programFolio.account.auction.fetch(auction);
 
-  const sellMintToUse = sellMint ?? auctionFetched.sell;
-  const buyMintToUse = buyMint ?? auctionFetched.buy;
+  const sellMintToUse = sellMint ?? auctionFetched.sellMint;
+  const buyMintToUse = buyMint ?? auctionFetched.buyMint;
 
   const bid = await programFolio.methods
     .bid(sellAmount, maxBuyAmount, withCallback, callbackData)
@@ -1042,6 +1143,12 @@ export async function bid<T extends boolean = true>(
       folioTokenMint,
       auctionSellTokenMint: sellMintToUse,
       auctionBuyTokenMint: buyMintToUse,
+      auctionEnds: getAuctionEndsPDA(
+        folio,
+        rebalanceNonce,
+        sellMintToUse,
+        buyMintToUse
+      ),
       folioSellTokenAccount: await getOrCreateAtaAddress(
         context,
         sellMintToUse,
@@ -1067,7 +1174,10 @@ export async function bid<T extends boolean = true>(
     .instruction();
 
   if (executeTxn) {
-    return createAndProcessTransaction(client, bidderKeypair, [bid]) as any;
+    return createAndProcessTransaction(client, bidderKeypair, [
+      ...getComputeLimitInstruction(400_000),
+      bid,
+    ]) as any;
   }
 
   return { ix: bid, extraSigners: [] } as any;

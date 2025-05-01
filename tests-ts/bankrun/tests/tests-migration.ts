@@ -340,8 +340,6 @@ describe("Bankrun - Folio migration", () => {
       new BN(0),
       new BN(0),
       false,
-      [],
-      [],
       "",
       amountToDistribute
     );
@@ -407,7 +405,7 @@ describe("Bankrun - Folio migration", () => {
     await createAndSetDaoFeeConfig(
       context,
       programFolioAdmin,
-      adminKeypair.publicKey,
+      feeRecipient,
       MAX_MINT_FEE
     );
 

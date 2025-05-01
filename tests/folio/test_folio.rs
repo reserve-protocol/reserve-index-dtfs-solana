@@ -2,9 +2,7 @@
 
 #[cfg(test)]
 mod tests {
-    use anchor_lang::prelude::*;
     use folio::state::Folio;
-    use folio::utils::AuctionEnd;
     use shared::constants::MAX_TVL_FEE;
     use shared::errors::ErrorCode;
     use shared::utils::{Decimal, Rounding};
@@ -342,7 +340,7 @@ mod tests {
 
         let result = folio.poke(
             1_000_000_000,             // 1.0 token supply
-            1,                         // 1 second elapsed
+            86400,                     // 1 day elapsed
             200_000_000_000_000_000,   // 20% dao fee
             1_000_000_000_000_000_000, // denominator
             1_000_000_000_000_000,     // 0.1% floor
@@ -357,6 +355,7 @@ mod tests {
     fn test_poke_multiple_times() {
         let mut folio = Folio {
             tvl_fee: 3_340_959_957, // 10% annual
+            last_poke: 0,
             ..Folio::default()
         };
 
@@ -364,7 +363,7 @@ mod tests {
         folio
             .poke(
                 1_000_000_000,             // 1.0 token supply
-                1,                         // 1 second elapsed
+                86401,                     // 1 day elapsed
                 200_000_000_000_000_000,   // 20% dao fee
                 1_000_000_000_000_000_000, // denominator
                 1_000_000_000_000_000,     // 0.1% floor
@@ -378,7 +377,7 @@ mod tests {
         folio
             .poke(
                 1_000_000_000,             // 1.0 token supply
-                2,                         // 2 seconds elapsed
+                86400 * 2 + 1,             // 2 day elapsed
                 200_000_000_000_000_000,   // 20% dao fee
                 1_000_000_000_000_000_000, // denominator
                 1_000_000_000_000_000,     // 0.1% floor
@@ -409,7 +408,7 @@ mod tests {
         assert!(result.is_ok());
         assert!(folio.dao_pending_fee_shares > 0);
         assert!(folio.fee_recipients_pending_fee_shares > 0);
-        assert_eq!(folio.last_poke, one_day);
+        assert_eq!(folio.last_poke, one_day as u64);
     }
 
     #[test]
@@ -523,170 +522,6 @@ mod tests {
         let min_expected_increase = Decimal::from_scaled(10_000_000_000_000u128); // 0.00001
         assert!(dao_shares > min_expected_increase);
         assert!(fee_recipients > min_expected_increase);
-    }
-
-    #[test]
-    fn test_get_auction_end_for_mints() {
-        let mut folio = Folio::default();
-        let sell_mint = Pubkey::new_unique();
-        let buy_mint = Pubkey::new_unique();
-
-        let sell_auction = AuctionEnd {
-            mint: sell_mint,
-            end_time: 100,
-        };
-        let buy_auction = AuctionEnd {
-            mint: buy_mint,
-            end_time: 200,
-        };
-
-        folio.sell_ends = [AuctionEnd::default(); 16];
-        folio.buy_ends = [AuctionEnd::default(); 16];
-
-        folio.sell_ends[0] = sell_auction;
-        folio.buy_ends[0] = buy_auction;
-
-        let (found_sell, found_buy) = folio
-            .get_auction_end_for_mints(&sell_mint, &buy_mint)
-            .unwrap();
-
-        assert!(found_sell.is_some());
-        assert!(found_buy.is_some());
-        assert_eq!(found_sell.unwrap().end_time, 100);
-        assert_eq!(found_buy.unwrap().end_time, 200);
-    }
-
-    #[test]
-    fn test_get_auction_end_for_mints_not_found() {
-        let mut folio = Folio::default();
-        let sell_mint = Pubkey::new_unique();
-        let buy_mint = Pubkey::new_unique();
-        let different_mint = Pubkey::new_unique();
-
-        let sell_auction = AuctionEnd {
-            mint: sell_mint,
-            end_time: 100,
-        };
-        let buy_auction = AuctionEnd {
-            mint: buy_mint,
-            end_time: 200,
-        };
-
-        folio.sell_ends = [AuctionEnd::default(); 16];
-        folio.buy_ends = [AuctionEnd::default(); 16];
-
-        folio.sell_ends[0] = sell_auction;
-        folio.buy_ends[0] = buy_auction;
-
-        let (found_sell, found_buy) = folio
-            .get_auction_end_for_mints(&different_mint, &different_mint)
-            .unwrap();
-
-        assert!(found_sell.is_none());
-        assert!(found_buy.is_none());
-    }
-
-    #[test]
-    fn test_get_auction_end_for_mints_multiple_auctions() {
-        let mut folio = Folio::default();
-        let sell_mint1 = Pubkey::new_unique();
-        let sell_mint2 = Pubkey::new_unique();
-        let buy_mint1 = Pubkey::new_unique();
-        let buy_mint2 = Pubkey::new_unique();
-
-        folio.sell_ends = [AuctionEnd::default(); 16];
-        folio.buy_ends = [AuctionEnd::default(); 16];
-
-        folio.sell_ends[0] = AuctionEnd {
-            mint: sell_mint1,
-            end_time: 100,
-        };
-        folio.sell_ends[1] = AuctionEnd {
-            mint: sell_mint2,
-            end_time: 150,
-        };
-
-        folio.buy_ends[0] = AuctionEnd {
-            mint: buy_mint1,
-            end_time: 200,
-        };
-        folio.buy_ends[1] = AuctionEnd {
-            mint: buy_mint2,
-            end_time: 250,
-        };
-
-        let (found_sell, found_buy) = folio
-            .get_auction_end_for_mints(&sell_mint2, &buy_mint2)
-            .unwrap();
-
-        assert!(found_sell.is_some());
-        assert!(found_buy.is_some());
-        assert_eq!(found_sell.unwrap().end_time, 150);
-        assert_eq!(found_buy.unwrap().end_time, 250);
-    }
-
-    #[test]
-    fn test_get_auction_end_for_mints_empty_lists() {
-        let folio = Folio::default();
-        let sell_mint = Pubkey::new_unique();
-        let buy_mint = Pubkey::new_unique();
-
-        let (found_sell, found_buy) = folio
-            .get_auction_end_for_mints(&sell_mint, &buy_mint)
-            .unwrap();
-
-        assert!(found_sell.is_none());
-        assert!(found_buy.is_none());
-    }
-
-    #[test]
-    fn test_set_auction_end_for_mints() {
-        let mut folio = Folio::default();
-        let sell_mint = Pubkey::new_unique();
-        let buy_mint = Pubkey::new_unique();
-
-        // Setup initial auction ends
-        folio.sell_ends = [AuctionEnd::default(); 16];
-        folio.buy_ends = [AuctionEnd::default(); 16];
-
-        folio.sell_ends[0] = AuctionEnd {
-            mint: sell_mint,
-            end_time: 100,
-        };
-
-        folio.buy_ends[0] = AuctionEnd {
-            mint: buy_mint,
-            end_time: 200,
-        };
-        // Update the end times
-        folio.set_auction_end_for_mints(&sell_mint, &buy_mint, 150, 250);
-
-        // Verify updates
-        assert_eq!(folio.sell_ends[0].end_time, 150);
-        assert_eq!(folio.buy_ends[0].end_time, 250);
-    }
-
-    #[test]
-    fn test_set_auction_end_for_mints_no_matching_mint() {
-        let mut folio = Folio::default();
-        let sell_mint = Pubkey::new_unique();
-        let buy_mint = Pubkey::new_unique();
-        let different_mint = Pubkey::new_unique();
-
-        // Setup initial auction ends
-        folio.sell_ends = [AuctionEnd::default(); 16];
-        folio.buy_ends = [AuctionEnd::default(); 16];
-
-        folio.sell_ends[0].end_time = 100;
-        folio.sell_ends[0].mint = sell_mint;
-        folio.buy_ends[0].end_time = 200;
-        folio.buy_ends[0].mint = buy_mint;
-        // Try to update with non-matching mint
-        folio.set_auction_end_for_mints(&different_mint, &different_mint, 150, 250);
-
-        // Verify no changes
-        assert_eq!(folio.sell_ends[0].end_time, 100);
-        assert_eq!(folio.buy_ends[0].end_time, 200);
     }
 
     #[test]

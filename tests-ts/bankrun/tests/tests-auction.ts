@@ -1,9 +1,10 @@
 import { BN, Program } from "@coral-xyz/anchor";
 import { BankrunProvider } from "anchor-bankrun";
-import { AccountMeta, Keypair, PublicKey } from "@solana/web3.js";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   BanksClient,
   BanksTransactionResultWithMeta,
+  Clock,
   ProgramTestContext,
 } from "solana-bankrun";
 import {
@@ -14,18 +15,12 @@ import {
 } from "../bankrun-program-helper";
 
 import {
-  getFolioBasketPDA,
   getFolioPDA,
   getAuctionPDA,
+  getRebalancePDA,
+  getAuctionEndsPDA,
 } from "../../../utils/pda-helper";
-import {
-  addToPendingBasket,
-  approveAuction,
-  bid,
-  killAuction as closeAuction,
-  openAuction,
-  openAuctionPermissionless,
-} from "../bankrun-ix-helper";
+import { openAuction, openAuctionPermissionless } from "../bankrun-ix-helper";
 import {
   createAndSetFolio,
   Role,
@@ -34,11 +29,12 @@ import {
   createAndSetProgramRegistrar,
   createAndSetFolioBasket,
   Auction,
-  createAndSetAuction,
   closeAccount,
-  AuctionEnd,
   FolioTokenAmount,
-  AuctionRunDetails,
+  createAndSetRebalanceAccount,
+  createAndSetDaoFeeConfig,
+  BasketRange,
+  AuctionPrices,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
 import {
@@ -46,35 +42,24 @@ import {
   assertNotValidRoleTestCase,
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
-import * as assert from "assert";
 import {
   D18,
-  D27,
   D9,
   DEFAULT_DECIMALS,
-  MAX_SINGLE_AUCTION_RUNS,
-  MAX_TTL,
+  RESTRICTED_AUCTION_BUFFER,
 } from "../../../utils/constants";
 import {
-  assertExpectedBalancesChanges,
   getOrCreateAtaAddress,
-  getTokenBalancesFromMints,
   initToken,
   mintToken,
 } from "../bankrun-token-helper";
 import { FolioAdmin } from "../../../target/types/folio_admin";
-import { createTransferInstruction, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import assert from "assert";
 
 /**
  * Tests for auction-related functionality in the Folio program, including:
- * - Auction approval process
  * - Opening auctions (both permissioned and permissionless)
- * - Bidding on auctions
- * - Auction closure
- * - Price limits and validation
- * - Token transfers during auctions
  */
-
 describe("Bankrun - Auction", () => {
   let context: ProgramTestContext;
   let provider: BankrunProvider;
@@ -102,68 +87,68 @@ describe("Bankrun - Auction", () => {
   const DEFAULT_BUY_MINT = BUY_MINTS[0];
   const DEFAULT_SELL_MINT = MINTS_IN_FOLIO[0];
 
-  const VALID_AUCTION_ID = new BN(1);
-
-  const VALID_AUCTION = new Auction(
-    VALID_AUCTION_ID,
-    new BN(1),
-    new BN(1),
-    folioPDA,
-    DEFAULT_SELL_MINT.publicKey,
-    DEFAULT_BUY_MINT.publicKey,
-    { low: new BN(1), high: new BN(1), spot: new BN(1) },
-    { low: new BN(1), high: new BN(1), spot: new BN(1) },
-    { start: new BN(1).mul(D18), end: new BN(1).mul(D18) },
-    Array.from({ length: MAX_SINGLE_AUCTION_RUNS }, () =>
-      AuctionRunDetails.default()
-    ),
-    1,
-    0
-  );
+  const EXISTING_REBALANCE_PARAMS = {
+    nonce: new BN(1),
+    currentAuctionId: new BN(0),
+    allRebalanceDetailsAdded: true,
+    auctionLauncherWindow: 100,
+    ttl: 10000,
+    existingTokensDetails: [
+      {
+        mint: DEFAULT_BUY_MINT.publicKey,
+        basket: new BasketRange(
+          new BN(80).mul(D18),
+          new BN(1).mul(D18),
+          new BN(100).mul(D18)
+        ),
+        prices: new AuctionPrices(new BN(1).mul(D18), new BN(1).mul(D18)),
+      },
+      {
+        mint: DEFAULT_SELL_MINT.publicKey,
+        basket: new BasketRange(
+          new BN(0).mul(D18),
+          new BN(0).mul(D18),
+          new BN(0).mul(D18)
+        ),
+        prices: new AuctionPrices(new BN(1).mul(D18), new BN(1).mul(D18)),
+      },
+    ],
+  };
 
   const DEFAULT_PARAMS: {
-    remainingAccounts: () => AccountMeta[];
-
-    customFolioTokenMint: Keypair;
-
+    auctionId: BN;
     extraTokenAmountsForFolioBasket: FolioTokenAmount[];
     initialFolioBasket: FolioTokenAmount[];
-
     buyMints: PublicKey[];
     sellMints: PublicKey[];
-
-    auctionToUse: Auction;
-
-    auctionId: BN;
     buyMint: Keypair;
     sellMint: Keypair;
-    sellAmount: BN;
-    maxBuyAmount: BN;
-    availableAt: BN;
-    callback: () => {
-      data: Buffer;
-      remainingAccounts: AccountMeta[];
-    };
-    beforeCallback: () => Promise<void>;
-
+    rebalanceNonce: BN;
     folioTokenSupply: BN;
-
-    // Tokens that are in folio basket of sell token
-    folioSellBalance: BN | null;
-
-    sellOut: boolean;
-
-    // Expected changes
-    expectedTokenBalanceChanges: BN[];
-    // Index of the new run to use if the auction is reopened
-    indexOfRun: number;
+    existingRebalanceParams: {
+      nonce: BN;
+      currentAuctionId: BN;
+      allRebalanceDetailsAdded: boolean;
+      auctionLauncherWindow: number;
+      ttl: number;
+      existingTokensDetails: {
+        mint: PublicKey;
+        basket: BasketRange;
+        prices: AuctionPrices;
+      }[];
+    };
+    auctionConfig: {
+      sellLimitSpot: BN;
+      buyLimitSpot: BN;
+      prices: {
+        start: BN;
+        end: BN;
+      };
+    };
+    auctionLauncherWindowForPermissionless: number;
   } = {
-    remainingAccounts: () => [],
-
-    customFolioTokenMint: null,
-
     extraTokenAmountsForFolioBasket: [],
-
+    auctionId: new BN(1),
     initialFolioBasket: MINTS_IN_FOLIO.map((mint) => ({
       mint: mint.publicKey,
       amount: new BN(100),
@@ -172,412 +157,81 @@ describe("Bankrun - Auction", () => {
     buyMints: BUY_MINTS.map((mint) => mint.publicKey),
     sellMints: MINTS_IN_FOLIO.map((mint) => mint.publicKey),
 
-    auctionToUse: VALID_AUCTION,
-
-    auctionId: VALID_AUCTION_ID,
     buyMint: DEFAULT_BUY_MINT,
     sellMint: DEFAULT_SELL_MINT,
-    sellAmount: new BN(1),
-    maxBuyAmount: new BN(1),
-    availableAt: new BN(0),
-    callback: () => ({
-      data: Buffer.from([]),
-      remainingAccounts: [],
-    }),
-    beforeCallback: () => Promise.resolve(),
-    folioSellBalance: null,
 
+    rebalanceNonce: new BN(1),
     folioTokenSupply: new BN(10_000),
-
-    sellOut: false,
-
-    // Expected changes
-    expectedTokenBalanceChanges: Array(MINTS_IN_FOLIO.length).fill(new BN(0)),
-    indexOfRun: 0,
+    existingRebalanceParams: EXISTING_REBALANCE_PARAMS,
+    auctionConfig: {
+      sellLimitSpot: new BN(0),
+      buyLimitSpot: new BN(2).mul(D18),
+      prices: {
+        start: new BN(1).mul(D18),
+        end: new BN(1).mul(D18),
+      },
+    },
+    auctionLauncherWindowForPermissionless: 0,
   };
-
-  // Lots of the tests will be done via unit testing for validating the prices, limits, etc.
-  const TEST_CASE_APPROVE_AUCTION = [
-    {
-      desc: "(invalid auction id (not current +1), errors out)",
-      expectedError: "InvalidAuctionId",
-      auctionId: new BN(0),
-    },
-    {
-      desc: "(buy mint is the same as sell mint, errors out)",
-      expectedError: "MintCantBeEqual",
-      buyMint: DEFAULT_SELL_MINT,
-      sellMint: DEFAULT_SELL_MINT,
-    },
-    {
-      desc: "(is valid)",
-      expectedError: null,
-    },
-  ];
-
-  const TEST_CASE_CLOSE_AUCTION = [
-    {
-      desc: "(is valid)",
-      expectedError: null,
-    },
-  ];
-
   // Lots of the tests will be done via unit testing for validating the prices, limits, etc.
   const TEST_CASE_OPEN_AUCTION = [
     {
       desc: "(is valid)",
       expectedError: null,
     },
-    {
-      desc: "(reopen auction with an auction already running, errors out)",
-      expectedError: "AuctionCannotBeOpened",
-      auctionToUse: {
-        ...VALID_AUCTION,
-        maxRuns: 2,
-        closedForReruns: 0,
-        auctionRunDetails: [
-          {
-            ...VALID_AUCTION.auctionRunDetails[0],
-            start: new BN(1),
-            end: new BN(10000000).mul(D9),
-          },
-          ...VALID_AUCTION.auctionRunDetails.slice(1),
-        ],
-      },
-    },
-    {
-      desc: "(reopen auction with closed for reruns set to 1, errors out)",
-      expectedError: "AuctionCannotBeOpened",
-      auctionToUse: {
-        ...VALID_AUCTION,
-        maxRuns: 2,
-        closedForReruns: 1,
-      },
-    },
-    {
-      desc: "(reopen auction, is valid)",
-      expectedError: null,
-      auctionToUse: {
-        ...VALID_AUCTION,
-        initialProposedPrice: {
-          start: new BN(1),
-          end: new BN(1),
-        },
-        maxRuns: 2,
-        closedForReruns: 0,
-        sellLimit: {
-          spot: new BN(100),
-          low: new BN(1),
-          high: new BN(100),
-        },
-        buyLimit: {
-          spot: new BN(100),
-          low: new BN(1),
-          high: new BN(100),
-        },
-        auctionRunDetails: [
-          {
-            ...VALID_AUCTION.auctionRunDetails[0],
-            start: new BN(1),
-            end: new BN(2),
-            sellLimitSpot: new BN(100),
-            buyLimitSpot: new BN(100),
-          },
-          ...VALID_AUCTION.auctionRunDetails.slice(1),
-        ],
-      },
-      indexOfRun: 1,
-    },
-    {
-      desc: "(reopen auction with max runs reached, errors out)",
-      expectedError: "AuctionMaxRunsReached",
-      auctionToUse: {
-        ...VALID_AUCTION,
-        maxRuns: 2,
-        closedForReruns: 0,
-        auctionRunDetails: [
-          {
-            ...VALID_AUCTION.auctionRunDetails[0],
-            start: new BN(1),
-            end: new BN(2),
-          },
-          {
-            ...VALID_AUCTION.auctionRunDetails[1],
-            start: new BN(3),
-            end: new BN(4),
-          },
-          ...VALID_AUCTION.auctionRunDetails.slice(2),
-        ],
-      },
-    },
-  ];
 
-  const TEST_CASE_OPEN_AUCTION_PERMISSIONLESS = [
     {
-      desc: "(current time < available at, errors out)",
-      expectedError: "AuctionCannotBeOpenedPermissionlesslyYet",
-      availableAt: new BN(10),
-    },
-    // Same as open apart from the available at check
-    ...TEST_CASE_OPEN_AUCTION,
-  ];
-
-  const TEST_CASE_BID = [
-    {
-      desc: "(invalid folio token mint, errors out)",
-      expectedError: "InvalidFolioTokenMint",
-      customFolioTokenMint: Keypair.generate(),
-    },
-    {
-      desc: "(invalid auction sell token mint, errors out)",
-      expectedError: "InvalidAuctionSellTokenMint",
-      sellMint: Keypair.generate(),
-    },
-    {
-      desc: "(invalid auction buy token mint, errors out)",
-      expectedError: "InvalidAuctionBuyTokenMint",
-      buyMint: Keypair.generate(),
-    },
-    {
-      desc: "(bought amount is > max buy amount, errors out)",
-      expectedError: "SlippageExceeded",
-      sellAmount: new BN(2),
-      maxBuyAmount: new BN(1),
-    },
-    {
-      desc: "(sell amount > min sell balance, errors out)",
-      expectedError: "InsufficientBalance",
-      // Tokens that are in folio basket of sell token
-      folioSellBalance: new BN(1000),
-      sellAmount: new BN(1000000000001),
-      maxBuyAmount: new BN(10000000000000),
-    },
-    {
-      desc: "(with callback, invalid balance after, errors out)",
-      expectedError: "InsufficientBid",
-      sellAmount: new BN(1000),
-      maxBuyAmount: new BN(10000),
-      callback: () => getCallback(DEFAULT_BUY_MINT.publicKey, new BN(900)),
-    },
-    {
-      desc: "(folio buy token account amount > max buy balance, errors out)",
-      expectedError: "ExcessiveBid",
-      folioTokenSupply: new BN(1),
-      sellAmount: new BN(1000),
-      maxBuyAmount: new BN(1000),
-    },
-    {
-      desc: "(is valid without callback)",
-      expectedError: null,
-      sellAmount: new BN(1000),
-      maxBuyAmount: new BN(10000),
-      folioTokenSupply: new BN(10_000),
-      auctionToUse: {
-        ...VALID_AUCTION,
-        buyLimit: {
-          ...VALID_AUCTION.buyLimit,
-          spot: new BN(10000).mul(D27).div(new BN(10_000)),
-        },
-      },
-      expectedTokenBalanceChanges: [
-        new BN(1000),
-        new BN(1000).neg(),
-        new BN(1000).neg(),
-        new BN(1000),
-      ],
-    },
-    {
-      desc: "(is valid with callback)",
-      expectedError: null,
-      sellAmount: new BN(1000),
-      maxBuyAmount: new BN(10000),
-      folioTokenSupply: new BN(10_000),
-      auctionToUse: {
-        ...VALID_AUCTION,
-        buyLimit: {
-          ...VALID_AUCTION.buyLimit,
-          spot: new BN(10000).mul(D27).div(new BN(10_000)),
-        },
-      },
-      callback: () => getCallback(DEFAULT_BUY_MINT.publicKey, new BN(1000)),
-      expectedTokenBalanceChanges: [
-        new BN(1000),
-        new BN(1000).neg(),
-        new BN(1000).neg(),
-        new BN(1000),
-      ],
-    },
-    {
-      desc: "(is valid, sold out sell mint, updates auction end)",
-      expectedError: null,
-      sellAmount: new BN(1000).mul(D9),
-      maxBuyAmount: new BN(1000).mul(D9),
-      folioTokenSupply: new BN(10_000),
-      sellOut: true,
-      auctionToUse: {
-        ...VALID_AUCTION,
-        buyLimit: {
-          ...VALID_AUCTION.buyLimit,
-          spot: new BN(1000).mul(D27),
-        },
-        sellLimit: {
-          ...VALID_AUCTION.sellLimit,
-          spot: new BN(0),
-        },
-      },
-      initialFolioBasket: MINTS_IN_FOLIO.map((mint) => ({
-        mint: mint.publicKey,
-        amount: new BN(1000).mul(D9),
-      })),
-      extraTokenAmountsForFolioBasket: MINTS_IN_FOLIO.map((mint) => ({
-        mint: mint.publicKey,
-        amount: new BN(1000),
-      })),
-      expectedTokenBalanceChanges: [
-        new BN(1000).mul(D9),
-        new BN(1000).mul(D9).neg(),
-        new BN(1000).mul(D9).neg(),
-        new BN(1000).mul(D9),
-      ],
-    },
-    // Should be able to bid
-    {
-      desc: "(Should not be effected by pending basket, if is valid, sold out sell mint, updates auction end)",
-      expectedError: null,
-      // With decimals
-      sellAmount: new BN(1000).mul(D9),
-      maxBuyAmount: new BN(1000000000000),
-      sellOut: true,
-      auctionToUse: {
-        ...VALID_AUCTION,
-        buyLimit: {
-          ...VALID_AUCTION.buyLimit,
-          spot: new BN(1000).mul(D27),
-        },
-      },
-      expectedTokenBalanceChanges: [
-        new BN(1000000000000),
-        new BN(1000000000000).neg(),
-        new BN(1000000000000).neg(),
-        new BN(1000000000000),
-      ],
-      beforeCallback: async () => {
-        // Add to pending basket
-        await addToPendingBasket(
-          context,
-          banksClient,
-          programFolio,
-          bidderKeypair,
-          folioPDA,
-          [{ mint: DEFAULT_SELL_MINT.publicKey, amount: new BN(3000).mul(D9) }],
-          true
-        );
-      },
-    },
-    // Should be able to bid
-    {
-      desc: "Should not be effected by pending basket, if is valid, sold out sell mint, updates auction end",
-      expectedError: null,
-      // With decimals
-      sellAmount: new BN(1000).mul(D9),
-      maxBuyAmount: new BN(1000000000000),
-      sellOut: true,
-      auctionToUse: {
-        ...VALID_AUCTION,
-        buyLimit: {
-          ...VALID_AUCTION.buyLimit,
-          spot: new BN(1000).mul(D27),
-        },
-      },
-      expectedTokenBalanceChanges: [
-        new BN(1000000000000),
-        new BN(1000000000000).neg(),
-        new BN(1000000000000).neg(),
-        new BN(1000000000000),
-      ],
-      beforeCallback: async () => {
-        // Add to pending basket
-        await addToPendingBasket(
-          context,
-          banksClient,
-          programFolio,
-          bidderKeypair,
-          folioPDA,
-          [{ mint: DEFAULT_SELL_MINT.publicKey, amount: new BN(1000).mul(D9) }],
-          true
-        );
-      },
-    },
-    {
-      desc: "(is valid, sold out sell mint, updates auction end), for send auction run",
-      expectedError: null,
-      // With decimals
-      sellAmount: new BN(1000).mul(D9),
-      maxBuyAmount: new BN(1000000000000),
-      sellOut: true,
-      auctionToUse: {
-        ...VALID_AUCTION,
-        buyLimit: {
-          ...VALID_AUCTION.buyLimit,
-          spot: new BN(1000).mul(D27),
-        },
-        auctionRunDetails: [
-          {
-            ...VALID_AUCTION.auctionRunDetails[0],
-            start: new BN(1),
-            end: new BN(2),
-            sellLimitSpot: new BN(100),
-            buyLimitSpot: new BN(100),
-          },
-          {
-            ...VALID_AUCTION.auctionRunDetails[0],
-            buyLimitSpot: new BN(1000).mul(D9),
-          },
-          ...VALID_AUCTION.auctionRunDetails.slice(1),
-        ],
-      },
-      indexOfRun: 1,
-      expectedTokenBalanceChanges: [
-        new BN(1000000000000),
-        new BN(1000000000000).neg(),
-        new BN(1000000000000).neg(),
-        new BN(1000000000000),
-      ],
-    },
-  ];
-
-  async function getCallback(buyMint: PublicKey, transferAmount: BN) {
-    const transferBuyTokenIx = createTransferInstruction(
-      await getOrCreateAtaAddress(context, buyMint, bidderKeypair.publicKey),
-      await getOrCreateAtaAddress(context, buyMint, folioPDA),
-      bidderKeypair.publicKey,
-      transferAmount.toNumber()
-    );
-
-    return {
-      data: transferBuyTokenIx.data,
-      remainingAccounts: [
+      desc: "Fail if sell token is deficient",
+      expectedError: "SellTokenNotSurplus",
+      initialFolioBasket: [
         {
-          isWritable: false,
-          isSigner: false,
-          pubkey: TOKEN_PROGRAM_ID,
+          mint: DEFAULT_SELL_MINT.publicKey,
+          amount: new BN(0),
         },
-        ...transferBuyTokenIx.keys,
       ],
-    };
-  }
+    },
+    {
+      desc: "Fail if buy token is surplus",
+      expectedError: "BuyTokenNotDeficit",
+      existingRebalanceParams: {
+        ...EXISTING_REBALANCE_PARAMS,
+        existingTokensDetails: [
+          {
+            ...EXISTING_REBALANCE_PARAMS.existingTokensDetails[0],
+            basket: new BasketRange(
+              new BN(100).mul(D18),
+              new BN(1).mul(D18).sub(new BN(1)),
+              new BN(100).mul(D18)
+            ),
+          },
+          {
+            ...EXISTING_REBALANCE_PARAMS.existingTokensDetails[1],
+          },
+        ],
+      },
+      auctionConfig: {
+        ...DEFAULT_PARAMS.auctionConfig,
+        buyLimitSpot: new BN(1).mul(D18).sub(new BN(1)),
+      },
+      initialFolioBasket: [
+        {
+          mint: DEFAULT_SELL_MINT.publicKey,
+          amount: new BN(1000000),
+        },
+        {
+          mint: DEFAULT_BUY_MINT.publicKey,
+          amount: new BN(10000000000).mul(D9),
+        },
+      ],
+    },
+  ];
 
   async function initBaseCase(
-    customFolioTokenMint: Keypair = null,
     initialFolioBasket: FolioTokenAmount[] = [],
     folioTokenSupply: BN = new BN(10_000),
     extraTokenAmountsForFolioBasket: FolioTokenAmount[] = []
   ) {
-    const folioTokenMintToUse = customFolioTokenMint || folioTokenMint;
-
-    const auctionEnds = [...MINTS_IN_FOLIO, ...BUY_MINTS].map(
-      (mint) => new AuctionEnd(mint.publicKey, new BN(0))
-    );
+    const folioTokenMintToUse = folioTokenMint;
 
     await createAndSetFolio(
       context,
@@ -588,8 +242,7 @@ describe("Bankrun - Auction", () => {
       new BN(0),
       new BN(0),
       new BN(0),
-      false,
-      auctionEnds
+      false
     );
 
     await createAndSetFolioBasket(
@@ -681,8 +334,16 @@ describe("Bankrun - Auction", () => {
     await getOrCreateAtaAddress(context, DEFAULT_SELL_MINT.publicKey, folioPDA);
 
     // Reset the auction account
-    await closeAccount(context, getAuctionPDA(folioPDA, new BN(0)));
-    await closeAccount(context, getAuctionPDA(folioPDA, new BN(1)));
+    await closeAccount(context, getAuctionPDA(folioPDA, new BN(0), new BN(0)));
+    await closeAccount(context, getAuctionPDA(folioPDA, new BN(1), new BN(1)));
+
+    // Required for poking in folio.
+    await createAndSetDaoFeeConfig(
+      context,
+      programFolioAdmin,
+      adminKeypair.publicKey,
+      new BN(100)
+    );
   }
 
   before(async () => {
@@ -715,44 +376,24 @@ describe("Bankrun - Auction", () => {
   });
 
   describe("General Tests", () => {
-    const generalIxApproveAuction = () =>
-      approveAuction<true>(
-        banksClient,
-        programFolio,
-        rebalanceManagerKeypair,
-        folioPDA,
-        Auction.default(
-          folioPDA,
-          DEFAULT_BUY_MINT.publicKey,
-          DEFAULT_SELL_MINT.publicKey
-        ),
-        new BN(0),
-        1,
-        true
-      );
-
-    const generalIxCloseAuction = () =>
-      closeAuction<true>(
-        banksClient,
-        programFolio,
-        rebalanceManagerKeypair,
-        folioPDA,
-        getAuctionPDA(folioPDA, new BN(0)),
-        true
-      );
-
+    const rebalanceNonce = new BN(1);
+    const auctionId = new BN(1);
     const generalIxOpenAuction = () =>
       openAuction<true>(
         banksClient,
         programFolio,
         auctionLauncherKeypair,
         folioPDA,
-        getAuctionPDA(folioPDA, new BN(0)),
+        folioTokenMint.publicKey,
+        rebalanceNonce,
+        getAuctionPDA(folioPDA, rebalanceNonce, auctionId),
         Auction.default(
           folioPDA,
           DEFAULT_BUY_MINT.publicKey,
           DEFAULT_SELL_MINT.publicKey
         ),
+        DEFAULT_SELL_MINT.publicKey,
+        DEFAULT_BUY_MINT.publicKey,
         true
       );
 
@@ -762,129 +403,27 @@ describe("Bankrun - Auction", () => {
         programFolio,
         bidderKeypair,
         folioPDA,
-        getAuctionPDA(folioPDA, new BN(0)),
-        true
-      );
-
-    const generalIxBid = () =>
-      bid<true>(
-        context,
-        banksClient,
-        programFolio,
-        bidderKeypair,
-        folioPDA,
         folioTokenMint.publicKey,
-        getAuctionPDA(folioPDA, new BN(0)),
-        new BN(0),
-        new BN(0),
-        false,
+        rebalanceNonce,
+        getAuctionPDA(folioPDA, rebalanceNonce, auctionId),
         DEFAULT_SELL_MINT.publicKey,
         DEFAULT_BUY_MINT.publicKey,
-        Buffer.from([]),
         true
       );
 
     beforeEach(async () => {
       await initBaseCase();
-    });
-
-    describe("should run general tests for approve auction", () => {
-      it(`should run ${GeneralTestCases.NotRole}`, async () => {
-        await assertNotValidRoleTestCase(
-          context,
-          programFolio,
-          rebalanceManagerKeypair,
-          folioPDA,
-          generalIxApproveAuction,
-          Role.AuctionLauncher
-        );
-      });
-
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for MIGRATING & KILLED & INITIALIZING`, async () => {
-        await assertInvalidFolioStatusTestCase(
-          context,
-          programFolio,
-          folioTokenMint.publicKey,
-          generalIxApproveAuction,
-          FolioStatus.Migrating
-        );
-
-        await assertInvalidFolioStatusTestCase(
-          context,
-          programFolio,
-          folioTokenMint.publicKey,
-          generalIxApproveAuction,
-          FolioStatus.Killed
-        );
-
-        await assertInvalidFolioStatusTestCase(
-          context,
-          programFolio,
-          folioTokenMint.publicKey,
-          generalIxApproveAuction,
-          FolioStatus.Initializing
-        );
-      });
-    });
-
-    describe("should run general tests for kill auction", () => {
-      beforeEach(async () => {
-        await createAndSetAuction(
-          context,
-          programFolio,
-          Auction.default(
-            folioPDA,
-            DEFAULT_BUY_MINT.publicKey,
-            DEFAULT_SELL_MINT.publicKey
-          ),
-          folioPDA
-        );
-      });
-
-      it(`should run ${GeneralTestCases.NotRole}`, async () => {
-        await assertNotValidRoleTestCase(
-          context,
-          programFolio,
-          rebalanceManagerKeypair,
-          folioPDA,
-          generalIxCloseAuction,
-          Role.BrandManager
-        );
-      });
-
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for MIGRATING & KILLED`, async () => {
-        await assertInvalidFolioStatusTestCase(
-          context,
-          programFolio,
-          folioTokenMint.publicKey,
-          generalIxCloseAuction,
-          FolioStatus.Migrating
-        );
-
-        await assertInvalidFolioStatusTestCase(
-          context,
-          programFolio,
-          folioTokenMint.publicKey,
-          generalIxCloseAuction,
-          FolioStatus.Killed
-        );
-      });
+      await createAndSetRebalanceAccount(
+        context,
+        programFolio,
+        folioPDA,
+        undefined,
+        undefined,
+        rebalanceNonce
+      );
     });
 
     describe("should run general tests for open auction", () => {
-      beforeEach(async () => {
-        await createAndSetAuction(
-          context,
-          programFolio,
-          Auction.default(
-            folioPDA,
-            DEFAULT_BUY_MINT.publicKey,
-            DEFAULT_SELL_MINT.publicKey
-          ),
-          folioPDA
-        );
-      });
-
       it(`should run ${GeneralTestCases.NotRole}`, async () => {
         await assertNotValidRoleTestCase(
           context,
@@ -924,19 +463,6 @@ describe("Bankrun - Auction", () => {
     });
 
     describe("should run general tests for open auction permissionless", () => {
-      beforeEach(async () => {
-        await createAndSetAuction(
-          context,
-          programFolio,
-          Auction.default(
-            folioPDA,
-            DEFAULT_BUY_MINT.publicKey,
-            DEFAULT_SELL_MINT.publicKey
-          ),
-          folioPDA
-        );
-      });
-
       it(`should run ${GeneralTestCases.InvalidFolioStatus} for MIGRATING & KILLED & INITIALIZING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
@@ -963,243 +489,6 @@ describe("Bankrun - Auction", () => {
         );
       });
     });
-
-    describe("should run general tests for bid", () => {
-      beforeEach(async () => {
-        await createAndSetAuction(
-          context,
-          programFolio,
-          Auction.default(
-            folioPDA,
-            DEFAULT_BUY_MINT.publicKey,
-            DEFAULT_SELL_MINT.publicKey
-          ),
-          folioPDA
-        );
-      });
-
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for MIGRATING & KILLED & INITIALIZING`, async () => {
-        await assertInvalidFolioStatusTestCase(
-          context,
-          programFolio,
-          folioTokenMint.publicKey,
-          generalIxBid,
-          FolioStatus.Migrating
-        );
-
-        await assertInvalidFolioStatusTestCase(
-          context,
-          programFolio,
-          folioTokenMint.publicKey,
-          generalIxBid,
-          FolioStatus.Killed
-        );
-
-        await assertInvalidFolioStatusTestCase(
-          context,
-          programFolio,
-          folioTokenMint.publicKey,
-          generalIxBid,
-          FolioStatus.Initializing
-        );
-      });
-    });
-  });
-
-  describe("Specific Cases - Approve Auction", () => {
-    TEST_CASE_APPROVE_AUCTION.forEach(
-      ({ desc, expectedError, ...restOfParams }) => {
-        describe(`When ${desc}`, () => {
-          let txnResult: BanksTransactionResultWithMeta;
-
-          const {
-            customFolioTokenMint,
-            auctionToUse,
-            initialFolioBasket,
-            auctionId,
-            buyMint,
-            sellMint,
-          } = {
-            ...DEFAULT_PARAMS,
-            ...restOfParams,
-          };
-
-          let currentTime: BN;
-
-          before(async () => {
-            await initBaseCase(customFolioTokenMint, initialFolioBasket);
-
-            await travelFutureSlot(context);
-
-            currentTime = new BN(
-              (await context.banksClient.getClock()).unixTimestamp.toString()
-            );
-
-            auctionToUse.id = auctionId;
-            auctionToUse.buy = buyMint.publicKey;
-            auctionToUse.sell = sellMint.publicKey;
-
-            txnResult = await approveAuction<true>(
-              banksClient,
-              programFolio,
-              rebalanceManagerKeypair,
-              folioPDA,
-              auctionToUse,
-              MAX_TTL,
-              1,
-              true
-            );
-          });
-
-          if (expectedError) {
-            it("should fail with expected error", () => {
-              assertError(txnResult, expectedError);
-            });
-          } else {
-            it("should succeed", async () => {
-              await travelFutureSlot(context);
-
-              const auctionAfter = await programFolio.account.auction.fetch(
-                getAuctionPDA(folioPDA, auctionId)
-              );
-              const folio = await programFolio.account.folio.fetch(folioPDA);
-
-              assert.equal(auctionAfter.id.eq(auctionToUse.id), true);
-              assert.equal(
-                auctionAfter.availableAt.eq(
-                  currentTime.add(folio.auctionDelay)
-                ),
-                true
-              );
-              assert.equal(
-                auctionAfter.launchTimeout.eq(currentTime.add(MAX_TTL)),
-                true
-              );
-              assert.equal(
-                auctionAfter.auctionRunDetails[0].start.eq(new BN(0)),
-                true
-              );
-              assert.equal(
-                auctionAfter.auctionRunDetails[0].end.eq(new BN(0)),
-                true
-              );
-              assert.equal(
-                auctionAfter.auctionRunDetails[0].k.eq(
-                  auctionToUse.auctionRunDetails[0].k
-                ),
-                true
-              );
-              assert.deepEqual(auctionAfter.folio, folioPDA);
-              assert.deepEqual(auctionAfter.sell, sellMint.publicKey);
-              assert.deepEqual(auctionAfter.buy, buyMint.publicKey);
-              assert.equal(
-                auctionAfter.sellLimit.high.eq(auctionToUse.sellLimit.high),
-                true
-              );
-              assert.equal(
-                auctionAfter.sellLimit.low.eq(auctionToUse.sellLimit.low),
-                true
-              );
-              assert.equal(
-                auctionAfter.sellLimit.spot.eq(auctionToUse.sellLimit.spot),
-                true
-              );
-              assert.equal(
-                auctionAfter.buyLimit.high.eq(auctionToUse.buyLimit.high),
-                true
-              );
-              assert.equal(
-                auctionAfter.buyLimit.low.eq(auctionToUse.buyLimit.low),
-                true
-              );
-              assert.equal(
-                auctionAfter.buyLimit.spot.eq(auctionToUse.buyLimit.spot),
-                true
-              );
-              assert.equal(
-                auctionAfter.buyLimit.spot.eq(auctionToUse.buyLimit.spot),
-                true
-              );
-
-              assert.equal(
-                auctionAfter.auctionRunDetails[0].prices.start.eq(
-                  auctionToUse.auctionRunDetails[0].prices.start
-                ),
-                true
-              );
-              assert.equal(
-                auctionAfter.auctionRunDetails[0].prices.end.eq(
-                  auctionToUse.auctionRunDetails[0].prices.end
-                ),
-                true
-              );
-            });
-          }
-        });
-      }
-    );
-  });
-
-  describe("Specific Cases - Kill Auction", () => {
-    TEST_CASE_CLOSE_AUCTION.forEach(
-      ({ desc, expectedError, ...restOfParams }) => {
-        let currentTime: BN;
-
-        describe(`When ${desc}`, () => {
-          let txnResult: BanksTransactionResultWithMeta;
-
-          const { customFolioTokenMint, auctionToUse, initialFolioBasket } = {
-            ...DEFAULT_PARAMS,
-            ...restOfParams,
-          };
-
-          before(async () => {
-            await initBaseCase(customFolioTokenMint, initialFolioBasket);
-
-            await createAndSetAuction(
-              context,
-              programFolio,
-              auctionToUse,
-              folioPDA
-            );
-
-            await travelFutureSlot(context);
-
-            txnResult = await closeAuction<true>(
-              banksClient,
-              programFolio,
-              rebalanceManagerKeypair,
-              folioPDA,
-              getAuctionPDA(folioPDA, auctionToUse.id),
-              true
-            );
-            currentTime = new BN(
-              (await context.banksClient.getClock()).unixTimestamp.toString()
-            );
-          });
-
-          if (expectedError) {
-            it("should fail with expected error", () => {
-              assertError(txnResult, expectedError);
-            });
-          } else {
-            it("should succeed", async () => {
-              await travelFutureSlot(context);
-
-              const auctionAfter = await programFolio.account.auction.fetch(
-                getAuctionPDA(folioPDA, auctionToUse.id)
-              );
-
-              assert.equal(
-                auctionAfter.auctionRunDetails[0].end.lte(currentTime),
-                true
-              );
-              assert.equal(auctionAfter.closedForReruns === 1, true);
-            });
-          }
-        });
-      }
-    );
   });
 
   describe("Specific Cases - Open Auction", () => {
@@ -1209,33 +498,41 @@ describe("Bankrun - Auction", () => {
           let txnResult: BanksTransactionResultWithMeta;
 
           const {
-            customFolioTokenMint,
-            auctionToUse,
             initialFolioBasket,
+            existingRebalanceParams,
+            rebalanceNonce,
+            auctionConfig,
             auctionId,
-            indexOfRun,
+            sellMint,
+            buyMint,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
           };
 
           let currentTime: BN;
+          let rebalanceBefore;
 
           before(async () => {
-            await initBaseCase(customFolioTokenMint, initialFolioBasket);
+            await initBaseCase(initialFolioBasket);
 
             currentTime = new BN(
               (await context.banksClient.getClock()).unixTimestamp.toString()
             );
 
-            // Set as approved and ready to be opened
-            auctionToUse.launchTimeout = currentTime.add(new BN(1000000000));
-
-            await createAndSetAuction(
+            await createAndSetRebalanceAccount(
               context,
               programFolio,
-              auctionToUse,
-              folioPDA
+              folioPDA,
+              existingRebalanceParams.allRebalanceDetailsAdded,
+              existingRebalanceParams.currentAuctionId,
+              existingRebalanceParams.nonce,
+              currentTime,
+              currentTime.add(
+                new BN(existingRebalanceParams.auctionLauncherWindow)
+              ),
+              currentTime.add(new BN(existingRebalanceParams.ttl)),
+              existingRebalanceParams.existingTokensDetails
             );
 
             await travelFutureSlot(context);
@@ -1243,14 +540,21 @@ describe("Bankrun - Auction", () => {
             currentTime = new BN(
               (await context.banksClient.getClock()).unixTimestamp.toString()
             );
+            rebalanceBefore = await programFolio.account.rebalance.fetch(
+              getRebalancePDA(folioPDA)
+            );
 
             txnResult = await openAuction<true>(
               banksClient,
               programFolio,
               auctionLauncherKeypair,
               folioPDA,
-              getAuctionPDA(folioPDA, auctionId),
-              auctionToUse,
+              folioTokenMint.publicKey,
+              rebalanceNonce,
+              getAuctionPDA(folioPDA, rebalanceNonce, auctionId),
+              auctionConfig,
+              sellMint.publicKey,
+              buyMint.publicKey,
               true
             );
           });
@@ -1263,47 +567,90 @@ describe("Bankrun - Auction", () => {
             it("should succeed", async () => {
               await travelFutureSlot(context);
 
-              const auctionAfter = await programFolio.account.auction.fetch(
-                getAuctionPDA(folioPDA, auctionId)
+              const rebalanceAfter = await programFolio.account.rebalance.fetch(
+                getRebalancePDA(folioPDA)
               );
               const folio = await programFolio.account.folio.fetch(folioPDA);
 
+              assert.equal(rebalanceAfter.currentAuctionId.eq(auctionId), true);
               assert.equal(
-                auctionAfter.sellLimit.spot.eq(auctionToUse.sellLimit.spot),
+                rebalanceAfter.currentAuctionId
+                  .sub(new BN(1))
+                  .eq(rebalanceBefore.currentAuctionId),
+                true
+              );
+
+              const auctionEnds = await programFolio.account.auctionEnds.fetch(
+                getAuctionEndsPDA(
+                  folioPDA,
+                  rebalanceNonce,
+                  sellMint.publicKey,
+                  buyMint.publicKey
+                )
+              );
+
+              const auction = await programFolio.account.auction.fetch(
+                getAuctionPDA(folioPDA, rebalanceNonce, auctionId)
+              );
+
+              assert.equal(auctionEnds.endTime.eq(auction.end), true);
+              assert.equal(
+                auctionEnds.tokenMint1.equals(sellMint.publicKey) ||
+                  auctionEnds.tokenMint2.equals(sellMint.publicKey),
+                true
+              );
+
+              assert.equal(
+                auctionEnds.tokenMint1.equals(buyMint.publicKey) ||
+                  auctionEnds.tokenMint2.equals(buyMint.publicKey),
+                true
+              );
+
+              assert.equal(
+                auction.sellLimit.eq(auctionConfig.sellLimitSpot),
                 true
               );
               assert.equal(
-                auctionAfter.buyLimit.spot.eq(auctionToUse.buyLimit.spot),
+                auction.buyLimit.eq(auctionConfig.buyLimitSpot),
                 true
               );
               assert.equal(
-                auctionAfter.auctionRunDetails[indexOfRun].prices.start.eq(
-                  auctionToUse.initialProposedPrice.start
-                ),
+                auction.prices.start.eq(auctionConfig.prices.start),
                 true
               );
               assert.equal(
-                auctionAfter.auctionRunDetails[indexOfRun].prices.end.eq(
-                  auctionToUse.initialProposedPrice.end
-                ),
+                auction.prices.end.eq(auctionConfig.prices.end),
                 true
               );
               assert.equal(
-                auctionAfter.auctionRunDetails[indexOfRun].start.eq(
-                  currentTime
-                ),
+                auction.end.eq(currentTime.add(folio.auctionLength)),
+                true
+              );
+              assert.equal(auction.start.eq(currentTime), true);
+
+              // Updated rebalance details
+              const sellDetailsAfter = rebalanceAfter.details.tokens.find(
+                (detail) => detail.mint.equals(sellMint.publicKey)
+              );
+              assert.equal(
+                sellDetailsAfter.limits.spot.eq(auctionConfig.sellLimitSpot),
                 true
               );
               assert.equal(
-                auctionAfter.auctionRunDetails[indexOfRun].end.eq(
-                  currentTime.add(folio.auctionLength)
-                ),
+                sellDetailsAfter.limits.high.eq(auctionConfig.sellLimitSpot),
+                true
+              );
+
+              const buyDetailsAfter = rebalanceAfter.details.tokens.find(
+                (detail) => detail.mint.equals(buyMint.publicKey)
+              );
+
+              assert.equal(
+                buyDetailsAfter.limits.spot.eq(auctionConfig.buyLimitSpot),
                 true
               );
               assert.equal(
-                auctionAfter.auctionRunDetails[indexOfRun].k.eq(
-                  auctionToUse.auctionRunDetails[indexOfRun].k
-                ),
+                buyDetailsAfter.limits.low.eq(auctionConfig.buyLimitSpot),
                 true
               );
             });
@@ -1313,6 +660,16 @@ describe("Bankrun - Auction", () => {
     );
   });
 
+  const TEST_CASE_OPEN_AUCTION_PERMISSIONLESS = [
+    {
+      desc: "(current time < available at, errors out)",
+      auctionLauncherWindowForPermissionless: 10000,
+      expectedError: "AuctionCannotBeOpenedPermissionlesslyYet",
+    },
+    // Same as open apart from the available at check
+    ...TEST_CASE_OPEN_AUCTION,
+  ];
+
   describe("Specific Cases - Open Auction Permissionless", () => {
     TEST_CASE_OPEN_AUCTION_PERMISSIONLESS.forEach(
       ({ desc, expectedError, ...restOfParams }) => {
@@ -1320,38 +677,63 @@ describe("Bankrun - Auction", () => {
           let txnResult: BanksTransactionResultWithMeta;
 
           const {
-            customFolioTokenMint,
-            auctionToUse,
             initialFolioBasket,
+            rebalanceNonce,
             auctionId,
-            availableAt,
-            indexOfRun,
+            sellMint,
+            buyMint,
+            existingRebalanceParams,
+            auctionLauncherWindowForPermissionless,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
           };
 
           let currentTime: BN;
+          let rebalanceBefore;
 
           before(async () => {
-            await initBaseCase(customFolioTokenMint, initialFolioBasket);
+            await initBaseCase(initialFolioBasket);
 
+            await travelFutureSlot(context);
             currentTime = new BN(
               (await context.banksClient.getClock()).unixTimestamp.toString()
             );
 
-            // Set as approved and ready to be opened (if available at is not provided)
-            auctionToUse.availableAt = currentTime.add(availableAt);
-            auctionToUse.launchTimeout = currentTime.add(new BN(1000000000));
-
-            await createAndSetAuction(
+            await createAndSetRebalanceAccount(
               context,
               programFolio,
-              auctionToUse,
-              folioPDA
+              folioPDA,
+              existingRebalanceParams.allRebalanceDetailsAdded,
+              existingRebalanceParams.currentAuctionId,
+              existingRebalanceParams.nonce,
+              currentTime,
+              currentTime.add(new BN(auctionLauncherWindowForPermissionless)),
+              currentTime.add(new BN(existingRebalanceParams.ttl)),
+              existingRebalanceParams.existingTokensDetails
             );
 
+            rebalanceBefore = await programFolio.account.rebalance.fetch(
+              getRebalancePDA(folioPDA)
+            );
             await travelFutureSlot(context);
+
+            const currentClock = await context.banksClient.getClock();
+
+            const unixTimestamp =
+              currentClock.unixTimestamp +
+              // 2 minutes
+              BigInt(RESTRICTED_AUCTION_BUFFER + 1);
+
+            context.setClock(
+              new Clock(
+                currentClock.slot,
+                currentClock.epochStartTimestamp,
+                currentClock.epoch,
+                currentClock.leaderScheduleEpoch,
+                unixTimestamp
+              )
+            );
 
             currentTime = new BN(
               (await context.banksClient.getClock()).unixTimestamp.toString()
@@ -1362,7 +744,11 @@ describe("Bankrun - Auction", () => {
               programFolio,
               bidderKeypair, // Not permissioned
               folioPDA,
-              getAuctionPDA(folioPDA, auctionId),
+              folioTokenMint.publicKey,
+              rebalanceNonce,
+              getAuctionPDA(folioPDA, rebalanceNonce, auctionId),
+              sellMint.publicKey,
+              buyMint.publicKey,
               true
             );
           });
@@ -1375,241 +761,86 @@ describe("Bankrun - Auction", () => {
             it("should succeed", async () => {
               await travelFutureSlot(context);
 
-              const auctionAfter = await programFolio.account.auction.fetch(
-                getAuctionPDA(folioPDA, auctionId)
+              const rebalanceAfter = await programFolio.account.rebalance.fetch(
+                getRebalancePDA(folioPDA)
               );
               const folio = await programFolio.account.folio.fetch(folioPDA);
 
+              assert.equal(rebalanceAfter.currentAuctionId.eq(auctionId), true);
               assert.equal(
-                auctionAfter.sellLimit.spot.eq(auctionToUse.sellLimit.spot),
+                rebalanceAfter.currentAuctionId
+                  .sub(new BN(1))
+                  .eq(rebalanceBefore.currentAuctionId),
+                true
+              );
+
+              const auctionEnds = await programFolio.account.auctionEnds.fetch(
+                getAuctionEndsPDA(
+                  folioPDA,
+                  rebalanceNonce,
+                  sellMint.publicKey,
+                  buyMint.publicKey
+                )
+              );
+
+              const auction = await programFolio.account.auction.fetch(
+                getAuctionPDA(folioPDA, rebalanceNonce, auctionId)
+              );
+
+              assert.equal(auctionEnds.endTime.eq(auction.end), true);
+              assert.equal(
+                auctionEnds.tokenMint1.equals(sellMint.publicKey) ||
+                  auctionEnds.tokenMint2.equals(sellMint.publicKey),
+                true
+              );
+
+              assert.equal(
+                auctionEnds.tokenMint1.equals(buyMint.publicKey) ||
+                  auctionEnds.tokenMint2.equals(buyMint.publicKey),
+                true
+              );
+
+              const sellDetailsAfter = rebalanceBefore.details.tokens.find(
+                (detail) => detail.mint.equals(sellMint.publicKey)
+              );
+
+              const buyDetailsAfter = rebalanceBefore.details.tokens.find(
+                (detail) => detail.mint.equals(buyMint.publicKey)
+              );
+
+              assert.equal(
+                auction.sellLimit.eq(sellDetailsAfter.limits.spot),
                 true
               );
               assert.equal(
-                auctionAfter.buyLimit.spot.eq(auctionToUse.buyLimit.spot),
+                auction.buyLimit.eq(buyDetailsAfter.limits.spot),
                 true
               );
               assert.equal(
-                auctionAfter.auctionRunDetails[indexOfRun].sellLimitSpot.eq(
-                  indexOfRun == 0
-                    ? auctionToUse.sellLimit.spot
-                    : auctionAfter.auctionRunDetails[indexOfRun - 1]
-                        .sellLimitSpot
+                auction.prices.start.eq(
+                  sellDetailsAfter.prices.high
+                    .mul(D18)
+                    .div(buyDetailsAfter.prices.low)
                 ),
                 true
               );
               assert.equal(
-                auctionAfter.auctionRunDetails[indexOfRun].buyLimitSpot.eq(
-                  indexOfRun == 0
-                    ? auctionToUse.buyLimit.spot
-                    : auctionAfter.auctionRunDetails[indexOfRun - 1]
-                        .buyLimitSpot
+                auction.prices.end.eq(
+                  sellDetailsAfter.prices.low
+                    .mul(D18)
+                    .div(buyDetailsAfter.prices.high)
                 ),
                 true
               );
               assert.equal(
-                auctionAfter.auctionRunDetails[indexOfRun].prices.start.eq(
-                  auctionToUse.initialProposedPrice.start
-                ),
+                auction.end.eq(currentTime.add(folio.auctionLength)),
                 true
               );
-              assert.equal(
-                auctionAfter.auctionRunDetails[indexOfRun].prices.end.eq(
-                  auctionToUse.initialProposedPrice.end
-                ),
-                true
-              );
-              assert.equal(
-                auctionAfter.auctionRunDetails[indexOfRun].start.eq(
-                  currentTime
-                ),
-                true
-              );
-              assert.equal(
-                auctionAfter.auctionRunDetails[indexOfRun].end.eq(
-                  currentTime.add(folio.auctionLength)
-                ),
-                true
-              );
-              assert.equal(
-                auctionAfter.auctionRunDetails[indexOfRun].k.eq(
-                  auctionToUse.auctionRunDetails[indexOfRun].k
-                ),
-                true
-              );
+              assert.equal(auction.start.eq(currentTime), true);
             });
           }
         });
       }
     );
-  });
-
-  describe("Specific Cases - Bid", () => {
-    TEST_CASE_BID.forEach(({ desc, expectedError, ...restOfParams }) => {
-      describe(`When ${desc}`, () => {
-        let txnResult: BanksTransactionResultWithMeta;
-
-        const {
-          customFolioTokenMint,
-          auctionToUse,
-          initialFolioBasket,
-          sellAmount,
-          maxBuyAmount,
-          sellMint,
-          buyMint,
-          callback,
-          expectedTokenBalanceChanges,
-          folioTokenSupply,
-          sellOut,
-          extraTokenAmountsForFolioBasket,
-          folioSellBalance,
-          indexOfRun,
-          beforeCallback,
-        } = {
-          ...DEFAULT_PARAMS,
-          ...restOfParams,
-        };
-
-        let currentTime: BN;
-        let beforeTokenBalanceChanges: {
-          owner: PublicKey;
-          balances: bigint[];
-        }[];
-
-        before(async () => {
-          const mintToUse = customFolioTokenMint || folioTokenMint;
-          initialFolioBasket.forEach((token) => {
-            if (token.mint.equals(sellMint.publicKey)) {
-              token.amount = folioSellBalance ?? new BN(sellAmount);
-            }
-          });
-
-          await initBaseCase(
-            mintToUse,
-            initialFolioBasket,
-            folioTokenSupply,
-            extraTokenAmountsForFolioBasket
-          );
-
-          initToken(
-            context,
-            adminKeypair.publicKey,
-            sellMint,
-            DEFAULT_DECIMALS
-          );
-          initToken(context, adminKeypair.publicKey, buyMint, DEFAULT_DECIMALS);
-
-          currentTime = new BN(
-            (await context.banksClient.getClock()).unixTimestamp.toString()
-          );
-
-          auctionToUse.auctionRunDetails[indexOfRun].start = currentTime;
-          auctionToUse.auctionRunDetails[indexOfRun].end = currentTime.add(
-            new BN(1000000000)
-          );
-          auctionToUse.auctionRunDetails[indexOfRun].prices.start =
-            auctionToUse.initialProposedPrice.start;
-          auctionToUse.auctionRunDetails[indexOfRun].prices.end =
-            auctionToUse.initialProposedPrice.end;
-          auctionToUse.auctionRunDetails[indexOfRun].k = new BN(0);
-          auctionToUse.auctionRunDetails[indexOfRun].buyLimitSpot =
-            auctionToUse.buyLimit.spot;
-          auctionToUse.auctionRunDetails[indexOfRun].sellLimitSpot =
-            auctionToUse.sellLimit.spot;
-
-          if (beforeCallback) {
-            await beforeCallback();
-          }
-
-          await createAndSetAuction(
-            context,
-            programFolio,
-            auctionToUse,
-            folioPDA
-          );
-
-          await travelFutureSlot(context);
-
-          beforeTokenBalanceChanges = await getTokenBalancesFromMints(
-            context,
-            [sellMint.publicKey, buyMint.publicKey],
-            [bidderKeypair.publicKey, folioPDA]
-          );
-
-          const callbackFields = await callback();
-
-          txnResult = await bid<true>(
-            context,
-            banksClient,
-            programFolio,
-            bidderKeypair, // Not permissioned
-            folioPDA,
-            mintToUse.publicKey,
-            getAuctionPDA(folioPDA, auctionToUse.id),
-            sellAmount,
-            maxBuyAmount,
-            callbackFields.data.length > 0,
-            sellMint.publicKey,
-            buyMint.publicKey,
-            callbackFields.data,
-            true,
-            callbackFields.remainingAccounts
-          );
-        });
-
-        if (expectedError) {
-          it("should fail with expected error", () => {
-            assertError(txnResult, expectedError);
-          });
-        } else {
-          it("should succeed", async () => {
-            await travelFutureSlot(context);
-
-            await assertExpectedBalancesChanges(
-              context,
-              beforeTokenBalanceChanges,
-              [sellMint.publicKey, buyMint.publicKey],
-              [bidderKeypair.publicKey, folioPDA],
-              expectedTokenBalanceChanges
-            );
-
-            const folioBasketAfter =
-              await programFolio.account.folioBasket.fetch(
-                getFolioBasketPDA(folioPDA)
-              );
-
-            if (sellOut) {
-              // Basket removed token & auction end is set
-              const auctionAfter = await programFolio.account.auction.fetch(
-                getAuctionPDA(folioPDA, auctionToUse.id)
-              );
-
-              const folioBasketSellMint =
-                folioBasketAfter.basket.tokenAmounts.find((token) =>
-                  token.mint.equals(sellMint.publicKey)
-                );
-
-              const currentTimeAfter = new BN(
-                (await context.banksClient.getClock()).unixTimestamp.toString()
-              );
-              assert.equal(folioBasketSellMint, null);
-              assert.equal(
-                auctionAfter.auctionRunDetails[indexOfRun].end.lte(
-                  currentTimeAfter
-                ),
-                true
-              );
-            }
-
-            // Buy mint should be added to the folio basket
-            const folioBasketBuyMint =
-              folioBasketAfter.basket.tokenAmounts.find((token) =>
-                token.mint.equals(buyMint.publicKey)
-              );
-
-            assert.notEqual(folioBasketBuyMint, null);
-          });
-        }
-      });
-    });
   });
 });

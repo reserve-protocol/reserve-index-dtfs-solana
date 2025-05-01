@@ -340,8 +340,6 @@ describe("Bankrun - Folio migration", () => {
       new BN(0),
       new BN(0),
       false,
-      [],
-      [],
       "",
       amountToDistribute
     );

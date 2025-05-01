@@ -1,10 +1,10 @@
-use crate::utils::structs::{AuctionEnd, FolioStatus, Role};
+use crate::utils::structs::{FolioStatus, Role};
 use crate::{
     events::TVLFeeSet,
     state::{Actor, Folio},
 };
 use anchor_lang::prelude::*;
-use shared::constants::YEAR_IN_SECONDS;
+use shared::constants::{DAY_IN_SECONDS, YEAR_IN_SECONDS};
 use shared::utils::{Decimal, Rounding, TokenResult};
 use shared::{
     check_condition,
@@ -210,14 +210,21 @@ impl Folio {
         scaled_dao_fee_denominator: u128,
         scaled_dao_fee_floor: u128,
     ) -> Result<()> {
-        if current_time.saturating_sub(self.last_poke) == 0 {
+        let current_time = current_time as u64;
+        let account_fee_until = current_time
+            .checked_div(DAY_IN_SECONDS)
+            .ok_or(ErrorCode::MathOverflow)?
+            .checked_mul(DAY_IN_SECONDS)
+            .ok_or(ErrorCode::MathOverflow)?;
+
+        if account_fee_until.saturating_sub(self.last_poke) == 0 {
             return Ok(());
         }
 
         let (scaled_fee_recipients_pending_fee, scaled_dao_pending_fee_shares) = self
             .get_pending_fee_shares(
                 raw_folio_token_supply,
-                current_time,
+                account_fee_until,
                 scaled_dao_fee_numerator,
                 scaled_dao_fee_denominator,
                 scaled_dao_fee_floor,
@@ -233,7 +240,7 @@ impl Folio {
             .checked_add(scaled_fee_recipients_pending_fee.to_scaled(Rounding::Floor)?)
             .ok_or(ErrorCode::MathOverflow)?;
 
-        self.last_poke = current_time;
+        self.last_poke = account_fee_until;
 
         Ok(())
     }
@@ -262,14 +269,14 @@ impl Folio {
     ///
     /// # Arguments
     /// * `raw_folio_token_supply` - The total supply of the folio token (D9).
-    /// * `current_time` - The current time (seconds).
+    /// * `account_until` - The time (seconds) until the account is closed.
     /// * `scaled_dao_fee_numerator` - The numerator of the DAO fee (D18).
     /// * `scaled_dao_fee_denominator` - The denominator of the DAO fee (D18).
     /// * `scaled_dao_fee_floor` - The floor of the DAO fee (D18).
     pub fn get_pending_fee_shares(
         &self,
         raw_folio_token_supply: u64,
-        current_time: i64,
+        account_until: u64,
         scaled_dao_fee_numerator: u128,
         scaled_dao_fee_denominator: u128,
         scaled_dao_fee_floor: u128,
@@ -277,7 +284,7 @@ impl Folio {
         let scaled_total_supply_with_pending_fees =
             self.get_total_supply(raw_folio_token_supply)?;
 
-        let elapsed = (current_time - self.last_poke) as u64;
+        let elapsed = account_until.saturating_sub(self.last_poke);
 
         // convert annual percentage to per-second for comparison with stored tvlFee
         // = 1 - (1 - feeFloor) ^ (1 / 31536000)
@@ -337,86 +344,5 @@ impl Folio {
         let scaled_fee_recipient_shares = scaled_fee_shares.sub(&scaled_dao_shares)?;
 
         Ok((scaled_fee_recipient_shares, scaled_dao_shares))
-    }
-
-    /// Get the auction end for the mints. The auction ends are the timestamp {s} of the latest ongoing auction (sell or buy).
-    ///
-    /// # Arguments
-    /// * `sell_mint` - The mint of the sell auction.
-    /// * `buy_mint` - The mint of the buy auction.
-    ///
-    /// # Returns
-    /// * `Option<&AuctionEnd>` - The auction end for the sell auction if it exists.
-    /// * `Option<&AuctionEnd>` - The auction end for the buy auction if it exists.
-    pub fn get_auction_end_for_mints(
-        &self,
-        sell_mint: &Pubkey,
-        buy_mint: &Pubkey,
-    ) -> Result<(Option<&AuctionEnd>, Option<&AuctionEnd>)> {
-        let mut sell_auction = None;
-        let mut buy_auction = None;
-
-        for auction_end in self.sell_ends.iter() {
-            if auction_end.mint == *sell_mint {
-                sell_auction = Some(auction_end);
-                break;
-            }
-        }
-
-        for auction_end in self.buy_ends.iter() {
-            if auction_end.mint == *buy_mint {
-                buy_auction = Some(auction_end);
-                break;
-            }
-        }
-
-        Ok((sell_auction, buy_auction))
-    }
-
-    /// Set the auction end for the mints.
-    ///
-    /// # Arguments
-    /// * `sell_mint` - The mint of the sell auction.
-    /// * `buy_mint` - The mint of the buy auction.
-    /// * `end_time_sell` - The end time of the sell auction {s}.
-    /// * `end_time_buy` - The end time of the buy auction {s}.
-    pub fn set_auction_end_for_mints(
-        &mut self,
-        sell_mint: &Pubkey,
-        buy_mint: &Pubkey,
-        end_time_sell: u64,
-        end_time_buy: u64,
-    ) {
-        let mut sell_index_available = None;
-        for (index, auction_end) in self.sell_ends.iter_mut().enumerate() {
-            if auction_end.mint == Pubkey::default() && sell_index_available.is_none() {
-                sell_index_available = Some(index);
-            }
-            if auction_end.mint == *sell_mint {
-                auction_end.end_time = end_time_sell;
-                sell_index_available = None;
-                break;
-            }
-        }
-        if let Some(index) = sell_index_available {
-            self.sell_ends[index].mint = *sell_mint;
-            self.sell_ends[index].end_time = end_time_sell;
-        }
-
-        let mut buy_index_available = None;
-        for (index, auction_end) in self.buy_ends.iter_mut().enumerate() {
-            if auction_end.mint == Pubkey::default() && buy_index_available.is_none() {
-                buy_index_available = Some(index);
-            }
-            if auction_end.mint == *buy_mint {
-                auction_end.end_time = end_time_buy;
-                buy_index_available = None;
-                break;
-            }
-        }
-        if let Some(index) = buy_index_available {
-            self.buy_ends[index].mint = *buy_mint;
-            self.buy_ends[index].end_time = end_time_buy;
-        }
     }
 }

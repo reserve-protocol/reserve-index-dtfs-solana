@@ -19,7 +19,6 @@ import { initFolio } from "../bankrun-ix-helper";
 import * as assert from "assert";
 import {
   MAX_TVL_FEE,
-  MAX_AUCTION_DELAY,
   MAX_MINT_FEE,
   MIN_AUCTION_LENGTH,
   MAX_PADDED_STRING_LENGTH,
@@ -53,7 +52,6 @@ describe("Bankrun - Init Folio", () => {
   const DEFAULT_PARAMS: {
     tvlFee: BN;
     mintFee: BN;
-    auctionDelay: BN;
     auctionLength: BN;
     name: string;
     symbol: string;
@@ -62,7 +60,6 @@ describe("Bankrun - Init Folio", () => {
   } = {
     tvlFee: MAX_TVL_FEE,
     mintFee: MAX_MINT_FEE,
-    auctionDelay: MAX_AUCTION_DELAY,
     auctionLength: MAX_AUCTION_LENGTH,
     name: "Test Folio",
     symbol: "TFOL",
@@ -80,11 +77,6 @@ describe("Bankrun - Init Folio", () => {
       desc: "(test minting fee too high)",
       mintFee: MAX_MINT_FEE.add(new BN(1)),
       expectedError: "InvalidMintFee",
-    },
-    {
-      desc: "(auction delay too high)",
-      auctionDelay: MAX_AUCTION_DELAY.add(new BN(1)),
-      expectedError: "InvalidAuctionDelay",
     },
     {
       desc: "(auction length too low)",
@@ -160,7 +152,6 @@ describe("Bankrun - Init Folio", () => {
             assert.equal(folio.tvlFee.eq(new BN("3334813116")), true);
             assert.equal(folio.mintFee.eq(MAX_MINT_FEE), true);
             assert.deepEqual(folio.folioTokenMint, folioTokenMint.publicKey);
-            assert.equal(folio.auctionDelay.eq(MAX_AUCTION_DELAY), true);
             assert.equal(folio.auctionLength.eq(MAX_AUCTION_LENGTH), true);
 
             const ownerActorPDA = getActorPDA(

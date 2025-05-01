@@ -1,9 +1,9 @@
 use crate::utils::{
-    structs::{AuctionEnd, BasketRange, FeeRecipient},
-    AuctionRunDetails, FixedSizeString, FolioTokenBasket, Prices, UserTokenBasket,
+    structs::FeeRecipient, FixedSizeString, FolioTokenBasket, PricesInAuction, RebalanceDetails,
+    UserTokenBasket,
 };
 use anchor_lang::prelude::*;
-use shared::constants::{MAX_CONCURRENT_AUCTIONS, MAX_FEE_RECIPIENTS, MAX_SINGLE_AUCTION_RUNS};
+use shared::constants::MAX_FEE_RECIPIENTS;
 
 /// Actor is used to track permissions of different addresses on a folio. This is done via
 /// the role property and a bitwise operation.
@@ -64,23 +64,11 @@ pub struct Folio {
     /// Shares pending to be distributed ONLY to the fee recipients, scaled in D18
     pub fee_recipients_pending_fee_shares: u128,
 
-    /// Delay in the APPROVED state before an auction can be permissionlessly opened, scaled in seconds
-    pub auction_delay: u64,
-
     /// Duration of an auction, scaled in seconds
     pub auction_length: u64,
 
-    /// Current auction id, starts at 0
-    pub current_auction_id: u64,
-
     /// Last time the folio was poked, scaled in seconds
-    pub last_poke: i64,
-
-    /// Timestamp of latest ongoing auction for sells
-    pub sell_ends: [AuctionEnd; MAX_CONCURRENT_AUCTIONS],
-
-    /// Timestamp of latest ongoing auction for buys
-    pub buy_ends: [AuctionEnd; MAX_CONCURRENT_AUCTIONS],
+    pub last_poke: u64,
 
     /// Describes mission/brand of the Folio (max size 128 bytes)
     pub mandate: FixedSizeString,
@@ -241,6 +229,52 @@ impl UserPendingBasket {
     pub const SIZE: usize = 8 + UserPendingBasket::INIT_SPACE;
 }
 
+/// This is used to track a rebalance's state. There is only 1 rebalance for a folio.
+/// The same account is updated if a new rebalance is started, and we close
+///
+/// Rebalancing
+///   Rebalance starts -> OPEN -> CLOSED
+///   - Rebalance starts when a new rebalance is started
+///   - Rebalance is open when the rebalance is active
+///   - Rebalance is closed when the rebalance is completed
+///
+/// zero_copy
+/// PDA Seeds ["rebalance", folio pubkey]
+#[account(zero_copy)]
+#[derive(Default, InitSpace)]
+#[repr(C)]
+pub struct Rebalance {
+    pub bump: u8,
+
+    /// Whether all rebalance details have been added
+    /// Because of the transaction size limits, we allow adding rebalance details in multiple transactions.
+    /// In the last transaction, user need to pass `all_rebalance_details_added` to close the rebalance.
+    pub all_rebalance_details_added: u8,
+
+    /// Padding for zero copy alignment
+    pub _padding: [u8; 6],
+
+    pub folio: Pubkey,
+
+    /// Current auction id, starts at 0
+    /// Resets to 0 when a new rebalance is started
+    pub current_auction_id: u64,
+
+    pub nonce: u64,
+
+    pub started_at: u64,
+
+    pub restricted_until: u64,
+
+    pub available_until: u64,
+
+    pub details: RebalanceDetails,
+}
+
+impl Rebalance {
+    pub const SIZE: usize = 8 + Rebalance::INIT_SPACE;
+}
+
 /// This is used to track an auction's state.
 ///
 /// Rebalancing
@@ -251,21 +285,7 @@ impl UserPendingBasket {
 ///   - All auctions are dutch auctions with the same price curve, but it's possible to pass startPrice = endPrice
 ///
 /// zero_copy
-/// PDA Seeds ["auction", folio pubkey, auction id]
-///
-///
-///
-/// When an auction is repeated:
-/// Users can pass:
-// uint256 sellLimit,
-// uint256 buyLimit,
-// uint256 startPrice,
-// uint256 endPrice
-///
-///
-///
-///
-///
+/// PDA Seeds ["auction", folio pubkey, rebalance nonce, auction id]
 #[account(zero_copy)]
 #[derive(Default, InitSpace)]
 #[repr(C)]
@@ -278,42 +298,56 @@ pub struct Auction {
     /// Auction id
     pub id: u64,
 
-    /// Scaled in seconds, inclusive
-    pub available_at: u64,
+    /// Rebalance nonce
+    pub nonce: u64,
 
-    /// Scaled in seconds, inclusive
-    pub launch_timeout: u64,
+    /// Padding for zero copy alignment
+    pub _padding2: [u8; 8],
 
     pub folio: Pubkey,
 
     /// Sell token mint
-    pub sell: Pubkey,
+    pub sell_mint: Pubkey,
 
     /// Buy token mint
-    pub buy: Pubkey,
+    pub buy_mint: Pubkey,
 
     /// D18{sellToken/share} min ratio of sell token in the basket, inclusive
-    pub sell_limit: BasketRange,
+    pub sell_limit: u128,
 
     /// D18{buyToken/share} min ratio of buy token in the basket, exclusive
-    pub buy_limit: BasketRange,
+    pub buy_limit: u128,
 
-    /// The maximum number of repeats for this auction.
-    pub max_runs: u8,
+    /// Scaled in seconds, inclusive
+    /// If zero, the auction run was never ran.
+    pub start: u64,
 
-    // If the close is called it is not possible to re-run the auction, even when max_runs is not reached.
-    // It is a u8, if greater than 0 its true.
-    pub closed_for_reruns: u8,
+    /// Scaled in seconds, inclusive
+    pub end: u64,
 
-    pub _padding2: [u8; 14],
-
-    /// The proposed auction details.
-    pub initial_proposed_price: Prices,
-
-    /// The details of each auction run.
-    pub auction_run_details: [AuctionRunDetails; MAX_SINGLE_AUCTION_RUNS],
+    /// D18{buyToken/sellToken}
+    pub prices: PricesInAuction,
 }
 
 impl Auction {
     pub const SIZE: usize = 8 + Auction::INIT_SPACE;
+}
+
+// For a rebalance, this account keeps track of the end time of the auction for the token pair
+// Token1 => min(sellToken, buyToken)
+// Token2 => max(sellToken, buyToken)
+// PDA Seeds ["auction_ends", rebalance nonce, token mint 1, token mint 2]
+#[account()]
+#[derive(Default, InitSpace)]
+pub struct AuctionEnds {
+    pub bump: u8,
+    pub rebalance_nonce: u64,
+    // Token 1 < Token 2
+    pub token_mint_1: Pubkey,
+    pub token_mint_2: Pubkey,
+    pub end_time: u64,
+}
+
+impl AuctionEnds {
+    pub const SIZE: usize = 8 + AuctionEnds::INIT_SPACE;
 }

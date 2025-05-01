@@ -8,13 +8,13 @@ import {
   initFolio,
   migrateFolioTokens,
   startFolioMigration,
+  updateFolio,
 } from "../utils/folio-helper";
 import * as assert from "assert";
 
 import {
   MAX_AUCTION_LENGTH,
   MAX_TVL_FEE,
-  MAX_AUCTION_DELAY,
   MAX_MINT_FEE,
   DEFAULT_DECIMALS,
   FEE_NUMERATOR,
@@ -113,7 +113,6 @@ describe("Folio Migration Tests", () => {
       folioTokenMint,
       MAX_TVL_FEE,
       MAX_MINT_FEE,
-      MAX_AUCTION_DELAY,
       MAX_AUCTION_LENGTH,
       "Test Folio",
       "TFOL",
@@ -146,13 +145,27 @@ describe("Folio Migration Tests", () => {
       otherFolioTokenMint,
       MAX_TVL_FEE,
       MAX_MINT_FEE,
-      MAX_AUCTION_DELAY,
       MAX_AUCTION_LENGTH,
       "Test Folio",
       "TFOL",
       "https://test.com",
       "mandate",
       true
+    );
+    // Call update folio for creation of fee recipients
+    await updateFolio(
+      connection,
+      folioOwnerKeypair,
+      folioPDA,
+      folioTokenMint.publicKey,
+      feeRecipient,
+      null,
+      new BN(0),
+      null,
+      null,
+      [],
+      [],
+      null
     );
 
     // Set dao fee recipient
@@ -167,7 +180,6 @@ describe("Folio Migration Tests", () => {
 
   it("should allow user to migrate from first to second instance", async () => {
     const mintInfoBefore = await getMint(connection, folioTokenMint.publicKey);
-
     // Now migrate from first to second instance
     await startFolioMigration(
       connection,

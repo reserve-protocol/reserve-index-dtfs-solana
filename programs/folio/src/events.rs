@@ -1,5 +1,7 @@
 use anchor_lang::prelude::*;
 
+use crate::utils::RebalanceDetails;
+
 /// Event emitted when a folio is created.
 #[event]
 pub struct FolioCreated {
@@ -91,7 +93,7 @@ pub struct ProtocolFeePaid {
 ///
 /// # Arguments
 /// * `auction_id` - The id of the auction.
-/// * `auction_run_index` - In case of auction re-run it will be the index of run.
+/// * `nonce` - The nonce of the rebalance.
 /// * `start_price` - The start price of the auction, scaled in D18.
 /// * `end_price` - The end price of the auction, scaled in D18.
 /// * `start` - The start time of the auction, scaled in seconds.
@@ -100,7 +102,8 @@ pub struct ProtocolFeePaid {
 pub struct AuctionOpened {
     pub auction_id: u64,
 
-    pub auction_run_index: u8,
+    /// Rebalance nonce
+    pub nonce: u64,
 
     /// Scaled in D18
     pub start_price: u128,
@@ -115,26 +118,23 @@ pub struct AuctionOpened {
     pub end: u64,
 }
 
-/// Event emitted when an auction is approved.
+/// Event emitted when a rebalance is started.
 ///
 /// # Arguments
-/// * `auction_id` - The id of the auction.
-/// * `from` - The from address.
-/// * `to` - The to address.
-/// * `amount` - The amount of the auction, scaled in D9.
-/// * `start_price` - The start price of the auction, scaled in D18.
+/// * `nonce` - The id of the auction.
+/// * `folio` - The public key of Folio
+/// * `started_at` - The time when rebalance started
+/// * `restricted_until` - The time only Auction Launcher can create auctions
+/// * `available_until` - The rebalance TTL
+/// * `details` - The details rebalance.
 #[event]
-// TODO: Change content of event to be more informative
 pub struct RebalanceStarted {
-    pub auction_id: u64,
-    pub from: Pubkey,
-    pub to: Pubkey,
-
-    /// Scaled in D9
-    pub amount: u64,
-
-    /// Scaled in D18
-    pub start_price: u128,
+    pub nonce: u64,
+    pub folio: Pubkey,
+    pub started_at: u64,
+    pub restricted_until: u64,
+    pub available_until: u64,
+    pub details: RebalanceDetails,
 }
 
 /// Event emitted when an auction is closed.
@@ -161,16 +161,6 @@ pub struct AuctionBid {
 
     /// Scaled in D9
     pub bought_amount: u64,
-}
-
-/// Event emitted when an auction delay is set.
-///
-/// # Arguments
-/// * `new_auction_delay` - The new auction delay, scaled in seconds.
-#[event]
-pub struct AuctionDelaySet {
-    /// Scaled in seconds
-    pub new_auction_delay: u64,
 }
 
 /// Event emitted when an auction length is set.

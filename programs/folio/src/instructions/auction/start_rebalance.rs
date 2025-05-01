@@ -164,7 +164,7 @@ pub fn handler(
             folio: rebalance.folio,
             started_at: rebalance.started_at,
             restricted_until: rebalance.restricted_until,
-            available_until: rebalance.restricted_until,
+            available_until: rebalance.available_until,
             details: rebalance.details
         });
     }

@@ -22,9 +22,10 @@ import {
   getFolioPDA,
   getMetadataPDA,
   getProgramRegistrarPDA,
-  getAuctionPDA,
   getUserPendingBasketPDA,
   getFolioFeeConfigPDA,
+  getRebalancePDA,
+  getAuctionEndsPDA,
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -95,7 +96,6 @@ export async function initFolio(
   folioTokenMint: Keypair,
   tvlFee: BN,
   mintFee: BN,
-  auctionDelay: BN,
   auctionLength: BN,
   name: string,
   symbol: string,
@@ -110,16 +110,7 @@ export async function initFolio(
   const folioPDA = getFolioPDA(folioTokenMint.publicKey, useSecondFolioProgram);
 
   const initFolio = await folioProgram.methods
-    .initFolio(
-      tvlFee,
-      mintFee,
-      auctionDelay,
-      auctionLength,
-      name,
-      symbol,
-      uri,
-      mandate
-    )
+    .initFolio(tvlFee, mintFee, auctionLength, name, symbol, uri, mandate)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
@@ -150,7 +141,6 @@ export async function updateFolio(
   tvlFee: BN | null,
   indexForFeeDistribution: BN | null,
   mintFee: BN | null,
-  auctionDelay: BN | null,
   auctionLength: BN | null,
   feeRecipientsToAdd: { recipient: PublicKey; portion: BN }[],
   feeRecipientsToRemove: PublicKey[],
@@ -163,7 +153,6 @@ export async function updateFolio(
       tvlFee,
       indexForFeeDistribution,
       mintFee,
-      auctionDelay,
       auctionLength,
       feeRecipientsToAdd,
       feeRecipientsToRemove,
@@ -665,44 +654,48 @@ export async function crankFeeDistribution(
   });
 }
 
-export async function approveAuction(
+export async function startRebalance(
   connection: Connection,
   rebalanceManagerKeypair: Keypair,
   folio: PublicKey,
-  buyMint: PublicKey,
-  sellMint: PublicKey,
-  auctionId: BN,
-  sellLimit: { spot: BN; low: BN; high: BN },
-  buyLimit: { spot: BN; low: BN; high: BN },
-  startPrice: BN,
-  endPrice: BN,
-  ttl: BN,
-  maxRuns: number = 1
+  folioTokenMint: PublicKey,
+  auctionLauncherWindow: number,
+  ttl: number,
+  pricesAndLimits: {
+    prices: { low: BN; high: BN };
+    limits: { spot: BN; low: BN; high: BN };
+  }[],
+  allRebalanceDetailsAdded: boolean,
+  mints: PublicKey[]
 ) {
   const folioProgram = getFolioProgram(connection, rebalanceManagerKeypair);
 
-  const approveAuction = await folioProgram.methods
-    .approveAuction(
-      auctionId,
-      sellLimit,
-      buyLimit,
-      { start: startPrice, end: endPrice },
-      ttl,
-      maxRuns
+  const remainingAccounts = mints.map((mint) => {
+    return {
+      isWritable: false,
+      isSigner: false,
+      pubkey: mint,
+    };
+  });
+  const startRebalance = await folioProgram.methods
+    .startRebalance(
+      new BN(auctionLauncherWindow),
+      new BN(ttl),
+      pricesAndLimits,
+      allRebalanceDetailsAdded
     )
     .accountsPartial({
       systemProgram: SystemProgram.programId,
-      rent: SYSVAR_RENT_PUBKEY,
       rebalanceManager: rebalanceManagerKeypair.publicKey,
       actor: getActorPDA(rebalanceManagerKeypair.publicKey, folio),
       folio,
-      auction: getAuctionPDA(folio, auctionId),
-      buyMint: buyMint,
-      sellMint: sellMint,
+      folioTokenMint,
+      rebalance: getRebalancePDA(folio),
     })
+    .remainingAccounts(remainingAccounts)
     .instruction();
 
-  await pSendAndConfirmTxn(folioProgram, [approveAuction], [], {
+  await pSendAndConfirmTxn(folioProgram, [startRebalance], [], {
     skipPreflight: SKIP_PREFLIGHT,
   });
 }
@@ -711,22 +704,42 @@ export async function openAuction(
   connection: Connection,
   auctionLauncherKeypair: Keypair,
   folio: PublicKey,
+  folioTokenMint: PublicKey,
   auction: PublicKey,
+  rebalanceNonce: BN,
   sellLimit: BN,
   buyLimit: BN,
   startPrice: BN,
-  endPrice: BN
+  endPrice: BN,
+  sellMint: PublicKey,
+  buyMint: PublicKey
 ) {
   const folioProgram = getFolioProgram(connection, auctionLauncherKeypair);
 
+  const compare = new PublicKey(sellMint)
+    .toBuffer()
+    .compare(new PublicKey(buyMint).toBuffer());
+  let token1, token2: PublicKey;
+  if (compare > 0) {
+    token1 = buyMint;
+    token2 = sellMint;
+  } else {
+    token1 = sellMint;
+    token2 = buyMint;
+  }
+
   const openAuction = await folioProgram.methods
-    .openAuction(sellLimit, buyLimit, startPrice, endPrice)
+    .openAuction(token1, token2, sellLimit, buyLimit, startPrice, endPrice)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       auctionLauncher: auctionLauncherKeypair.publicKey,
       actor: getActorPDA(auctionLauncherKeypair.publicKey, folio),
       folio,
+      auctionEnds: getAuctionEndsPDA(folio, rebalanceNonce, token1, token2),
       auction,
+      buyMint,
+      sellMint,
+      folioTokenMint,
     })
     .instruction();
 
@@ -744,17 +757,31 @@ export async function openAuctionPermissionless(
   connection: Connection,
   userKeypair: Keypair,
   folio: PublicKey,
-  auction: PublicKey
+  auction: PublicKey,
+  sellMint: PublicKey,
+  buyMint: PublicKey
 ) {
   const folioProgram = getFolioProgram(connection, userKeypair);
-
+  const compare = new PublicKey(sellMint)
+    .toBuffer()
+    .compare(new PublicKey(buyMint).toBuffer());
+  let token1, token2: PublicKey;
+  if (compare < 0) {
+    token1 = sellMint;
+    token2 = buyMint;
+  } else {
+    token1 = buyMint;
+    token2 = sellMint;
+  }
   const openAuctionPermissionless = await folioProgram.methods
-    .openAuctionPermissionless()
+    .openAuctionPermissionless(token1, token2)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       user: userKeypair.publicKey,
       folio,
       auction,
+      sellMint,
+      buyMint,
     })
     .instruction();
 
@@ -767,7 +794,10 @@ export async function killAuction(
   connection: Connection,
   auctionActorKeypair: Keypair,
   folio: PublicKey,
-  auction: PublicKey
+  auction: PublicKey,
+  rebalanceNonce: BN,
+  sellMint: PublicKey,
+  buyMint: PublicKey
 ) {
   const folioProgram = getFolioProgram(connection, auctionActorKeypair);
 
@@ -779,6 +809,7 @@ export async function killAuction(
       actor: getActorPDA(auctionActorKeypair.publicKey, folio),
       folio,
       auction,
+      auctionEnds: getAuctionEndsPDA(folio, rebalanceNonce, sellMint, buyMint),
     })
     .instruction();
 
@@ -818,29 +849,35 @@ export async function bid(
       folioBasket: getFolioBasketPDA(folio),
       auction,
       folioTokenMint,
-      auctionSellTokenMint: auctionFetched.sell,
-      auctionBuyTokenMint: auctionFetched.buy,
+      auctionSellTokenMint: auctionFetched.sellMint,
+      auctionBuyTokenMint: auctionFetched.buyMint,
+      auctionEnds: getAuctionEndsPDA(
+        folio,
+        auctionFetched.nonce,
+        auctionFetched.sellMint,
+        auctionFetched.buyMint
+      ),
       folioSellTokenAccount: await getOrCreateAtaAddress(
         connection,
-        auctionFetched.sell,
+        auctionFetched.sellMint,
         bidderKeypair,
         folio
       ),
       folioBuyTokenAccount: await getOrCreateAtaAddress(
         connection,
-        auctionFetched.buy,
+        auctionFetched.buyMint,
         bidderKeypair,
         folio
       ),
       bidderSellTokenAccount: await getOrCreateAtaAddress(
         connection,
-        auctionFetched.sell,
+        auctionFetched.sellMint,
         bidderKeypair,
         bidderKeypair.publicKey
       ),
       bidderBuyTokenAccount: await getOrCreateAtaAddress(
         connection,
-        auctionFetched.buy,
+        auctionFetched.buyMint,
         bidderKeypair,
         bidderKeypair.publicKey
       ),
@@ -848,9 +885,14 @@ export async function bid(
     .remainingAccounts(remainingAccountsForCallback)
     .instruction();
 
-  await pSendAndConfirmTxn(folioProgram, [bid], [], {
-    skipPreflight: SKIP_PREFLIGHT,
-  });
+  await pSendAndConfirmTxn(
+    folioProgram,
+    [...getComputeLimitInstruction(400_000), bid],
+    [],
+    {
+      skipPreflight: SKIP_PREFLIGHT,
+    }
+  );
 }
 
 export async function startFolioMigration(
@@ -912,7 +954,7 @@ export async function startFolioMigration(
       {
         pubkey: getTVLFeeRecipientsPDA(oldFolio),
         isSigner: false,
-        isWritable: false,
+        isWritable: true,
       },
     ])
     .instruction();

@@ -60,6 +60,40 @@ export function getActorPDAWithBump(authority: PublicKey, folioPDA: PublicKey) {
     FOLIO_PROGRAM_ID
   );
 }
+export function getAuctionEndsPDA(
+  folio: PublicKey,
+  rebalanceNonce: BN,
+  token1Input: PublicKey,
+  token2Input: PublicKey
+) {
+  const compare = token1Input.toBuffer().compare(token2Input.toBuffer());
+  let token1 = token1Input;
+  let token2 = token2Input;
+  if (compare > 0) {
+    token1 = token2Input;
+    token2 = token1Input;
+  }
+
+  return getAuctionEndsPDAWithBump(folio, rebalanceNonce, token1, token2)[0];
+}
+
+export function getAuctionEndsPDAWithBump(
+  folio: PublicKey,
+  rebalanceNonce: BN,
+  token1: PublicKey,
+  token2: PublicKey
+) {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("auction_ends"),
+      folio.toBuffer(),
+      rebalanceNonce.toBuffer("le", 8),
+      token1.toBuffer(),
+      token2.toBuffer(),
+    ],
+    FOLIO_PROGRAM_ID
+  );
+}
 
 export function getDAOFeeConfigPDA() {
   return getDaoFeeConfigPDAWithBump()[0];
@@ -134,6 +168,16 @@ export function getFeeDistributionPDA(folio: PublicKey, index: BN) {
   return getFeeDistributionPDAWithBump(folio, index)[0];
 }
 
+export function getRebalancePDA(folio: PublicKey) {
+  return getRebalancePDAWithBump(folio)[0];
+}
+
+export function getRebalancePDAWithBump(folio: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("rebalance"), folio.toBuffer()],
+    FOLIO_PROGRAM_ID
+  );
+}
 export function getFeeDistributionPDAWithBump(folio: PublicKey, index: BN) {
   return PublicKey.findProgramAddressSync(
     [
@@ -145,13 +189,26 @@ export function getFeeDistributionPDAWithBump(folio: PublicKey, index: BN) {
   );
 }
 
-export function getAuctionPDA(folio: PublicKey, auctionId: BN) {
-  return getAuctionPDAWithBump(folio, auctionId)[0];
+export function getAuctionPDA(
+  folio: PublicKey,
+  rebalanceNonce: BN,
+  auctionId: BN
+) {
+  return getAuctionPDAWithBump(folio, rebalanceNonce, auctionId)[0];
 }
 
-export function getAuctionPDAWithBump(folio: PublicKey, auctionId: BN) {
+export function getAuctionPDAWithBump(
+  folio: PublicKey,
+  rebalanceNonce: BN,
+  auctionId: BN
+) {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("auction"), folio.toBuffer(), auctionId.toBuffer("le", 8)],
+    [
+      Buffer.from("auction"),
+      folio.toBuffer(),
+      rebalanceNonce.toBuffer("le", 8),
+      auctionId.toBuffer("le", 8),
+    ],
     FOLIO_PROGRAM_ID
   );
 }

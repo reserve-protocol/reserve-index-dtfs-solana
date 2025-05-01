@@ -19,7 +19,6 @@ import {
 import {
   MAX_AUCTION_LENGTH,
   MAX_TVL_FEE,
-  MAX_AUCTION_DELAY,
   MAX_MINT_FEE,
   MAX_FEE_FLOOR,
   DEFAULT_DECIMALS,
@@ -124,7 +123,6 @@ describe("Reward Tests", () => {
       folioTokenMint,
       MAX_TVL_FEE,
       MAX_MINT_FEE,
-      MAX_AUCTION_DELAY,
       MAX_AUCTION_LENGTH,
       "Test Folio",
       "TFOL",

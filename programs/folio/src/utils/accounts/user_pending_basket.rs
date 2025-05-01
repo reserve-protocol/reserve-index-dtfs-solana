@@ -1,6 +1,6 @@
 use std::cell::RefMut;
 
-use crate::utils::structs::TokenAmount;
+use crate::utils::token_amount::TokenAmount;
 use crate::utils::FolioTokenAmount;
 use anchor_lang::prelude::*;
 use shared::check_condition;

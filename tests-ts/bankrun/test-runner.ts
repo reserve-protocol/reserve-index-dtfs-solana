@@ -10,8 +10,10 @@ describe("Bankrun", () => {
   require("./tests/tests-migration");
   require("./tests/tests-fees");
   require("./tests/tests-auction");
+  require("./tests/tests-rebalance");
   require("./tests/tests-staking-admin");
   require("./tests/tests-staking-user");
   require("./tests/tests-staking-governance");
   require("./tests/tests-staking-admin-2022");
+  require("./tests/tests-bids-and-kill-auction");
 });

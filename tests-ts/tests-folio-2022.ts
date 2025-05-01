@@ -21,7 +21,6 @@ import {
 } from "../utils/pda-helper";
 import {
   MAX_AUCTION_LENGTH,
-  MAX_AUCTION_DELAY,
   MAX_MINT_FEE,
   EXPECTED_TVL_FEE_WHEN_MAX,
   MAX_TVL_FEE,
@@ -70,7 +69,6 @@ describe("Folio Tests", () => {
       .initFolio2022(
         MAX_TVL_FEE,
         MAX_MINT_FEE,
-        MAX_AUCTION_DELAY,
         MAX_AUCTION_LENGTH,
         "Test Folio",
         "TFOL",
@@ -103,7 +101,6 @@ describe("Folio Tests", () => {
     assert.equal(folio.mintFee.eq(MAX_MINT_FEE), true);
     assert.deepEqual(folio.folioTokenMint, folioTokenMint.publicKey);
     assert.equal(feeRecipients, null);
-    assert.equal(folio.auctionDelay.eq(MAX_AUCTION_DELAY), true);
     assert.equal(folio.auctionLength.eq(MAX_AUCTION_LENGTH), true);
 
     const ownerActorPDA = getActorPDA(folioOwnerKeypair.publicKey, folioPDA);

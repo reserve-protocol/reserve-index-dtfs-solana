@@ -12,12 +12,12 @@ use anchor_spl::{
 use shared::{
     check_condition,
     constants::{
-        ACTOR_SEEDS, FOLIO_SEEDS, MAX_AUCTION_DELAY, MAX_AUCTION_LENGTH, MAX_CONCURRENT_AUCTIONS,
-        MAX_MINT_FEE, MAX_TVL_FEE, METADATA_SEEDS, MIN_AUCTION_LENGTH,
+        ACTOR_SEEDS, FOLIO_SEEDS, MAX_AUCTION_LENGTH, MAX_MINT_FEE, MAX_TVL_FEE, METADATA_SEEDS,
+        MIN_AUCTION_LENGTH,
     },
 };
 
-use crate::utils::structs::{AuctionEnd, FolioStatus, Role};
+use crate::utils::structs::{FolioStatus, Role};
 use shared::errors::ErrorCode;
 
 /// Initialize a new Folio
@@ -109,7 +109,6 @@ impl InitFolio<'_> {
         &self,
         scaled_tvl_fee: u128,
         scaled_mint_fee: u128,
-        auction_delay: u64,
         auction_length: u64,
         mandate: &str,
     ) -> Result<()> {
@@ -117,7 +116,6 @@ impl InitFolio<'_> {
 
         check_condition!(scaled_mint_fee <= MAX_MINT_FEE, InvalidMintFee);
 
-        check_condition!(auction_delay <= MAX_AUCTION_DELAY, InvalidAuctionDelay);
         check_condition!(
             (MIN_AUCTION_LENGTH..=MAX_AUCTION_LENGTH).contains(&auction_length),
             InvalidAuctionLength
@@ -162,7 +160,6 @@ impl<'info> CreateMetadataAccount<'info> {
 /// * `ctx` - The context of the instruction.
 /// * `scaled_tvl_fee` - The TVL fee (D18).
 /// * `scaled_mint_fee` - The mint fee (D18).
-/// * `auction_delay` - The auction delay (seconds).
 /// * `auction_length` - The auction length (seconds).
 /// * `name` - The name of the folio.
 /// * `symbol` - The symbol of the folio.
@@ -172,20 +169,14 @@ pub fn handler(
     ctx: Context<InitFolio>,
     scaled_tvl_fee: u128,
     scaled_mint_fee: u128,
-    auction_delay: u64,
     auction_length: u64,
     name: String,
     symbol: String,
     uri: String,
     mandate: String,
 ) -> Result<()> {
-    ctx.accounts.validate(
-        scaled_tvl_fee,
-        scaled_mint_fee,
-        auction_delay,
-        auction_length,
-        &mandate,
-    )?;
+    ctx.accounts
+        .validate(scaled_tvl_fee, scaled_mint_fee, auction_length, &mandate)?;
 
     let folio_token_mint_key = ctx.accounts.folio_token_mint.key();
     {
@@ -196,14 +187,10 @@ pub fn handler(
         folio.set_tvl_fee(scaled_tvl_fee)?;
         folio.mint_fee = scaled_mint_fee;
         folio.status = FolioStatus::Initializing as u8;
-        folio.last_poke = Clock::get()?.unix_timestamp;
+        folio.last_poke = Clock::get()?.unix_timestamp as u64;
         folio.dao_pending_fee_shares = 0;
         folio.fee_recipients_pending_fee_shares = 0;
-        folio.auction_delay = auction_delay;
         folio.auction_length = auction_length;
-        folio.current_auction_id = 0;
-        folio.sell_ends = [AuctionEnd::default(); MAX_CONCURRENT_AUCTIONS];
-        folio.buy_ends = [AuctionEnd::default(); MAX_CONCURRENT_AUCTIONS];
         folio.mandate = FixedSizeString::new(&mandate);
         folio.fee_recipients_pending_fee_shares_to_be_minted = 0;
     }

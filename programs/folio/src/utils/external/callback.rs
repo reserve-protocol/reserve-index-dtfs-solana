@@ -22,16 +22,20 @@ pub fn cpi_call(remaining_accounts: &[AccountInfo], data: Vec<u8>) -> Result<()>
 
         let callback_accounts = &remaining_accounts[CALLBACK_PROGRAM_ID_INDEX + 1..];
 
-        let callback_accounts_metas: Vec<anchor_lang::prelude::AccountMeta> = callback_accounts
-            .iter()
-            .map(|a| {
-                if a.is_writable {
-                    AccountMeta::new(*a.key, a.is_signer)
-                } else {
-                    AccountMeta::new_readonly(*a.key, a.is_signer)
-                }
-            })
-            .collect();
+        let mut callback_accounts_metas: Vec<anchor_lang::prelude::AccountMeta> = vec![];
+
+        for account in callback_accounts {
+            // Disallow self reentrancy.
+            // This prevents a custom malicious program calling Folio Program via cpi.
+            check_condition!(account.key() != FOLIO_PROGRAM_ID, InvalidCallbackProgram);
+
+            if account.is_writable {
+                callback_accounts_metas.push(AccountMeta::new(*account.key, account.is_signer));
+            } else {
+                callback_accounts_metas
+                    .push(AccountMeta::new_readonly(*account.key, account.is_signer));
+            }
+        }
 
         anchor_lang::solana_program::program::invoke(
             &Instruction {

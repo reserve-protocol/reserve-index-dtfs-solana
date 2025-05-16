@@ -128,14 +128,17 @@ export function getTVLFeeRecipientsPDAWithBump(folio: PublicKey) {
   );
 }
 
-export function getFolioBasketPDA(folio: PublicKey) {
-  return getFolioBasketPDAWithBump(folio)[0];
+export function getFolioBasketPDA(folio: PublicKey, programId?: PublicKey) {
+  return getFolioBasketPDAWithBump(folio, programId)[0];
 }
 
-export function getFolioBasketPDAWithBump(folio: PublicKey) {
+export function getFolioBasketPDAWithBump(
+  folio: PublicKey,
+  programId: PublicKey = FOLIO_PROGRAM_ID
+) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("folio_basket"), folio.toBuffer()],
-    FOLIO_PROGRAM_ID
+    programId
   );
 }
 

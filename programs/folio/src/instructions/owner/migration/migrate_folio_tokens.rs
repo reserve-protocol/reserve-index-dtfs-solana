@@ -1,3 +1,4 @@
+use crate::utils::NewFolioProgram;
 use crate::ID as FOLIO_PROGRAM_ID;
 use crate::{
     state::{Folio, FolioBasket},
@@ -21,13 +22,13 @@ const REMAINING_ACCOUT_DIVIDER: usize = 3;
 /// Permissionless
 ///
 /// # Arguments
-/// * `system_program` - The system program.
 /// * `token_program` - The token program.
 /// * `user` - The user account (mut, signer).
 /// * `program_registrar` - The program registrar account (not mut, not signer).
 /// * `new_folio_program` - The new folio program (executable).
 /// * `old_folio` - The old folio account (PDA) (not mut, not signer).
 /// * `old_folio_basket` - The old folio basket account (PDA) (mut, not signer).
+/// * `new_folio_basket` - The new folio basket account (PDA) (mut, not signer).
 /// * `new_folio` - The new folio account (mut, not signer).
 /// * `folio_token_mint` - The folio token mint account (mut, not signer).
 ///
@@ -37,7 +38,6 @@ const REMAINING_ACCOUT_DIVIDER: usize = 3;
 ///         - Recipient Token Account (needs to be owned by new folio) (mut)
 #[derive(Accounts)]
 pub struct MigrateFolioTokens<'info> {
-    pub system_program: Program<'info, System>,
     pub token_program: Interface<'info, TokenInterface>,
 
     // Is permissionless, so folio isn't blocked by folio owner.
@@ -58,14 +58,24 @@ pub struct MigrateFolioTokens<'info> {
     #[account()]
     pub old_folio: AccountLoader<'info, Folio>,
 
-    #[account(mut,
+    #[account(
+        mut,
         seeds = [FOLIO_BASKET_SEEDS, old_folio.key().as_ref()],
         bump
     )]
     pub old_folio_basket: AccountLoader<'info, FolioBasket>,
 
+    /// CHECK: Seeds are checked and the account data is checked in cpi to new folio program
+    #[account(
+        mut,
+        seeds = [FOLIO_BASKET_SEEDS, new_folio.key().as_ref()],
+        bump,
+        seeds::program = new_folio_program.key(),
+    )]
+    pub new_folio_basket: UncheckedAccount<'info>,
+
     /// CHECK: The new folio
-    #[account()]
+    #[account(mut)]
     pub new_folio: UncheckedAccount<'info>,
 
     // Validate mint is now owned by the new folio
@@ -145,7 +155,6 @@ impl MigrateFolioTokens<'_> {
 pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'info>>) -> Result<()> {
     let old_folio_key = ctx.accounts.old_folio.key();
     let new_folio_key = ctx.accounts.new_folio.key();
-    let old_folio_basket = &mut ctx.accounts.old_folio_basket.load_mut()?;
     let token_program_id = ctx.accounts.token_program.key();
 
     let old_folio_token_mint: Pubkey;
@@ -212,13 +221,19 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
             InvalidRecipientTokenAccount
         );
 
+        let raw_migrate_balance: u64;
+
+        {
+            let old_folio_basket = &ctx.accounts.old_folio_basket.load()?;
+
+            raw_migrate_balance =
+                old_folio_basket.get_token_amount_in_folio_basket(token_mint.key)?;
+        }
+
         let mint_decimals = {
             let data = token_mint.try_borrow_data()?;
             Mint::try_deserialize(&mut &data[..])?.decimals
         };
-
-        let raw_migrate_balance =
-            old_folio_basket.get_token_amount_in_folio_basket(token_mint.key)?;
 
         let cpi_accounts = TransferChecked {
             from: sender_token_account.to_account_info(),
@@ -235,8 +250,23 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
             mint_decimals,
         )?;
 
-        // Remove the token from the old folio basket
-        old_folio_basket.remove_token_mint_from_basket(token_mint.key())?;
+        NewFolioProgram::update_folio_basket_in_new_folio_program(
+            &ctx.accounts.old_folio.to_account_info(),
+            &ctx.accounts.new_folio.to_account_info(),
+            &ctx.accounts.old_folio_basket.to_account_info(),
+            &ctx.accounts.new_folio_basket.to_account_info(),
+            &token_mint.to_account_info(),
+            &recipient_token_account.to_account_info(),
+            &ctx.accounts.program_registrar.to_account_info(),
+            &ctx.accounts.new_folio_program.to_account_info(),
+            &[&folio_signer_seeds[..]],
+        )?;
+
+        {
+            let old_folio_basket = &mut ctx.accounts.old_folio_basket.load_mut()?;
+            // Remove the token from the old folio basket
+            old_folio_basket.remove_token_mint_from_basket(token_mint.key())?;
+        }
     }
 
     Ok(())

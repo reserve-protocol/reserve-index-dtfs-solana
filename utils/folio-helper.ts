@@ -978,7 +978,6 @@ export async function migrateFolioTokens(
   const migrateFolioTokens = await folioProgram.methods
     .migrateFolioTokens()
     .accountsPartial({
-      systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,
       programRegistrar: getProgramRegistrarPDA(),
@@ -987,6 +986,7 @@ export async function migrateFolioTokens(
       oldFolioBasket: getFolioBasketPDA(oldFolio),
       newFolio,
       folioTokenMint,
+      newFolioBasket: getFolioBasketPDA(newFolio, newFolioProgram),
     })
     .remainingAccounts(
       await buildRemainingAccountsForMigrateFolioTokens(

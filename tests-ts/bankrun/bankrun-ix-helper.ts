@@ -829,6 +829,7 @@ export async function crankFeeDistribution<T extends boolean = true>(
       upgradedFolio: newFolio,
       upgradedFolioProgram: newFolioProgram,
       programRegistrar,
+      currentFolioProgram: programFolio.programId,
     })
     .remainingAccounts(
       remainingAccounts.length > 0
@@ -1252,7 +1253,7 @@ export async function migrateFolioTokens<T extends boolean = true>(
   const migrateFolioTokens = await programFolio.methods
     .migrateFolioTokens()
     .accountsPartial({
-      systemProgram: SystemProgram.programId,
+      // systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,
       programRegistrar: getProgramRegistrarPDA(),
@@ -1261,6 +1262,7 @@ export async function migrateFolioTokens<T extends boolean = true>(
       oldFolioBasket: getFolioBasketPDA(oldFolio),
       newFolio,
       folioTokenMint,
+      newFolioBasket: getFolioBasketPDA(newFolio, newFolioProgram),
     })
     .remainingAccounts(
       remainingAccounts.length > 0

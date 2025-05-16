@@ -1,11 +1,10 @@
-use std::str::FromStr;
-
 use crate::state::Folio;
 use anchor_lang::prelude::*;
 use anchor_spl::token;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use folio_admin::{state::ProgramRegistrar, ID as FOLIO_ADMIN_PROGRAM_ID};
 use shared::check_condition;
-use shared::constants::FOLIO_SEEDS;
+use shared::constants::{FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS};
 use shared::errors::ErrorCode;
 
 /// Mint from this new folio program, called by the old folio program.
@@ -30,7 +29,7 @@ pub struct MintFromNewFolioProgram<'info> {
     #[account(
         seeds = [FOLIO_SEEDS, folio_token_mint.key().as_ref()],
         bump,
-        seeds::program = Pubkey::from_str("n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG").unwrap(),
+        seeds::program = old_folio_program.key(),
     )]
     pub old_folio: Signer<'info>,
 
@@ -39,7 +38,7 @@ pub struct MintFromNewFolioProgram<'info> {
     #[account(
         seeds = [FOLIO_SEEDS, folio_token_mint.key().as_ref()],
         bump,
-        seeds::program = Pubkey::from_str("7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt").unwrap(),
+        seeds::program = crate::ID,
     )]
     pub new_folio: AccountLoader<'info, Folio>,
 
@@ -48,6 +47,17 @@ pub struct MintFromNewFolioProgram<'info> {
 
     #[account(mut)]
     pub to: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    /// CHECK: Folio program used for new folio
+    #[account(executable)]
+    pub old_folio_program: UncheckedAccount<'info>,
+
+    #[account(
+        seeds = [PROGRAM_REGISTRAR_SEEDS],
+        bump = program_registrar.bump,
+        seeds::program = FOLIO_ADMIN_PROGRAM_ID,
+    )]
+    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
 }
 
 impl MintFromNewFolioProgram<'_> {
@@ -59,6 +69,12 @@ impl MintFromNewFolioProgram<'_> {
         check_condition!(
             self.folio_token_mint.key() == folio.folio_token_mint,
             InvalidFolioTokenMint
+        );
+
+        check_condition!(
+            self.program_registrar
+                .is_in_registrar(self.old_folio_program.key()),
+            ProgramNotInRegistrar
         );
 
         Ok(())

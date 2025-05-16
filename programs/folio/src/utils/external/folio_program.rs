@@ -26,6 +26,10 @@ impl NewFolioProgram {
     const CRANK_FEE_DISTRIBUTION_PREVIOUS_FOLIO_FUNCTION_NAME: &'static str =
         "mint_from_new_folio_program";
 
+    /// The name of the update folio basket function in the new Folio program
+    const UPDATE_BASKET_IN_NEW_FOLIO_PROGRAM_FUNCTION_NAME: &'static str =
+        "update_basket_in_new_folio_program";
+
     /// Get the instruction discriminator for a given instruction name.
     ///
     /// # Arguments
@@ -68,6 +72,8 @@ impl NewFolioProgram {
         upgraded_folio: &AccountInfo<'info>,
         folio_token_mint: &AccountInfo<'info>,
         to: &AccountInfo<'info>,
+        old_folio_program: &AccountInfo<'info>,
+        program_registrar: &AccountInfo<'info>,
         signer_seeds: &[&[&[u8]]],
         amount: u64,
     ) -> Result<()> {
@@ -77,6 +83,8 @@ impl NewFolioProgram {
             AccountMeta::new_readonly(upgraded_folio.key(), false),
             AccountMeta::new(folio_token_mint.key(), false),
             AccountMeta::new(to.key(), false),
+            AccountMeta::new_readonly(old_folio_program.key(), false),
+            AccountMeta::new_readonly(program_registrar.key(), false),
         ];
 
         let mut data = NewFolioProgram::get_instruction_discriminator(
@@ -98,6 +106,55 @@ impl NewFolioProgram {
                 upgraded_folio.to_account_info(),
                 folio_token_mint.to_account_info(),
                 to.to_account_info(),
+                program_registrar.to_account_info(),
+                old_folio_program.to_account_info(),
+            ],
+            signer_seeds,
+        )?;
+
+        Ok(())
+    }
+
+    pub fn update_folio_basket_in_new_folio_program<'info>(
+        old_folio: &AccountInfo<'info>,
+        new_folio: &AccountInfo<'info>,
+        old_folio_basket: &AccountInfo<'info>,
+        new_folio_basket: &AccountInfo<'info>,
+        token_mint: &AccountInfo<'info>,
+        folio_token_account: &AccountInfo<'info>,
+        program_registrar: &AccountInfo<'info>,
+        new_folio_program: &AccountInfo<'info>,
+        signer_seeds: &[&[&[u8]]],
+    ) -> Result<()> {
+        let account_metas = vec![
+            AccountMeta::new_readonly(old_folio.key(), true),
+            AccountMeta::new(new_folio.key(), false),
+            AccountMeta::new_readonly(old_folio_basket.key(), false),
+            AccountMeta::new(new_folio_basket.key(), false),
+            AccountMeta::new_readonly(token_mint.key(), false),
+            AccountMeta::new_readonly(folio_token_account.key(), false),
+            AccountMeta::new_readonly(program_registrar.key(), false),
+        ];
+
+        let data = NewFolioProgram::get_instruction_discriminator(
+            Self::UPDATE_BASKET_IN_NEW_FOLIO_PROGRAM_FUNCTION_NAME,
+        )
+        .to_vec();
+
+        invoke_signed(
+            &Instruction {
+                program_id: new_folio_program.key(),
+                accounts: account_metas,
+                data: data.clone(),
+            },
+            &[
+                old_folio.to_account_info(),
+                new_folio.to_account_info(),
+                old_folio_basket.to_account_info(),
+                new_folio_basket.to_account_info(),
+                token_mint.to_account_info(),
+                folio_token_account.to_account_info(),
+                program_registrar.to_account_info(),
             ],
             signer_seeds,
         )?;

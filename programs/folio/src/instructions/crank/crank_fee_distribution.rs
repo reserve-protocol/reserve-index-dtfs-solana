@@ -72,6 +72,10 @@ pub struct CrankFeeDistribution<'info> {
     )]
     pub program_registrar: Option<Box<Account<'info, ProgramRegistrar>>>,
 
+    /// CHECK: The current folio program, Address is checked.
+    #[account(executable, address = crate::ID)]
+    pub current_folio_program: UncheckedAccount<'info>,
+
     /// CHECK: Folio program used for new folio
     #[account(executable)]
     pub upgraded_folio_program: Option<UncheckedAccount<'info>>,
@@ -287,9 +291,14 @@ pub fn handler<'info>(
                     )?;
                 } else {
                     // Folio is migrating, we need to CPI into the new folio program
-                    if let (Some(upgraded_folio_program), Some(upgraded_folio)) = (
+                    if let (
+                        Some(upgraded_folio_program),
+                        Some(upgraded_folio),
+                        Some(program_registrar),
+                    ) = (
                         &ctx.accounts.upgraded_folio_program,
                         &ctx.accounts.upgraded_folio,
+                        &ctx.accounts.program_registrar,
                     ) {
                         let upgraded_program_info = upgraded_folio_program.to_account_info();
                         let token_program_info = ctx.accounts.token_program.to_account_info();
@@ -305,6 +314,8 @@ pub fn handler<'info>(
                             &upgraded_folio_info,
                             &token_mint_info,
                             &fee_recipient_info,
+                            &ctx.accounts.current_folio_program,
+                            &program_registrar.to_account_info(),
                             &[signer_seeds],
                             raw_amount_to_distribute,
                         )?;

@@ -13,7 +13,11 @@ import {
   travelFutureSlot,
 } from "../bankrun-program-helper";
 
-import { getFolioPDA, getProgramRegistrarPDA } from "../../../utils/pda-helper";
+import {
+  getFolioBasketPDA,
+  getFolioPDA,
+  getProgramRegistrarPDA,
+} from "../../../utils/pda-helper";
 import {
   crankFeeDistribution,
   migrateFolioTokens,
@@ -363,6 +367,9 @@ describe("Bankrun - Folio migration", () => {
       new BN(0),
       true
     );
+
+    // Create empty folio basket
+    await createAndSetFolioBasket(context, programFolioSecond, newFolioPDA, []);
 
     // Change the owner of the second folio if required
     if (secondFolioOwner) {
@@ -755,6 +762,36 @@ describe("Bankrun - Folio migration", () => {
           } else {
             it("should succeed", async () => {
               await travelFutureSlot(context);
+
+              const newFolioBasketPDA = await getFolioBasketPDA(
+                newFolioPDA,
+                programFolioSecond.programId
+              );
+
+              const newFolioBasket =
+                await programFolio.account.folioBasket.fetch(newFolioBasketPDA);
+
+              for (const tokenAmount of newFolioBasket.basket.tokenAmounts) {
+                if (tokenAmount.mint.equals(PublicKey.default)) {
+                  assert.equal(tokenAmount.amount.eq(new BN(0)), true);
+                  continue;
+                }
+
+                const tokenInInitialBasket = initialFolioBasket.find((t) =>
+                  t.mint.equals(tokenAmount.mint)
+                );
+
+                if (tokenInInitialBasket) {
+                  assert.equal(
+                    tokenAmount.amount.eq(tokenInInitialBasket.amount),
+                    true
+                  );
+                } else {
+                  assert.fail(
+                    `Token ${tokenAmount.mint.toBase58()} not found in initial basket`
+                  );
+                }
+              }
 
               await assertExpectedBalancesChanges(
                 context,

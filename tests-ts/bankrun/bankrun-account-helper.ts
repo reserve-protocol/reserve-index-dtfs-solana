@@ -766,11 +766,14 @@ export async function createAndSetFeeDistribution(
 
 export async function createAndSetFolioBasket(
   ctx: ProgramTestContext,
-  program: Program<Folio>,
+  program: Program<Folio> | Program<FolioSecond>,
   folio: PublicKey,
   foliotokenAmounts: FolioTokenAmount[]
 ) {
-  const folioBasketPDAWithBump = getFolioBasketPDAWithBump(folio);
+  const folioBasketPDAWithBump = getFolioBasketPDAWithBump(
+    folio,
+    program.programId
+  );
 
   const folioBasket = {
     bump: folioBasketPDAWithBump[1],

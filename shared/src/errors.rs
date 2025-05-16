@@ -265,6 +265,9 @@ pub enum ErrorCode {
     #[msg("Can't Migrate To Same Program")]
     CantMigrateToSameProgram,
 
+    #[msg("Folio Not Migrating")]
+    FolioNotMigrating,
+
     #[msg("Invalid Fee Floor")]
     InvalidFeeFloor,
 
@@ -309,6 +312,9 @@ pub enum ErrorCode {
 
     #[msg("Minimum amount out not met")]
     MinimumAmountOutNotMet,
+
+    #[msg("Invalid Token Balance")]
+    InvalidTokenBalance,
 }
 
 /// Check a condition and return an error if it is not met.

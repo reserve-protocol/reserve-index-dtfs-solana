@@ -79,13 +79,10 @@ impl UpdateBasketInNewFolioProgram<'_> {
             old_folio.status == FolioStatus::Migrating as u8,
             InvalidFolioStatus
         );
-        // This is commented out here but this is for future reference, it should be uncommented in the v2 or subseqent versions of the folio program
-        // This is commented because the current program does not have a init_folio_for_migration instruction, The folio will by default have status as Migrating.
-        // This instruction will create the folio account and folio_basket accounts owned by the new folio program.
-        // check_condition!(
-        //     new_folio.folio_token_mint == old_folio.folio_token_mint,
-        //     InvalidFolioTokenMint
-        // );
+        check_condition!(
+            new_folio.folio_token_mint == old_folio.folio_token_mint,
+            InvalidFolioTokenMint
+        );
 
         check_condition!(
             self.program_registrar
@@ -111,11 +108,11 @@ pub fn handler<'info>(
 
     #[allow(unreachable_code)]
     let folio_data = &ctx.accounts.old_folio.data.borrow();
-    let old_folio: &Folio = bytemuck::from_bytes(&mut &folio_data[8..]);
+    let old_folio: &Folio = bytemuck::from_bytes(&folio_data[8..]);
     let new_folio = &mut ctx.accounts.new_folio.load_mut()?;
 
     {
-        ctx.accounts.validate(&old_folio, &new_folio)?;
+        ctx.accounts.validate(old_folio, new_folio)?;
     }
 
     let new_folio_basket = &mut ctx.accounts.new_folio_basket.load_mut()?;
@@ -127,7 +124,7 @@ pub fn handler<'info>(
 
     {
         let old_folio_basket_data = &ctx.accounts.old_folio_basket.data.borrow();
-        let old_folio_basket: &FolioBasket = bytemuck::from_bytes(&mut &old_folio_basket_data[8..]);
+        let old_folio_basket: &FolioBasket = bytemuck::from_bytes(&old_folio_basket_data[8..]);
 
         token_balance_in_old_folio_basket =
             old_folio_basket.get_token_amount_in_folio_basket(&mint_pk)?;

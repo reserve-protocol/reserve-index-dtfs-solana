@@ -324,6 +324,7 @@ pub fn handler<'info>(
                     }
                 }
 
+                // Why don't we multiply with D18? here or later?
                 amount_to_remove_from_folio_pending_fees = amount_to_remove_from_folio_pending_fees
                     .checked_add(raw_amount_to_distribute as u128)
                     .ok_or(ErrorCode::MathOverflow)?;

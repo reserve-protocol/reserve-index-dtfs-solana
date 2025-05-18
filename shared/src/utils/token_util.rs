@@ -10,17 +10,15 @@ pub struct TokenUtil;
 
 impl TokenUtil {
     /// The forbidden mint extension types.
-    pub const FORBIDDEN_MINT_EXTENSION_TYPES: [ExtensionType; 3] = [
+    pub const FORBIDDEN_MINT_EXTENSION_TYPES: [ExtensionType; 4] = [
         ExtensionType::TransferHook,
         ExtensionType::ConfidentialTransferMint,
         ExtensionType::PermanentDelegate,
+        ExtensionType::TransferFeeConfig,
     ];
 
     /// The forbidden token extension types.
-    pub const FORBIDDEN_TOKEN_EXTENSION_TYPES: [ExtensionType; 2] = [
-        ExtensionType::TransferFeeConfig,
-        ExtensionType::MemoTransfer,
-    ];
+    pub const FORBIDDEN_TOKEN_EXTENSION_TYPES: [ExtensionType; 1] = [ExtensionType::MemoTransfer];
 
     /// Check if the mint has any extensions.
     ///

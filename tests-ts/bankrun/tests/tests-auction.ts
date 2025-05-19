@@ -227,7 +227,7 @@ describe("Bankrun - Auction", () => {
   ];
 
   const TEST_CASE_OPEN_AUCTION = [
-    // ...AUCTION_COMMON_TEST_CASES,
+    ...AUCTION_COMMON_TEST_CASES,
     {
       desc: "Allow creation of auction when the prices are deferred",
       expectedError: null,

@@ -1,6 +1,6 @@
 import { BN, Program } from "@coral-xyz/anchor";
 import { BankrunProvider } from "anchor-bankrun";
-import { Keypair, PublicKey } from "@solana/web3.js";
+import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
 import {
   BanksClient,
   BanksTransactionResultWithMeta,
@@ -35,6 +35,7 @@ import {
   createAndSetDaoFeeConfig,
   BasketRange,
   AuctionPrices,
+  createAndSetAuctionEndsAccount,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
 import {
@@ -146,6 +147,7 @@ describe("Bankrun - Auction", () => {
       };
     };
     auctionLauncherWindowForPermissionless: number;
+    auctionEndsInitializedWithEndsAfterCurrentTime: BN | null;
   } = {
     extraTokenAmountsForFolioBasket: [],
     auctionId: new BN(1),
@@ -172,6 +174,7 @@ describe("Bankrun - Auction", () => {
       },
     },
     auctionLauncherWindowForPermissionless: 0,
+    auctionEndsInitializedWithEndsAfterCurrentTime: null,
   };
   // Lots of the tests will be done via unit testing for validating the prices, limits, etc.
   const TEST_CASE_OPEN_AUCTION = [
@@ -189,6 +192,12 @@ describe("Bankrun - Auction", () => {
           amount: new BN(0),
         },
       ],
+    },
+
+    {
+      desc: "Fail if auction ends is already initialized with endTime > currentTime",
+      expectedError: "AuctionCollision",
+      auctionEndsInitializedWithEndsAfterCurrentTime: new BN(10000000),
     },
     {
       desc: "Fail if buy token is surplus",
@@ -505,6 +514,7 @@ describe("Bankrun - Auction", () => {
             auctionId,
             sellMint,
             buyMint,
+            auctionEndsInitializedWithEndsAfterCurrentTime,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
@@ -543,6 +553,33 @@ describe("Bankrun - Auction", () => {
             rebalanceBefore = await programFolio.account.rebalance.fetch(
               getRebalancePDA(folioPDA)
             );
+
+            if (auctionEndsInitializedWithEndsAfterCurrentTime) {
+              await createAndSetAuctionEndsAccount(
+                context,
+                programFolio,
+                folioPDA,
+                rebalanceNonce,
+                sellMint.publicKey,
+                buyMint.publicKey,
+                currentTime.add(auctionEndsInitializedWithEndsAfterCurrentTime)
+              );
+            } else {
+              context.setAccount(
+                getAuctionEndsPDA(
+                  folioPDA,
+                  rebalanceNonce,
+                  sellMint.publicKey,
+                  buyMint.publicKey
+                ),
+                {
+                  executable: false,
+                  owner: SystemProgram.programId,
+                  lamports: 0,
+                  data: Buffer.alloc(0),
+                }
+              );
+            }
 
             txnResult = await openAuction<true>(
               banksClient,
@@ -684,6 +721,7 @@ describe("Bankrun - Auction", () => {
             buyMint,
             existingRebalanceParams,
             auctionLauncherWindowForPermissionless,
+            auctionEndsInitializedWithEndsAfterCurrentTime,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
@@ -738,6 +776,33 @@ describe("Bankrun - Auction", () => {
             currentTime = new BN(
               (await context.banksClient.getClock()).unixTimestamp.toString()
             );
+
+            if (auctionEndsInitializedWithEndsAfterCurrentTime) {
+              await createAndSetAuctionEndsAccount(
+                context,
+                programFolio,
+                folioPDA,
+                rebalanceNonce,
+                sellMint.publicKey,
+                buyMint.publicKey,
+                currentTime.add(auctionEndsInitializedWithEndsAfterCurrentTime)
+              );
+            } else {
+              context.setAccount(
+                getAuctionEndsPDA(
+                  folioPDA,
+                  rebalanceNonce,
+                  sellMint.publicKey,
+                  buyMint.publicKey
+                ),
+                {
+                  executable: true,
+                  owner: programFolio.programId,
+                  lamports: 0,
+                  data: Buffer.alloc(0),
+                }
+              );
+            }
 
             txnResult = await openAuctionPermissionless<true>(
               banksClient,

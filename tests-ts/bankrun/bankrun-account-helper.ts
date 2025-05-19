@@ -453,7 +453,7 @@ export async function createAndSetAuctionEndsAccount(
 ) {
   let token1 = token1Input;
   let token2 = token2Input;
-  if (token1Input > token2Input) {
+  if (token1Input.toBuffer().compare(token2Input.toBuffer()) > 0) {
     token1 = token2Input;
     token2 = token1Input;
   }
@@ -464,7 +464,7 @@ export async function createAndSetAuctionEndsAccount(
     token2
   );
 
-  const buffer = Buffer.alloc(96);
+  const buffer = Buffer.alloc(89);
   let offset = 0;
 
   // Encode discriminator

@@ -157,7 +157,7 @@ impl Auction {
             let sell_tokens = scaled_folio_token_total_supply
                 .mul(&Decimal::from_scaled(auction_spot_sell_limit))?
                 .div(&Decimal::ONE_E18)?
-                .to_scaled(Rounding::Ceiling)?;
+                .to_scaled(Rounding::Floor)?;
 
             let balance: u128 = folio_basket
                 .get_token_amount_in_folio_basket(sell_mint)?

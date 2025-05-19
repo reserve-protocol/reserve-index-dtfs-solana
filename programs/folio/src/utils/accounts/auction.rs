@@ -101,6 +101,8 @@ impl Auction {
         let sell_details = sell_details.unwrap();
         let buy_details = buy_details.unwrap();
 
+        let is_price_deferred = buy_details.prices.low == 0;
+
         if is_permissionless {
             // Only open auctions that have not timed out (ttl check) and are available to be opened permissionlessly.
             check_condition!(
@@ -110,7 +112,7 @@ impl Auction {
             );
             // If any price is non-zero, all are non-zero.
             check_condition!(
-                buy_details.prices.low != 0,
+                !is_price_deferred,
                 AuctionCannotBeOpenedPermissionlesslyWithDeferredPrice
             );
         }
@@ -178,32 +180,43 @@ impl Auction {
             check_condition!(balance < buy_tokens, BuyTokenNotDeficit);
         }
 
-        // D27{buyTok/sellTok} = D27 * D27{UoA/sellTok} / D27{UoA/buyTok}
-        let old_start_price = Decimal::from_scaled(sell_details.prices.high)
-            .mul(&Decimal::ONE_E18)?
-            .div(&Decimal::from_scaled(buy_details.prices.low))?
-            .to_scaled(Rounding::Ceiling)?;
+        let auction_price = if is_price_deferred {
+            check_condition!(
+                config.is_some(),
+                AuctionCannotBeOpenedPermissionlesslyWithDeferredPrice
+            );
+            config.unwrap().price
+        } else {
+            // D27{buyTok/sellTok} = D27 * D27{UoA/sellTok} / D27{UoA/buyTok}
+            let old_start_price = Decimal::from_scaled(sell_details.prices.high)
+                .mul(&Decimal::ONE_E18)?
+                .div(&Decimal::from_scaled(buy_details.prices.low))?
+                .to_scaled(Rounding::Ceiling)?;
 
-        let old_end_price = Decimal::from_scaled(sell_details.prices.low)
-            .mul(&Decimal::ONE_E18)?
-            .div(&Decimal::from_scaled(buy_details.prices.high))?
-            .to_scaled(Rounding::Ceiling)?;
-        let auction_price = match config {
-            Some(config) => {
-                let prices = config.price;
-                check_condition!(
-                    prices.start >= old_start_price
-                     // allow up to 100x increase
-                     && prices.start <= 100 * old_start_price
-                     && prices.end >= old_end_price,
-                    InvalidPrices
-                );
-                prices
+            let old_end_price = Decimal::from_scaled(sell_details.prices.low)
+                .mul(&Decimal::ONE_E18)?
+                .div(&Decimal::from_scaled(buy_details.prices.high))?
+                .to_scaled(Rounding::Ceiling)?;
+
+            match config {
+                Some(config) => {
+                    let prices = config.price;
+
+                    check_condition!(
+                        prices.start >= old_start_price
+                         // allow up to 100x increase
+                         && prices.start <= 100 * old_start_price
+                         && prices.end >= old_end_price,
+                        InvalidPrices
+                    );
+
+                    prices
+                }
+                None => PricesInAuction {
+                    start: old_start_price,
+                    end: old_end_price,
+                },
             }
-            None => PricesInAuction {
-                start: old_start_price,
-                end: old_end_price,
-            },
         };
 
         // update spot limits to prevent double trading in the future by openAuctionUnrestricted()

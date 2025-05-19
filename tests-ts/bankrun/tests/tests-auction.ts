@@ -173,8 +173,8 @@ describe("Bankrun - Auction", () => {
     },
     auctionLauncherWindowForPermissionless: 0,
   };
-  // Lots of the tests will be done via unit testing for validating the prices, limits, etc.
-  const TEST_CASE_OPEN_AUCTION = [
+
+  const AUCTION_COMMON_TEST_CASES = [
     {
       desc: "(is valid)",
       expectedError: null,
@@ -221,6 +221,100 @@ describe("Bankrun - Auction", () => {
         {
           mint: DEFAULT_BUY_MINT.publicKey,
           amount: new BN(10000000000).mul(D9),
+        },
+      ],
+    },
+  ];
+
+  const TEST_CASE_OPEN_AUCTION = [
+    // ...AUCTION_COMMON_TEST_CASES,
+    {
+      desc: "Allow creation of auction when the prices are deferred",
+      expectedError: null,
+      existingRebalanceParams: {
+        ...EXISTING_REBALANCE_PARAMS,
+
+        existingTokensDetails: [
+          {
+            mint: DEFAULT_BUY_MINT.publicKey,
+            basket: new BasketRange(
+              new BN(80).mul(D18),
+              new BN(1).mul(D18),
+              new BN(100).mul(D18)
+            ),
+            prices: new AuctionPrices(new BN(0), new BN(0)),
+          },
+          {
+            mint: DEFAULT_SELL_MINT.publicKey,
+            basket: new BasketRange(
+              new BN(0).mul(D18),
+              new BN(0).mul(D18),
+              new BN(0).mul(D18)
+            ),
+            prices: new AuctionPrices(new BN(0), new BN(0)),
+          },
+        ],
+      },
+      auctionConfig: {
+        ...DEFAULT_PARAMS.auctionConfig,
+        prices: {
+          start: new BN(1).mul(D18),
+          end: new BN(100).mul(D18),
+        },
+      },
+      initialFolioBasket: [
+        {
+          mint: DEFAULT_SELL_MINT.publicKey,
+          amount: new BN(1000000),
+        },
+        {
+          mint: DEFAULT_BUY_MINT.publicKey,
+          amount: new BN(0),
+        },
+      ],
+    },
+    {
+      desc: "Fail if the prices are not deferred and is increased by 101x",
+      expectedError: "InvalidPrices",
+      existingRebalanceParams: {
+        ...EXISTING_REBALANCE_PARAMS,
+
+        existingTokensDetails: [
+          {
+            mint: DEFAULT_BUY_MINT.publicKey,
+            basket: new BasketRange(
+              new BN(80).mul(D18),
+              new BN(1).mul(D18),
+              new BN(100).mul(D18)
+            ),
+            prices: new AuctionPrices(new BN(1).mul(D18), new BN(1).mul(D18)),
+          },
+          {
+            mint: DEFAULT_SELL_MINT.publicKey,
+            basket: new BasketRange(
+              new BN(0).mul(D18),
+              new BN(0).mul(D18),
+              new BN(0).mul(D18)
+            ),
+            prices: new AuctionPrices(new BN(1).mul(D18), new BN(1).mul(D18)),
+          },
+        ],
+      },
+      auctionConfig: {
+        ...DEFAULT_PARAMS.auctionConfig,
+        prices: {
+          start: new BN(102).mul(D18),
+          end: new BN(101).mul(D18),
+        },
+      },
+      initialFolioBasket: [
+        {
+          mint: DEFAULT_SELL_MINT.publicKey,
+          amount: new BN(1000000),
+        },
+        {
+          mint: DEFAULT_BUY_MINT.publicKey,
+          amount: new BN(0),
         },
       ],
     },
@@ -667,7 +761,7 @@ describe("Bankrun - Auction", () => {
       expectedError: "AuctionCannotBeOpenedPermissionlesslyYet",
     },
     // Same as open apart from the available at check
-    ...TEST_CASE_OPEN_AUCTION,
+    ...AUCTION_COMMON_TEST_CASES,
   ];
 
   describe("Specific Cases - Open Auction Permissionless", () => {

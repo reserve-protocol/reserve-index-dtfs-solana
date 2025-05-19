@@ -1540,6 +1540,7 @@ export async function claimRewards<T extends boolean = true>(
 
   if (executeTxn) {
     return createAndProcessTransaction(client, userKeypair, [
+      ...getComputeLimitInstruction(600_000),
       claimRewards,
     ]) as any;
   }

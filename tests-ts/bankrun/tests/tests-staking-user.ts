@@ -487,6 +487,9 @@ describe("Bankrun - Staking User", () => {
           new BN(0)
         ),
       ],
+      userStakedBalances: {
+        [rewardedUser1.publicKey.toBase58()]: new BN("0"), // 500e9
+      },
       rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
       expectedRewardBalanceChanges: [new BN(0)],
     },
@@ -499,11 +502,14 @@ describe("Bankrun - Staking User", () => {
       rewardInfosAlreadyThere: async () => [
         await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
       ],
+      userStakedBalances: {
+        [rewardedUser1.publicKey.toBase58()]: new BN("0"), // 500e9
+      },
       userRewardInfosAlreadyThere: [
         new UserRewardInfo(
           REWARD_TOKEN_MINTS[0].publicKey,
           rewardedUser1.publicKey,
-          new BN(1),
+          new BN(0),
           // Is stored in D18 for increase precision
           new BN(5).mul(D18)
         ),
@@ -518,6 +524,9 @@ describe("Bankrun - Staking User", () => {
         [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100).mul(D9),
         [REWARD_TOKEN_MINTS[1].publicKey.toBase58()]: new BN(100).mul(D9),
       },
+      userStakedBalances: {
+        [rewardedUser1.publicKey.toBase58()]: new BN("0"), // 500e9
+      },
       rewardInfosAlreadyThere: async () => [
         await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
         await RewardInfo.default(context, REWARD_TOKEN_MINTS[1].publicKey),
@@ -526,14 +535,14 @@ describe("Bankrun - Staking User", () => {
         new UserRewardInfo(
           REWARD_TOKEN_MINTS[0].publicKey,
           rewardedUser1.publicKey,
-          new BN(1),
+          new BN(0),
           // Is stored in D18 for increase precision
           new BN(5).mul(D18)
         ),
         new UserRewardInfo(
           REWARD_TOKEN_MINTS[1].publicKey,
           rewardedUser1.publicKey,
-          new BN(1),
+          new BN(0),
           new BN(5).mul(D18)
         ),
       ],
@@ -542,6 +551,54 @@ describe("Bankrun - Staking User", () => {
         REWARD_TOKEN_MINTS[1].publicKey,
       ],
       expectedRewardBalanceChanges: [new BN(5).mul(D9), new BN(5).mul(D9)],
+    },
+    {
+      desc: "(claimable rewards == 0, but time has passed, so it will accrue and claim.)",
+      expectedError: null,
+      rewardTokenBalances: {
+        [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(1000).mul(D9),
+        [REWARD_TOKEN_MINTS[1].publicKey.toBase58()]: new BN(1000).mul(D9),
+      },
+      rewardInfosAlreadyThere: async () => [
+        {
+          ...(await RewardInfo.default(
+            context,
+            REWARD_TOKEN_MINTS[0].publicKey
+          )),
+          balanceLastKnown: new BN(100).mul(D9),
+        },
+        {
+          ...(await RewardInfo.default(
+            context,
+            REWARD_TOKEN_MINTS[1].publicKey
+          )),
+          balanceLastKnown: new BN(1000).mul(D9),
+        },
+      ],
+      userStakedBalances: {
+        [rewardedUser1.publicKey.toBase58()]: new BN("500000000000"), // 500e9
+      },
+      timeToAddToClock: new BN(86400), // 1 day
+      userRewardInfosAlreadyThere: [
+        new UserRewardInfo(
+          REWARD_TOKEN_MINTS[0].publicKey,
+          rewardedUser1.publicKey,
+          new BN(0),
+          new BN(0)
+        ),
+        new UserRewardInfo(
+          REWARD_TOKEN_MINTS[1].publicKey,
+          rewardedUser1.publicKey,
+          new BN(0),
+          new BN(0)
+        ),
+      ],
+      rewardsTokenToClaim: [
+        REWARD_TOKEN_MINTS[0].publicKey,
+        REWARD_TOKEN_MINTS[1].publicKey,
+      ],
+      expectedRewardBalanceChanges: [new BN("50"), new BN("500")],
+      rewardRatio: new BN(2_674_178_937_345), // LN2 / 3 days
     },
   ];
 
@@ -618,7 +675,7 @@ describe("Bankrun - Staking User", () => {
 
       if (
         extraUserToClaimFor &&
-        extraUserToClaimFor !== rewardedUser1.publicKey
+        extraUserToClaimFor.toBase58() !== rewardedUser1.publicKey.toBase58()
       ) {
         userToUse.push(extraUserToClaimFor);
       }
@@ -1156,7 +1213,9 @@ describe("Bankrun - Staking User", () => {
           rewardTokenBalances,
           rewardsTokenToClaim,
           indexAccountToInvalidate,
+          userStakedBalances,
           remainingAccounts,
+          timeToAddToClock,
           expectedRewardBalanceChanges,
         } = {
           ...DEFAULT_PARAMS,
@@ -1164,7 +1223,6 @@ describe("Bankrun - Staking User", () => {
         };
 
         let rewardInfosBefore: RewardInfo[];
-        let userRewardInfosBefore: UserRewardInfo[];
 
         let rewardTokenBalancesBefore: any;
 
@@ -1177,7 +1235,8 @@ describe("Bankrun - Staking User", () => {
             new BN(1000_000_000_000),
             rewardTokenBalances,
             rewardInfosAlreadyThereToUse,
-            userRewardInfosAlreadyThere
+            userRewardInfosAlreadyThere,
+            userStakedBalances
           );
 
           await createAndSetFolio(
@@ -1210,13 +1269,11 @@ describe("Bankrun - Staking User", () => {
 
           // Save before values, for our later assertions (only if no error, else useless)
           if (!expectedError) {
-            ({
-              rewardInfos: rewardInfosBefore,
-              userRewardInfos: userRewardInfosBefore,
-            } = await getRewardsInfoAndUserRewardInfos(
-              rewardsTokenToClaim,
-              rewardedUser1.publicKey
-            ));
+            ({ rewardInfos: rewardInfosBefore } =
+              await getRewardsInfoAndUserRewardInfos(
+                rewardsTokenToClaim,
+                rewardedUser1.publicKey
+              ));
 
             rewardTokenBalancesBefore = await getTokenBalancesFromMints(
               context,
@@ -1224,6 +1281,17 @@ describe("Bankrun - Staking User", () => {
               [rewardedUser1.publicKey]
             );
           }
+          const currentClock = await context.banksClient.getClock();
+
+          context.setClock(
+            new Clock(
+              currentClock.slot,
+              currentClock.epochStartTimestamp,
+              currentClock.epoch,
+              currentClock.leaderScheduleEpoch,
+              currentClock.unixTimestamp + BigInt(timeToAddToClock.toNumber())
+            )
+          );
 
           txnResult = await claimRewards<true>(
             context,
@@ -1273,14 +1341,13 @@ describe("Bankrun - Staking User", () => {
 
             // Assert user reward infos (only accrued rewards and last reward index changed)
             for (let i = 0; i < userRewardInfos.length; i++) {
-              // Need to be reset to 0
-              assert.equal(
-                userRewardInfos[i].accruedRewards.eq(new BN(0)),
-                true
-              );
+              // We reduce the distributed fees in raw quantities, the minimum value we can have it 10**9
+              assert.equal(userRewardInfos[i].accruedRewards.lt(D9), true);
+
+              // We accrue rewards in the instruction, so both will match
               assert.equal(
                 userRewardInfos[i].lastRewardIndex.eq(
-                  userRewardInfosBefore[i].lastRewardIndex
+                  rewardInfos[i].rewardIndex
                 ),
                 true
               );

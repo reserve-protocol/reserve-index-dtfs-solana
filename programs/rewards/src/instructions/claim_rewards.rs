@@ -95,21 +95,6 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
         InvalidNumberOfRemainingAccounts
     );
 
-    // Accrue the rewards before
-    RewardsProgramInternal::accrue_rewards(
-        &ctx.accounts.system_program,
-        &ctx.accounts.token_program,
-        &ctx.accounts.realm,
-        &ctx.accounts.governance_token_mint,
-        &ctx.accounts.governance_staked_token_account,
-        &ctx.accounts.user,
-        &ctx.accounts.caller_governance_token_account,
-        &ctx.accounts.reward_tokens,
-        // Only the first 4 accounts are needed for the accrue rewards instruction, the last one is for claim only
-        &ctx.remaining_accounts[0..REMAINING_ACCOUNTS_UPPER_INDEX_FOR_ACCRUE_REWARDS],
-        true,
-    )?;
-
     // Proceed with the claim rewards
     let reward_tokens = ctx.accounts.reward_tokens.load()?;
 
@@ -123,7 +108,24 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
 
     let mut remaining_accounts_iter = ctx.remaining_accounts.iter();
 
-    for _ in 0..ctx.remaining_accounts.len() / REMAINING_ACCOUNTS_DIVIDER {
+    for i in 0..ctx.remaining_accounts.len() / REMAINING_ACCOUNTS_DIVIDER {
+        // Accrue the rewards before
+        RewardsProgramInternal::accrue_rewards(
+            &ctx.accounts.system_program,
+            &ctx.accounts.token_program,
+            &ctx.accounts.realm,
+            &ctx.accounts.governance_token_mint,
+            &ctx.accounts.governance_staked_token_account,
+            &ctx.accounts.user,
+            &ctx.accounts.caller_governance_token_account,
+            &ctx.accounts.reward_tokens,
+            // Only the first `REMAINING_ACCOUNTS_UPPER_INDEX_FOR_ACCRUE_REWARDS` accounts are needed for the accrue rewards instruction, the last one is for claim only
+            &ctx.remaining_accounts[i * REMAINING_ACCOUNTS_DIVIDER
+                ..(i * REMAINING_ACCOUNTS_DIVIDER)
+                    + REMAINING_ACCOUNTS_UPPER_INDEX_FOR_ACCRUE_REWARDS],
+            true,
+        )?;
+
         let reward_token = next_account(
             &mut remaining_accounts_iter,
             false,

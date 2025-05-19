@@ -23,6 +23,14 @@ impl AuctionEnds {
     ) -> Result<()> {
         let (token_mint_1, token_mint_2) = AuctionEnds::keys_pair_in_order(sell_token, buy_token);
 
+        if bump == self.bump
+            && token_mint_1 == self.token_mint_1
+            && token_mint_2 == self.token_mint_2
+        {
+            // Already initialized
+            return Ok(());
+        }
+
         self.bump = bump;
         self.rebalance_nonce = rebalance_nonce;
         self.token_mint_1 = token_mint_1;

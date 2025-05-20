@@ -1,5 +1,6 @@
 use crate::state::{Folio, FolioBasket, UserPendingBasket};
 use crate::utils::structs::FolioStatus;
+use crate::utils::MinimumOutForTokenAmount;
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
@@ -17,7 +18,6 @@ use shared::{check_condition, constants::PendingBasketType};
 /// Burn folio tokens from a user's folio token account.
 ///
 /// # Arguments
-/// * `system_program` - The system program.
 /// * `token_program` - The token program.
 /// * `associated_token_program` - The associated token program.
 /// * `user` - The user account (mut, signer).
@@ -30,7 +30,6 @@ use shared::{check_condition, constants::PendingBasketType};
 /// * `user_folio_token_account` - The user folio token account (PDA) (mut, not signer).
 #[derive(Accounts)]
 pub struct BurnFolioToken<'info> {
-    pub system_program: Program<'info, System>,
     pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
 
@@ -108,9 +107,14 @@ impl BurnFolioToken<'_> {
 /// # Arguments
 /// * `ctx` - The context of the instruction.
 /// * `raw_shares` - The amount of shares the user wants to burn (D9).
+/// * `minimum_out_for_token_amounts` - A vector of token mint addresses and their corresponding minimum
+///   output amounts that the user expects to receive during redemption. While a folio can contain up
+///   to 100 tokens, users can specify minimum amounts for just their tokens of interest. This acts as
+///   a slippage protection mechanism for the redemption process.
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, BurnFolioToken<'info>>,
     raw_shares: u64,
+    minimum_out_for_token_amounts: Vec<MinimumOutForTokenAmount>,
 ) -> Result<()> {
     let current_time = Clock::get()?.unix_timestamp;
 
@@ -142,6 +146,7 @@ pub fn handler<'info>(
             fee_details.scaled_fee_numerator,
             fee_details.scaled_fee_denominator,
             fee_details.scaled_fee_floor,
+            minimum_out_for_token_amounts,
         )?;
     }
 

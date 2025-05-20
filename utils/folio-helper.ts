@@ -481,14 +481,14 @@ export async function burnFolioToken(
   userKeypair: Keypair,
   folio: PublicKey,
   folioTokenMint: PublicKey,
-  amountToBurn: BN
+  amountToBurn: BN,
+  minimumOutForTokenAmounts: { mint: PublicKey; minimumOut: BN }[] = []
 ) {
   const folioProgram = getFolioProgram(connection, userKeypair);
 
   const burnFolioTokenIx = await folioProgram.methods
-    .burnFolioToken(amountToBurn)
+    .burnFolioToken(amountToBurn, minimumOutForTokenAmounts)
     .accountsPartial({
-      systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,

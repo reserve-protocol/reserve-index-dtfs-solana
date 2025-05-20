@@ -45,3 +45,10 @@ impl Default for UserTokenBasket {
 
 unsafe impl Pod for UserTokenBasket {}
 unsafe impl Zeroable for UserTokenBasket {}
+
+/// Used for slippage protection when burning folio tokens.
+#[derive(AnchorSerialize, AnchorDeserialize)]
+pub struct MinimumOutForTokenAmount {
+    pub mint: Pubkey,
+    pub minimum_out: u64,
+}

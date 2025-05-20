@@ -645,13 +645,12 @@ export async function burnFolioToken<T extends boolean = true>(
   folio: PublicKey,
   folioTokenMint: PublicKey,
   amountToBurn: BN,
-  tokens: { mint: PublicKey; amount: BN }[],
+  tokens: { mint: PublicKey; minimumOut: BN }[] = [],
   executeTxn: T = true as T
 ) {
   const burnFolioTokenIx = await programFolio.methods
-    .burnFolioToken(amountToBurn)
+    .burnFolioToken(amountToBurn, tokens)
     .accountsPartial({
-      systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,

@@ -215,8 +215,9 @@ pub mod folio {
     pub fn burn_folio_token<'info>(
         ctx: Context<'_, '_, 'info, 'info, BurnFolioToken<'info>>,
         raw_shares: u64,
+        minimum_out_for_token_amounts: Vec<MinimumOutForTokenAmount>,
     ) -> Result<()> {
-        burn_folio_token::handler(ctx, raw_shares)
+        burn_folio_token::handler(ctx, raw_shares, minimum_out_for_token_amounts)
     }
 
     pub fn redeem_from_pending_basket<'info>(

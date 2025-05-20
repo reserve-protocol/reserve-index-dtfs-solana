@@ -115,6 +115,7 @@ describe("Bankrun - Folio redeeming", () => {
     // Expected changes
     expectedFolioTokenBalanceChange: BN;
     expectedTokenBalanceChanges: BN[];
+    minimumOutForTokenAmounts: { mint: PublicKey; minimumOut: BN }[];
   } = {
     alreadyIncludedTokens: [],
     tokens: [],
@@ -133,6 +134,7 @@ describe("Bankrun - Folio redeeming", () => {
     // Expected changes
     expectedFolioTokenBalanceChange: new BN(0),
     expectedTokenBalanceChanges: Array(MINTS.length).fill(new BN(0)),
+    minimumOutForTokenAmounts: [],
   };
 
   const TEST_CASES_BURN_FOLIO_TOKEN = [
@@ -153,6 +155,32 @@ describe("Bankrun - Folio redeeming", () => {
       tokens: [{ mint: MINTS[0].publicKey, amount: new BN(0) }],
       // User has 0 right now
       shares: new BN(1),
+    },
+    {
+      desc: "(user burns token, but minimum out is not met, errors out)",
+      expectedError: "MinimumAmountOutNotMet",
+      folioBasketTokens: [
+        new FolioTokenAmount(MINTS[0].publicKey, new BN(1_000).mul(D9)),
+        new FolioTokenAmount(MINTS[1].publicKey, new BN(1_000).mul(D9)),
+      ],
+      alreadyIncludedTokens: [
+        new TokenAmount(MINTS[0].publicKey, new BN(0), new BN(0)),
+        new TokenAmount(MINTS[1].publicKey, new BN(0), new BN(0)),
+      ],
+      tokens: [
+        { mint: MINTS[0].publicKey, amount: new BN(0) },
+        { mint: MINTS[1].publicKey, amount: new BN(0) },
+      ],
+      initialUserShares: new BN(1_000_000_000),
+      shares: new BN(1_000_000_000),
+      minimumOutForTokenAmounts: [
+        {
+          mint: MINTS[0].publicKey,
+          minimumOut: new BN(1_000_000_000).add(new BN(1)),
+        },
+      ],
+      // Folio fee config should be set
+      customFolioFeeConfig: true,
     },
     {
       // Folio balances are 1000 tokens each
@@ -496,6 +524,7 @@ describe("Bankrun - Folio redeeming", () => {
             shares,
             customFolioTokenMint,
             customFolioFeeConfig,
+            minimumOutForTokenAmounts,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
@@ -559,8 +588,7 @@ describe("Bankrun - Folio redeeming", () => {
                 folioPDA,
                 tokenMintToUse.publicKey,
                 shares,
-                tokens,
-
+                minimumOutForTokenAmounts,
                 true
               );
             } catch (e) {

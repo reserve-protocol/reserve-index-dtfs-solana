@@ -158,6 +158,7 @@ pub fn handler<'info>(
             fee_details.scaled_fee_numerator,
             fee_details.scaled_fee_denominator,
             fee_details.scaled_fee_floor,
+            vec![],
         )?;
     }
 

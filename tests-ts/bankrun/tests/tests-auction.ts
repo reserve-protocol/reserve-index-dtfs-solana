@@ -648,7 +648,7 @@ describe("Bankrun - Auction", () => {
               getRebalancePDA(folioPDA)
             );
 
-            if (auctionEndsInitializedWithEndsAfterCurrentTime) {
+            if (auctionEndsInitializedWithEndsAfterCurrentTime != null) {
               await createAndSetAuctionEndsAccount(
                 context,
                 programFolio,
@@ -871,7 +871,7 @@ describe("Bankrun - Auction", () => {
               (await context.banksClient.getClock()).unixTimestamp.toString()
             );
 
-            if (auctionEndsInitializedWithEndsAfterCurrentTime) {
+            if (auctionEndsInitializedWithEndsAfterCurrentTime != null) {
               await createAndSetAuctionEndsAccount(
                 context,
                 programFolio,

@@ -575,6 +575,7 @@ mod tests {
             &decimal_total_supply,
             &decimal_folio_balance,
             &shares,
+            None,
         );
 
         assert!(result.is_ok());
@@ -607,12 +608,46 @@ mod tests {
             &decimal_total_supply,
             &decimal_folio_balance,
             &shares,
+            None,
         );
 
         assert!(result.is_ok());
 
         assert_eq!(user_amount.amount_for_redeeming, 333_333);
         assert_eq!(related_mint.amount, 99666667);
+    }
+
+    #[test]
+    fn test_to_assets_for_redeeming_minimum_amount_out() {
+        let mut user_amount = TokenAmount {
+            mint: Pubkey::new_unique(),
+            amount_for_minting: 0,
+            amount_for_redeeming: 0,
+        };
+
+        let mut related_mint = FolioTokenAmount {
+            mint: user_amount.mint,
+            amount: 100_000_000,
+        };
+
+        let decimal_total_supply = Decimal::from_token_amount(3_000_000u128).unwrap();
+        let decimal_folio_balance = Decimal::from_token_amount(1_000_000u128).unwrap();
+        let shares = Decimal::from_token_amount(1_000_000u64).unwrap(); // D9
+
+        let result = UserPendingBasket::to_assets_for_redeeming(
+            &mut user_amount,
+            &mut related_mint,
+            &decimal_total_supply,
+            &decimal_folio_balance,
+            &shares,
+            Some(100_000_000),
+        );
+
+        assert!(result.is_err()); // Should fail due to division by zero
+        assert_eq!(
+            result.unwrap_err(),
+            ErrorCode::MinimumAmountOutNotMet.into()
+        );
     }
 
     #[test]
@@ -638,6 +673,7 @@ mod tests {
             &decimal_total_supply,
             &decimal_folio_balance,
             &shares,
+            None,
         );
 
         assert!(result.is_err()); // Should fail due to division by zero
@@ -666,6 +702,7 @@ mod tests {
             &decimal_total_supply,
             &decimal_folio_balance,
             &shares,
+            None,
         );
 
         assert!(result.is_ok());

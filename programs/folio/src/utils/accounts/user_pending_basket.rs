@@ -1,6 +1,6 @@
 use std::cell::RefMut;
 
-use crate::utils::token_amount::TokenAmount;
+use crate::utils::token_amount::{MinimumOutForTokenAmount, TokenAmount};
 use crate::utils::FolioTokenAmount;
 use anchor_lang::prelude::*;
 use shared::check_condition;
@@ -236,8 +236,10 @@ impl UserPendingBasket {
         scaled_dao_fee_numerator: u128,
         scaled_dao_fee_denominator: u128,
         scaled_dao_fee_floor: u128,
+        minimum_out_for_token_amounts: Vec<MinimumOutForTokenAmount>,
     ) -> Result<()> {
         // Poke the folio to make sure we get the latest fee shares
+
         folio.poke(
             raw_folio_token_supply,
             current_time,
@@ -264,6 +266,11 @@ impl UserPendingBasket {
             let scaled_folio_token_balance =
                 Decimal::from_token_amount(folio_token_account.amount)?;
 
+            let minimum_amount_out = minimum_out_for_token_amounts
+                .iter()
+                .find(|m| m.mint == folio_token_account.mint)
+                .map(|a| a.minimum_out);
+
             match pending_basket_type {
                 PendingBasketType::MintProcess => {
                     UserPendingBasket::to_assets_for_minting(
@@ -281,6 +288,7 @@ impl UserPendingBasket {
                         &scaled_total_supply_folio_token,
                         &scaled_folio_token_balance,
                         &raw_shares,
+                        minimum_amount_out,
                     )?;
                 }
             }
@@ -345,12 +353,14 @@ impl UserPendingBasket {
     /// * `scaled_total_supply_folio_token` - The total supply of the folio mint token (D9).
     /// * `scaled_folio_token_balance` - The balance of the folio in folio mint token (D9).
     /// * `raw_shares` - The shares to convert to assets. (the amount of shares the user wants to redeem) (D9).
+    /// * `minimum_amount_out` - The minimum amount out for the token, only used when redeeming.
     pub fn to_assets_for_redeeming(
         raw_user_amount: &mut TokenAmount,
         folio_token_amount: &mut FolioTokenAmount,
         scaled_total_supply_folio_token: &Decimal,
         scaled_folio_token_balance: &Decimal,
         raw_shares: &Decimal,
+        minimum_amount_out: Option<u64>,
     ) -> Result<()> {
         let raw_amount_to_give_to_user = raw_shares
             .mul(scaled_folio_token_balance)?
@@ -368,6 +378,13 @@ impl UserPendingBasket {
             .amount
             .checked_sub(raw_amount_to_give_to_user.0)
             .ok_or(ErrorCode::MathOverflow)?;
+
+        if let Some(minimum_amount_out) = minimum_amount_out {
+            check_condition!(
+                raw_amount_to_give_to_user.0 >= minimum_amount_out,
+                MinimumAmountOutNotMet
+            );
+        }
 
         Ok(())
     }

@@ -303,6 +303,9 @@ pub enum ErrorCode {
 
     #[msg("Rebalance mints and prices and limits length mismatch")]
     RebalanceMintsAndPricesAndLimitsLengthMismatch,
+
+    #[msg("Minimum amount out not met")]
+    MinimumAmountOutNotMet,
 }
 
 /// Check a condition and return an error if it is not met.

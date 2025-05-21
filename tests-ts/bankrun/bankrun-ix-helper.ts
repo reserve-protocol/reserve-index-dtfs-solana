@@ -13,6 +13,7 @@ import {
   getFolioFeeConfigPDA,
   getRewardTokensPDA,
   getAuctionEndsPDA,
+  getGovernanceHoldingPDA,
 } from "../../utils/pda-helper";
 import {
   AccountMeta,
@@ -1380,6 +1381,7 @@ export async function removeRewardToken<T extends boolean = true>(
   rewardAdmin: PublicKey,
   realm: PublicKey,
   rewardTokenToRemove: PublicKey,
+  governanceTokenMint: PublicKey,
 
   executeTxn: T = true as T
 ): Promise<
@@ -1396,8 +1398,15 @@ export async function removeRewardToken<T extends boolean = true>(
       realm,
       rewardTokens: getRewardTokensPDA(realm),
       rewardTokenToRemove,
+      governanceTokenMint: governanceTokenMint,
+      governanceStakedTokenAccount: getGovernanceHoldingPDA(
+        realm,
+        governanceTokenMint
+      ),
     })
     .instruction();
+
+  console.log("instruction accouunts", removeRewardToken.keys);
 
   if (executeTxn) {
     return createAndProcessTransaction(client, executor, [

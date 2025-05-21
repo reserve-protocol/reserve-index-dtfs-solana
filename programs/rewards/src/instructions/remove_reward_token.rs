@@ -1,7 +1,7 @@
 use crate::events::RewardTokenRemoved;
 use crate::state::{RewardInfo, RewardTokens};
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::Mint;
+use anchor_spl::token_interface::{Mint, TokenAccount};
 use shared::check_condition;
 use shared::constants::{REWARD_INFO_SEEDS, REWARD_TOKENS_SEEDS};
 use shared::errors::ErrorCode;
@@ -24,8 +24,8 @@ pub struct RemoveRewardToken<'info> {
     pub executor: Signer<'info>,
 
     /// CHECK: The reward admin (governance account)
-    #[account(signer)]
-    pub reward_admin: UncheckedAccount<'info>,
+    #[account()]
+    pub reward_admin: Signer<'info>,
 
     /// CHECK: Realm
     #[account()]
@@ -37,6 +37,14 @@ pub struct RemoveRewardToken<'info> {
     )]
     pub reward_tokens: AccountLoader<'info, RewardTokens>,
 
+    /// CHECK: the governance's token mint (community mint)
+    #[account()]
+    pub governance_token_mint: UncheckedAccount<'info>,
+
+    /// CHECK: the governance's token account of all tokens staked
+    #[account()]
+    pub governance_staked_token_account: UncheckedAccount<'info>,
+
     #[account(mut,
         seeds = [REWARD_INFO_SEEDS, realm.key().as_ref(), reward_token_to_remove.key().as_ref()],
         bump
@@ -45,6 +53,12 @@ pub struct RemoveRewardToken<'info> {
 
     #[account()]
     pub reward_token_to_remove: Box<InterfaceAccount<'info, Mint>>,
+
+    #[account(
+        associated_token::mint = reward_token_to_remove,
+        associated_token::authority = reward_tokens,
+    )]
+    pub token_rewards_token_account: InterfaceAccount<'info, TokenAccount>,
 }
 
 impl RemoveRewardToken<'_> {
@@ -77,9 +91,15 @@ impl RemoveRewardToken<'_> {
 pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, RemoveRewardToken<'info>>) -> Result<()> {
     ctx.accounts.validate()?;
 
+    let current_time = Clock::get()?.unix_timestamp;
     ctx.accounts.reward_tokens.load_mut()?.remove_reward_token(
         &ctx.accounts.reward_token_to_remove.key(),
+        &ctx.accounts.realm.key(),
+        &ctx.accounts.governance_token_mint,
+        &ctx.accounts.governance_staked_token_account,
         &mut ctx.accounts.reward_token_reward_info,
+        &ctx.accounts.token_rewards_token_account,
+        current_time as u64,
     )?;
 
     emit!(RewardTokenRemoved {

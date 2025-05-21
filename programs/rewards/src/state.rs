@@ -28,7 +28,7 @@ pub struct RewardTokens {
 
     // List of current tracked reward tokens
     // Default pubkey means not set.
-    /// Max of 30 reward tokens.
+    /// Max of 4 reward tokens.
     pub reward_tokens: [Pubkey; MAX_REWARD_TOKENS],
 }
 

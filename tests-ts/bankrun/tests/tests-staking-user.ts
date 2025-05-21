@@ -142,6 +142,7 @@ describe("Bankrun - Staking User", () => {
     expectedBalanceAccountedChanges: BN[];
     expectedAccruedRewardsChanges: BN[];
     expectedRewardBalanceChanges: BN[];
+    expectNoChangeInRewardInfos: boolean;
   } = {
     customFolioTokenMint: null,
     customRole: Role.Owner,
@@ -174,6 +175,7 @@ describe("Bankrun - Staking User", () => {
     expectedBalanceAccountedChanges: [],
     expectedAccruedRewardsChanges: [],
     expectedRewardBalanceChanges: [],
+    expectNoChangeInRewardInfos: false,
   };
 
   const TEST_ACCRUE_REWARDS = [
@@ -318,6 +320,60 @@ describe("Bankrun - Staking User", () => {
         new BN("26740823977658100"), // User1 (1/3 share)
         new BN("53481647955316200"), // User2 (2/3 share)
       ],
+    },
+    {
+      desc: "(accrue, does nothing if the reward is disallowed)",
+      expectedError: null,
+      rewardInfosAlreadyThere: async () => [
+        {
+          ...(await RewardInfo.default(
+            context,
+            REWARD_TOKEN_MINTS[0].publicKey
+          )),
+          // This is the initial balance of the reward token in the realm
+          isDisallowed: true,
+        },
+      ],
+      userStakedBalances: {
+        [rewardedUser1.publicKey.toBase58()]: new BN(100).mul(D9),
+      },
+      rewardTokenBalances: {
+        [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100), // is multipled by decimals in function
+      },
+      rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
+      timeToAddToClock: new BN(10),
+      runTwice: false,
+      expectedBalanceAccountedChanges: [new BN("0")],
+      expectedAccruedRewardsChanges: [new BN("0")],
+      expectNoChangeInRewardInfos: true,
+    },
+    {
+      desc: "(accrue, if reward disallowed, but it has an index, calculate reward for user)",
+      expectedError: null,
+      rewardInfosAlreadyThere: async () => [
+        {
+          ...(await RewardInfo.default(
+            context,
+            REWARD_TOKEN_MINTS[0].publicKey
+          )),
+          rewardIndex: new BN(100000000),
+          // This is the initial balance of the reward token in the realm
+          isDisallowed: true,
+        },
+      ],
+      userStakedBalances: {
+        [rewardedUser1.publicKey.toBase58()]: new BN(100).mul(D9),
+      },
+      rewardTokenBalances: {
+        [REWARD_TOKEN_MINTS[0].publicKey.toBase58()]: new BN(100), // is multipled by decimals in function
+      },
+      rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
+      timeToAddToClock: new BN(10),
+      runTwice: false,
+      expectedBalanceAccountedChanges: [new BN("0")],
+      expectedRewardIndex: [new BN("100000000")],
+      expectedAccruedRewardsChanges: [new BN("10000000000")],
+      expectNoChangeInRewardInfos: true,
     },
     {
       desc: "(accrue for both users and rewards, 60 seconds later, succeeds)",
@@ -931,6 +987,7 @@ describe("Bankrun - Staking User", () => {
           governanceHoldingTokenAccount,
           callerGovernanceTokenAccount,
           userGovernanceTokenAccount,
+          expectNoChangeInRewardInfos,
         } = {
           ...DEFAULT_PARAMS,
           ...restOfParams,
@@ -1092,67 +1149,82 @@ describe("Bankrun - Staking User", () => {
               );
 
             for (let i = 0; i < rewardInfos.length; i++) {
-              const initialRewardTokenBalanceOfRealm = (
-                rewardTokenBalances[rewardInfos[i].rewardToken.toBase58()] ??
-                new BN(0)
-              ).mul(D18);
-
-              assert.equal(
-                rewardInfos[i].balanceLastKnown.eq(
-                  rewardInfosBefore[i].balanceLastKnown.add(
-                    initialRewardTokenBalanceOfRealm
-                  )
-                ),
-                true
-              );
-
-              assert.equal(
-                rewardInfos[i].totalClaimed.eq(
-                  rewardInfosBefore[i].totalClaimed
-                ),
-                true
-              );
-
-              assert.equal(
-                rewardInfos[i].payoutLastPaid.eq(
-                  rewardInfosBefore[i].payoutLastPaid.add(
-                    new BN(
-                      runTwice
-                        ? timeToAddToClock.mul(new BN(2))
-                        : timeToAddToClock
+              if (expectNoChangeInRewardInfos) {
+                assert.equal(
+                  rewardInfos[i].payoutLastPaid.eq(
+                    rewardInfosBefore[i].payoutLastPaid
+                  ),
+                  true
+                );
+                assert.equal(
+                  rewardInfos[i].rewardIndex.eq(
+                    rewardInfosBefore[i].rewardIndex
+                  ),
+                  true
+                );
+              } else {
+                const initialRewardTokenBalanceOfRealm = (
+                  rewardTokenBalances[rewardInfos[i].rewardToken.toBase58()] ??
+                  new BN(0)
+                ).mul(D18);
+                assert.equal(
+                  rewardInfos[i].balanceLastKnown.eq(
+                    rewardInfosBefore[i].balanceLastKnown.add(
+                      initialRewardTokenBalanceOfRealm
                     )
-                  )
-                ),
-                true
-              );
+                  ),
+                  true
+                );
 
-              const expectedBalanceAccounted =
-                expectedBalanceAccountedChanges.length > i
-                  ? expectedBalanceAccountedChanges[i]
-                  : new BN(0);
+                assert.equal(
+                  rewardInfos[i].totalClaimed.eq(
+                    rewardInfosBefore[i].totalClaimed
+                  ),
+                  true
+                );
 
-              assert.equal(
-                rewardInfos[i].balanceAccounted.eq(
-                  rewardInfosBefore[i].balanceAccounted.add(
-                    expectedBalanceAccounted
-                  )
-                ),
-                true
-              );
+                assert.equal(
+                  rewardInfos[i].payoutLastPaid.eq(
+                    rewardInfosBefore[i].payoutLastPaid.add(
+                      new BN(
+                        runTwice
+                          ? timeToAddToClock.mul(new BN(2))
+                          : timeToAddToClock
+                      )
+                    )
+                  ),
+                  true
+                );
 
-              const expectedRewardIndexToUse =
-                expectedRewardIndex.length > i
-                  ? expectedRewardIndex[i]
-                  : new BN(0);
+                const expectedBalanceAccounted =
+                  expectedBalanceAccountedChanges.length > i
+                    ? expectedBalanceAccountedChanges[i]
+                    : new BN(0);
 
-              assert.equal(
-                rewardInfos[i].rewardIndex.eq(
-                  rewardInfosBefore[i].rewardIndex.add(expectedRewardIndexToUse)
-                ),
-                true
-              );
+                assert.equal(
+                  rewardInfos[i].balanceAccounted.eq(
+                    rewardInfosBefore[i].balanceAccounted.add(
+                      expectedBalanceAccounted
+                    )
+                  ),
+                  true
+                );
+
+                const expectedRewardIndexToUse =
+                  expectedRewardIndex.length > i
+                    ? expectedRewardIndex[i]
+                    : new BN(0);
+
+                assert.equal(
+                  rewardInfos[i].rewardIndex.eq(
+                    rewardInfosBefore[i].rewardIndex.add(
+                      expectedRewardIndexToUse
+                    )
+                  ),
+                  true
+                );
+              }
             }
-
             const defaultUserRewardInfo = UserRewardInfo.default(
               rewardsTokenToClaim[0],
               extraUser

@@ -1,6 +1,7 @@
 use crate::events::RewardRatioSet;
 use crate::state::{RewardInfo, RewardTokens};
 use anchor_lang::prelude::*;
+use anchor_spl::token_interface::TokenAccount;
 use shared::check_condition;
 use shared::constants::{LN_2, MAX_REWARD_HALF_LIFE, MIN_REWARD_HALF_LIFE};
 use shared::errors::ErrorCode;
@@ -91,11 +92,37 @@ impl RewardTokens {
     /// * `reward_token` - The reward token to remove.
     /// * `reward_info` - The reward info account to update.
     #[cfg(not(tarpaulin_include))]
-    pub fn remove_reward_token(
+    #[allow(clippy::too_many_arguments)]
+    pub fn remove_reward_token<'info>(
         &mut self,
         reward_token: &Pubkey,
+        realm_key: &Pubkey,
+        governance_token_mint: &AccountInfo<'info>,
+        governance_staked_token_account: &AccountInfo<'info>,
         reward_info: &mut Account<RewardInfo>,
+        token_rewards_token_account: &InterfaceAccount<'info, TokenAccount>,
+        current_time: u64,
     ) -> Result<()> {
+        // Get the total balance of staked governance tokens in the Realm
+        {
+            use crate::utils::GovernanceUtil;
+            let (raw_governance_staked_token_account_balance, governance_token_decimals) =
+                GovernanceUtil::get_realm_staked_balance_and_mint_decimals(
+                    realm_key,
+                    governance_token_mint,
+                    governance_staked_token_account,
+                )?;
+
+            // Before the removal of rewards accrue_rewards_till_now
+            reward_info.accrue_rewards(
+                self.reward_ratio,
+                token_rewards_token_account.amount,
+                raw_governance_staked_token_account_balance,
+                governance_token_decimals,
+                current_time,
+            )?;
+        }
+
         let reward_token_position = self
             .reward_tokens
             .iter()

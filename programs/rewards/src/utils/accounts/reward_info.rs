@@ -56,7 +56,11 @@ impl RewardInfo {
         current_token_decimals: u8,
         current_time: u64,
     ) -> Result<()> {
-        check_condition!(!self.is_disallowed, DisallowedRewardToken);
+        if self.is_disallowed {
+            // We want to allow users to accrue rewards until the time when reward token was removed.
+            // But any further index updates are forbidden.
+            return Ok(());
+        }
 
         let (elapsed, overflow) = current_time.overflowing_sub(self.payout_last_paid);
 

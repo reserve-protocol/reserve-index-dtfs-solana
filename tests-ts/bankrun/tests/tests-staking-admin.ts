@@ -39,6 +39,7 @@ import {
 import {
   getFolioPDA,
   getGovernanceHoldingPDA,
+  getRewardInfoPDA,
   getRewardTokensPDA,
   getUserTokenRecordRealmsPDA,
 } from "../../../utils/pda-helper";
@@ -59,6 +60,7 @@ import {
   setupGovernanceAccounts,
 } from "../bankrun-governance-helper";
 import { Rewards } from "../../../target/types/rewards";
+import { TestHelper } from "../../../utils/test-helper";
 
 /**
  * Tests for staking admin functionality, including:
@@ -103,6 +105,7 @@ describe("Bankrun - Staking Admin", () => {
   const GOVERNANCE_MINT = Keypair.generate();
 
   const DEFAULT_PARAMS: {
+    rewardInfos: () => Promise<RewardInfo[]>;
     customFolioTokenMint: Keypair | null;
 
     rewardToken: PublicKey;
@@ -115,6 +118,7 @@ describe("Bankrun - Staking Admin", () => {
 
     expectedRewardRatio: BN;
   } = {
+    rewardInfos: async () => [],
     customFolioTokenMint: null,
 
     rewardToken: null,
@@ -200,12 +204,18 @@ describe("Bankrun - Staking Admin", () => {
       expectedError: "RewardNotRegistered",
       alreadyAddedTokenRewards: [],
       rewardToken: REWARD_TOKEN_MINTS[1].publicKey,
+      rewardInfos: async () => [
+        await RewardInfo.default(context, REWARD_TOKEN_MINTS[1].publicKey),
+      ],
     },
     {
       desc: "(is valid, succeeds)",
       expectedError: null,
       alreadyAddedTokenRewards: [REWARD_TOKEN_MINTS[1].publicKey],
       rewardToken: REWARD_TOKEN_MINTS[1].publicKey,
+      rewardInfos: async () => [
+        await RewardInfo.default(context, REWARD_TOKEN_MINTS[1].publicKey),
+      ],
     },
   ];
 
@@ -273,6 +283,8 @@ describe("Bankrun - Staking Admin", () => {
       Role.Owner
     );
 
+    const rewardTokensPDA = getRewardTokensPDA(realmPDA);
+
     // Init the reward tokens
     for (const rewardTokenMint of REWARD_TOKEN_MINTS) {
       initToken(context, rewardsAdminPDA, rewardTokenMint, DEFAULT_DECIMALS);
@@ -286,6 +298,19 @@ describe("Bankrun - Staking Admin", () => {
         context,
         rewardTokenMint.publicKey,
         rewardedUser2.publicKey
+      );
+
+      // Create associated token account for the reward token
+      await getOrCreateAtaAddress(
+        context,
+        rewardTokenMint.publicKey,
+        rewardsAdminPDA
+      );
+      // Create associated token account for the reward token
+      await getOrCreateAtaAddress(
+        context,
+        rewardTokenMint.publicKey,
+        rewardTokensPDA
       );
     }
 
@@ -544,6 +569,7 @@ describe("Bankrun - Staking Admin", () => {
             rewardToken,
             alreadyAddedTokenRewards,
             disallowedTokenRewards,
+            rewardInfos,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
@@ -586,6 +612,17 @@ describe("Bankrun - Staking Admin", () => {
 
             await travelFutureSlot(context);
 
+            // Init reward info if provided
+            const rewardInfosPresent = await rewardInfos();
+            for (const rewardInfo of rewardInfosPresent) {
+              await createAndSetRewardInfo(
+                context,
+                programRewards,
+                realmPDA,
+                rewardInfo
+              );
+            }
+
             txnResult = await getGovernanceTxn(async () =>
               removeRewardToken<false>(
                 banksClient,
@@ -594,6 +631,7 @@ describe("Bankrun - Staking Admin", () => {
                 rewardsAdminPDA,
                 realmPDA,
                 rewardToken,
+                GOVERNANCE_MINT.publicKey,
                 false
               )
             );
@@ -630,6 +668,14 @@ describe("Bankrun - Staking Admin", () => {
                   expectedRewardTokensArray[i].toBase58()
                 );
               }
+
+              const rewardInfo = await programRewards.account.rewardInfo.fetch(
+                getRewardInfoPDA(realmPDA, rewardToken)
+              );
+              const currentTime = new BN(
+                (await context.banksClient.getClock()).unixTimestamp.toString()
+              );
+              TestHelper.assertTime(rewardInfo.payoutLastPaid, currentTime);
             });
           }
         });

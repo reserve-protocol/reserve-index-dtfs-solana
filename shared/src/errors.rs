@@ -229,6 +229,9 @@ pub enum ErrorCode {
     #[msg("Invalid Governance Account")]
     InvalidGovernanceAccount,
 
+    #[msg("Invalid Community Mint")]
+    InvalidCommunityMint,
+
     #[msg("Invalid Fee Recipient Token Account")]
     InvalidFeeRecipientTokenAccount,
 

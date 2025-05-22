@@ -2,6 +2,8 @@ use anchor_lang::{
     prelude::*,
     solana_program::{hash, instruction::Instruction, program::invoke_signed},
 };
+use shared::check_condition;
+use shared::errors::ErrorCode;
 
 /// Mints a token from the new folio program
 ///
@@ -22,9 +24,9 @@ impl NewFolioProgram {
     /// The size of the instruction discriminator in Anchor.
     const INSTRUCTION_DISCRIMINATOR_SIZE: usize = 8;
 
-    /// The name of the crank fee distribution function in the new Folio program
-    const CRANK_FEE_DISTRIBUTION_PREVIOUS_FOLIO_FUNCTION_NAME: &'static str =
-        "mint_from_new_folio_program";
+    /// The name of the instruction to create folio in new program.
+    const CREATE_FOLIO_FROM_OLD_PROGRAM_FUNCTION_NAME: &'static str =
+        "create_folio_from_old_program";
 
     /// The name of the update folio basket function in the new Folio program
     const UPDATE_BASKET_IN_NEW_FOLIO_PROGRAM_FUNCTION_NAME: &'static str =
@@ -53,7 +55,7 @@ impl NewFolioProgram {
         discriminator
     }
 
-    /// Mints a token from the new folio program
+    /// Creates folio from the old folio program
     ///
     /// # Arguments
     /// * `new_folio_program` - The new folio program to call
@@ -65,33 +67,54 @@ impl NewFolioProgram {
     /// * `signer_seeds` - The signer seeds to use (folio needs to sign)
     /// * `amount` - The amount to mint
     #[cfg(not(tarpaulin_include))]
-    pub fn mint_from_new_folio_program<'info>(
+    pub fn create_folio_from_old_program<'info>(
         new_folio_program: &AccountInfo<'info>,
-        token_program: &AccountInfo<'info>,
-        folio: &AccountInfo<'info>,
-        upgraded_folio: &AccountInfo<'info>,
+        system_program: &AccountInfo<'info>,
+        owner: &AccountInfo<'info>,
+        old_folio: &AccountInfo<'info>,
+        new_folio: &AccountInfo<'info>,
+        actor: &AccountInfo<'info>,
+        new_folio_basket: &AccountInfo<'info>,
         folio_token_mint: &AccountInfo<'info>,
-        to: &AccountInfo<'info>,
-        old_folio_program: &AccountInfo<'info>,
-        program_registrar: &AccountInfo<'info>,
+        remaining_accounts: &[AccountInfo<'info>],
         signer_seeds: &[&[&[u8]]],
-        amount: u64,
     ) -> Result<()> {
-        let account_metas = vec![
-            AccountMeta::new_readonly(token_program.key(), false),
-            AccountMeta::new_readonly(folio.key(), true),
-            AccountMeta::new_readonly(upgraded_folio.key(), false),
-            AccountMeta::new(folio_token_mint.key(), false),
-            AccountMeta::new(to.key(), false),
-            AccountMeta::new_readonly(old_folio_program.key(), false),
-            AccountMeta::new_readonly(program_registrar.key(), false),
+        let mut account_metas = vec![
+            AccountMeta::new_readonly(system_program.key(), false),
+            AccountMeta::new(owner.key(), true),
+            AccountMeta::new_readonly(old_folio.key(), true),
+            AccountMeta::new(new_folio.key(), false),
+            AccountMeta::new(actor.key(), false),
+            AccountMeta::new(new_folio_basket.key(), false),
+            AccountMeta::new_readonly(folio_token_mint.key(), false),
         ];
 
-        let mut data = NewFolioProgram::get_instruction_discriminator(
-            Self::CRANK_FEE_DISTRIBUTION_PREVIOUS_FOLIO_FUNCTION_NAME,
+        let mut requited_account_infos: Vec<AccountInfo> = vec![
+            new_folio_program.to_account_info(),
+            system_program.to_account_info(),
+            owner.to_account_info(),
+            old_folio.to_account_info(),
+            new_folio.to_account_info(),
+            actor.to_account_info(),
+            new_folio_basket.to_account_info(),
+            folio_token_mint.to_account_info(),
+        ];
+
+        for account_info in remaining_accounts {
+            if account_info.is_writable {
+                account_metas.push(AccountMeta::new(account_info.key(), false));
+            } else {
+                account_metas.push(AccountMeta::new_readonly(account_info.key(), false));
+            }
+            requited_account_infos.push(account_info.clone());
+
+            check_condition!(account_info.key() != crate::id(), InvalidCallbackProgram);
+        }
+
+        let data = NewFolioProgram::get_instruction_discriminator(
+            Self::CREATE_FOLIO_FROM_OLD_PROGRAM_FUNCTION_NAME,
         )
         .to_vec();
-        data.extend_from_slice(&amount.to_le_bytes());
 
         invoke_signed(
             &Instruction {
@@ -99,16 +122,7 @@ impl NewFolioProgram {
                 accounts: account_metas,
                 data: data.clone(),
             },
-            &[
-                new_folio_program.to_account_info(),
-                token_program.to_account_info(),
-                folio.to_account_info(),
-                upgraded_folio.to_account_info(),
-                folio_token_mint.to_account_info(),
-                to.to_account_info(),
-                program_registrar.to_account_info(),
-                old_folio_program.to_account_info(),
-            ],
+            &requited_account_infos,
             signer_seeds,
         )?;
 

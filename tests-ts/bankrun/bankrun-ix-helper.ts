@@ -33,6 +33,7 @@ import { Folio } from "../../target/types/folio";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { getComputeLimitInstruction } from "../../utils/program-helper";
 import {
+  D9,
   FOLIO_PROGRAM_ID,
   OTHER_ADMIN_KEY,
   REWARDS_PROGRAM_ID,
@@ -46,7 +47,6 @@ import {
   roleToStruct,
   buildRemainingAccountsForAccruesRewards,
   buildRemainingAccountsForUpdateFolio,
-  buildRemainingAccountsForStartFolioMigration,
 } from "./bankrun-account-helper";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
 import { FolioAdmin } from "../../target/types/folio_admin";
@@ -804,10 +804,7 @@ export async function crankFeeDistribution<T extends boolean = true>(
   indices: BN[],
   feeRecipients: PublicKey[],
   executeTxn: T = true as T,
-  remainingAccounts: AccountMeta[] = [],
-  newFolio: PublicKey = null,
-  newFolioProgram: PublicKey = null,
-  programRegistrar: PublicKey = null
+  remainingAccounts: AccountMeta[] = []
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
@@ -824,11 +821,6 @@ export async function crankFeeDistribution<T extends boolean = true>(
       folioTokenMint,
       cranker,
       feeDistribution: getFeeDistributionPDA(folio, feeDistributionIndex),
-      // Can be null
-      upgradedFolio: newFolio,
-      upgradedFolioProgram: newFolioProgram,
-      programRegistrar,
-      currentFolioProgram: programFolio.programId,
     })
     .remainingAccounts(
       remainingAccounts.length > 0
@@ -1192,7 +1184,7 @@ export async function startFolioMigration<T extends boolean = true>(
   oldFolio: PublicKey,
   newFolio: PublicKey,
   newFolioProgram: PublicKey,
-  indexForFeeDistribution: BN,
+  max_allowed_pending_fees: BN = new BN(D9),
   daoFeeRecipient: PublicKey,
   executeTxn: T = true as T
 ): Promise<
@@ -1200,8 +1192,21 @@ export async function startFolioMigration<T extends boolean = true>(
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
+  console.log("accounts", {
+    systemProgram: SystemProgram.programId,
+    tokenProgram: TOKEN_PROGRAM_ID,
+    folioOwner: folioOwnerKeypair.publicKey,
+    programRegistrar: getProgramRegistrarPDA(),
+    actor: getActorPDA(folioOwnerKeypair.publicKey, oldFolio),
+    newFolioProgram,
+    oldFolio,
+    newFolio,
+    folioTokenMint,
+    newFolioBasket: getFolioBasketPDA(newFolio, newFolioProgram),
+    newActor: getActorPDA(folioOwnerKeypair.publicKey, newFolio, true),
+  });
   const startFolioMigration = await programFolio.methods
-    .startFolioMigration(indexForFeeDistribution)
+    .startFolioMigration(max_allowed_pending_fees)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
@@ -1212,15 +1217,9 @@ export async function startFolioMigration<T extends boolean = true>(
       oldFolio,
       newFolio,
       folioTokenMint,
+      newFolioBasket: getFolioBasketPDA(newFolio, newFolioProgram),
+      newActor: getActorPDA(folioOwnerKeypair.publicKey, newFolio, true),
     })
-    .remainingAccounts(
-      await buildRemainingAccountsForStartFolioMigration(
-        context,
-        oldFolio,
-        folioTokenMint,
-        daoFeeRecipient
-      )
-    )
     .instruction();
 
   if (executeTxn) {
@@ -1252,7 +1251,6 @@ export async function migrateFolioTokens<T extends boolean = true>(
   const migrateFolioTokens = await programFolio.methods
     .migrateFolioTokens()
     .accountsPartial({
-      // systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,
       programRegistrar: getProgramRegistrarPDA(),

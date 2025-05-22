@@ -315,6 +315,18 @@ pub enum ErrorCode {
 
     #[msg("Invalid Token Balance")]
     InvalidTokenBalance,
+
+    #[msg("Folio is not poked. Poke folio, distribute fees and try again.")]
+    MigrationFailedFolioNotPoked,
+
+    #[msg("Dao pending fee to mint is higher.")]
+    MigrationFailedDaoPendingFeeSharesTooHigh,
+
+    #[msg("Fee recipients pending fee shares to mint is higher.")]
+    MigrationFailedFeeRecipientsPendingFeeSharesTooHigh,
+
+    #[msg("Fee recipients pending fee share to be minted is higher.")]
+    MigrationFailedFeeRecipientsPendingFeeShareToBeMintedTooHigh,
 }
 
 /// Check a condition and return an error if it is not met.

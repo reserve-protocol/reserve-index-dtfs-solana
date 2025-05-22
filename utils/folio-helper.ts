@@ -641,10 +641,6 @@ export async function crankFeeDistribution(
       folioTokenMint,
       cranker,
       feeDistribution: getFeeDistributionPDA(folio, feeDistributionIndex),
-      // Can be null
-      upgradedFolio: null,
-      upgradedFolioProgram: null,
-      programRegistrar: null,
     })
     .remainingAccounts(remainingAccounts)
     .instruction();
@@ -902,13 +898,12 @@ export async function startFolioMigration(
   oldFolio: PublicKey,
   newFolio: PublicKey,
   newFolioProgram: PublicKey,
-  indexForFeeDistribution: BN,
-  daoFeeRecipient: PublicKey
+  maxAllowedPendingFees: BN
 ) {
   const folioProgram = getFolioProgram(connection, folioOwnerKeypair);
 
   const startFolioMigration = await folioProgram.methods
-    .startFolioMigration(indexForFeeDistribution)
+    .startFolioMigration(maxAllowedPendingFees)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
@@ -919,44 +914,9 @@ export async function startFolioMigration(
       oldFolio,
       newFolio,
       folioTokenMint,
+      newFolioBasket: getFolioBasketPDA(newFolio, newFolioProgram),
+      newActor: getActorPDA(folioOwnerKeypair.publicKey, newFolio, true),
     })
-    .remainingAccounts([
-      {
-        pubkey: TOKEN_PROGRAM_ID,
-        isSigner: false,
-        isWritable: false,
-      },
-      {
-        pubkey: getDAOFeeConfigPDA(),
-        isSigner: false,
-        isWritable: false,
-      },
-      {
-        pubkey: getFolioFeeConfigPDA(oldFolio),
-        isSigner: false,
-        isWritable: false,
-      },
-      {
-        pubkey: getFeeDistributionPDA(oldFolio, indexForFeeDistribution),
-        isSigner: false,
-        isWritable: true,
-      },
-      {
-        pubkey: await getOrCreateAtaAddress(
-          connection,
-          folioTokenMint,
-          folioOwnerKeypair,
-          daoFeeRecipient
-        ),
-        isSigner: false,
-        isWritable: true,
-      },
-      {
-        pubkey: getTVLFeeRecipientsPDA(oldFolio),
-        isSigner: false,
-        isWritable: true,
-      },
-    ])
     .instruction();
 
   await pSendAndConfirmTxn(folioProgram, [startFolioMigration], [], {

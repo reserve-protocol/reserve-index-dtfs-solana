@@ -101,7 +101,7 @@ describe("Folio Migration Tests", () => {
     await updateProgramRegistrar(
       connection,
       adminKeypair,
-      [programSecondFolio.programId],
+      [programSecondFolio.programId, programFolio.programId],
       false
     );
 

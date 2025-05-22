@@ -13,16 +13,8 @@ import {
   travelFutureSlot,
 } from "../bankrun-program-helper";
 
-import {
-  getFolioBasketPDA,
-  getFolioPDA,
-  getProgramRegistrarPDA,
-} from "../../../utils/pda-helper";
-import {
-  crankFeeDistribution,
-  migrateFolioTokens,
-  startFolioMigration,
-} from "../bankrun-ix-helper";
+import { getFolioBasketPDA, getFolioPDA } from "../../../utils/pda-helper";
+import { migrateFolioTokens, startFolioMigration } from "../bankrun-ix-helper";
 import {
   createAndSetFolio,
   Role,
@@ -46,6 +38,7 @@ import * as assert from "assert";
 import {
   BPF_PROGRAM_USED_BY_BANKRUN,
   D9,
+  DAY_IN_SECONDS,
   DEFAULT_DECIMALS,
   FOLIO_PROGRAM_ID,
   MAX_MINT_FEE,
@@ -55,7 +48,6 @@ import {
   assertExpectedBalancesChanges,
   getMintAuthorities,
   getOrCreateAtaAddress,
-  getTokenBalance,
   getTokenBalancesFromMints,
   initToken,
   mintToken,
@@ -93,7 +85,7 @@ describe("Bankrun - Folio migration", () => {
 
   const feeRecipient: PublicKey = Keypair.generate().publicKey;
 
-  const MINTS = [Keypair.generate(), Keypair.generate()];
+  const MINTS = [Keypair.generate(), Keypair.generate(), Keypair.generate()];
 
   let userKeypair: Keypair;
   const feeRecipients: Keypair[] = [Keypair.generate()];
@@ -119,6 +111,14 @@ describe("Bankrun - Folio migration", () => {
 
     // Expected changes
     expectedTokenBalanceChanges: BN[];
+
+    maxAllowedPendingFees: BN;
+    folioConfig: {
+      lastPoke: BN | null;
+      daoPendingFeeShares: BN | null;
+      feeRecipientsPendingFeeShares: BN | null;
+      feeRecipientsPendingFeeSharesToBeMinted: BN | null;
+    } | null;
   } = {
     tokens: [],
     remainingAccounts: async () => [],
@@ -138,6 +138,10 @@ describe("Bankrun - Folio migration", () => {
 
     // Expected changes
     expectedTokenBalanceChanges: Array(MINTS.length).fill(new BN(0)),
+
+    maxAllowedPendingFees: new BN(D9),
+
+    folioConfig: null,
   };
 
   const TEST_CASES_START_MIGRATION = [
@@ -150,11 +154,6 @@ describe("Bankrun - Folio migration", () => {
       desc: "(new folio program not in program registrar, errors out)",
       expectedError: "ProgramNotInRegistrar",
       newFolioProgram: Keypair.generate().publicKey,
-    },
-    {
-      desc: "(new folio not owned by new folio program, errors out)",
-      expectedError: "NewFolioNotOwnedByNewFolioProgram",
-      secondFolioOwner: Keypair.generate().publicKey,
     },
     {
       desc: "(new folio program same as old folio program, errors out)",
@@ -259,6 +258,7 @@ describe("Bankrun - Folio migration", () => {
       initialFolioBasket: [
         new FolioTokenAmount(MINTS[0].publicKey, new BN(100).mul(D9)),
         new FolioTokenAmount(MINTS[1].publicKey, new BN(200).mul(D9)),
+        new FolioTokenAmount(MINTS[2].publicKey, new BN(200).mul(D9)),
       ],
       tokens: [MINTS[0].publicKey, MINTS[1].publicKey],
       // Folio has 1000 in D9 total of each (negative as the old folio is losing them)
@@ -287,41 +287,21 @@ describe("Bankrun - Folio migration", () => {
     },
   ];
 
-  const TEST_CASES_CRANK_FEE_DISTRIBUTION_VIA_NEW_FOLIO_PROGRAM = [
-    {
-      desc: "(new folio is not mint authority of folio token mint, errors out)",
-      expectedError: "InvalidFolioTokenMint",
-      isMigrating: true,
-      mintAuthority: Keypair.generate().publicKey,
-    },
-    {
-      desc: "(new folio program not in program registrar, errors out)",
-      expectedError: "ProgramNotInRegistrar",
-      includeSecondProgramInRegistrar: false,
-      isMigrating: true,
-    },
-    {
-      desc: "(new folio not owned by new folio program, errors out)",
-      expectedError: "NewFolioNotOwnedByNewFolioProgram",
-      isMigrating: true,
-      secondFolioOwner: Keypair.generate().publicKey,
-    },
-    {
-      desc: "(is valid, succeeds)",
-      expectedError: null,
-      isMigrating: true,
-    },
-  ];
-
   async function initBaseCase(
+    isBaseCaseForMigrateFolioTokens: boolean = false,
+    folioConfig: {
+      lastPoke: BN | null;
+      daoPendingFeeShares: BN | null;
+      feeRecipientsPendingFeeShares: BN | null;
+      feeRecipientsPendingFeeSharesToBeMinted: BN | null;
+    } | null = null,
     customFolioTokenMint: Keypair = null,
     secondFolioOwner: PublicKey = null,
     initialFolioBasket: FolioTokenAmount[] = [],
     // When second step of migration, we expect some changes to already be done
     isMigrating: boolean = false,
     includeSecondProgramInRegistrar: boolean = true,
-    mintAuthority: PublicKey = null,
-    amountToDistribute: BN = new BN(0)
+    mintAuthority: PublicKey = null
   ) {
     await createAndSetDaoFeeConfig(
       context,
@@ -340,12 +320,12 @@ describe("Bankrun - Folio migration", () => {
       folioTokenMintToUse.publicKey,
       isMigrating ? FolioStatus.Migrating : FolioStatus.Initialized,
       null,
-      new BN(0),
-      new BN(0),
-      new BN(0),
+      folioConfig?.lastPoke ?? new BN(0),
+      folioConfig?.daoPendingFeeShares ?? new BN(0),
+      folioConfig?.feeRecipientsPendingFeeShares ?? new BN(0),
       false,
       "",
-      amountToDistribute
+      folioConfig?.feeRecipientsPendingFeeSharesToBeMinted ?? new BN(0)
     );
 
     await createAndSetFolioBasket(
@@ -355,29 +335,37 @@ describe("Bankrun - Folio migration", () => {
       initialFolioBasket
     );
 
-    // Folio in second program
-    await createAndSetFolio(
-      context,
-      programFolioSecond,
-      folioTokenMint.publicKey,
-      FolioStatus.Initialized,
-      null,
-      new BN(0),
-      new BN(0),
-      new BN(0),
-      true
-    );
+    if (isBaseCaseForMigrateFolioTokens) {
+      // Folio in second program
+      await createAndSetFolio(
+        context,
+        programFolioSecond,
+        folioTokenMint.publicKey,
+        FolioStatus.Initialized,
+        null,
+        new BN(0),
+        new BN(0),
+        new BN(0),
+        true
+      );
 
-    // Create empty folio basket
-    await createAndSetFolioBasket(context, programFolioSecond, newFolioPDA, []);
+      // Create empty folio basket
+      await createAndSetFolioBasket(
+        context,
+        programFolioSecond,
+        newFolioPDA,
+        []
+      );
 
-    // Change the owner of the second folio if required
-    if (secondFolioOwner) {
-      const secondFolioAccount = await banksClient.getAccount(newFolioPDA);
-      context.setAccount(newFolioPDA, {
-        ...secondFolioAccount,
-        owner: secondFolioOwner,
-      });
+      // Change the owner of the second folio if required
+      if (secondFolioOwner !== null) {
+        console.log("Fucking javasscript");
+        const secondFolioAccount = await banksClient.getAccount(newFolioPDA);
+        context.setAccount(newFolioPDA, {
+          ...secondFolioAccount,
+          owner: secondFolioOwner,
+        });
+      }
     }
 
     initToken(
@@ -462,7 +450,7 @@ describe("Bankrun - Folio migration", () => {
     oldFolioPDA = getFolioPDA(folioTokenMint.publicKey);
     newFolioPDA = getFolioPDA(folioTokenMint.publicKey, true);
 
-    await initBaseCase();
+    await initBaseCase(false);
   });
 
   describe("General Tests", () => {
@@ -495,26 +483,8 @@ describe("Bankrun - Folio migration", () => {
         true
       );
 
-    const generalIxCrankFeeDistributionViaNewFolioProgram = () =>
-      crankFeeDistribution<true>(
-        banksClient,
-        programFolio,
-        userKeypair,
-        oldFolioPDA,
-        folioTokenMint.publicKey,
-        adminKeypair.publicKey,
-        new BN(0),
-        [],
-        [],
-        true,
-        [],
-        newFolioPDA,
-        programFolioSecond.programId,
-        getProgramRegistrarPDA()
-      );
-
     beforeEach(async () => {
-      await initBaseCase();
+      await initBaseCase(false);
     });
 
     describe("should run general tests for start folio migration", () => {
@@ -579,39 +549,6 @@ describe("Bankrun - Folio migration", () => {
         );
       });
     });
-
-    describe("should run general tests for crank fee distribution via new folio program", () => {
-      beforeEach(async () => {
-        // Mint is given to the new folio
-        initToken(context, newFolioPDA, folioTokenMint, DEFAULT_DECIMALS);
-      });
-
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for INITIALIZED & KILLED & INITIALIZING`, async () => {
-        await assertInvalidFolioStatusTestCase(
-          context,
-          programFolio,
-          folioTokenMint.publicKey,
-          generalIxCrankFeeDistributionViaNewFolioProgram,
-          FolioStatus.Initialized
-        );
-
-        await assertInvalidFolioStatusTestCase(
-          context,
-          programFolio,
-          folioTokenMint.publicKey,
-          generalIxCrankFeeDistributionViaNewFolioProgram,
-          FolioStatus.Killed
-        );
-
-        await assertInvalidFolioStatusTestCase(
-          context,
-          programFolio,
-          folioTokenMint.publicKey,
-          generalIxCrankFeeDistributionViaNewFolioProgram,
-          FolioStatus.Initializing
-        );
-      });
-    });
   });
 
   describe("Specific Cases - Start Folio Migration", () => {
@@ -619,7 +556,12 @@ describe("Bankrun - Folio migration", () => {
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {
           let txnResult: BanksTransactionResultWithMeta;
-          const { secondFolioOwner, newFolioProgram, customFolioTokenMint } = {
+          const {
+            newFolioProgram,
+            customFolioTokenMint,
+            maxAllowedPendingFees,
+            folioConfig,
+          } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
           };
@@ -627,8 +569,20 @@ describe("Bankrun - Folio migration", () => {
           let mintAuthoritiesBefore: any;
 
           before(async () => {
-            await initBaseCase(customFolioTokenMint, secondFolioOwner);
+            let folioConfigToUse = folioConfig;
+            if (folioConfig?.lastPoke == null) {
+              const currentTime = BigInt(
+                (await context.banksClient.getClock()).unixTimestamp.toString()
+              );
+              const endOfDay =
+                (currentTime / BigInt(DAY_IN_SECONDS)) * BigInt(DAY_IN_SECONDS);
+              folioConfigToUse = {
+                ...folioConfig,
+                lastPoke: new BN(endOfDay.toString()),
+              };
+            }
 
+            await initBaseCase(false, folioConfigToUse, customFolioTokenMint);
             if (newFolioProgram) {
               context.setAccount(newFolioProgram, {
                 lamports: 1_000_000_000,
@@ -654,7 +608,7 @@ describe("Bankrun - Folio migration", () => {
               oldFolioPDA,
               newFolioPDA,
               newFolioProgram || programFolioSecond.programId,
-              new BN(1),
+              maxAllowedPendingFees,
               feeRecipient,
               true
             );
@@ -681,6 +635,11 @@ describe("Bankrun - Folio migration", () => {
                 mintAuthoritiesBefore.freezeAuthority,
                 oldFolioPDA
               );
+              console.log(
+                "mintAuthoritiesAfter.mintAuthority",
+                mintAuthoritiesAfter.mintAuthority.toBase58()
+              );
+              console.log("newFolioPDA", newFolioPDA.toBase58());
               assert.deepEqual(mintAuthoritiesAfter.mintAuthority, newFolioPDA);
               assert.deepEqual(
                 mintAuthoritiesAfter.freezeAuthority,
@@ -718,6 +677,8 @@ describe("Bankrun - Folio migration", () => {
 
           before(async () => {
             await initBaseCase(
+              true,
+              null,
               customFolioTokenMint,
               secondFolioOwner,
               initialFolioBasket,
@@ -800,100 +761,33 @@ describe("Bankrun - Folio migration", () => {
                 [oldFolioPDA, newFolioPDA],
                 expectedTokenBalanceChanges
               );
-            });
-          }
-        });
-      }
-    );
-  });
 
-  describe("Specific Cases - Crank fee distribution via new folio program", () => {
-    TEST_CASES_CRANK_FEE_DISTRIBUTION_VIA_NEW_FOLIO_PROGRAM.forEach(
-      ({ desc, expectedError, ...restOfParams }) => {
-        describe(`When ${desc}`, () => {
-          let txnResult: BanksTransactionResultWithMeta;
-          const {
-            secondFolioOwner,
-            newFolioProgram,
-            isMigrating,
-            includeSecondProgramInRegistrar,
-            mintAuthority,
-          } = {
-            ...DEFAULT_PARAMS,
-            ...restOfParams,
-          };
-
-          let feeRecipientATA: PublicKey;
-          let balanceBefore: bigint;
-
-          before(async () => {
-            await initBaseCase(
-              undefined,
-              secondFolioOwner,
-              [],
-              isMigrating,
-              includeSecondProgramInRegistrar,
-              mintAuthority,
-              AMOUNT_TO_DISTRIBUTE
-            );
-
-            if (newFolioProgram) {
-              context.setAccount(newFolioProgram, {
-                lamports: 1_000_000_000,
-                data: Buffer.alloc(100),
-                owner: BPF_PROGRAM_USED_BY_BANKRUN,
-                executable: true,
-              });
-            }
-
-            await travelFutureSlot(context);
-
-            feeRecipientATA = await getOrCreateAtaAddress(
-              context,
-              folioTokenMint.publicKey,
-              feeRecipients[0].publicKey
-            );
-
-            balanceBefore = await getTokenBalance(banksClient, feeRecipientATA);
-
-            txnResult = await crankFeeDistribution<true>(
-              banksClient,
-              programFolio,
-              userKeypair,
-              oldFolioPDA,
-              folioTokenMint.publicKey,
-              adminKeypair.publicKey,
-              new BN(0),
-              [new BN(0)],
-              [feeRecipientATA],
-              true,
-              [],
-              newFolioPDA,
-              newFolioProgram || programFolioSecond.programId,
-              getProgramRegistrarPDA()
-            );
-          });
-
-          if (expectedError) {
-            it("should fail with expected error", () => {
-              assertError(txnResult, expectedError);
-            });
-          } else {
-            it("should succeed", async () => {
-              await travelFutureSlot(context);
-
-              const balanceAfter = await getTokenBalance(
-                banksClient,
-                feeRecipientATA
+              const oldFolioBasketPDA = await getFolioBasketPDA(
+                oldFolioPDA,
+                programFolio.programId
               );
 
+              const oldFolioBasket =
+                await programFolio.account.folioBasket.fetch(oldFolioBasketPDA);
+              const hasAnyTokenLeft = oldFolioBasket.basket.tokenAmounts.some(
+                (t) => !t.mint.equals(PublicKey.default)
+              );
+
+              const newFolio = await programFolio.account.folio.fetch(
+                newFolioPDA
+              );
               assert.equal(
-                balanceAfter.toString(),
-                (
-                  balanceBefore +
-                  BigInt(AMOUNT_TO_DISTRIBUTE.div(D9).toString())
-                ).toString()
+                newFolio.status,
+                hasAnyTokenLeft
+                  ? FolioStatus.Migrating
+                  : FolioStatus.Initialized
               );
+
+              const oldFolio = await programFolio.account.folio.fetch(
+                oldFolioPDA
+              );
+              // The status will stay Migrating forever.
+              assert.equal(oldFolio.status, FolioStatus.Migrating);
             });
           }
         });

@@ -16,7 +16,7 @@ use shared::{
     constants::{FOLIO_BASKET_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS},
 };
 
-const REMAINING_ACCOUT_DIVIDER: usize = 3;
+const REMAINING_ACCOUNTS_DIVIDER: usize = 3;
 
 /// Migrate Folio Tokens
 /// Permissionless
@@ -181,13 +181,13 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, MigrateFolioTokens<'inf
     will be able to take them back, on the old folio program, rather than the new one for simplicity and security.
     */
     check_condition!(
-        ctx.remaining_accounts.len() % REMAINING_ACCOUT_DIVIDER == 0,
+        ctx.remaining_accounts.len() % REMAINING_ACCOUNTS_DIVIDER == 0,
         InvalidNumberOfRemainingAccounts
     );
 
     let mut remaining_accounts_iter = ctx.remaining_accounts.iter();
 
-    for _ in 0..ctx.remaining_accounts.len() / REMAINING_ACCOUT_DIVIDER {
+    for _ in 0..ctx.remaining_accounts.len() / REMAINING_ACCOUNTS_DIVIDER {
         let token_mint = next_account(
             &mut remaining_accounts_iter,
             false,

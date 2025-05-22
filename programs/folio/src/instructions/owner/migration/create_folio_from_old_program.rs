@@ -1,13 +1,12 @@
 use crate::{
-    state::{Folio, FolioBasket},
+    state::{Actor, Folio, FolioBasket},
     utils::FolioStatus,
 };
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::Mint;
-use folio_admin::{state::ProgramRegistrar, ID as FOLIO_ADMIN_PROGRAM_ID};
 use shared::{
     check_condition,
-    constants::{FOLIO_BASKET_SEEDS, FOLIO_SEEDS, PROGRAM_REGISTRAR_SEEDS},
+    constants::{ACTOR_SEEDS, FOLIO_BASKET_SEEDS, FOLIO_SEEDS},
     errors::ErrorCode,
 };
 
@@ -18,60 +17,51 @@ use shared::{
 /// OF THE FOLIO PROGRAM.
 ///
 /// # Arguments
+/// * `system_program` - The system program to use
+/// * `new_folio_program` - The new folio program to use
 /// * `old_folio` - The old folio to use
 /// * `new_folio` - The new folio to use
-/// * `old_folio_basket` - The old folio basket to use
+/// * `actor` - The actor to use
 /// * `new_folio_basket` - The new folio basket to use
-/// * `token_mint` - The token mint to use
-/// * `folio_token_account` - The folio token account to use
+/// * `folio_token_mint` - The folio token mint to use
 #[derive(Accounts)]
-
 pub struct CreateFolioFromOldProgram<'info> {
     pub system_program: Program<'info, System>,
     #[account(mut)]
     pub owner: Signer<'info>,
 
-    /// CHECK: Validate is from the old folio program using the seeds
-    /// For now it validates with hardcoded program ids, but this is just because it's for testing only
-    /// in this version of the folio program
-    #[account(
-        owner = old_folio_program.key(),
-    )]
-    pub old_folio: UncheckedAccount<'info>,
+    #[account()]
+    pub old_folio: Signer<'info>,
 
-    /// For now it validates with hardcoded program ids, but this is just because it's for testing only
-    /// in this version of the folio program
     #[account(
         init,
         payer = owner,
-        space = Folio::INIT_SPACE,
+        space = Folio::SIZE,
         seeds = [FOLIO_SEEDS, folio_token_mint.key().as_ref()],
         bump,
     )]
     pub new_folio: AccountLoader<'info, Folio>,
 
+    #[account(
+        init,
+        payer = owner,
+        space = Actor::SIZE,
+        seeds = [ACTOR_SEEDS, owner.key().as_ref(), new_folio.key().as_ref()],
+        bump
+    )]
+    pub actor: Box<Account<'info, Actor>>,
+
     /// CHECK: Seeds are checked and the account data is checked in cpi to new folio program
     #[account(
         init,
         payer = owner,
-        space = FolioBasket::INIT_SPACE,
+        space = FolioBasket::SIZE,
         seeds = [FOLIO_BASKET_SEEDS, new_folio.key().as_ref()],
         bump,
     )]
     pub new_folio_basket: AccountLoader<'info, FolioBasket>,
 
     pub folio_token_mint: Box<InterfaceAccount<'info, Mint>>,
-
-    /// CHECK: The account is later checked in the validate function
-    #[account(executable)]
-    pub old_folio_program: UncheckedAccount<'info>,
-
-    #[account(
-        seeds = [PROGRAM_REGISTRAR_SEEDS],
-        bump = program_registrar.bump,
-        seeds::program = FOLIO_ADMIN_PROGRAM_ID,
-    )]
-    pub program_registrar: Box<Account<'info, ProgramRegistrar>>,
 }
 
 impl CreateFolioFromOldProgram<'_> {
@@ -85,17 +75,6 @@ impl CreateFolioFromOldProgram<'_> {
         check_condition!(
             self.folio_token_mint.key() == old_folio.folio_token_mint,
             InvalidFolioTokenMint
-        );
-
-        check_condition!(
-            self.program_registrar
-                .is_in_registrar(*self.old_folio.owner),
-            ProgramNotInRegistrar
-        );
-
-        check_condition!(
-            self.program_registrar.is_in_registrar(crate::ID),
-            ProgramNotInRegistrar
         );
 
         Ok(())
@@ -117,7 +96,6 @@ pub fn handler<'info>(
     #[allow(unreachable_code)]
     let folio_data = &ctx.accounts.old_folio.data.borrow();
     let old_folio: &Folio = bytemuck::from_bytes(&folio_data[8..]);
-    let new_folio = &mut ctx.accounts.new_folio.load_mut()?;
 
     {
         ctx.accounts.validate(old_folio)?;
@@ -134,17 +112,14 @@ pub fn handler<'info>(
         folio.auction_length = old_folio.auction_length;
         folio.mandate = old_folio.mandate;
 
-        // We set all these to 0
-        // Before the migration, In the `start_folio_migration` instruction, we distribute the folio_fee
-        // TODO: See how to correct do this : (
+        // We can set these to 0, as the old_program, before calling this function confirms us that the
+        // values are less then D9, or max the folio owner is willing to loss as fees.
         folio.dao_pending_fee_shares = 0;
         folio.fee_recipients_pending_fee_shares = 0;
         folio.fee_recipients_pending_fee_shares_to_be_minted = 0;
 
         folio.status = FolioStatus::Migrating as u8;
     }
-
-    let new_folio_basket = &mut ctx.accounts.new_folio_basket.load_init()?;
 
     FolioBasket::process_init_if_needed(
         &mut ctx.accounts.new_folio_basket,

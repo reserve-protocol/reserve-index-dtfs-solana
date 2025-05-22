@@ -194,6 +194,17 @@ impl Folio {
         scaled_total_fee_shares.to_token_amount(Rounding::Ceiling)
     }
 
+    pub fn get_account_fee_until(&self, current_time: i64) -> Result<u64> {
+        let current_time = current_time as u64;
+        let account_fee_until = current_time
+            .checked_div(DAY_IN_SECONDS)
+            .ok_or(ErrorCode::MathOverflow)?
+            .checked_mul(DAY_IN_SECONDS)
+            .ok_or(ErrorCode::MathOverflow)?;
+
+        Ok(account_fee_until)
+    }
+
     /// Poke the folio, meaning we update the pending fee shares for both the DAO and the fee recipients.
     ///
     /// # Arguments
@@ -210,12 +221,7 @@ impl Folio {
         scaled_dao_fee_denominator: u128,
         scaled_dao_fee_floor: u128,
     ) -> Result<()> {
-        let current_time = current_time as u64;
-        let account_fee_until = current_time
-            .checked_div(DAY_IN_SECONDS)
-            .ok_or(ErrorCode::MathOverflow)?
-            .checked_mul(DAY_IN_SECONDS)
-            .ok_or(ErrorCode::MathOverflow)?;
+        let account_fee_until = self.get_account_fee_until(current_time)?;
 
         if account_fee_until.saturating_sub(self.last_poke) == 0 {
             return Ok(());

@@ -627,13 +627,21 @@ describe("Bankrun - Fees", () => {
         );
       });
 
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for INITIALIZING`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for INITIALIZING & MIGRATING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
           folioTokenMint.publicKey,
           generalIxCrankFeeDistribution,
           FolioStatus.Initializing
+        );
+
+        await assertInvalidFolioStatusTestCase(
+          context,
+          programFolio,
+          folioTokenMint.publicKey,
+          generalIxCrankFeeDistribution,
+          FolioStatus.Migrating
         );
       });
     });

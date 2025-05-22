@@ -5,6 +5,7 @@ import { BN, Program } from "@coral-xyz/anchor";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import {
   addToBasket,
+  distributeFees,
   initFolio,
   migrateFolioTokens,
   startFolioMigration,
@@ -19,6 +20,7 @@ import {
   DEFAULT_DECIMALS,
   FEE_NUMERATOR,
   MAX_FEE_FLOOR,
+  D9,
 } from "../utils/constants";
 import { getMint } from "@solana/spl-token";
 import {
@@ -32,13 +34,15 @@ import {
   initToken,
   mintToken,
 } from "../utils/token-helper";
+import { getDAOFeeConfigPDA, getFolioPDA } from "../utils/pda-helper";
+import { FolioAdmin } from "../target/types/folio_admin";
 
-describe.only("Folio Migration Tests", () => {
+describe("Folio Migration Tests", () => {
   let connection: Connection;
   let programFolio: Program<Folio>;
   let programSecondFolio: Program<SecondFolio>;
+  let programFolioAdmin: Program<FolioAdmin>;
   let keys: any;
-
   let payerKeypair: Keypair;
   let adminKeypair: Keypair;
 
@@ -54,21 +58,16 @@ describe.only("Folio Migration Tests", () => {
   // Folio in the second instance
   let newFolioPDA: PublicKey;
 
-  // Here we use another mint just for initializing the second folio in the second instance (since the code) inits the folio mint
-  // in future folio program version this won't be the case.
-  let otherFolioTokenMint: Keypair;
-
   const feeRecipient: PublicKey = Keypair.generate().publicKey;
 
   before(async () => {
-    ({ connection, programFolio, programSecondFolio, keys } =
+    ({ connection, programFolio, programSecondFolio, keys, programFolioAdmin } =
       await getConnectors());
 
     payerKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.payer));
     adminKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.admin));
 
     folioTokenMint = Keypair.generate();
-    otherFolioTokenMint = Keypair.generate();
 
     folioOwnerKeypair = Keypair.generate();
 
@@ -138,20 +137,6 @@ describe.only("Folio Migration Tests", () => {
       folioTokenMint.publicKey
     );
 
-    // Init folio in second instance
-    newFolioPDA = await initFolio(
-      connection,
-      folioOwnerKeypair,
-      otherFolioTokenMint,
-      MAX_TVL_FEE,
-      MAX_MINT_FEE,
-      MAX_AUCTION_LENGTH,
-      "Test Folio",
-      "TFOL",
-      "https://test.com",
-      "mandate",
-      true
-    );
     // Call update folio for creation of fee recipients
     await updateFolio(
       connection,
@@ -176,13 +161,35 @@ describe.only("Folio Migration Tests", () => {
       FEE_NUMERATOR,
       MAX_FEE_FLOOR
     );
+
+    newFolioPDA = getFolioPDA(folioTokenMint.publicKey, true);
+
+    const daoFeeConfig = await programFolioAdmin.account.daoFeeConfig.fetch(
+      getDAOFeeConfigPDA()
+    );
+    const daoFeeRecipientATA = await getOrCreateAtaAddress(
+      connection,
+      folioTokenMint.publicKey,
+      folioOwnerKeypair,
+      daoFeeConfig.feeRecipient
+    );
+
+    // Poke folio and distribute fees.
+    await distributeFees(
+      connection,
+      folioOwnerKeypair,
+      folioPDA,
+      folioTokenMint.publicKey,
+      daoFeeRecipientATA,
+      new BN(1)
+    );
   });
 
   // This does not work because the folio basket is not created
   // To test this properly and to migration properly we need `init_folio_for_migration` instruction in the new folio program
   // I will implement this in with feature flags similar to `UpdateBasketInNewFolioProgram and `MintFromNewFolioProgram`
   // And then we can test this properly in the amman version
-  it.skip("should allow user to migrate from first to second instance", async () => {
+  it("should allow user to migrate from first to second instance", async () => {
     const mintInfoBefore = await getMint(connection, folioTokenMint.publicKey);
     // Now migrate from first to second instance
     await startFolioMigration(
@@ -192,8 +199,7 @@ describe.only("Folio Migration Tests", () => {
       folioPDA,
       newFolioPDA,
       programSecondFolio.programId,
-      new BN(1),
-      feeRecipient
+      new BN(D9)
     );
 
     const oldFolioAccountAfter = await programFolio.account.folio.fetch(

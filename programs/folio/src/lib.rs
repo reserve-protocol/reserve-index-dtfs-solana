@@ -176,9 +176,9 @@ pub mod folio {
      */
     pub fn start_folio_migration<'info>(
         ctx: Context<'_, '_, 'info, 'info, StartFolioMigration<'info>>,
-        index_for_fee_distribution: u64,
+        max_allowed_pending_fees: u128,
     ) -> Result<()> {
-        start_folio_migration::handler(ctx, index_for_fee_distribution)
+        start_folio_migration::handler(ctx, max_allowed_pending_fees)
     }
 
     pub fn migrate_folio_tokens<'info>(
@@ -335,13 +335,12 @@ pub mod folio {
     Development functions, used to show implementation for future folio program versions.
      */
     #[allow(unused_variables)]
-    pub fn mint_from_new_folio_program<'info>(
-        ctx: Context<'_, '_, 'info, 'info, MintFromNewFolioProgram<'info>>,
-        amount: u64,
+    pub fn update_basket_in_new_folio_program<'info>(
+        ctx: Context<'_, '_, 'info, 'info, UpdateBasketInNewFolioProgram<'info>>,
     ) -> Result<()> {
         #[cfg(feature = "dev")]
         {
-            mint_from_new_folio_program::handler(ctx, amount)
+            update_basket_in_new_folio_program::handler(ctx)
         }
         #[cfg(not(feature = "dev"))]
         {
@@ -353,12 +352,12 @@ pub mod folio {
     Development functions, used to show implementation for future folio program versions.
      */
     #[allow(unused_variables)]
-    pub fn update_basket_in_new_folio_program<'info>(
-        ctx: Context<'_, '_, 'info, 'info, UpdateBasketInNewFolioProgram<'info>>,
+    pub fn create_folio_from_old_program<'info>(
+        ctx: Context<'_, '_, 'info, 'info, CreateFolioFromOldProgram<'info>>,
     ) -> Result<()> {
         #[cfg(feature = "dev")]
         {
-            update_basket_in_new_folio_program::handler(ctx)
+            create_folio_from_old_program::handler(ctx)
         }
         #[cfg(not(feature = "dev"))]
         {

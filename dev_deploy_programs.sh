@@ -74,9 +74,9 @@ if [ "$RPC_URL" = "http://localhost:8899" ]; then
 fi
 
 # get sol balance before and store in variable
-SOL_BALANCE_BEFORE=$(solana balance -k "$PROGRAM_AUTH_KEYPAIR" -u "$RPC_URL" | awk '{print $1}')
+SOL_BALANCE_BEFORE_WRITE_BUFFERS=$(solana balance -k "$PROGRAM_AUTH_KEYPAIR" -u "$RPC_URL" | awk '{print $1}')
 
-echo "Deploying Folio program..."
+echo "Writing Folio program to buffer..."
 solana-keygen new --outfile target/deploy/folio-buffer.json --no-bip39-passphrase $FORCE_FLAG
 solana program write-buffer target/deploy/folio.so \
 --buffer target/deploy/folio-buffer.json \
@@ -87,13 +87,13 @@ solana program write-buffer target/deploy/folio.so \
 -u "$RPC_URL" \
 --with-compute-unit-price "$PRIORITY_FEE_LAMPORTS_PER_CU" \
 --use-rpc || exit 1
-echo "✅ Folio program deployed"
+echo "✅ Folio program written to buffer"
 
-SOL_BALANCE_AFTER_FOLIO=$(solana balance -k "$PROGRAM_AUTH_KEYPAIR" -u "$RPC_URL" | awk '{print $1}')
-FOLIO_COST=$(echo "$SOL_BALANCE_BEFORE - $SOL_BALANCE_AFTER_FOLIO" | bc | awk '{printf "%.2f\n", $1}')
-echo "🟡 Folio cost: $FOLIO_COST SOL"
+SOL_BALANCE_AFTER_FOLIO_WRITE_BUFFER=$(solana balance -k "$PROGRAM_AUTH_KEYPAIR" -u "$RPC_URL" | awk '{print $1}')
+FOLIO_COST=$(echo "$SOL_BALANCE_BEFORE_WRITE_BUFFERS - $SOL_BALANCE_AFTER_FOLIO_WRITE_BUFFER" | bc | awk '{printf "%.2f\n", $1}')
+echo "🟡 Folio write buffer cost: $FOLIO_COST SOL"
 
-echo "Deploying Folio Admin program..."
+echo "Writing Folio Admin program to buffer..."
 solana-keygen new --outfile target/deploy/folio-admin-buffer.json --no-bip39-passphrase $FORCE_FLAG
 solana program write-buffer target/deploy/folio_admin.so \
 --buffer target/deploy/folio-admin-buffer.json \
@@ -104,13 +104,13 @@ solana program write-buffer target/deploy/folio_admin.so \
 -u "$RPC_URL" \
 --with-compute-unit-price "$PRIORITY_FEE_LAMPORTS_PER_CU" \
 --use-rpc || exit 1
-echo "✅ Folio Admin program deployed"
+echo "✅ Folio Admin program written to buffer"
 
-SOL_BALANCE_AFTER_FOLIO_ADMIN=$(solana balance -k "$PROGRAM_AUTH_KEYPAIR" -u "$RPC_URL" | awk '{print $1}')
-FOLIO_ADMIN_COST=$(echo "$SOL_BALANCE_AFTER_FOLIO - $SOL_BALANCE_AFTER_FOLIO_ADMIN" | bc | awk '{printf "%.2f\n", $1}')
-echo "🟡 Folio Admin cost: $FOLIO_ADMIN_COST SOL"
+SOL_BALANCE_AFTER_FOLIO_ADMIN_WRITE_BUFFER=$(solana balance -k "$PROGRAM_AUTH_KEYPAIR" -u "$RPC_URL" | awk '{print $1}')
+FOLIO_ADMIN_COST=$(echo "$SOL_BALANCE_BEFORE_WRITE_BUFFERS - $SOL_BALANCE_AFTER_FOLIO_ADMIN_WRITE_BUFFER" | bc | awk '{printf "%.2f\n", $1}')
+echo "🟡 Folio Admin write buffer cost: $FOLIO_ADMIN_COST SOL"
 
-echo "Deploying Rewards program..."
+echo "Writing Rewards program to buffer..."
 solana-keygen new --outfile target/deploy/rewards-buffer.json --no-bip39-passphrase $FORCE_FLAG
 solana program write-buffer target/deploy/rewards.so \
 --buffer target/deploy/rewards-buffer.json \
@@ -121,12 +121,57 @@ solana program write-buffer target/deploy/rewards.so \
 -u "$RPC_URL" \
 --with-compute-unit-price "$PRIORITY_FEE_LAMPORTS_PER_CU" \
 --use-rpc || exit 1
-echo "✅ Rewards program deployed"
+echo "✅ Rewards program written to buffer"
 
-SOL_BALANCE_AFTER_REWARDS=$(solana balance -k "$PROGRAM_AUTH_KEYPAIR" -u "$RPC_URL" | awk '{print $1}')
-REWARDS_COST=$(echo "$SOL_BALANCE_AFTER_FOLIO_ADMIN - $SOL_BALANCE_AFTER_REWARDS" | bc | awk '{printf "%.2f\n", $1}')
-echo "🟡 Rewards cost: $REWARDS_COST SOL"
+SOL_BALANCE_AFTER_REWARDS_WRITE_BUFFER=$(solana balance -k "$PROGRAM_AUTH_KEYPAIR" -u "$RPC_URL" | awk '{print $1}')
+REWARDS_COST=$(echo "$SOL_BALANCE_BEFORE_WRITE_BUFFERS - $SOL_BALANCE_AFTER_REWARDS_WRITE_BUFFER" | bc | awk '{printf "%.2f\n", $1}')
+echo "🟡 Rewards write buffer cost: $REWARDS_COST SOL"
 
-TOTAL_COST=$(echo "$SOL_BALANCE_BEFORE - $SOL_BALANCE_AFTER_REWARDS" | bc | awk '{printf "%.2f\n", $1}')
+FOLIO_BUFFER_ADDRESS=$(solana-keygen pubkey target/deploy/folio-buffer.json)
+FOLIO_ADMIN_BUFFER_ADDRESS=$(solana-keygen pubkey target/deploy/folio-admin-buffer.json)
+REWARDS_BUFFER_ADDRESS=$(solana-keygen pubkey target/deploy/rewards-buffer.json)
+
+echo "Deploying Folio program..."
+solana program deploy \
+--program-id target/deploy/folio-keypair.json \
+--buffer "$FOLIO_BUFFER_ADDRESS" \
+--fee-payer "$PROGRAM_AUTH_KEYPAIR" \
+--max-sign-attempts 100 \
+-k "$PROGRAM_AUTH_KEYPAIR" \
+-u "$RPC_URL" \
+--with-compute-unit-price "$PRIORITY_FEE_LAMPORTS_PER_CU" \
+--use-rpc || exit 1
+echo "✅ Folio program deployed"
+
+echo "Deploying Folio Admin program..."
+solana program deploy \
+--program-id target/deploy/folio_admin-keypair.json \
+--buffer "$FOLIO_ADMIN_BUFFER_ADDRESS" \
+--fee-payer "$PROGRAM_AUTH_KEYPAIR" \
+--max-sign-attempts 100 \
+-k "$PROGRAM_AUTH_KEYPAIR" \
+-u "$RPC_URL" \
+--with-compute-unit-price "$PRIORITY_FEE_LAMPORTS_PER_CU" \
+--use-rpc || exit 1
+echo "✅ Folio Admin program deployed"
+
+echo "Deploying Rewards program..."
+solana program deploy \
+--program-id target/deploy/rewards-keypair.json \
+--buffer "$REWARDS_BUFFER_ADDRESS" \
+--fee-payer "$PROGRAM_AUTH_KEYPAIR" \
+--max-sign-attempts 100 \
+-k "$PROGRAM_AUTH_KEYPAIR" \
+-u "$RPC_URL" \
+--with-compute-unit-price "$PRIORITY_FEE_LAMPORTS_PER_CU" \
+--use-rpc || exit 1
+
+SOL_BALANCE_AFTER_DEPLOY=$(solana balance -k "$PROGRAM_AUTH_KEYPAIR" -u "$RPC_URL" | awk '{print $1}')
+DEPLOY_COST=$(echo "$SOL_BALANCE_BEFORE_WRITE_BUFFERS - $SOL_BALANCE_AFTER_DEPLOY" | bc | awk '{printf "%.2f\n", $1}')
+echo "🟡 Deploy cost: $DEPLOY_COST SOL"
+
+TOTAL_COST=$(echo "$SOL_BALANCE_BEFORE_WRITE_BUFFERS - $SOL_BALANCE_AFTER_DEPLOY" | bc | awk '{printf "%.2f\n", $1}')
 echo ""
 echo "💰 Total cost: $TOTAL_COST SOL"
+
+echo "✅ Rewards program deployed"

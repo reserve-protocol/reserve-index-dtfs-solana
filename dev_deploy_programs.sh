@@ -5,6 +5,53 @@ DEFAULT_RPC_URL="http://localhost:8899"
 DEFAULT_PROGRAM_AUTH_KEYPAIR="$HOME/.config/solana/folio-auth.json"
 DEFAULT_PRIORITY_FEE_LAMPORTS_PER_CU=10000
 
+# Helper function to generate explorer links
+account_explorer_link() {
+  local address="$1"
+  local rpc_url="$2"
+  
+  # Skip if address is empty
+  if [[ -z "$address" ]]; then
+    echo "Address not found"
+    return
+  fi
+  
+  # If using localhost, use the custom URL format
+  if [[ "$rpc_url" == "http://localhost:8899" ]]; then
+    echo "https://explorer.solana.com/address/$address?cluster=custom&customUrl=http%3A%2F%2Flocalhost%3A8899"
+  elif [[ "$rpc_url" == *"devnet"* ]]; then
+    echo "https://explorer.solana.com/address/$address?cluster=devnet"
+  elif [[ "$rpc_url" == *"testnet"* ]]; then
+    echo "https://explorer.solana.com/address/$address?cluster=testnet"
+  else
+    # Default to mainnet
+    echo "https://explorer.solana.com/address/$address"
+  fi
+}
+
+transaction_explorer_link() {
+  local signature="$1"
+  local rpc_url="$2"
+  
+  # Skip if signature is empty
+  if [[ -z "$signature" ]]; then
+    echo "Signature not found"
+    return
+  fi
+  
+  # If using localhost, use the custom URL format
+  if [[ "$rpc_url" == "http://localhost:8899" ]]; then
+    echo "https://explorer.solana.com/tx/$signature?cluster=custom&customUrl=http%3A%2F%2Flocalhost%3A8899"
+  elif [[ "$rpc_url" == *"devnet"* ]]; then
+    echo "https://explorer.solana.com/tx/$signature?cluster=devnet"
+  elif [[ "$rpc_url" == *"testnet"* ]]; then
+    echo "https://explorer.solana.com/tx/$signature?cluster=testnet"
+  else
+    # Default to mainnet
+    echo "https://explorer.solana.com/tx/$signature"
+  fi
+}
+
 # Initialize with defaults
 RPC_URL="$DEFAULT_RPC_URL"
 PROGRAM_AUTH_KEYPAIR="$DEFAULT_PROGRAM_AUTH_KEYPAIR"
@@ -132,7 +179,7 @@ FOLIO_ADMIN_BUFFER_ADDRESS=$(solana-keygen pubkey target/deploy/folio-admin-buff
 REWARDS_BUFFER_ADDRESS=$(solana-keygen pubkey target/deploy/rewards-buffer.json)
 
 echo "Deploying Folio program..."
-solana program deploy \
+FOLIO_DEPLOY_OUTPUT=$(solana program deploy \
 --program-id target/deploy/folio-keypair.json \
 --buffer "$FOLIO_BUFFER_ADDRESS" \
 --fee-payer "$PROGRAM_AUTH_KEYPAIR" \
@@ -140,11 +187,26 @@ solana program deploy \
 -k "$PROGRAM_AUTH_KEYPAIR" \
 -u "$RPC_URL" \
 --with-compute-unit-price "$PRIORITY_FEE_LAMPORTS_PER_CU" \
---use-rpc || exit 1
+--use-rpc 2>&1) || exit 1
+
+# Save output to a temporary file for easier parsing
+echo "$FOLIO_DEPLOY_OUTPUT" > /tmp/folio_deploy_output.txt
+
+# Extract program ID directly from the line with 'Program Id:'
+FOLIO_PROGRAM_ID=$(grep "Program Id:" /tmp/folio_deploy_output.txt | awk '{print $NF}')
+
+# Extract signature directly from the line with 'Signature:'
+FOLIO_SIGNATURE=$(grep "Signature:" /tmp/folio_deploy_output.txt | awk '{print $NF}')
+
+# Generate explorer links
+FOLIO_PROGRAM_LINK=$(account_explorer_link "$FOLIO_PROGRAM_ID" "$RPC_URL")
+FOLIO_TX_LINK=$(transaction_explorer_link "$FOLIO_SIGNATURE" "$RPC_URL")
+
+echo "$FOLIO_DEPLOY_OUTPUT"
 echo "✅ Folio program deployed"
 
 echo "Deploying Folio Admin program..."
-solana program deploy \
+FOLIO_ADMIN_DEPLOY_OUTPUT=$(solana program deploy \
 --program-id target/deploy/folio_admin-keypair.json \
 --buffer "$FOLIO_ADMIN_BUFFER_ADDRESS" \
 --fee-payer "$PROGRAM_AUTH_KEYPAIR" \
@@ -152,11 +214,26 @@ solana program deploy \
 -k "$PROGRAM_AUTH_KEYPAIR" \
 -u "$RPC_URL" \
 --with-compute-unit-price "$PRIORITY_FEE_LAMPORTS_PER_CU" \
---use-rpc || exit 1
+--use-rpc 2>&1) || exit 1
+
+# Save output to a temporary file for easier parsing
+echo "$FOLIO_ADMIN_DEPLOY_OUTPUT" > /tmp/folio_admin_deploy_output.txt
+
+# Extract program ID directly from the line with 'Program Id:'
+FOLIO_ADMIN_PROGRAM_ID=$(grep "Program Id:" /tmp/folio_admin_deploy_output.txt | awk '{print $NF}')
+
+# Extract signature directly from the line with 'Signature:'
+FOLIO_ADMIN_SIGNATURE=$(grep "Signature:" /tmp/folio_admin_deploy_output.txt | awk '{print $NF}')
+
+# Generate explorer links
+FOLIO_ADMIN_PROGRAM_LINK=$(account_explorer_link "$FOLIO_ADMIN_PROGRAM_ID" "$RPC_URL")
+FOLIO_ADMIN_TX_LINK=$(transaction_explorer_link "$FOLIO_ADMIN_SIGNATURE" "$RPC_URL")
+
+echo "$FOLIO_ADMIN_DEPLOY_OUTPUT"
 echo "✅ Folio Admin program deployed"
 
 echo "Deploying Rewards program..."
-solana program deploy \
+REWARDS_DEPLOY_OUTPUT=$(solana program deploy \
 --program-id target/deploy/rewards-keypair.json \
 --buffer "$REWARDS_BUFFER_ADDRESS" \
 --fee-payer "$PROGRAM_AUTH_KEYPAIR" \
@@ -164,7 +241,22 @@ solana program deploy \
 -k "$PROGRAM_AUTH_KEYPAIR" \
 -u "$RPC_URL" \
 --with-compute-unit-price "$PRIORITY_FEE_LAMPORTS_PER_CU" \
---use-rpc || exit 1
+--use-rpc 2>&1) || exit 1
+
+# Save output to a temporary file for easier parsing
+echo "$REWARDS_DEPLOY_OUTPUT" > /tmp/rewards_deploy_output.txt
+
+# Extract program ID directly from the line with 'Program Id:'
+REWARDS_PROGRAM_ID=$(grep "Program Id:" /tmp/rewards_deploy_output.txt | awk '{print $NF}')
+
+# Extract signature directly from the line with 'Signature:'
+REWARDS_SIGNATURE=$(grep "Signature:" /tmp/rewards_deploy_output.txt | awk '{print $NF}')
+
+# Generate explorer links
+REWARDS_PROGRAM_LINK=$(account_explorer_link "$REWARDS_PROGRAM_ID" "$RPC_URL")
+REWARDS_TX_LINK=$(transaction_explorer_link "$REWARDS_SIGNATURE" "$RPC_URL")
+
+echo "$REWARDS_DEPLOY_OUTPUT"
 
 SOL_BALANCE_AFTER_DEPLOY=$(solana balance -k "$PROGRAM_AUTH_KEYPAIR" -u "$RPC_URL" | awk '{print $1}')
 DEPLOY_COST=$(echo "$SOL_BALANCE_BEFORE_WRITE_BUFFERS - $SOL_BALANCE_AFTER_DEPLOY" | bc | awk '{printf "%.2f\n", $1}')
@@ -175,3 +267,17 @@ echo ""
 echo "💰 Total cost: $TOTAL_COST SOL"
 
 echo "✅ Rewards program deployed"
+
+# Print summary of all program IDs, links, and transaction signatures
+echo ""
+echo "📋 Deployment Summary:"
+echo ""
+echo "Program Explorer Links:"
+echo "Folio:       $FOLIO_PROGRAM_LINK"
+echo "Folio Admin: $FOLIO_ADMIN_PROGRAM_LINK"
+echo "Rewards:     $REWARDS_PROGRAM_LINK"
+echo ""
+echo "Transaction Explorer Links:"
+echo "Folio:       $FOLIO_TX_LINK"
+echo "Folio Admin: $FOLIO_ADMIN_TX_LINK"
+echo "Rewards:     $REWARDS_TX_LINK"

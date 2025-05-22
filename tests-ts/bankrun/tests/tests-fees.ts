@@ -927,6 +927,8 @@ describe("Bankrun - Fees", () => {
 
           const crankerToUse = customCranker || cranker;
 
+          let folioBefore: any;
+
           before(async () => {
             await initBaseCase(
               customFolioTokenMint,
@@ -994,6 +996,8 @@ describe("Bankrun - Fees", () => {
             await travelFutureSlot(context);
 
             const tokenMintToUse = customFolioTokenMint || folioTokenMint;
+
+            folioBefore = await programFolio.account.folio.fetch(folioPDA);
 
             try {
               txnResult = await crankFeeDistribution<true>(
@@ -1081,6 +1085,25 @@ describe("Bankrun - Fees", () => {
                   true
                 );
               }
+
+              const totalFeeDistributed = expectedFeeDistributed.reduce(
+                (acc, curr) => acc.add(curr),
+                new BN(0)
+              );
+              const folioAfter = await programFolio.account.folio.fetch(
+                folioPDA
+              );
+              console.log(
+                folioBefore.feeRecipientsPendingFeeSharesToBeMinted.toString(),
+                totalFeeDistributed.toString(),
+                folioAfter.feeRecipientsPendingFeeSharesToBeMinted.toString()
+              );
+              assert.equal(
+                folioBefore.feeRecipientsPendingFeeSharesToBeMinted
+                  .sub(totalFeeDistributed.mul(D9))
+                  .eq(folioAfter.feeRecipientsPendingFeeSharesToBeMinted),
+                true
+              );
             });
           }
         });

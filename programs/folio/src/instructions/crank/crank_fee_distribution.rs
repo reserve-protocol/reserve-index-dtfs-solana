@@ -339,11 +339,14 @@ pub fn handler<'info>(
             .fee_distribution
             .close(ctx.accounts.cranker.to_account_info())?;
     }
+    let scaled_amount_to_remove_from_folio_pending_fees =
+        Decimal::from_token_amount(amount_to_remove_from_folio_pending_fees)?
+            .to_scaled(Rounding::Floor)?;
 
     let folio = &mut ctx.accounts.folio.load_mut()?;
     folio.fee_recipients_pending_fee_shares_to_be_minted = folio
         .fee_recipients_pending_fee_shares_to_be_minted
-        .checked_sub(amount_to_remove_from_folio_pending_fees)
+        .checked_sub(scaled_amount_to_remove_from_folio_pending_fees)
         .ok_or(ErrorCode::MathOverflow)?;
 
     Ok(())

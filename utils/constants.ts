@@ -79,3 +79,6 @@ export const DAY_IN_SECONDS = 86400;
 export const MAX_REBALANCE_DETAILS = 30;
 
 export const RESTRICTED_AUCTION_BUFFER = 120;
+
+// DEFAULT reward Index for tests
+export const DEFAULT_REWARD_INDEX = new BN(1);

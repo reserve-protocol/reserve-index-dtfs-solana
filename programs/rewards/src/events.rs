@@ -27,7 +27,9 @@ pub struct RewardRatioSet {
 ///
 /// # Arguments
 /// * `reward_token` - The reward token mint.
+/// * `reward_info` - The reward info pubkey.
 #[event]
 pub struct RewardTokenRemoved {
     pub reward_token: Pubkey,
+    pub reward_info: Pubkey,
 }

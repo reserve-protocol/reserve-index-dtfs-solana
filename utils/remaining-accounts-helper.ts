@@ -66,6 +66,7 @@ export async function buildRemainingAccountsForAccruesRewards(
   callerKeypair: Keypair,
   realm: PublicKey,
   rewardTokens: PublicKey[],
+  index: BN,
   extraUser: PublicKey = callerKeypair.publicKey
 ): Promise<AccountMeta[]> {
   const remainingAccounts: AccountMeta[] = [];
@@ -80,7 +81,7 @@ export async function buildRemainingAccountsForAccruesRewards(
     });
 
     remainingAccounts.push({
-      pubkey: getRewardInfoPDA(realm, token),
+      pubkey: getRewardInfoPDA(realm, token, index),
       isSigner: false,
       isWritable: true,
     });
@@ -118,7 +119,8 @@ export async function buildRemainingAccountsForClaimRewards(
   connection: Connection,
   callerKeypair: Keypair,
   realm: PublicKey,
-  rewardTokens: PublicKey[]
+  rewardTokens: PublicKey[],
+  index: BN
 ): Promise<AccountMeta[]> {
   const remainingAccounts: AccountMeta[] = [];
 
@@ -132,7 +134,7 @@ export async function buildRemainingAccountsForClaimRewards(
     });
 
     remainingAccounts.push({
-      pubkey: getRewardInfoPDA(realm, token),
+      pubkey: getRewardInfoPDA(realm, token, index),
       isSigner: false,
       isWritable: true,
     });

@@ -26,6 +26,7 @@ import {
   D9,
   DEFAULT_DECIMALS,
   DEFAULT_DECIMALS_MUL,
+  DEFAULT_REWARD_INDEX,
   MAX_MINT_FEE,
   MAX_REWARD_TOKENS,
 } from "../../../utils/constants";
@@ -163,7 +164,8 @@ describe("Bankrun - Governance Staking User", () => {
   ];
 
   async function getRewardsInfoAndUserRewardInfos(
-    rewardsTokenToClaim: PublicKey[]
+    rewardsTokenToClaim: PublicKey[],
+    index: BN
   ): Promise<{
     rewardInfos: RewardInfo[];
     userRewardInfos: UserRewardInfo[];
@@ -172,7 +174,7 @@ describe("Bankrun - Governance Staking User", () => {
     const userRewardInfos: UserRewardInfo[] = [];
 
     for (const rewardToken of rewardsTokenToClaim) {
-      const rewardInfoPDA = getRewardInfoPDA(realmPDA, rewardToken);
+      const rewardInfoPDA = getRewardInfoPDA(realmPDA, rewardToken, index);
 
       const rewardInfo = await programRewards.account.rewardInfo.fetch(
         rewardInfoPDA
@@ -181,6 +183,7 @@ describe("Bankrun - Governance Staking User", () => {
       rewardInfos.push(
         new RewardInfo(
           rewardInfo.rewardToken,
+          rewardInfo.index,
           rewardInfo.payoutLastPaid,
           rewardInfo.rewardIndex,
           rewardInfo.balanceAccounted,
@@ -304,8 +307,15 @@ describe("Bankrun - Governance Staking User", () => {
     }
 
     // Reset reward info accounts
-    for (const rewardToken of REWARD_TOKEN_MINTS) {
-      closeAccount(context, getRewardInfoPDA(realmPDA, rewardToken.publicKey));
+    for (const [index, rewardToken] of REWARD_TOKEN_MINTS.entries()) {
+      closeAccount(
+        context,
+        getRewardInfoPDA(
+          realmPDA,
+          rewardToken.publicKey,
+          rewardInfos[index]?.index ?? DEFAULT_REWARD_INDEX
+        )
+      );
     }
 
     // Init reward info if provided
@@ -447,7 +457,10 @@ describe("Bankrun - Governance Staking User", () => {
               ({
                 rewardInfos: rewardInfosBefore,
                 userRewardInfos: userRewardInfosBefore,
-              } = await getRewardsInfoAndUserRewardInfos(rewardsTokenToClaim));
+              } = await getRewardsInfoAndUserRewardInfos(
+                rewardsTokenToClaim,
+                DEFAULT_REWARD_INDEX
+              ));
             }
 
             context.setClock(
@@ -494,7 +507,8 @@ describe("Bankrun - Governance Staking User", () => {
               realmPDA,
               GOVERNANCE_MINT.publicKey,
               userGoverningMintATA,
-              rewardsTokenToClaim
+              rewardsTokenToClaim,
+              DEFAULT_REWARD_INDEX
             );
           });
 
@@ -507,7 +521,10 @@ describe("Bankrun - Governance Staking User", () => {
               await travelFutureSlot(context);
 
               const { rewardInfos, userRewardInfos } =
-                await getRewardsInfoAndUserRewardInfos(rewardsTokenToClaim);
+                await getRewardsInfoAndUserRewardInfos(
+                  rewardsTokenToClaim,
+                  DEFAULT_REWARD_INDEX
+                );
 
               for (let i = 0; i < rewardInfos.length; i++) {
                 const initialRewardTokenBalanceOfRealm = (

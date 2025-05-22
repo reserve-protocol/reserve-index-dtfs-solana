@@ -19,6 +19,7 @@ import {
   buildRemainingAccountsForClaimRewards,
 } from "./remaining-accounts-helper";
 import { Rewards } from "../target/types/rewards";
+import { DEFAULT_REWARD_INDEX } from "./constants";
 
 let rewardsProgram: Program<Rewards> = null;
 
@@ -90,19 +91,20 @@ export async function addRewardToken(
   // Is a governance account
   rewardAdmin: Keypair,
   realm: PublicKey,
-  rewardToken: PublicKey
+  rewardToken: PublicKey,
+  index: BN = DEFAULT_REWARD_INDEX
 ) {
   const rewardsProgram = getRewardsProgram(connection, executor);
 
   const addRewardToken = await rewardsProgram.methods
-    .addRewardToken()
+    .addRewardToken(index)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       executor: executor.publicKey,
       rewardAdmin: rewardAdmin.publicKey,
       realm,
       rewardTokens: getRewardTokensPDA(realm),
-      rewardTokenRewardInfo: getRewardInfoPDA(realm, rewardToken),
+      rewardTokenRewardInfo: getRewardInfoPDA(realm, rewardToken, index),
       rewardToken,
       rewardTokenAccount: await getOrCreateAtaAddress(
         connection,
@@ -204,6 +206,7 @@ export async function accrueRewards(
   realm: PublicKey,
   rewardTokens: PublicKey[],
   governanceMint: PublicKey,
+  index: BN = DEFAULT_REWARD_INDEX,
   extraUser: PublicKey = callerKeypair.publicKey
 ) {
   const rewardsProgram = getRewardsProgram(connection, callerKeypair);
@@ -239,6 +242,7 @@ export async function accrueRewards(
         callerKeypair,
         realm,
         rewardTokens,
+        index,
         extraUser
       )
     )
@@ -259,7 +263,8 @@ export async function claimRewards(
   userKeypair: Keypair,
   realm: PublicKey,
   rewardTokens: PublicKey[],
-  governanceMint: PublicKey
+  governanceMint: PublicKey,
+  index: BN = DEFAULT_REWARD_INDEX
 ) {
   const rewardsProgram = getRewardsProgram(connection, userKeypair);
 
@@ -287,7 +292,8 @@ export async function claimRewards(
         connection,
         userKeypair,
         realm,
-        rewardTokens
+        rewardTokens,
+        index
       )
     )
     .instruction();

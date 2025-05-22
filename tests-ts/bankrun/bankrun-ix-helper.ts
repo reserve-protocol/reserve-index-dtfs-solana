@@ -1330,6 +1330,7 @@ export async function addRewardToken<T extends boolean = true>(
   programRewards: Program<Rewards>,
   executor: Keypair,
   // Is a governance account
+  index: BN,
   rewardAdmin: PublicKey,
   realm: PublicKey,
   rewardToken: PublicKey,
@@ -1341,14 +1342,14 @@ export async function addRewardToken<T extends boolean = true>(
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
   const addRewardToken = await programRewards.methods
-    .addRewardToken()
+    .addRewardToken(index)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       executor: executor.publicKey,
       rewardAdmin,
       realm,
       rewardTokens: getRewardTokensPDA(realm),
-      rewardTokenRewardInfo: getRewardInfoPDA(realm, rewardToken),
+      rewardTokenRewardInfo: getRewardInfoPDA(realm, rewardToken, index),
       rewardToken,
       rewardTokenAccount:
         rewardTokenATA ??
@@ -1381,7 +1382,7 @@ export async function removeRewardToken<T extends boolean = true>(
   rewardAdmin: PublicKey,
   realm: PublicKey,
   rewardTokenToRemove: PublicKey,
-
+  index: BN,
   executeTxn: T = true as T
 ): Promise<
   T extends true
@@ -1397,6 +1398,11 @@ export async function removeRewardToken<T extends boolean = true>(
       realm,
       rewardTokens: getRewardTokensPDA(realm),
       rewardTokenToRemove,
+      rewardTokenRewardInfo: getRewardInfoPDA(
+        realm,
+        rewardTokenToRemove,
+        index
+      ),
     })
     .instruction();
 
@@ -1507,6 +1513,7 @@ export async function claimRewards<T extends boolean = true>(
   governanceStakedTokenAccount: PublicKey,
   callerGovernanceTokenAccount: PublicKey,
   rewardTokens: PublicKey[],
+  rewardIndex: BN = new BN(1),
   executeTxn: T = true as T,
   remainingAccounts: AccountMeta[] = []
 ): Promise<
@@ -1533,7 +1540,8 @@ export async function claimRewards<T extends boolean = true>(
             context,
             userKeypair,
             realm,
-            rewardTokens
+            rewardTokens,
+            rewardIndex
           )
     )
     .instruction();
@@ -1564,6 +1572,7 @@ async function buildGovernanceAccrueRewardsRemainingAccounts(
   realm: PublicKey,
   governanceTokenMint: PublicKey,
   rewardTokens: PublicKey[],
+  rewardIndex: BN,
   withSystemProgram: boolean = true
 ) {
   const remainingAccounts: AccountMeta[] = [];
@@ -1608,7 +1617,8 @@ async function buildGovernanceAccrueRewardsRemainingAccounts(
       context,
       userKeypair,
       realm,
-      rewardTokens
+      rewardTokens,
+      rewardIndex
     ))
   );
 
@@ -1623,7 +1633,8 @@ export async function depositLiquidityToGovernance(
   governanceTokenMint: PublicKey,
   userATA: PublicKey,
   rewardTokens: PublicKey[],
-  amount: BN
+  amount: BN,
+  rewardIndex: BN = new BN(1)
 ): Promise<BanksTransactionResultWithMeta> {
   const depositIx = await getGovernanceClient(
     programRewards
@@ -1644,6 +1655,7 @@ export async function depositLiquidityToGovernance(
       realm,
       governanceTokenMint,
       rewardTokens,
+      rewardIndex,
       false
     ))
   );
@@ -1661,7 +1673,8 @@ export async function withdrawLiquidityFromGovernance(
   realm: PublicKey,
   governanceTokenMint: PublicKey,
   userATA: PublicKey,
-  rewardTokens: PublicKey[]
+  rewardTokens: PublicKey[],
+  rewardIndex: BN
 ): Promise<BanksTransactionResultWithMeta> {
   const withdrawIx = await getGovernanceClient(
     programRewards
@@ -1679,6 +1692,7 @@ export async function withdrawLiquidityFromGovernance(
       realm,
       governanceTokenMint,
       rewardTokens,
+      rewardIndex,
       true
     ))
   );

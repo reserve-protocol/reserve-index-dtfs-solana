@@ -16,6 +16,7 @@ import {
 import { Folio } from "../../../target/types/folio";
 import {
   DEFAULT_DECIMALS,
+  DEFAULT_REWARD_INDEX,
   MAX_MINT_FEE,
   MAX_REWARD_TOKENS,
 } from "../../../utils/constants";
@@ -32,7 +33,11 @@ import {
   getConnectors,
   travelFutureSlot,
 } from "../bankrun-program-helper";
-import { getFolioPDA, getRewardTokensPDA } from "../../../utils/pda-helper";
+import {
+  getFolioPDA,
+  getRewardInfoPDA,
+  getRewardTokensPDA,
+} from "../../../utils/pda-helper";
 import { addRewardToken } from "../bankrun-ix-helper";
 
 import * as assert from "assert";
@@ -239,6 +244,7 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
                 banksClient,
                 programRewards,
                 adminKeypair,
+                DEFAULT_REWARD_INDEX,
                 rewardsAdminPDA,
                 realmPDA,
                 REWARD_TOKEN_MINT.publicKey,
@@ -263,7 +269,9 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
 
               const expectedRewardTokensArray = buildExpectedArray(
                 [],
-                [REWARD_TOKEN_MINT.publicKey],
+                [REWARD_TOKEN_MINT.publicKey].map((token) =>
+                  getRewardInfoPDA(realmPDA, token, DEFAULT_REWARD_INDEX)
+                ),
                 [],
                 MAX_REWARD_TOKENS,
                 PublicKey.default,
@@ -272,7 +280,7 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
 
               for (let i = 0; i < MAX_REWARD_TOKENS; i++) {
                 assert.equal(
-                  rewardTokens.rewardTokens[i].toBase58(),
+                  rewardTokens.rewardInfos[i].toBase58(),
                   expectedRewardTokensArray[i].toBase58()
                 );
               }

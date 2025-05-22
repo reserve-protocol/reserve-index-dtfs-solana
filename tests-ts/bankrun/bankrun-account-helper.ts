@@ -43,6 +43,7 @@ import {
   MAX_PADDED_STRING_LENGTH,
   REWARDS_PROGRAM_ID,
   MAX_REBALANCE_DETAILS,
+  DEFAULT_REWARD_INDEX,
 } from "../../utils/constants";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
@@ -128,6 +129,7 @@ export class MintInfo {
 
 export class RewardInfo {
   rewardToken: PublicKey;
+  index: BN;
   payoutLastPaid: BN;
   rewardIndex: BN;
   balanceAccounted: BN;
@@ -137,6 +139,7 @@ export class RewardInfo {
 
   constructor(
     rewardToken: PublicKey,
+    index: BN,
     payoutLastPaid: BN,
     rewardIndex: BN,
     balanceAccounted: BN,
@@ -145,6 +148,7 @@ export class RewardInfo {
     isDisallowed: boolean
   ) {
     this.rewardToken = rewardToken;
+    this.index = index;
     this.payoutLastPaid = payoutLastPaid;
     this.rewardIndex = rewardIndex;
     this.balanceAccounted = balanceAccounted;
@@ -159,6 +163,7 @@ export class RewardInfo {
   ) {
     return new RewardInfo(
       rewardToken,
+      DEFAULT_REWARD_INDEX,
       new BN((await context.banksClient.getClock()).unixTimestamp.toString()),
       new BN(0),
       new BN(0),
@@ -1170,7 +1175,8 @@ export async function createAndSetRewardTokens(
   realm: PublicKey,
   rewardsAdmin: PublicKey,
   rewardRatio: BN,
-  rewardTokensToTrack: PublicKey[]
+  rewardTokensToTrack: PublicKey[],
+  index: BN = new BN(1)
 ) {
   const rewardTokensPDAWithBump = getRewardTokensPDAWithBump(realm);
 
@@ -1180,7 +1186,9 @@ export async function createAndSetRewardTokens(
     rewardRatio: rewardRatio,
     realm: realm,
     rewardsAdmin: rewardsAdmin,
-    rewardTokens: rewardTokensToTrack,
+    rewardTokens: rewardTokensToTrack.map((token) =>
+      getRewardInfoPDA(realm, token, index)
+    ),
   };
 
   // Manual encoding for reward tokens
@@ -1245,11 +1253,13 @@ export async function createAndSetRewardInfo(
 ) {
   const rewardInfoPDAWithBump = getRewardInfoPDAWithBump(
     realm,
-    providedRewardInfo.rewardToken
+    providedRewardInfo.rewardToken,
+    providedRewardInfo.index
   );
 
   const rewardInfo = {
     bump: rewardInfoPDAWithBump[1],
+    index: providedRewardInfo.index,
     realm: realm,
     rewardToken: providedRewardInfo.rewardToken,
     payoutLastPaid: providedRewardInfo.payoutLastPaid,
@@ -1261,7 +1271,7 @@ export async function createAndSetRewardInfo(
   };
 
   // Manual encoding for fee recipients
-  const buffer = Buffer.alloc(146);
+  const buffer = Buffer.alloc(154);
   let offset = 0;
 
   // Encode discriminator
@@ -1272,6 +1282,10 @@ export async function createAndSetRewardInfo(
   // Encode bump
   buffer.writeUInt8(rewardInfo.bump, offset);
   offset += 1;
+
+  // Encode Index
+  rewardInfo.index.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+  offset += 8;
 
   // Encode realm pubkey
   rewardInfo.realm.toBuffer().copy(buffer, offset);
@@ -1533,6 +1547,7 @@ export async function buildRemainingAccountsForAccruesRewards(
   callerKeypair: Keypair,
   realm: PublicKey,
   rewardTokens: PublicKey[],
+  index: BN,
   extraUser: PublicKey = callerKeypair.publicKey
 ): Promise<AccountMeta[]> {
   const remainingAccounts: AccountMeta[] = [];
@@ -1547,7 +1562,7 @@ export async function buildRemainingAccountsForAccruesRewards(
     });
 
     remainingAccounts.push({
-      pubkey: getRewardInfoPDA(realm, token),
+      pubkey: getRewardInfoPDA(realm, token, index),
       isSigner: false,
       isWritable: true,
     });
@@ -1580,7 +1595,8 @@ export async function buildRemainingAccountsForClaimRewards(
   context: ProgramTestContext,
   callerKeypair: Keypair,
   realm: PublicKey,
-  rewardTokens: PublicKey[]
+  rewardTokens: PublicKey[],
+  index: BN
 ): Promise<AccountMeta[]> {
   const remainingAccounts: AccountMeta[] = [];
 
@@ -1594,7 +1610,7 @@ export async function buildRemainingAccountsForClaimRewards(
     });
 
     remainingAccounts.push({
-      pubkey: getRewardInfoPDA(realm, token),
+      pubkey: getRewardInfoPDA(realm, token, index),
       isSigner: false,
       isWritable: true,
     });

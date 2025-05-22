@@ -224,16 +224,26 @@ export function getRewardTokensPDAWithBump(realm: PublicKey) {
   );
 }
 
-export function getRewardInfoPDA(realm: PublicKey, rewardToken: PublicKey) {
-  return getRewardInfoPDAWithBump(realm, rewardToken)[0];
+export function getRewardInfoPDA(
+  realm: PublicKey,
+  rewardToken: PublicKey,
+  index: BN
+) {
+  return getRewardInfoPDAWithBump(realm, rewardToken, index)[0];
 }
 
 export function getRewardInfoPDAWithBump(
   realm: PublicKey,
-  rewardToken: PublicKey
+  rewardToken: PublicKey,
+  index: BN
 ) {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("reward_info"), realm.toBuffer(), rewardToken.toBuffer()],
+    [
+      Buffer.from("reward_info"),
+      realm.toBuffer(),
+      index.toBuffer("le", 8),
+      rewardToken.toBuffer(),
+    ],
     REWARDS_PROGRAM_ID
   );
 }

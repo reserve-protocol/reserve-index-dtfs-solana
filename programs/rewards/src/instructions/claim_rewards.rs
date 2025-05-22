@@ -138,6 +138,8 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
         let user_reward_token_account =
             next_account(&mut remaining_accounts_iter, false, true, &token_program_id)?;
 
+        let reward_info = &reward_info;
+        let mut reward_info = Account::<RewardInfo>::try_from(reward_info)?;
         // Check all the pdas
         check_condition!(
             reward_info.key()
@@ -145,7 +147,8 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
                     &[
                         REWARD_INFO_SEEDS,
                         realm_key.as_ref(),
-                        reward_token.key().as_ref()
+                        reward_info.index.to_le_bytes().as_ref(),
+                        reward_info.reward_token.key().as_ref()
                     ],
                     &crate::id()
                 )
@@ -182,10 +185,8 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, ClaimRewards<'info>>) -
         );
 
         // Update the accounts
-        let reward_info = &reward_info;
         let user_reward_info = &user_reward_info;
 
-        let mut reward_info = Account::<RewardInfo>::try_from(reward_info)?;
         let mut user_reward_info = Account::<UserRewardInfo>::try_from(user_reward_info)?;
 
         let raw_claimable_rewards = Decimal::from_scaled(user_reward_info.accrued_rewards)

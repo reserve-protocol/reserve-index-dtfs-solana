@@ -38,7 +38,7 @@ pub struct RemoveRewardToken<'info> {
     pub reward_tokens: AccountLoader<'info, RewardTokens>,
 
     #[account(mut,
-        seeds = [REWARD_INFO_SEEDS, realm.key().as_ref(), reward_token_to_remove.key().as_ref()],
+        seeds = [REWARD_INFO_SEEDS, realm.key().as_ref(), reward_token_reward_info.index.to_le_bytes().as_ref(), reward_token_to_remove.key().as_ref()],
         bump
     )]
     pub reward_token_reward_info: Account<'info, RewardInfo>,
@@ -78,12 +78,13 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, RemoveRewardToken<'info
     ctx.accounts.validate()?;
 
     ctx.accounts.reward_tokens.load_mut()?.remove_reward_token(
-        &ctx.accounts.reward_token_to_remove.key(),
+        &ctx.accounts.reward_token_reward_info.key(),
         &mut ctx.accounts.reward_token_reward_info,
     )?;
 
     emit!(RewardTokenRemoved {
         reward_token: ctx.accounts.reward_token_to_remove.key(),
+        reward_info: ctx.accounts.reward_token_reward_info.key(),
     });
 
     Ok(())

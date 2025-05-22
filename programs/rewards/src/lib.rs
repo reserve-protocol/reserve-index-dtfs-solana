@@ -45,8 +45,9 @@ pub mod rewards {
 
     pub fn add_reward_token<'info>(
         ctx: Context<'_, '_, 'info, 'info, AddRewardToken<'info>>,
+        index: u64,
     ) -> Result<()> {
-        add_reward_token::handler(ctx)
+        add_reward_token::handler(ctx, index)
     }
 
     pub fn remove_reward_token<'info>(

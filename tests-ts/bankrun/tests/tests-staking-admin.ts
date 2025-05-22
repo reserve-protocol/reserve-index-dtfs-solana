@@ -18,6 +18,7 @@ import {
 import { Folio } from "../../../target/types/folio";
 import {
   DEFAULT_DECIMALS,
+  DEFAULT_REWARD_INDEX,
   MAX_MINT_FEE,
   MAX_REWARD_HALF_LIFE,
   MAX_REWARD_TOKENS,
@@ -39,6 +40,7 @@ import {
 import {
   getFolioPDA,
   getGovernanceHoldingPDA,
+  getRewardInfoPDA,
   getRewardTokensPDA,
   getUserTokenRecordRealmsPDA,
 } from "../../../utils/pda-helper";
@@ -159,18 +161,6 @@ describe("Bankrun - Staking Admin", () => {
         ),
     },
     {
-      desc: "(tries to add a disallowed token, errors out)",
-      expectedError: "DisallowedRewardToken",
-      rewardToken: REWARD_TOKEN_MINTS[0].publicKey,
-      disallowedTokenRewards: [REWARD_TOKEN_MINTS[0].publicKey],
-    },
-    {
-      desc: "(tries to add a reward token that is already registered, errors out)",
-      expectedError: "RewardAlreadyRegistered",
-      alreadyAddedTokenRewards: [REWARD_TOKEN_MINTS[0].publicKey],
-      rewardToken: REWARD_TOKEN_MINTS[0].publicKey,
-    },
-    {
       desc: "(no more room for new reward token, errors out)",
       expectedError: "NoMoreRoomForNewRewardToken",
       alreadyAddedTokenRewards: Array(MAX_REWARD_TOKENS).fill(
@@ -190,6 +180,14 @@ describe("Bankrun - Staking Admin", () => {
       expectedError: null,
       alreadyAddedTokenRewards: [REWARD_TOKEN_MINTS[1].publicKey],
       rewardToken: REWARD_TOKEN_MINTS[0].publicKey,
+      expectedRewardRatio: new BN(8022536812036),
+    },
+    {
+      desc: "(allow creation of same reward token twice with different index, succeeds)",
+      expectedError: null,
+      alreadyAddedTokenRewards: [REWARD_TOKEN_MINTS[0].publicKey],
+      rewardToken: REWARD_TOKEN_MINTS[0].publicKey,
+      index: new BN(10),
       expectedRewardRatio: new BN(8022536812036),
     },
   ];
@@ -428,12 +426,14 @@ describe("Bankrun - Staking Admin", () => {
             alreadyAddedTokenRewards,
             disallowedTokenRewards,
             rewardTokenATA,
+            index,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
           };
 
           let folioMintToUse: Keypair;
+          const DEFAULT_INDEX_FOR_REWARD_CREATION = new BN(2);
 
           before(async () => {
             folioMintToUse = customFolioTokenMint || folioTokenMint;
@@ -490,6 +490,7 @@ describe("Bankrun - Staking Admin", () => {
                 banksClient,
                 programRewards,
                 adminKeypair,
+                index ?? DEFAULT_INDEX_FOR_REWARD_CREATION,
                 rewardsAdminPDA,
                 realmPDA,
                 rewardToken,
@@ -513,8 +514,18 @@ describe("Bankrun - Staking Admin", () => {
                 );
 
               const expectedRewardTokensArray = buildExpectedArray(
-                alreadyAddedTokenRewards,
-                [rewardToken],
+                alreadyAddedTokenRewards.map((token) =>
+                  // Default index is 1
+                  getRewardInfoPDA(realmPDA, token, DEFAULT_REWARD_INDEX)
+                ),
+                [rewardToken].map((token) =>
+                  // default for creation is 2
+                  getRewardInfoPDA(
+                    realmPDA,
+                    token,
+                    index ?? DEFAULT_INDEX_FOR_REWARD_CREATION
+                  )
+                ),
                 [],
                 MAX_REWARD_TOKENS,
                 PublicKey.default,
@@ -523,10 +534,25 @@ describe("Bankrun - Staking Admin", () => {
 
               for (let i = 0; i < MAX_REWARD_TOKENS; i++) {
                 assert.equal(
-                  rewardTokens.rewardTokens[i].toBase58(),
+                  rewardTokens.rewardInfos[i].toBase58(),
                   expectedRewardTokensArray[i].toBase58()
                 );
               }
+
+              const rewardInfo = await programRewards.account.rewardInfo.fetch(
+                getRewardInfoPDA(
+                  realmPDA,
+                  rewardToken,
+                  index ?? DEFAULT_INDEX_FOR_REWARD_CREATION
+                )
+              );
+
+              assert.equal(rewardInfo.isDisallowed, false);
+              assert.equal(
+                rewardInfo.index.eq(index ?? DEFAULT_INDEX_FOR_REWARD_CREATION),
+                true
+              );
+              assert.equal(rewardInfo.rewardToken.equals(rewardToken), true);
             });
           }
         });
@@ -594,6 +620,7 @@ describe("Bankrun - Staking Admin", () => {
                 rewardsAdminPDA,
                 realmPDA,
                 rewardToken,
+                DEFAULT_REWARD_INDEX,
                 false
               )
             );
@@ -626,7 +653,7 @@ describe("Bankrun - Staking Admin", () => {
 
               for (let i = 0; i < MAX_REWARD_TOKENS; i++) {
                 assert.equal(
-                  rewardTokens.rewardTokens[i].toBase58(),
+                  rewardTokens.rewardInfos[i].toBase58(),
                   expectedRewardTokensArray[i].toBase58()
                 );
               }

@@ -178,6 +178,8 @@ pub fn accrue_rewards<'info>(
             &RewardsProgram::id(),
         )?;
 
+        let mut reward_info: Account<RewardInfo> = Account::try_from(reward_info)?;
+
         // Check all the pdas
         check_condition!(
             reward_info.key()
@@ -185,6 +187,7 @@ pub fn accrue_rewards<'info>(
                     &[
                         REWARD_INFO_SEEDS,
                         realm_key.as_ref(),
+                        reward_info.index.to_le_bytes().as_ref(),
                         reward_token.key().as_ref()
                     ],
                     &RewardsProgram::id()
@@ -224,7 +227,6 @@ pub fn accrue_rewards<'info>(
         );
 
         // Accrue rewards on reward info
-        let mut reward_info: Account<RewardInfo> = Account::try_from(reward_info)?;
         reward_info.accrue_rewards(
             reward_tokens.reward_ratio,
             token_rewards_token_account_parsed.amount,

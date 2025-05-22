@@ -485,32 +485,78 @@ classDiagram
 
 ```mermaid
 classDiagram
+    class Rebalance {
+        +bump: u8
+        +all_rebalance_details_added: u8
+        +_padding: u8[6]
+        +folio: Pubkey
+        +current_auction_id: u64
+        +nonce: u64
+        +started_at: u64
+        +restricted_until: u64
+        +available_until: u64
+        +details: RebalanceDetails
+    }
+
+    class RebalanceDetails {
+        +tokens: RebalanceDetailsToken[MAX_TOKENS]
+    }
+
+    %% Individual token details within rebalance
+    class RebalanceDetailsToken {
+        +mint: Pubkey
+        +limits: BasketRange
+        +prices: PricesInRebalance
+    }
+
+    %% Price structure for rebalance operations The price is with respect to a common token `Z` or real us dollar value
+    class PricesInRebalance {
+        %% D18{UoA/tok}
+        +low: u128
+        %% D18{UoA/tok}
+        +high: u128
+    }
+
+    %% Price structure for auction operations X with respect to Y where X and Y are in same auction.
+    class PricesInAuction {
+        %% D18{buyTok/sellTok}
+        +start: u128
+        %% D18{buyTok/sellTok}
+        +end: u128
+    }
+
+   %% Token basket range limits
+    class BasketRange {
+        %% D18{tok/share}
+        +spot: u128
+        %% D18{tok/share} inclusive
+        +low: u128
+        %% D18{tok/share} inclusive
+        +high: u128
+    }
+
     class Auction {
         +bump: u8
         +id: u64
-        +available_at: u64
-        +launch_timeout: u64
+        +nonce: u64
         +folio: Pubkey
-        +sell: Pubkey
-        +buy: Pubkey
-        +sell_limit: BasketRange
-        +buy_limit: BasketRange
-        +max_runs: u8
-        +closed_for_reruns: u8
-        +initial_proposed_price: Prices
-        +auction_run_details: AuctionRunDetails[]
+        +sell_mint: Pubkey
+        +buy_mint: Pubkey
+        +sell_limit: u128
+        +buy_limit: u128
+        +start: u64
+        +end: u64
+        +prices: PricesInAuction
     }
 
-    class AuctionRunDetails{
-        +start: u64,
-        +end: u64,
-        +price: Prices
-        +sell_limit_spot: u128
-        +buy_limit_spot: u128
-        +k: u128
-    }
+    Folio --> Rebalance: only 1, with a incrementing nonce.
+    Rebalance --> Auction: has many
+    Auction  --> PricesInAuction: has prices
 
-    Folio --> Auction: has many
+    Rebalance *-- RebalanceDetails: has details
+    RebalanceDetails *-- RebalanceDetailsToken: contains array
+    RebalanceDetailsToken --> BasketRange: has limits
+    RebalanceDetailsToken --> PricesInRebalance: has prices
 ```
 
 ### Fee Management
@@ -561,11 +607,12 @@ classDiagram
         +realm: Pubkey
         +rewards_admin: Pubkey
         +reward_ratio: u128
-        +reward_tokens: Pubkey[]
+        +reward_infos: RewardInfo[]
     }
 
     class RewardInfo {
         +bump: u8
+        +index: u128
         +realm: Pubkey
         +reward_token: Pubkey
         +payout_last_paid: u64

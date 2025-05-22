@@ -26,10 +26,10 @@ pub struct RewardTokens {
     /// Scaled in D18
     pub reward_ratio: u128,
 
-    // List of current tracked reward tokens
+    // List of current tracked reward infos.
     // Default pubkey means not set.
     /// Max of 30 reward tokens.
-    pub reward_tokens: [Pubkey; MAX_REWARD_TOKENS],
+    pub reward_infos: [Pubkey; MAX_REWARD_TOKENS],
 }
 
 impl RewardTokens {
@@ -38,11 +38,16 @@ impl RewardTokens {
 
 /// This is used to track the reward info of a specific reward token.
 ///
-/// PDA Seeds ["reward_info", realm pubkey, reward token pubkey]
+/// PDA Seeds ["reward_info", realm pubkey, index, reward token pubkey]
 #[account]
 #[derive(Default, InitSpace)]
 pub struct RewardInfo {
     pub bump: u8,
+
+    // A unique number set by admin at the time of creation of RewardInfo.
+    // This allows for creation of multiple rewards for the same token, multiple times.
+    // This has no relationship with the RewardInfo except for being an helper to generate a unique but still verifiable PDA.
+    pub index: u64,
 
     /// Realm's pubkey
     pub realm: Pubkey,

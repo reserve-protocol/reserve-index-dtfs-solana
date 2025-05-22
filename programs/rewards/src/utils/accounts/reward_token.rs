@@ -54,31 +54,30 @@ impl RewardTokens {
     /// Will return an error if the reward token is already registered or if it's a disallowed reward token or if there is no more room for new reward tokens.
     ///
     /// # Arguments
-    /// * `new_reward_token` - The new reward token to add.
     /// * `new_reward_info` - The new reward info account to add.
     pub fn add_reward_token(
         &mut self,
-        new_reward_token: &Pubkey,
+        reward_info_pubkey: &Pubkey,
         new_reward_info: &RewardInfo,
     ) -> Result<()> {
         // Check for disallowed reward token
         check_condition!(!new_reward_info.is_disallowed, DisallowedRewardToken);
 
         let mut next_index_to_add: Option<usize> = None;
-        for (index, reward_token) in self.reward_tokens.iter().enumerate() {
-            check_condition!(
-                reward_token.key() != *new_reward_token,
-                RewardAlreadyRegistered
-            );
+        for (index, reward_info) in self.reward_infos.iter().enumerate() {
+            if reward_info.key() == *reward_info_pubkey {
+                return Err(ErrorCode::RewardAlreadyRegistered.into());
+            }
 
-            if next_index_to_add.is_none() && reward_token.key() == Pubkey::default() {
+            if reward_info.key() == Pubkey::default() {
                 next_index_to_add = Some(index);
+                break;
             }
         }
 
         check_condition!(next_index_to_add.is_some(), NoMoreRoomForNewRewardToken);
 
-        self.reward_tokens[next_index_to_add.unwrap()] = *new_reward_token;
+        self.reward_infos[next_index_to_add.unwrap()] = *reward_info_pubkey;
 
         Ok(())
     }
@@ -88,24 +87,24 @@ impl RewardTokens {
     /// Will set the removed reward token to the disallowed state.
     ///
     /// # Arguments
-    /// * `reward_token` - The reward token to remove.
+    /// * `reward_info_pubkey` - The reward info pubkey to remove.
     /// * `reward_info` - The reward info account to update.
     #[cfg(not(tarpaulin_include))]
     pub fn remove_reward_token(
         &mut self,
-        reward_token: &Pubkey,
+        reward_info_pubkey: &Pubkey,
         reward_info: &mut Account<RewardInfo>,
     ) -> Result<()> {
-        let reward_token_position = self
-            .reward_tokens
+        let reward_info_position = self
+            .reward_infos
             .iter()
-            .position(|reward_token_iter| reward_token_iter.key() == *reward_token);
+            .position(|reward_info_iter| reward_info_iter.key() == *reward_info_pubkey);
 
         // Check if reward token is registered
-        check_condition!(reward_token_position.is_some(), RewardNotRegistered);
+        check_condition!(reward_info_position.is_some(), RewardNotRegistered);
 
         // Set to null in reward token list
-        self.reward_tokens[reward_token_position.unwrap()] = Pubkey::default();
+        self.reward_infos[reward_info_position.unwrap()] = Pubkey::default();
 
         reward_info.is_disallowed = true;
 

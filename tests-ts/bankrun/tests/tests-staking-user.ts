@@ -27,6 +27,7 @@ import {
   D9,
   DEFAULT_DECIMALS,
   DEFAULT_DECIMALS_MUL,
+  DEFAULT_REWARD_INDEX,
   MAX_MINT_FEE,
 } from "../../../utils/constants";
 import {
@@ -185,6 +186,9 @@ describe("Bankrun - Staking User", () => {
     {
       desc: "(passes wrong number of remaining accounts, errors out)",
       expectedError: "InvalidNumberOfRemainingAccounts",
+      rewardInfosAlreadyThere: async () => [
+        await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
+      ],
       remainingAccounts: () => [
         {
           pubkey: PublicKey.default,
@@ -195,19 +199,28 @@ describe("Bankrun - Staking User", () => {
     },
     {
       desc: "(passes wrong pda for reward info, errors out)",
-      expectedError: "InvalidRewardInfo",
+      expectedError: "AccountNotInitialized",
+      rewardInfosAlreadyThere: async () => [
+        await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
+      ],
       rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
       indexAccountToInvalidate: INDEX_FOR_REMAINING_ACCOUNTS.REWARD_INFO,
     },
     {
       desc: "(passes wrong pda for caller's reward info, errors out)",
       expectedError: "InvalidUserRewardInfo",
+      rewardInfosAlreadyThere: async () => [
+        await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
+      ],
       rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
       indexAccountToInvalidate: INDEX_FOR_REMAINING_ACCOUNTS.USER_REWARD_INFO,
     },
     {
       desc: "(passes wrong token rewards token account, errors out)",
       expectedError: "InvalidTokenRewardsTokenAccount",
+      rewardInfosAlreadyThere: async () => [
+        await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
+      ],
       rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
       indexAccountToInvalidate: INDEX_FOR_REMAINING_ACCOUNTS.REWARD_TOKEN_ATA,
     },
@@ -454,19 +467,25 @@ describe("Bankrun - Staking User", () => {
     },
     {
       desc: "(passes wrong pda for reward info, errors out)",
-      expectedError: "InvalidRewardInfo",
+      expectedError: "AccountNotInitialized",
       rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
       indexAccountToInvalidate: INDEX_FOR_REMAINING_ACCOUNTS.REWARD_INFO,
     },
     {
       desc: "(passes wrong pda for user's reward info, errors out)",
       expectedError: "InvalidUserRewardInfo",
+      rewardInfosAlreadyThere: async () => [
+        await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
+      ],
       rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
       indexAccountToInvalidate: INDEX_FOR_REMAINING_ACCOUNTS.USER_REWARD_INFO,
     },
     {
       desc: "(passes wrong token rewards token account, errors out)",
       expectedError: "InvalidTokenRewardsTokenAccount",
+      rewardInfosAlreadyThere: async () => [
+        await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
+      ],
       rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
       indexAccountToInvalidate: INDEX_FOR_REMAINING_ACCOUNTS.REWARD_TOKEN_ATA,
     },
@@ -587,7 +606,8 @@ describe("Bankrun - Staking User", () => {
   // Get the reward info and user reward info accounts to assert changes
   async function getRewardsInfoAndUserRewardInfos(
     rewardsTokenToClaim: PublicKey[],
-    extraUserToClaimFor: PublicKey
+    extraUserToClaimFor: PublicKey,
+    index: BN
   ): Promise<{
     rewardInfos: RewardInfo[];
     userRewardInfos: UserRewardInfo[];
@@ -596,7 +616,7 @@ describe("Bankrun - Staking User", () => {
     const userRewardInfos: UserRewardInfo[] = [];
 
     for (const rewardToken of rewardsTokenToClaim) {
-      const rewardInfoPDA = getRewardInfoPDA(realmPDA, rewardToken);
+      const rewardInfoPDA = getRewardInfoPDA(realmPDA, rewardToken, index);
 
       const rewardInfo = await programRewards.account.rewardInfo.fetch(
         rewardInfoPDA
@@ -605,6 +625,7 @@ describe("Bankrun - Staking User", () => {
       rewardInfos.push(
         new RewardInfo(
           rewardInfo.rewardToken,
+          rewardInfo.index,
           rewardInfo.payoutLastPaid,
           rewardInfo.rewardIndex,
           rewardInfo.balanceAccounted,
@@ -663,7 +684,8 @@ describe("Bankrun - Staking User", () => {
     userStakedBalances: {
       [key: string]: BN;
     } = {},
-    rewardRatio: BN = new BN(8_022_536_812_037) // LN2 / min reward ratio available (so LN 2 / 1 day)
+    rewardRatio: BN = new BN(8_022_536_812_037), // LN2 / min reward ratio available (so LN 2 / 1 day),
+    index: BN = DEFAULT_REWARD_INDEX
   ) {
     ({ folioOwnerPDA, realmPDA, rewardsAdminPDA } =
       await setupGovernanceAccounts(
@@ -752,7 +774,10 @@ describe("Bankrun - Staking User", () => {
 
     // Reset reward info accounts
     for (const rewardToken of REWARD_TOKEN_MINTS) {
-      closeAccount(context, getRewardInfoPDA(realmPDA, rewardToken.publicKey));
+      closeAccount(
+        context,
+        getRewardInfoPDA(realmPDA, rewardToken.publicKey, index)
+      );
     }
 
     // Init reward info if provided
@@ -943,6 +968,7 @@ describe("Bankrun - Staking User", () => {
                 rewardedUser1,
                 realmPDA,
                 rewardsTokenToClaim,
+                DEFAULT_REWARD_INDEX,
                 extraUser
               );
           }
@@ -961,7 +987,8 @@ describe("Bankrun - Staking User", () => {
               userRewardInfos: userRewardInfosBefore,
             } = await getRewardsInfoAndUserRewardInfos(
               rewardsTokenToClaim,
-              extraUser
+              extraUser,
+              DEFAULT_REWARD_INDEX
             ));
           }
 
@@ -1031,7 +1058,8 @@ describe("Bankrun - Staking User", () => {
             const { rewardInfos, userRewardInfos } =
               await getRewardsInfoAndUserRewardInfos(
                 rewardsTokenToClaim,
-                extraUser
+                extraUser,
+                DEFAULT_REWARD_INDEX
               );
 
             for (let i = 0; i < rewardInfos.length; i++) {
@@ -1197,7 +1225,8 @@ describe("Bankrun - Staking User", () => {
                 context,
                 rewardedUser1,
                 realmPDA,
-                rewardsTokenToClaim
+                rewardsTokenToClaim,
+                DEFAULT_REWARD_INDEX
               );
           }
 
@@ -1215,7 +1244,8 @@ describe("Bankrun - Staking User", () => {
               userRewardInfos: userRewardInfosBefore,
             } = await getRewardsInfoAndUserRewardInfos(
               rewardsTokenToClaim,
-              rewardedUser1.publicKey
+              rewardedUser1.publicKey,
+              DEFAULT_REWARD_INDEX
             ));
 
             rewardTokenBalancesBefore = await getTokenBalancesFromMints(
@@ -1239,6 +1269,7 @@ describe("Bankrun - Staking User", () => {
               new PublicKey(rewardedUser1.publicKey)
             ),
             rewardsTokenToClaim,
+            DEFAULT_REWARD_INDEX,
             true,
             remainingAccountsToUse
           );
@@ -1255,7 +1286,8 @@ describe("Bankrun - Staking User", () => {
             const { rewardInfos, userRewardInfos } =
               await getRewardsInfoAndUserRewardInfos(
                 rewardsTokenToClaim,
-                rewardedUser1.publicKey
+                rewardedUser1.publicKey,
+                DEFAULT_REWARD_INDEX
               );
 
             // Assert reward infos (only total claimed changed)

@@ -19,6 +19,7 @@ use shared::utils::TokenUtil;
 /// * `reward_token_reward_info` - The reward token reward info account (init if needed, not signer).
 /// * `reward_token_account` - The reward token account (not mut, not signer).
 #[derive(Accounts)]
+#[instruction(index: u64)]
 pub struct AddRewardToken<'info> {
     pub system_program: Program<'info, System>,
 
@@ -43,10 +44,10 @@ pub struct AddRewardToken<'info> {
     #[account()]
     pub reward_token: Box<InterfaceAccount<'info, Mint>>,
 
-    #[account(init_if_needed,
+    #[account(init,
         payer = executor,
         space = RewardInfo::SIZE,
-        seeds = [REWARD_INFO_SEEDS, realm.key().as_ref(), reward_token.key().as_ref()],
+        seeds = [REWARD_INFO_SEEDS, realm.key().as_ref(), index.to_le_bytes().as_ref(), reward_token.key().as_ref()],
         bump
     )]
     pub reward_token_reward_info: Account<'info, RewardInfo>,
@@ -106,7 +107,11 @@ impl AddRewardToken<'_> {
 ///
 /// # Arguments
 /// * `ctx` - The context of the instruction.
-pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AddRewardToken<'info>>) -> Result<()> {
+/// * `index` - The index of the reward token. Random number passed by the user.
+pub fn handler<'info>(
+    ctx: Context<'_, '_, 'info, 'info, AddRewardToken<'info>>,
+    index: u64,
+) -> Result<()> {
     let realm_key = ctx.accounts.realm.key();
     ctx.accounts.validate()?;
 
@@ -116,12 +121,13 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, AddRewardToken<'info>>)
         &realm_key,
         &ctx.accounts.reward_token.key(),
         ctx.accounts.reward_token_account.amount,
+        index,
     )?;
 
     let reward_tokens = &mut ctx.accounts.reward_tokens.load_mut()?;
 
     reward_tokens.add_reward_token(
-        &ctx.accounts.reward_token.key(),
+        &ctx.accounts.reward_token_reward_info.key(),
         &ctx.accounts.reward_token_reward_info,
     )?;
 

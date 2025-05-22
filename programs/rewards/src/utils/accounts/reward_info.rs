@@ -22,6 +22,7 @@ impl RewardInfo {
         realm: &Pubkey,
         reward_token: &Pubkey,
         raw_last_known_balance: u64,
+        index: u64,
     ) -> Result<()> {
         if account_reward_info.bump != 0 {
             check_condition!(account_reward_info.bump == context_bump, InvalidBump);
@@ -35,6 +36,7 @@ impl RewardInfo {
             account_reward_info.balance_accounted = 0;
             account_reward_info.balance_last_known = raw_last_known_balance as u128;
             account_reward_info.total_claimed = 0;
+            account_reward_info.index = index;
         }
 
         Ok(())

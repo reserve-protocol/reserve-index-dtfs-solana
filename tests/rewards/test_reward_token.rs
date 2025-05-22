@@ -13,7 +13,7 @@ mod tests {
             bump: 1,
             realm: Pubkey::new_unique(),
             rewards_admin: Pubkey::new_unique(),
-            reward_tokens: [Pubkey::default(); MAX_REWARD_TOKENS],
+            reward_infos: [Pubkey::default(); MAX_REWARD_TOKENS],
             reward_ratio: 0,
             _padding: [0; 15],
         }
@@ -30,13 +30,13 @@ mod tests {
     #[test]
     fn test_add_reward_token() {
         let mut reward_tokens = setup_reward_tokens();
-        let new_token = Pubkey::new_unique();
-        let reward_info = setup_reward_info(new_token, false);
-        let result = reward_tokens.add_reward_token(&new_token, &reward_info);
+        let new_reward_info = Pubkey::new_unique();
+        let reward_info = setup_reward_info(new_reward_info, false);
+        let result = reward_tokens.add_reward_token(&new_reward_info, &reward_info);
         assert!(result.is_ok());
-        assert_eq!(reward_tokens.reward_tokens[0], new_token);
+        assert_eq!(reward_tokens.reward_infos[0], new_reward_info);
 
-        let duplicate_result = reward_tokens.add_reward_token(&new_token, &reward_info);
+        let duplicate_result = reward_tokens.add_reward_token(&new_reward_info, &reward_info);
         assert!(duplicate_result.is_err());
         assert_eq!(
             duplicate_result.unwrap_err(),
@@ -49,12 +49,12 @@ mod tests {
         let mut reward_tokens = setup_reward_tokens();
 
         for i in 0..MAX_REWARD_TOKENS {
-            reward_tokens.reward_tokens[i] = Pubkey::new_unique();
+            reward_tokens.reward_infos[i] = Pubkey::new_unique();
         }
 
-        let new_token = Pubkey::new_unique();
-        let reward_info = setup_reward_info(new_token, false);
-        let result = reward_tokens.add_reward_token(&new_token, &reward_info);
+        let new_reward_info = Pubkey::new_unique();
+        let reward_info = setup_reward_info(new_reward_info, false);
+        let result = reward_tokens.add_reward_token(&new_reward_info, &reward_info);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), NoMoreRoomForNewRewardToken.into());
     }

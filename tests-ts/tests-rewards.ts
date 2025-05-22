@@ -68,6 +68,8 @@ describe("Reward Tests", () => {
 
   const feeRecipient: PublicKey = Keypair.generate().publicKey;
 
+  const rewardIndex = new BN(1);
+
   before(async () => {
     ({ connection, programRewards, keys } = await getConnectors());
 
@@ -165,7 +167,7 @@ describe("Reward Tests", () => {
     );
 
     assert.equal(
-      rewardTokens.rewardTokens[0].toBase58(),
+      rewardTokens.rewardInfos[0].toBase58(),
       rewardTokenMints[0].mint.publicKey.toBase58()
     );
     assert.equal(rewardTokens.rewardRatio.eq(new BN(8022536812036)), true);
@@ -209,7 +211,8 @@ describe("Reward Tests", () => {
 
     const rewardInfoPDA = getRewardInfoPDA(
       realm,
-      rewardTokenMints[0].mint.publicKey
+      rewardTokenMints[0].mint.publicKey,
+      rewardIndex
     );
     const rewardInfo = await programRewards.account.rewardInfo.fetch(
       rewardInfoPDA
@@ -221,7 +224,7 @@ describe("Reward Tests", () => {
       getRewardTokensPDA(realm)
     );
 
-    assert.deepEqual(rewardTokens.rewardTokens[0], PublicKey.default);
+    assert.deepEqual(rewardTokens.rewardInfos[0], PublicKey.default);
   });
 
   /*
@@ -242,7 +245,8 @@ describe("Reward Tests", () => {
 
     const rewardInfoPDA = getRewardInfoPDA(
       realm,
-      rewardTokenMints[1].mint.publicKey
+      rewardTokenMints[1].mint.publicKey,
+      rewardIndex
     );
     const rewardInfoBefore = await programRewards.account.rewardInfo.fetch(
       rewardInfoPDA
@@ -268,6 +272,7 @@ describe("Reward Tests", () => {
       realm,
       [rewardTokenMints[1].mint.publicKey],
       governanceTokenMint,
+      rewardIndex,
       userKeypair.publicKey
     );
 
@@ -291,6 +296,7 @@ describe("Reward Tests", () => {
       realm,
       [rewardTokenMints[1].mint.publicKey],
       governanceTokenMint,
+      rewardIndex,
       userKeypair.publicKey
     );
 
@@ -346,7 +352,8 @@ describe("Reward Tests", () => {
   it.skip("should allow user to claim rewards", async () => {
     const rewardInfoPDA = getRewardInfoPDA(
       realm,
-      rewardTokenMints[1].mint.publicKey
+      rewardTokenMints[1].mint.publicKey,
+      rewardIndex
     );
     const userRewardInfoPDA = getUserRewardInfoPDA(
       realm,

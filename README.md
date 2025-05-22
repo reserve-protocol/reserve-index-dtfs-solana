@@ -22,22 +22,15 @@ AUCTION_LAUNCHER is expected to be a semi-trusted wallet or multisig; They can o
 
 ## Decimal Precision
 
+In the solana program, we intentionally don't take into account how many decimals a token has, All calculations are done once the amount of tokens are multiplied by `D9 (10**9)`. The Token decimals are merely for the ui purposes and don't have any influence on the calculations.
+
 ### Precision Levels
 
-The protocol implements two precision levels for different operations:
-
-- **D9 (1e9)**: Standard Solana token decimal precision
-- **D18 (1e18)**: Enhanced precision for complex calculations
+- **D9 (1e9)**: Decimals added to the token amount before any calculations are done.
 
 ### Implementation Details
 
-#### Solana Token Standard (D9)
-
-- Native precision level for Solana token mints
-- Used for all token-related transactions
-- Maximum supported decimal precision in protocol
-
-#### Enhanced Precision (D18)
+#### Enhanced Precision (D9)
 
 - Used for advanced calculations requiring higher precision
 - Handles precision loss mitigation
@@ -50,8 +43,9 @@ The protocol implements two precision levels for different operations:
 
 > Note: These conventions exclude `state.rs` account definitions to maintain Solidity compatibility.
 
-- `raw_`: Indicates D9 precision (token amounts)
-- `scaled_`: Indicates D18 precision (calculation values)
+- `raw_`: Indicates that the tokens are without any additional decimals added from our side. The protocol whenever mentioning tokens always talks about the smallest possible UI form, so Lamports for sol, and 1 raw USDC is 0.0000001 USDC on ui, but is treaded as 1 without any context of UI token decimals. Eg. 1 Lamport = 1 raw_token.
+
+- `scaled_`: Indicates D9 precision (calculation values). Eg. 1 Lamport is stored as 1e9 on protocol level.
 
 ## Mathematical Utilities
 
@@ -99,7 +93,7 @@ Implementation features:
 
 ### Error Handling
 
-- D18 precision maintenance
+- D9 precision maintenance
 - Comprehensive overflow protection
 - U256 internal calculations
 - Result-based error handling
@@ -178,9 +172,9 @@ A Folio has 3 roles:
 
 ##### Auction Lifecycle
 
-1. Auction is approved by governance, including an initial price range
+1. Rebalance is approved by governance, including an initial price range, the tokens mints and for each token mint the basket presence they are looking for after the rebalance is completed.
 2. Auction is opened, initiating the progression through the predetermined price curve
-   a. ...either by the auction launcher (immediately, or soon after)
+   a. ...either by the auction launcher (immediately, or soon after). They can pass in additional details like price range etc.
    b. ...or permissionlessly (after the auction delay passes)
 3. Bids occur
 4. Auction expires
@@ -193,13 +187,13 @@ Governance configures buy and sell limits for the basket ratios, including a spo
 
 ```rust
 pub struct BasketRange {
-    pub spot: u128,    /// D18{tok/share}
-    pub low: u128,     /// D18{tok/share} inclusive
-    pub high: u128,    /// D18{tok/share} inclusive
+    pub spot: u128,    /// D9{tok/share}
+    pub low: u128,     /// D9{tok/share} inclusive
+    pub high: u128,    /// D9{tok/share} inclusive
 }
 
-sell_limit: BasketRange; // D18{sellTok/share} min ratio of sell tokens in the basket, inclusive
-buy_limit BasketRange; // D18{buyTok/share} max ratio of buy tokens in the basket, exclusive
+sell_limit: BasketRange; // D9{sellTok/share} min ratio of sell tokens in the basket, inclusive
+buy_limit BasketRange; // D9{buyTok/share} max ratio of buy tokens in the basket, exclusive
 ```
 
 During `open_auction` the `AUCTION_LAUNCHER` can set the buy and sell limits within the approved ranges provided by governance. If the auction is opened permissionlessly instead, the governance pre-approved spot estimates will be used instead.
@@ -220,8 +214,8 @@ The price range (`start_price / end_price`) must be less than `1e9` to prevent p
 
 Auction lots are sized by `Auction.sell_limit` and `Auction.buy_limit`. Both correspond to Folio structs about basket ratios that must be maintained throughout the auction:
 
-- `sell_limit` is the min amount of sell token in the basket `D18{sellTok/share}`
-- `buy_limit` is the max amount of buy token in the basket `D18{buyTok/share}`
+- `sell_limit` is the min amount of sell token in the basket `D9{sellTok/share}`
+- `buy_limit` is the max amount of buy token in the basket `D9{buyTok/share}`
 
 In general it is possible for the `lot` to both increase and decrease over time, depending on whether `sell_limit` or `buy_limit` is the constraining factor in sizing.
 

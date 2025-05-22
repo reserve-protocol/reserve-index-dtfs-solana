@@ -36,7 +36,7 @@ pub struct BasketTokenRemoved {
 /// * `new_fee` - The new TVL fee.
 #[event]
 pub struct TVLFeeSet {
-    /// Scaled in D18
+    /// Scaled in D9
     pub new_fee: u128,
 }
 

@@ -16,20 +16,21 @@ impl GovernanceUtil {
     ///
     /// # Arguments
     /// * `token_owner_record_governance_account` - The account info of the token owner record governance account of the user.
-    /// * `realm` - The realm pubkey.
+    /// * `realm_info` - The realm account info.
     /// * `governing_token_mint` - The governance token mint pubkey.
     /// * `user` - The user pubkey.
     #[cfg(not(tarpaulin_include))]
     pub fn get_governance_account_balance(
         token_owner_record_governance_account: &AccountInfo,
-        realm: &Pubkey,
+        realm_info: &AccountInfo,
         governing_token_mint: &Pubkey,
         user: &Pubkey,
     ) -> Result<u64> {
+        let realm_key = realm_info.key();
         let (governance_account_pda, _) = Pubkey::find_program_address(
             &[
                 GOVERNANCE_SEEDS,
-                realm.as_ref(),
+                realm_key.as_ref(),
                 governing_token_mint.as_ref(),
                 user.as_ref(),
             ],
@@ -39,6 +40,23 @@ impl GovernanceUtil {
         check_condition!(
             token_owner_record_governance_account.key() == governance_account_pda,
             InvalidGovernanceAccount
+        );
+
+        let realm_data = realm_info.try_borrow_data()?;
+        /*
+        Skip GovernanceAccountType (1 byte)
+         */
+        let start_index_for_community_mint = 1;
+
+        let community_mint = Pubkey::new_from_array(
+            realm_data[start_index_for_community_mint..start_index_for_community_mint + 32]
+                .try_into()
+                .unwrap(),
+        );
+
+        check_condition!(
+            community_mint == *governing_token_mint,
+            InvalidCommunityMint
         );
 
         let data_governance_account = token_owner_record_governance_account.try_borrow_data()?;
@@ -75,16 +93,17 @@ impl GovernanceUtil {
     /// * `holding_token_account_info` - The holding token account info.
     #[cfg(not(tarpaulin_include))]
     pub fn get_realm_staked_balance_and_mint_decimals(
-        realm: &Pubkey,
+        realm: &AccountInfo,
         governing_token_mint: &AccountInfo,
         holding_token_account_info: &AccountInfo,
     ) -> Result<(u64, u8)> {
+        let realm_key = realm.key();
         let governing_token_mint_key = governing_token_mint.key();
 
         let holding_pda = Pubkey::find_program_address(
             &[
                 GOVERNANCE_SEEDS,
-                realm.as_ref(),
+                realm_key.as_ref(),
                 governing_token_mint_key.as_ref(),
             ],
             &SPL_GOVERNANCE_PROGRAM_ID,

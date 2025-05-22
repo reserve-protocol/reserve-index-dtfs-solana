@@ -133,7 +133,7 @@ pub fn accrue_rewards<'info>(
     // Get the total balance of staked governance tokens in the Realm
     let (raw_governance_staked_token_account_balance, governance_token_decimals) =
         GovernanceUtil::get_realm_staked_balance_and_mint_decimals(
-            &realm_key,
+            realm,
             governance_token_mint,
             governance_staked_token_account,
         )?;
@@ -236,7 +236,7 @@ pub fn accrue_rewards<'info>(
         // Init if needed and accrue rewards on user reward info
         let raw_caller_governance_account_balance = GovernanceUtil::get_governance_account_balance(
             caller_governance_token_account,
-            &realm_key,
+            realm,
             &governance_token_mint_key,
             &caller_key,
         )?;
@@ -281,7 +281,7 @@ pub fn accrue_rewards<'info>(
             let raw_user_governance_account_balance =
                 GovernanceUtil::get_governance_account_balance(
                     user_governance_token_account,
-                    &realm_key,
+                    realm,
                     &governance_token_mint_key,
                     &user_key,
                 )?;

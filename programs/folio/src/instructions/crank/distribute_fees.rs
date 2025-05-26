@@ -2,10 +2,10 @@ use crate::utils::structs::FolioStatus;
 use crate::ID;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
-use anchor_spl::token;
 use anchor_spl::token::ID as TOKEN_PROGRAM_ID;
 use anchor_spl::token_2022::ID as TOKEN_2022_PROGRAM_ID;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use anchor_spl::{token_2022, token_interface};
 use folio_admin::state::DAOFeeConfig;
 use folio_admin::ID as FOLIO_ADMIN_PROGRAM_ID;
 use shared::check_condition;
@@ -109,6 +109,11 @@ pub fn validate<'info>(
     check_condition!(
         folio_token_mint.key() == loaded_folio.folio_token_mint,
         InvalidFolioTokenMint
+    );
+
+    check_condition!(
+        *folio_token_mint.to_account_info().owner == token_program.key(),
+        InvalidTokenMintProgram
     );
 
     let folio_key = folio.key();
@@ -260,7 +265,7 @@ pub fn distribute_fees<'info>(
         let bump = loaded_folio.bump;
         let signer_seeds = &[FOLIO_SEEDS, token_mint_key.as_ref(), &[bump]];
 
-        let cpi_accounts = token::MintTo {
+        let cpi_accounts = token_2022::MintTo {
             mint: folio_token_mint.to_account_info(),
             to: dao_fee_recipient.to_account_info(),
             authority: folio.to_account_info(),
@@ -273,7 +278,7 @@ pub fn distribute_fees<'info>(
                 .ok_or(ErrorCode::MathOverflow)?;
         }
 
-        token::mint_to(
+        token_interface::mint_to(
             CpiContext::new_with_signer(
                 token_program.to_account_info(),
                 cpi_accounts,

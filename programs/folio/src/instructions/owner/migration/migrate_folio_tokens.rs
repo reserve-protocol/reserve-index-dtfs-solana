@@ -20,6 +20,7 @@ const REMAINING_ACCOUNTS_DIVIDER: usize = 3;
 
 /// Migrate Folio Tokens
 /// Permissionless
+/// Token2022 mints and Token mints can't be mixed in the same instruction.
 ///
 /// # Arguments
 /// * `token_program` - The token program.

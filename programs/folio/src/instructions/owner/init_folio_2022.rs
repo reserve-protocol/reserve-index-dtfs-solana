@@ -12,7 +12,10 @@ use anchor_lang::system_program::{transfer, Transfer};
 use anchor_spl::{
     associated_token::AssociatedToken,
     token_2022::{Token2022, ID as TOKEN_2022_PROGRAM_ID},
-    token_interface::{token_metadata_initialize, Mint, TokenMetadataInitialize},
+    token_interface::{
+        spl_pod::optional_keys::OptionalNonZeroPubkey, token_metadata_initialize, Mint,
+        TokenMetadataInitialize,
+    },
 };
 use shared::{
     check_condition,
@@ -174,6 +177,7 @@ pub fn handler(
         name: name.clone(),
         symbol: symbol.clone(),
         uri: uri.clone(),
+        update_authority: OptionalNonZeroPubkey(ctx.accounts.folio.key()),
         ..Default::default()
     };
 

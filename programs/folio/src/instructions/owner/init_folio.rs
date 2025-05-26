@@ -7,6 +7,7 @@ use crate::{
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
+    token::ID as TOKEN_PROGRAM_ID,
     token_interface::{Mint, TokenInterface},
 };
 use shared::{
@@ -37,6 +38,8 @@ use shared::errors::ErrorCode;
 pub struct InitFolio<'info> {
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
+    // Folio with Token2022, creation is possible via the init_folio_2022 instruction
+    #[account(address = TOKEN_PROGRAM_ID)]
     pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
 

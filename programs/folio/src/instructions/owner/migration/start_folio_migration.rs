@@ -1,15 +1,21 @@
-use crate::utils::NewFolioProgram;
+use crate::utils::{Metaplex, NewFolioProgram, UpdateAuthority};
 use crate::ID as FOLIO_PROGRAM_ID;
 use crate::{
     state::{Actor, Folio},
     utils::{FolioStatus, Role},
 };
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::sysvar::instructions;
+use anchor_spl::token::Token;
+use anchor_spl::token_2022_extensions::token_metadata::token_metadata_update_authority;
+use anchor_spl::token_interface::spl_pod::optional_keys::OptionalNonZeroPubkey;
+use anchor_spl::token_interface::TokenMetadataUpdateAuthority;
 use anchor_spl::{
     token_2022::spl_token_2022::instruction::AuthorityType,
     token_interface::{self, Mint, TokenInterface},
 };
 use folio_admin::{state::ProgramRegistrar, ID as FOLIO_ADMIN_PROGRAM_ID};
+use shared::constants::METADATA_SEEDS;
 use shared::errors::ErrorCode;
 use shared::{
     check_condition,
@@ -31,6 +37,10 @@ use shared::{
 #[derive(Accounts)]
 pub struct StartFolioMigration<'info> {
     pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+    /// CHECK: Instructions sysvar
+    #[account(address = instructions::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
     pub token_program: Interface<'info, TokenInterface>,
 
     #[account(mut)]
@@ -75,6 +85,26 @@ pub struct StartFolioMigration<'info> {
     pub new_actor: UncheckedAccount<'info>,
     // Any remaining accounts that are required in the new folio program
     // When calling `create_folio_from_old_program`
+
+    /*
+    Metaplex accounts for metadata
+     */
+    /// CHECK: Token metadata program
+    #[account(address = mpl_token_metadata::ID)]
+    pub token_metadata_program: UncheckedAccount<'info>,
+
+    /// CHECK: Metadata account
+    #[account(
+        mut,
+        seeds = [
+            METADATA_SEEDS,
+            mpl_token_metadata::ID.as_ref(),
+            folio_token_mint.key().as_ref()
+        ],
+        seeds::program = mpl_token_metadata::ID,
+        bump
+    )]
+    pub metadata: UncheckedAccount<'info>,
 }
 
 impl StartFolioMigration<'_> {
@@ -184,6 +214,42 @@ pub fn handler<'info>(
 
     let folio_signer_seeds = &[FOLIO_SEEDS, token_mint_key.as_ref(), &[old_folio_bump]];
     let folio_signer = &[&folio_signer_seeds[..]];
+
+    if ctx.accounts.token_program.key() == Token::id() {
+        // Update Metadata authority to the new folio
+        Metaplex::update_metadata_authority(
+            &UpdateAuthority {
+                metadata: ctx.accounts.metadata.to_account_info(),
+                mint: ctx.accounts.folio_token_mint.to_account_info(),
+                mint_authority: ctx.accounts.old_folio.to_account_info(),
+                payer: ctx.accounts.folio_owner.to_account_info(),
+                update_authority: ctx.accounts.old_folio.to_account_info(),
+                system_program: ctx.accounts.system_program.to_account_info(),
+                rent: ctx.accounts.rent.to_account_info(),
+                token_metadata_program: ctx.accounts.token_metadata_program.to_account_info(),
+                sysvar_instructions: ctx.accounts.instructions_sysvar.to_account_info(),
+            },
+            ctx.accounts.new_folio.key(),
+            folio_signer,
+        )?;
+    } else {
+        // The metadata is with token 2022 program
+        token_metadata_update_authority(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                TokenMetadataUpdateAuthority {
+                    token_program_id: ctx.accounts.token_program.to_account_info(),
+                    metadata: ctx.accounts.folio_token_mint.to_account_info(),
+                    current_authority: ctx.accounts.old_folio.to_account_info(),
+                    new_authority: ctx.accounts.new_folio.to_account_info(),
+                },
+                folio_signer,
+            ),
+            OptionalNonZeroPubkey(ctx.accounts.new_folio.key()),
+        )?;
+
+        // Token 2022, does not allow updates for Metadata pointer authority.
+    }
 
     token_interface::set_authority(
         CpiContext::new_with_signer(

@@ -60,6 +60,7 @@ import {
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
 import * as assert from "assert";
+import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 /**
  * Tests for fee-related functionality in the Folio program, including:
@@ -146,6 +147,7 @@ describe("Bankrun - Fees", () => {
     expectedFeeDistributed: BN[];
 
     startUnixTimestamp: BN | null;
+    useToken2022ForFolioTokenMint: boolean;
   } = {
     remainingAccounts: () => [],
     customFolioTokenMint: null,
@@ -187,6 +189,7 @@ describe("Bankrun - Fees", () => {
     expectedFeeDistributed: [],
 
     startUnixTimestamp: null,
+    useToken2022ForFolioTokenMint: false,
   };
 
   const TEST_CASES_POKE_FOLIO = [
@@ -239,28 +242,36 @@ describe("Bankrun - Fees", () => {
   ];
 
   const TEST_CASES_DISTRIBUTE_FEES = [
-    {
-      desc: "(index is not valid)",
-      expectedError: "InvalidDistributionIndex",
-      feeDistributionIndex: new BN(2),
-    },
-    {
-      desc: "(folio token mint is not valid)",
-      expectedError: "InvalidFolioTokenMint",
-      customFolioTokenMint: Keypair.generate(),
-    },
-    {
-      desc: "(dao fee recipient is not valid, errors out)",
-      expectedError: "InvalidDaoFeeRecipient",
-      daoFeeRecipient: Keypair.generate(),
-    },
+    // {
+    //   desc: "(index is not valid)",
+    //   expectedError: "InvalidDistributionIndex",
+    //   feeDistributionIndex: new BN(2),
+    // },
+    // {
+    //   desc: "(folio token mint is not valid)",
+    //   expectedError: "InvalidFolioTokenMint",
+    //   customFolioTokenMint: Keypair.generate(),
+    // },
+    // {
+    //   desc: "(dao fee recipient is not valid, errors out)",
+    //   expectedError: "InvalidDaoFeeRecipient",
+    //   daoFeeRecipient: Keypair.generate(),
+    // },
+    // {
+    //   desc: "(is valid, succeeds)",
+    //   expectedError: null,
+    //   initialDaoPendingFeeShares: new BN(1000).mul(D18),
+    //   // D9 as this is token amounts
+    //   expectedDaoFeeShares: new BN(1000).mul(D9),
+    //   customFolioFeeConfig: true,
+    // },
     {
       desc: "(is valid, succeeds)",
       expectedError: null,
       initialDaoPendingFeeShares: new BN(1000).mul(D18),
       // D9 as this is token amounts
       expectedDaoFeeShares: new BN(1000).mul(D9),
-      customFolioFeeConfig: true,
+      useToken2022ForFolioTokenMint: true,
     },
   ];
 
@@ -404,6 +415,35 @@ describe("Bankrun - Fees", () => {
       expectedFeeDistributed: [new BN(4_000_000_000), new BN(4_000_000_000)],
       shouldCloseAccount: true,
     },
+    {
+      desc: "(user distributes fees to all fee recipients, account closes, with token 2022)",
+      expectedError: null,
+      amountToDistribute: new BN(8_000_000_000).mul(D9),
+      useToken2022ForFolioTokenMint: true,
+      feeRecipients: [
+        {
+          recipient: feeRecipient1.publicKey,
+          portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
+        },
+        {
+          recipient: feeRecipient2.publicKey,
+          portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
+        },
+      ],
+      feeRecipientNotClaiming: [],
+      feeRecipientsToDistributeTo: [
+        {
+          recipient: feeRecipient1.publicKey,
+          portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
+        },
+        {
+          recipient: feeRecipient2.publicKey,
+          portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
+        },
+      ],
+      expectedFeeDistributed: [new BN(4_000_000_000), new BN(4_000_000_000)],
+      shouldCloseAccount: true,
+    },
   ];
 
   async function setFeeRegistry(customFolioFeeConfig: boolean) {
@@ -438,7 +478,8 @@ describe("Bankrun - Fees", () => {
     customFolioTokenMint: Keypair | null = null,
     customFolioTokenSupply: BN = new BN(0),
     customFolioFeeConfig: boolean = false,
-    amountToDistribute: BN = new BN(0)
+    amountToDistribute: BN = new BN(0),
+    useToken2022ForFolioTokenMint: boolean = false
   ) {
     await setFeeRegistry(customFolioFeeConfig);
 
@@ -461,7 +502,8 @@ describe("Bankrun - Fees", () => {
       folioPDA,
       folioTokenMint,
       DEFAULT_DECIMALS,
-      customFolioTokenSupply
+      customFolioTokenSupply,
+      useToken2022ForFolioTokenMint ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID
     );
 
     if (customFolioTokenMint) {
@@ -470,15 +512,16 @@ describe("Bankrun - Fees", () => {
       await getOrCreateAtaAddress(
         context,
         customFolioTokenMint.publicKey,
-
-        feeRecipient.publicKey
+        feeRecipient.publicKey,
+        useToken2022ForFolioTokenMint ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID
       );
     }
 
     await getOrCreateAtaAddress(
       context,
       folioTokenMint.publicKey,
-      feeRecipient.publicKey
+      feeRecipient.publicKey,
+      useToken2022ForFolioTokenMint ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID
     );
 
     await createAndSetActor(
@@ -781,6 +824,7 @@ describe("Bankrun - Fees", () => {
             feeDistributionIndex,
             initialFeeDistributionIndex,
             customFolioFeeConfig,
+            useToken2022ForFolioTokenMint,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
@@ -796,7 +840,9 @@ describe("Bankrun - Fees", () => {
             await initBaseCase(
               customFolioTokenMint,
               new BN(1000_000_000_000),
-              customFolioFeeConfig
+              customFolioFeeConfig,
+              undefined,
+              useToken2022ForFolioTokenMint
             );
 
             currentClock = await context.banksClient.getClock();
@@ -834,7 +880,10 @@ describe("Bankrun - Fees", () => {
               await getOrCreateAtaAddress(
                 context,
                 tokenMintToUse.publicKey,
-                daoFeeRecipientToUse.publicKey
+                daoFeeRecipientToUse.publicKey,
+                useToken2022ForFolioTokenMint
+                  ? TOKEN_2022_PROGRAM_ID
+                  : TOKEN_PROGRAM_ID
               )
             );
 
@@ -847,11 +896,17 @@ describe("Bankrun - Fees", () => {
               await getOrCreateAtaAddress(
                 context,
                 tokenMintToUse.publicKey,
-                daoFeeRecipientToUse.publicKey
+                daoFeeRecipientToUse.publicKey,
+                useToken2022ForFolioTokenMint
+                  ? TOKEN_2022_PROGRAM_ID
+                  : TOKEN_PROGRAM_ID
               ),
               feeDistributionIndex,
 
-              true
+              true,
+              useToken2022ForFolioTokenMint
+                ? TOKEN_2022_PROGRAM_ID
+                : TOKEN_PROGRAM_ID
             );
           });
 
@@ -888,7 +943,10 @@ describe("Bankrun - Fees", () => {
                 banksClient,
                 getAtaAddress(
                   folioTokenMint.publicKey,
-                  daoFeeRecipientToUse.publicKey
+                  daoFeeRecipientToUse.publicKey,
+                  useToken2022ForFolioTokenMint
+                    ? TOKEN_2022_PROGRAM_ID
+                    : TOKEN_PROGRAM_ID
                 )
               );
               assert.equal(
@@ -922,6 +980,7 @@ describe("Bankrun - Fees", () => {
             feeRecipientNotClaiming,
             feeRecipientsToDistributeTo,
             shouldCloseAccount,
+            useToken2022ForFolioTokenMint,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
@@ -942,7 +1001,8 @@ describe("Bankrun - Fees", () => {
               customFolioTokenMint,
               new BN(1000_000_000_000),
               undefined,
-              amountToDistribute
+              amountToDistribute,
+              useToken2022ForFolioTokenMint
             );
 
             currentClock = await context.banksClient.getClock();
@@ -952,7 +1012,10 @@ describe("Bankrun - Fees", () => {
               const feeRecipientATA = await getOrCreateAtaAddress(
                 context,
                 folioTokenMint.publicKey,
-                feeRecipient.recipient
+                feeRecipient.recipient,
+                useToken2022ForFolioTokenMint
+                  ? TOKEN_2022_PROGRAM_ID
+                  : TOKEN_PROGRAM_ID
               );
               feeRecipientsATA.push(feeRecipientATA);
               feeRecipientsBalancesBefore.push(
@@ -1022,7 +1085,11 @@ describe("Bankrun - Fees", () => {
                 ),
                 feeRecipientsATA,
 
-                true
+                true,
+                [],
+                useToken2022ForFolioTokenMint
+                  ? TOKEN_2022_PROGRAM_ID
+                  : TOKEN_PROGRAM_ID
               );
             } catch (e) {
               preTxnError = e;

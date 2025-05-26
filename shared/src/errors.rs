@@ -31,6 +31,9 @@ pub enum ErrorCode {
     #[msg("Invalid Actor PDA")]
     InvalidActorPda,
 
+    #[msg("Invalid Token Mint Program")]
+    InvalidTokenMintProgram,
+
     #[msg("Invalid Token Mint")]
     InvalidTokenMint,
 
@@ -78,6 +81,9 @@ pub enum ErrorCode {
 
     #[msg("Account Not Writable")]
     AccountNotWritable,
+
+    #[msg("Account Not Executable")]
+    AccountNotExecutable,
 
     #[msg("Invalid Added Token Mints")]
     InvalidAddedTokenMints,
@@ -327,6 +333,9 @@ pub enum ErrorCode {
 
     #[msg("Fee recipients pending fee share to be minted is higher.")]
     MigrationFailedFeeRecipientsPendingFeeShareToBeMintedTooHigh,
+
+    #[msg("Invalid Token Program")]
+    InvalidTokenProgram,
 }
 
 /// Check a condition and return an error if it is not met.

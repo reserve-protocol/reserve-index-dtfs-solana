@@ -364,21 +364,4 @@ pub mod folio {
             Ok(())
         }
     }
-
-    /*
-    Development functions, used to show implementation for future folio program versions.
-     */
-    #[allow(unused_variables)]
-    pub fn update_basket_in_new_folio_program<'info>(
-        ctx: Context<'_, '_, 'info, 'info, UpdateBasketInNewFolioProgram<'info>>,
-    ) -> Result<()> {
-        #[cfg(feature = "dev")]
-        {
-            update_basket_in_new_folio_program::handler(ctx)
-        }
-        #[cfg(not(feature = "dev"))]
-        {
-            Ok(())
-        }
-    }
 }

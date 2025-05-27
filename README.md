@@ -27,6 +27,7 @@ In the solana program, we intentionally don't take into account how many decimal
 ### Precision Levels
 
 - **D9 (1e9)**: Decimals added to the token amount before any calculations are done.
+- **D18 (1e18)**: Decimals that are part of any fraction or ratio, for example a price, a basket ratio, an fee, etc.
 
 ### Implementation Details
 
@@ -45,7 +46,8 @@ In the solana program, we intentionally don't take into account how many decimal
 
 - `raw_`: Indicates that the tokens are without any additional decimals added from our side. The protocol whenever mentioning tokens always talks about the smallest possible UI form, so Lamports for sol, and 1 raw USDC is 0.0000001 USDC on ui, but is treaded as 1 without any context of UI token decimals. Eg. 1 Lamport = 1 raw_token.
 
-- `scaled_`: Indicates D9 precision (calculation values). Eg. 1 Lamport is stored as 1e9 on protocol level.
+- `scaled_`: It is when used with fees, so we represent 10 percent, which would be 0.1(10/100) as `1e+17`. For token amounts,
+  scaled only only used if it is multiplied by `D9`, meaning 9 additional decimals.
 
 ## Mathematical Utilities
 

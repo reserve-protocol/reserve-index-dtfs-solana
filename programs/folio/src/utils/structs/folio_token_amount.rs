@@ -20,7 +20,7 @@ pub struct FolioTokenAmount {
     /// The mint of the token.
     pub mint: Pubkey,
 
-    /// Scaled in D9
+    /// Raw amount of the token.
     pub amount: u64,
 }
 

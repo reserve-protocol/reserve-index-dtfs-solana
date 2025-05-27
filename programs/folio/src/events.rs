@@ -36,7 +36,7 @@ pub struct BasketTokenRemoved {
 /// * `new_fee` - The new TVL fee.
 #[event]
 pub struct TVLFeeSet {
-    /// Scaled in D9
+    /// Scaled in D18
     pub new_fee: u128,
 }
 
@@ -67,12 +67,11 @@ pub struct FeeRecipientSet {
 ///
 /// # Arguments
 /// * `recipient` - The recipient of the fee.
-/// * `amount` - The amount of the fee to be paid, scaled in D9.
+/// * `amount` - The amount of the fee to be paid.
 #[event]
 pub struct TVLFeePaid {
     pub recipient: Pubkey,
 
-    /// Scaled in D9
     pub amount: u64,
 }
 
@@ -80,12 +79,11 @@ pub struct TVLFeePaid {
 ///
 /// # Arguments
 /// * `recipient` - The recipient of the fee.
-/// * `amount` - The amount of the fee to be paid, scaled in D9.
+/// * `amount` - The amount of the fee to be paid.
 #[event]
 pub struct ProtocolFeePaid {
     pub recipient: Pubkey,
 
-    /// Scaled in D9
     pub amount: u64,
 }
 
@@ -150,16 +148,14 @@ pub struct AuctionClosed {
 ///
 /// # Arguments
 /// * `auction_id` - The id of the auction.
-/// * `sell_amount` - The amount of the sell, scaled in D9.
-/// * `bought_amount` - The amount of the bought, scaled in D9.
+/// * `sell_amount` - The amount of the sell.
+/// * `bought_amount` - The amount of the bought.
 #[event]
 pub struct AuctionBid {
     pub auction_id: u64,
 
-    /// Scaled in D9
     pub sell_amount: u64,
 
-    /// Scaled in D9
     pub bought_amount: u64,
 }
 

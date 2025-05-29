@@ -7,6 +7,7 @@ import {
   getOrCreateAssociatedTokenAccount,
   mintTo,
   TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import {
   Connection,
@@ -111,7 +112,8 @@ export async function getOrCreateAtaAddress(
   connection: Connection,
   mint: PublicKey,
   payer: Keypair,
-  owner: PublicKey
+  owner: PublicKey,
+  program: PublicKey = TOKEN_PROGRAM_ID
 ) {
   return (
     await getOrCreateAssociatedTokenAccount(
@@ -119,7 +121,10 @@ export async function getOrCreateAtaAddress(
       payer,
       mint,
       owner,
-      true
+      true,
+      undefined,
+      undefined,
+      program
     )
   ).address;
 }

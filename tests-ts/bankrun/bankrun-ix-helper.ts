@@ -449,7 +449,9 @@ export async function addToBasket<T extends boolean = true>(
             context,
             tokens,
             folioOwnerKeypair.publicKey,
-            folio
+            folio,
+            true,
+            true
           )
     )
     .instruction();
@@ -762,7 +764,8 @@ export async function distributeFees<T extends boolean = true>(
   folioTokenMint: PublicKey,
   daoFeeRecipient: PublicKey,
   index: BN,
-  executeTxn: T = true as T
+  executeTxn: T = true as T,
+  tokenProgram: PublicKey = TOKEN_PROGRAM_ID
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
@@ -773,7 +776,7 @@ export async function distributeFees<T extends boolean = true>(
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
-      tokenProgram: TOKEN_PROGRAM_ID,
+      tokenProgram,
       user: userKeypair.publicKey,
       daoFeeConfig: getDAOFeeConfigPDA(),
       folioFeeConfig: getFolioFeeConfigPDA(folio),
@@ -805,7 +808,8 @@ export async function crankFeeDistribution<T extends boolean = true>(
   indices: BN[],
   feeRecipients: PublicKey[],
   executeTxn: T = true as T,
-  remainingAccounts: AccountMeta[] = []
+  remainingAccounts: AccountMeta[] = [],
+  tokenProgram: PublicKey = TOKEN_PROGRAM_ID
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
@@ -816,7 +820,7 @@ export async function crankFeeDistribution<T extends boolean = true>(
     .accountsPartial({
       rent: SYSVAR_RENT_PUBKEY,
       systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
+      tokenProgram,
       user: userKeypair.publicKey,
       folio: folio,
       folioTokenMint,
@@ -1112,7 +1116,9 @@ export async function bid<T extends boolean = true>(
   buyMint: PublicKey = null,
   callbackData: Buffer = Buffer.from([]),
   executeTxn: T = true as T,
-  remainingAccountsForCallback: AccountMeta[] = []
+  remainingAccountsForCallback: AccountMeta[] = [],
+  buyTokenProgram: PublicKey = TOKEN_PROGRAM_ID,
+  sellTokenProgram: PublicKey = TOKEN_PROGRAM_ID
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
@@ -1120,6 +1126,10 @@ export async function bid<T extends boolean = true>(
 > {
   const auctionFetched = await programFolio.account.auction.fetch(auction);
 
+  console.log("sellMint", sellMint);
+  console.log("buyMint", buyMint);
+  console.log("auctionFetched.sellMint", auctionFetched.sellMint);
+  console.log("auctionFetched.buyMint", auctionFetched.buyMint);
   const sellMintToUse = sellMint ?? auctionFetched.sellMint;
   const buyMintToUse = buyMint ?? auctionFetched.buyMint;
 
@@ -1127,7 +1137,8 @@ export async function bid<T extends boolean = true>(
     .bid(sellAmount, maxBuyAmount, withCallback, callbackData)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
+      buyTokenProgram,
+      sellTokenProgram,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       bidder: bidderKeypair.publicKey,
       folio,
@@ -1145,22 +1156,26 @@ export async function bid<T extends boolean = true>(
       folioSellTokenAccount: await getOrCreateAtaAddress(
         context,
         sellMintToUse,
-        folio
+        folio,
+        sellTokenProgram
       ),
       folioBuyTokenAccount: await getOrCreateAtaAddress(
         context,
         buyMintToUse,
-        folio
+        folio,
+        buyTokenProgram
       ),
       bidderSellTokenAccount: await getOrCreateAtaAddress(
         context,
         sellMintToUse,
-        bidderKeypair.publicKey
+        bidderKeypair.publicKey,
+        sellTokenProgram
       ),
       bidderBuyTokenAccount: await getOrCreateAtaAddress(
         context,
         buyMintToUse,
-        bidderKeypair.publicKey
+        bidderKeypair.publicKey,
+        buyTokenProgram
       ),
     })
     .remainingAccounts(remainingAccountsForCallback)
@@ -1186,31 +1201,18 @@ export async function startFolioMigration<T extends boolean = true>(
   newFolio: PublicKey,
   newFolioProgram: PublicKey,
   max_allowed_pending_fees: BN = new BN(D9),
-  daoFeeRecipient: PublicKey,
-  executeTxn: T = true as T
+  executeTxn: T = true as T,
+  tokenProgram: PublicKey = TOKEN_PROGRAM_ID
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
-  console.log("accounts", {
-    systemProgram: SystemProgram.programId,
-    tokenProgram: TOKEN_PROGRAM_ID,
-    folioOwner: folioOwnerKeypair.publicKey,
-    programRegistrar: getProgramRegistrarPDA(),
-    actor: getActorPDA(folioOwnerKeypair.publicKey, oldFolio),
-    newFolioProgram,
-    oldFolio,
-    newFolio,
-    folioTokenMint,
-    newFolioBasket: getFolioBasketPDA(newFolio, newFolioProgram),
-    newActor: getActorPDA(folioOwnerKeypair.publicKey, newFolio, true),
-  });
   const startFolioMigration = await programFolio.methods
     .startFolioMigration(max_allowed_pending_fees)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
+      tokenProgram,
       folioOwner: folioOwnerKeypair.publicKey,
       programRegistrar: getProgramRegistrarPDA(),
       actor: getActorPDA(folioOwnerKeypair.publicKey, oldFolio),

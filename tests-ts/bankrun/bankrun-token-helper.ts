@@ -32,7 +32,8 @@ export function initToken(
   mintAuthority: PublicKey,
   mint: Keypair | PublicKey = Keypair.generate(),
   decimals: number = DEFAULT_DECIMALS,
-  supply: BN = new BN(0)
+  supply: BN = new BN(0),
+  programId: PublicKey = TOKEN_PROGRAM_ID
 ) {
   const mintAccData = Buffer.alloc(MINT_SIZE);
   MintLayout.encode(
@@ -51,7 +52,7 @@ export function initToken(
   context.setAccount(mint instanceof Keypair ? mint.publicKey : mint, {
     lamports: 1_000_000_000,
     data: mintAccData,
-    owner: TOKEN_PROGRAM_ID,
+    owner: programId,
     executable: false,
   });
 }
@@ -61,7 +62,8 @@ export function mintToken(
   mint: PublicKey,
   amount: number,
   recipient: PublicKey,
-  decimals: number = DEFAULT_DECIMALS
+  decimals: number = DEFAULT_DECIMALS,
+  tokenProgram: PublicKey = TOKEN_PROGRAM_ID
 ) {
   const tokenAccData = Buffer.alloc(ACCOUNT_SIZE);
   AccountLayout.encode(
@@ -81,11 +83,16 @@ export function mintToken(
     tokenAccData
   );
 
-  const ata = getAssociatedTokenAddressSync(mint, recipient, true);
+  const ata = getAssociatedTokenAddressSync(
+    mint,
+    recipient,
+    true,
+    tokenProgram
+  );
   const ataAccountInfo = {
     lamports: 1_000_000_000,
     data: tokenAccData,
-    owner: TOKEN_PROGRAM_ID,
+    owner: tokenProgram,
     executable: false,
   };
 
@@ -95,9 +102,10 @@ export function mintToken(
 export async function getOrCreateAtaAddress(
   context: ProgramTestContext,
   mint: PublicKey,
-  owner: PublicKey
+  owner: PublicKey,
+  tokenProgram: PublicKey = TOKEN_PROGRAM_ID
 ): Promise<PublicKey> {
-  const ata = getAssociatedTokenAddressSync(mint, owner, true);
+  const ata = getAssociatedTokenAddressSync(mint, owner, true, tokenProgram);
 
   const fetchedAtaAccountInfo = await context.banksClient.getAccount(ata);
 
@@ -130,7 +138,7 @@ export async function getOrCreateAtaAddress(
   const ataAccountInfo = {
     lamports: 1_000_000_000,
     data: tokenAccData,
-    owner: TOKEN_PROGRAM_ID,
+    owner: tokenProgram,
     executable: false,
   };
 
@@ -174,8 +182,12 @@ export async function resetTokenBalance(
   context.setAccount(ata, ataAccountInfo);
 }
 
-export function getAtaAddress(mint: PublicKey, owner: PublicKey) {
-  return getAssociatedTokenAddressSync(mint, owner, true);
+export function getAtaAddress(
+  mint: PublicKey,
+  owner: PublicKey,
+  tokenProgram: PublicKey = TOKEN_PROGRAM_ID
+) {
+  return getAssociatedTokenAddressSync(mint, owner, true, tokenProgram);
 }
 
 export async function getTokenBalance(
@@ -211,16 +223,22 @@ export async function getMintAuthorities(
 export async function getTokenBalancesFromMints(
   context: ProgramTestContext,
   mints: PublicKey[],
-  owners: PublicKey[]
+  owners: PublicKey[],
+  mintsTokenProgram: PublicKey[] = []
 ): Promise<{ owner: PublicKey; balances: bigint[] }[]> {
   const balances = [];
   for (const owner of owners) {
     const ownerBalances = [];
-    for (const mint of mints) {
+    for (const [indexOfMint, mint] of mints.entries()) {
       ownerBalances.push(
         await getTokenBalance(
           context.banksClient,
-          await getOrCreateAtaAddress(context, mint, owner)
+          await getOrCreateAtaAddress(
+            context,
+            mint,
+            owner,
+            mintsTokenProgram?.[indexOfMint] ?? TOKEN_PROGRAM_ID
+          )
         )
       );
     }
@@ -237,9 +255,15 @@ export async function assertExpectedBalancesChanges(
   mints: PublicKey[],
   owners: PublicKey[],
   // In the order of owner -> mint
-  expectedTokenBalanceChanges: BN[]
+  expectedTokenBalanceChanges: BN[],
+  mintsTokenProgram: PublicKey[] = []
 ) {
-  const afterBalances = await getTokenBalancesFromMints(context, mints, owners);
+  const afterBalances = await getTokenBalancesFromMints(
+    context,
+    mints,
+    owners,
+    mintsTokenProgram
+  );
 
   for (let j = 0; j < owners.length; j++) {
     const owner = owners[j];

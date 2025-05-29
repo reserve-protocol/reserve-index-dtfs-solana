@@ -3,8 +3,8 @@ use crate::state::{FeeDistribution, Folio};
 use crate::utils::structs::FolioStatus;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
-use anchor_spl::token;
-use anchor_spl::token_interface::{Mint, TokenInterface};
+use anchor_spl::token_2022;
+use anchor_spl::token_interface::{self, Mint, TokenInterface};
 use shared::check_condition;
 use shared::constants::{FEE_DISTRIBUTION_SEEDS, FOLIO_SEEDS, MAX_FEE_RECIPIENTS_PORTION};
 use shared::errors::ErrorCode;
@@ -170,13 +170,13 @@ pub fn handler<'info>(
                 .to_token_amount(Rounding::Floor)?
                 .0;
 
-            let cpi_accounts = token::MintTo {
+            let cpi_accounts = token_2022::MintTo {
                 mint: ctx.accounts.folio_token_mint.to_account_info(),
                 to: fee_recipient.to_account_info(),
                 authority: ctx.accounts.folio.to_account_info(),
             };
 
-            token::mint_to(
+            token_interface::mint_to(
                 CpiContext::new_with_signer(
                     ctx.accounts.token_program.to_account_info(),
                     cpi_accounts,

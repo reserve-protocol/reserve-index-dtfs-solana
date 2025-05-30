@@ -241,7 +241,7 @@ pub fn distribute_fees<'info>(
 
         has_fee_recipients = !fee_recipients.is_empty();
 
-        // We scale down as token units and bring back in D18, to get the amount
+        // We scale down as token units and bring back in D9, to get the amount
         // minus the dust that we can split
         let raw_fee_recipients_pending_fee_shares: u64 =
             Decimal::from_scaled(loaded_folio.fee_recipients_pending_fee_shares)
@@ -327,7 +327,7 @@ pub fn distribute_fees<'info>(
             .dao_pending_fee_shares
             .checked_sub(
                 (raw_dao_pending_fee_shares as u128)
-                    // Got to multiply back in D18 since we track with extra precision
+                    // Got to multiply back in D9 since we track with extra precision
                     .checked_mul(D9_U128)
                     .ok_or(ErrorCode::MathOverflow)?,
             )

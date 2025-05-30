@@ -96,7 +96,7 @@ impl RewardTokens {
     pub fn remove_reward_token<'info>(
         &mut self,
         reward_token: &Pubkey,
-        realm_key: &Pubkey,
+        realm: &AccountInfo<'info>,
         governance_token_mint: &AccountInfo<'info>,
         governance_staked_token_account: &AccountInfo<'info>,
         reward_info: &mut Account<RewardInfo>,
@@ -108,7 +108,7 @@ impl RewardTokens {
             use crate::utils::GovernanceUtil;
             let (raw_governance_staked_token_account_balance, governance_token_decimals) =
                 GovernanceUtil::get_realm_staked_balance_and_mint_decimals(
-                    realm_key,
+                    realm,
                     governance_token_mint,
                     governance_staked_token_account,
                 )?;

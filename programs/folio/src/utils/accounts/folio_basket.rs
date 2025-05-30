@@ -215,6 +215,7 @@ impl FolioBasket {
         }
 
         Decimal::from_token_amount(total_token_amount)?
+            .mul(&Decimal::ONE_E18)?
             .div(scaled_folio_token_total_supply)?
             .to_scaled(Rounding::Ceiling)
     }

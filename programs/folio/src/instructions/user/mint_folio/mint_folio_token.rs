@@ -118,8 +118,8 @@ user amount / balance folio * total supply = share
 ///
 /// # Arguments
 /// * `ctx` - The context of the instruction.
-/// * `raw_shares` - The amount of shares the user wants to mint (D9).
-/// * `min_raw_shares` - The minimum amount of shares the user wants to mint (D9), to provide slippage protection.
+/// * `raw_shares` - The amount of shares the user wants to mint.
+/// * `min_raw_shares` - The minimum amount of shares the user wants to mint, to provide slippage protection.
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, MintFolioToken<'info>>,
     raw_shares: u64,

@@ -1056,11 +1056,12 @@ describe("Bankrun - Folio Minting", () => {
                 );
 
               for (let i = 0; i < MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS; i++) {
+                // Its an case of full removal, so the mint is removed as well.
                 assert.equal(
                   userPendingBasket.basket.tokenAmounts[i].mint.toString(),
-                  expectedTokenAmountsForUserPendingBasket[i].mint.toString()
+                  PublicKey.default.toString()
                 );
-                // Amount for minting will be asserted below
+                // Amount for redeeming will be asserted below
                 assert.equal(
                   userPendingBasket.basket.tokenAmounts[
                     i

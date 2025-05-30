@@ -94,7 +94,7 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, RemoveRewardToken<'info
     let current_time = Clock::get()?.unix_timestamp;
     ctx.accounts.reward_tokens.load_mut()?.remove_reward_token(
         &ctx.accounts.reward_token_to_remove.key(),
-        &ctx.accounts.realm.key(),
+        &ctx.accounts.realm,
         &ctx.accounts.governance_token_mint,
         &ctx.accounts.governance_staked_token_account,
         &mut ctx.accounts.reward_token_reward_info,

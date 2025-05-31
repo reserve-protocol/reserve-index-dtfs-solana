@@ -61,6 +61,37 @@ pub fn process_deposit_governing_tokens(
         governing_token_holding_info.key,
     )?;
 
+    // Accrue rewards before any deposit to prevent including
+    // newly deposited tokens in the current accrual calculation
+    //
+    // 0-9 taken for the governance program instruction (see above)
+    // 10..13 are the accounts for the rewards program instruction
+    let rest_of_accounts = &accounts[10..13];
+    // 13 + up to 4 x 4 are for the reward tokens
+    let reward_token_accounts = &accounts[13..];
+
+    // Rest of remaining accounts expected
+    // 10: rewards program
+    // 11: rewards reward tokens
+    // 12: governing token mint
+    //
+    // Loop max 4 times
+    //
+    // 13: reward token mint
+    // 14: reward info for token mint
+    // 15: reward token rewards token account
+    // 16: reward info for caller
+    RewardsProgram::accrue_rewards(
+        realm_info,
+        system_info,
+        spl_token_info,
+        governing_token_owner_info,
+        governing_token_holding_info,
+        token_owner_record_info,
+        rest_of_accounts,
+        reward_token_accounts,
+    )?;
+
     let realm_config_data =
         get_realm_config_data_for_realm(program_id, realm_config_info, realm_info.key)?;
 
@@ -128,34 +159,6 @@ pub fn process_deposit_governing_tokens(
             0,
         )?;
     }
-
-    // 0-9 taken for the governance program instruction (see above)
-    // 10..13 are the accounts for the rewards program instruction
-    let rest_of_accounts = &accounts[10..13];
-    // 13 + up to 4 x 4 are for the reward tokens
-    let reward_token_accounts = &accounts[13..];
-
-    // Rest of remaining accounts expected
-    // 10: rewards program
-    // 11: rewards reward tokens
-    // 12: governing token mint
-    //
-    // Loop max 4 times
-    //
-    // 13: reward token mint
-    // 14: reward info for token mint
-    // 15: reward token rewards token account
-    // 16: reward info for caller
-    RewardsProgram::accrue_rewards(
-        realm_info,
-        system_info,
-        spl_token_info,
-        governing_token_owner_info,
-        governing_token_holding_info,
-        token_owner_record_info,
-        rest_of_accounts,
-        reward_token_accounts,
-    )?;
 
     // Then add the amount to the account
     let mut token_owner_record_data = get_token_owner_record_data_for_seeds(

@@ -42,6 +42,7 @@ import {
   MAX_PADDED_STRING_LENGTH,
   MAX_MINT_FEE,
   MIN_AUCTION_LENGTH,
+  TOTAL_PORTION_FEE_RECIPIENT,
 } from "../../../utils/constants";
 import { MAX_AUCTION_LENGTH } from "../../../utils/constants";
 import { MAX_TVL_FEE } from "../../../utils/constants";
@@ -146,13 +147,18 @@ describe("Bankrun - Update Folio", () => {
     },
     {
       desc: "(should update fee recipients, full but remove 1 and add 1, success)",
-      preAddedRecipients: Array(MAX_FEE_RECIPIENTS - 1)
-        .fill(new FeeRecipient(Keypair.generate().publicKey, EQUAL_PORTION))
-        .concat([
-          new FeeRecipient(FEE_RECIPIENT_KEYPAIR.publicKey, EQUAL_PORTION),
-        ]),
-      feeRecipientsToAdd: [
+      preAddedRecipients: [
         new FeeRecipient(Keypair.generate().publicKey, EQUAL_PORTION),
+        new FeeRecipient(
+          FEE_RECIPIENT_KEYPAIR.publicKey,
+          TOTAL_PORTION_FEE_RECIPIENT.sub(EQUAL_PORTION)
+        ),
+      ],
+      feeRecipientsToAdd: [
+        new FeeRecipient(
+          Keypair.generate().publicKey,
+          TOTAL_PORTION_FEE_RECIPIENT.sub(EQUAL_PORTION)
+        ),
       ],
       feeRecipientsToRemove: [FEE_RECIPIENT_KEYPAIR.publicKey],
       expectedError: null,
@@ -179,12 +185,16 @@ describe("Bankrun - Update Folio", () => {
     },
     {
       desc: "(should update fee recipients, fee portion sum too low)",
-      preAddedRecipients: [
-        new FeeRecipient(
-          FEE_RECIPIENT_KEYPAIR.publicKey,
-          FEE_PORTION_SUM.sub(new BN(2))
-        ),
-      ],
+      preAddedRecipients: Array(MAX_FEE_RECIPIENTS - 1)
+        .map(() => {
+          return new FeeRecipient(PublicKey.default, new BN(0));
+        })
+        .concat([
+          new FeeRecipient(
+            FEE_RECIPIENT_KEYPAIR.publicKey,
+            FEE_PORTION_SUM.sub(new BN(2))
+          ),
+        ]),
       feeRecipientsToAdd: [
         new FeeRecipient(FEE_RECIPIENT_KEYPAIR.publicKey, new BN(1)),
       ],
@@ -200,6 +210,20 @@ describe("Bankrun - Update Folio", () => {
       desc: "(should update mandate, success)",
       mandate: "a".repeat(MAX_PADDED_STRING_LENGTH),
       expectedError: null,
+    },
+    {
+      desc: "(should fail, if fee recipient pubkey is repeated)",
+      preAddedRecipients: [
+        new FeeRecipient(FEE_RECIPIENT_KEYPAIR.publicKey, FEE_PORTION_SUM),
+      ],
+      feeRecipientsToAdd: [
+        new FeeRecipient(
+          FEE_RECIPIENT_KEYPAIR.publicKey,
+          TOTAL_PORTION_FEE_RECIPIENT.sub(FEE_PORTION_SUM)
+        ),
+      ],
+      feeRecipientsToRemove: [],
+      expectedError: "InvalidFeeRecipientContainsDuplicates",
     },
   ];
 

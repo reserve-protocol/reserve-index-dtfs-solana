@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use crate::events::FeeRecipientSet;
 use crate::state::FeeRecipients;
 use crate::utils::structs::FeeRecipient;
@@ -95,17 +97,29 @@ impl FeeRecipients {
 
         self.fee_recipients = new_recipients;
 
-        self.validate_fee_recipient_total_portions()
+        self.validate_fee_recipient_total_portions_and_check_for_duplicates()
     }
 
     /// Validate the fee recipient total portions.
     /// Total portions must be 100% (in D18).
-    pub fn validate_fee_recipient_total_portions(&self) -> Result<()> {
+    /// And validates there are no duplicate recipients.
+    pub fn validate_fee_recipient_total_portions_and_check_for_duplicates(&self) -> Result<()> {
         check_condition!(
             self.fee_recipients.iter().map(|r| r.portion).sum::<u128>()
                 == MAX_FEE_RECIPIENTS_PORTION,
             InvalidFeeRecipientPortion
         );
+
+        let mut seen = BTreeSet::new();
+        if !self
+            .fee_recipients
+            .iter()
+            .filter(|r| r.recipient != Pubkey::default())
+            .map(|r| r.recipient)
+            .all(|pubkey| seen.insert(pubkey))
+        {
+            return err!(ErrorCode::InvalidFeeRecipientContainsDuplicates);
+        }
 
         Ok(())
     }

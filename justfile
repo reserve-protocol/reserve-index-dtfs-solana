@@ -6,6 +6,7 @@ set dotenv-load := true
 set export
 
 export PROGRAMS_DIR := "tests-ts/programs"
+export RUSTUP_TOOLCHAIN := "nightly-2025-03-05"
 
 # Install Rust, Solana CLI, and Anchor with version checks
 install-tools:
@@ -136,7 +137,7 @@ test-amman skip_build="":
     # Kill existing processes
     @killall solana-test-validator || true
     @pkill -f "node.*amman start" || true
-
+    @mkdir -p .anchor
     # Start amman in background
     @npx amman start --reset &> .anchor/logs &
 

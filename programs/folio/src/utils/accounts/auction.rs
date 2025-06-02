@@ -155,29 +155,27 @@ impl Auction {
         // Confirm sell is surplus and buy is deficit
         {
             let scaled_folio_token_total_supply = folio.get_total_supply(raw_folio_token_supply)?;
-            // {sellTok} = D18{sellTok/share} * {share} / D18
+            // {sellTok} = D18{sellTok/share} * {share}{D9} / D18
             let sell_tokens = scaled_folio_token_total_supply
                 .mul(&Decimal::from_scaled(auction_spot_sell_limit))?
                 .div(&Decimal::ONE_E18)?
-                .to_scaled(Rounding::Floor)?;
+                .to_token_amount(Rounding::Ceiling)?
+                .0;
 
-            let balance: u128 = folio_basket
-                .get_token_amount_in_folio_basket(sell_mint)?
-                .into();
+            let sell_balance = folio_basket.get_token_amount_in_folio_basket(sell_mint)?;
 
-            check_condition!(balance > sell_tokens, SellTokenNotSurplus);
+            check_condition!(sell_balance > sell_tokens, SellTokenNotSurplus);
 
             // Confirm buy is deficit
             let buy_tokens = scaled_folio_token_total_supply
                 .mul(&Decimal::from_scaled(auction_spot_buy_limit))?
                 .div(&Decimal::ONE_E18)?
-                .to_scaled(Rounding::Ceiling)?;
+                .to_token_amount(Rounding::Floor)?
+                .0;
 
-            let balance: u128 = folio_basket
-                .get_token_amount_in_folio_basket_or_zero(buy_mint)
-                .into();
+            let buy_balance = folio_basket.get_token_amount_in_folio_basket_or_zero(buy_mint);
 
-            check_condition!(balance < buy_tokens, BuyTokenNotDeficit);
+            check_condition!(buy_balance < buy_tokens, BuyTokenNotDeficit);
         }
 
         let auction_price = if is_price_deferred {
@@ -187,7 +185,7 @@ impl Auction {
             );
             config.unwrap().price
         } else {
-            // D27{buyTok/sellTok} = D27 * D27{UoA/sellTok} / D27{UoA/buyTok}
+            // D18{buyTok/sellTok} = D18 * D18{UoA/sellTok} / D18{UoA/buyTok}
             let old_start_price = Decimal::from_scaled(sell_details.prices.high)
                 .mul(&Decimal::ONE_E18)?
                 .div(&Decimal::from_scaled(buy_details.prices.low))?
@@ -362,7 +360,7 @@ impl Auction {
         let scaled_folio_token_total_supply = folio.get_total_supply(raw_folio_token_supply)?;
 
         let raw_sell_balance = folio_basket.get_token_amount_in_folio_basket(&self.sell_mint)?;
-        // {sellTok} = D18{sellTok/share} * {share} / D18
+        // {sellTok} = (D18{sellTok/share} * {share}D9 / D18) / D9
         let raw_limit_sell_balance = Decimal::from_scaled(self.sell_limit)
             .mul(&scaled_folio_token_total_supply)?
             .div(&Decimal::ONE_E18)?
@@ -372,8 +370,8 @@ impl Auction {
         let raw_sell_available = raw_sell_balance.saturating_sub(raw_limit_sell_balance);
 
         let raw_buy_balance = folio_basket.get_token_amount_in_folio_basket_or_zero(&self.buy_mint);
-        //  D18{buyTok/share} = D18{buyTok/share} * {share} / D18
 
+        //  D18{buyTok/share} = ( D18{buyTok/share} * {share}D9 / D18 ) / D9
         let buy_limit_balance = Decimal::from_scaled(self.buy_limit)
             .mul(&scaled_folio_token_total_supply)?
             .div(&Decimal::ONE_E18)?
@@ -382,7 +380,7 @@ impl Auction {
         let buy_amount_available = buy_limit_balance.saturating_sub(raw_buy_balance);
 
         // Calculate the sell amount from the buy amount
-        // {sellTok} = {buyTok} * D18 / D18{buyTok/sellTok}
+        // {sellTok} = ({buyTok}D9 * D18 / D18{buyTok/sellTok}) / D9
         let sell_amount_available_from_buy = Decimal::from_token_amount(buy_amount_available)?
             .mul(&Decimal::ONE_E18)?
             .div(&scaled_price)?

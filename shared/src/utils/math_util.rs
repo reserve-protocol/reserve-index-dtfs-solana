@@ -93,24 +93,24 @@ impl Decimal {
         ))
     }
 
-    /// Create a new Decimal from a token amount, meaning it's scaled in D9, so we need to scale it in D18.
+    /// Create a new Decimal from a token amount so we need to scale it in D9.
     ///
     /// # Arguments
     /// * `value` - The token amount to create the Decimal from (D9)
     ///
-    /// Returns the Decimal in D18
+    /// Returns the Decimal in D9
     pub fn from_token_amount<T: IntoU256>(value: T) -> Result<Self> {
         let result = value.into_u256().checked_mul(D9_U256).ok_or(MathOverflow)?;
 
         Ok(Decimal(result))
     }
 
-    /// Create a new Decimal from a scaled value, meaning it's already in D18.
+    /// Create a new Decimal from a scaled value, meaning it's already in D9.
     ///
     /// # Arguments
     /// * `value` - The scaled value to create the Decimal from
     ///
-    /// Returns the Decimal in D18
+    /// Returns the Decimal in D9
     pub fn from_scaled<T: IntoU256>(value: T) -> Self {
         let result = value.into_u256();
 

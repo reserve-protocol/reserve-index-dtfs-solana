@@ -22,10 +22,10 @@ use shared::constants::MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS;
 pub struct TokenAmount {
     pub mint: Pubkey,
 
-    /// Scaled in D9
+    /// Raw amount of the token for minting.
     pub amount_for_minting: u64,
 
-    /// Scaled in D9
+    /// Raw amount of the token for redeeming.
     pub amount_for_redeeming: u64,
 }
 

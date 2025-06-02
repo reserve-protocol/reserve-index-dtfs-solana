@@ -58,10 +58,10 @@ pub struct Folio {
     /// Fee for minting shares of the folio token, scaled in D18
     pub mint_fee: u128,
 
-    /// Shares pending to be distributed ONLY to the DAO, scaled in D18
+    /// Shares pending to be distributed ONLY to the DAO, scaled in D9
     pub dao_pending_fee_shares: u128,
 
-    /// Shares pending to be distributed ONLY to the fee recipients, scaled in D18
+    /// Shares pending to be distributed ONLY to the fee recipients, scaled in D9
     pub fee_recipients_pending_fee_shares: u128,
 
     /// Duration of an auction, scaled in seconds
@@ -73,7 +73,7 @@ pub struct Folio {
     /// Describes mission/brand of the Folio (max size 128 bytes)
     pub mandate: FixedSizeString,
 
-    /// Amount of fees to be minted to the fee recipients, scaled in D18, we need this since the fee
+    /// Amount of fees to be minted to the fee recipients, scaled in D9, we need this since the fee
     /// distribution is done in multiple steps, so we need to keep track of the amount to be minted
     /// for when we calculate the total supply.
     pub fee_recipients_pending_fee_shares_to_be_minted: u128,
@@ -142,7 +142,7 @@ pub struct FeeDistribution {
     /// Person who cranked the distribute fee instruction, so that we can reimburse rent on account closure.
     pub cranker: Pubkey,
 
-    /// Amount of fees to distribute, scaled in D18
+    /// Amount of fees to distribute, scaled in D9
     pub amount_to_distribute: u128,
 
     /// Represents the fee recipient account state at the time of the distribute fee instruction call.
@@ -312,10 +312,10 @@ pub struct Auction {
     /// Buy token mint
     pub buy_mint: Pubkey,
 
-    /// D18{sellToken/share} min ratio of sell token in the basket, inclusive
+    /// D9{sellToken/share} min ratio of sell token in the basket, inclusive
     pub sell_limit: u128,
 
-    /// D18{buyToken/share} min ratio of buy token in the basket, exclusive
+    /// D9{buyToken/share} min ratio of buy token in the basket, exclusive
     pub buy_limit: u128,
 
     /// Scaled in seconds, inclusive
@@ -325,7 +325,7 @@ pub struct Auction {
     /// Scaled in seconds, inclusive
     pub end: u64,
 
-    /// D18{buyToken/sellToken}
+    /// D9{buyToken/sellToken}
     pub prices: PricesInAuction,
 }
 

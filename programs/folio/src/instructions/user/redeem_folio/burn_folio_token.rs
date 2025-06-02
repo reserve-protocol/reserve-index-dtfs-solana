@@ -107,7 +107,7 @@ impl BurnFolioToken<'_> {
 ///
 /// # Arguments
 /// * `ctx` - The context of the instruction.
-/// * `raw_shares` - The amount of shares the user wants to burn (D9).
+/// * `raw_shares` - The amount of shares the user wants to burn.
 /// * `minimum_out_for_token_amounts` - A vector of token mint addresses and their corresponding minimum
 ///   output amounts that the user expects to receive during redemption. While a folio can contain up
 ///   to 100 tokens, users can specify minimum amounts for just their tokens of interest. This acts as

@@ -106,7 +106,7 @@ impl AddToBasket<'_> {
 ///
 /// # Arguments
 /// * `ctx` - The context of the instruction.
-/// * `raw_initial_shares` - The initial shares to mint (D9).
+/// * `raw_initial_shares` - The initial shares to mint.
 fn mint_initial_shares<'info>(
     ctx: &Context<'_, '_, 'info, 'info, AddToBasket<'info>>,
     raw_initial_shares: Option<u64>,
@@ -152,7 +152,7 @@ fn mint_initial_shares<'info>(
 /// # Arguments
 /// * `ctx` - The context of the instruction.
 /// * `raw_amounts` - The amounts of the tokens to add to the basket from the Folio's owner folio token account.
-/// * `raw_initial_shares` - The initial shares to mint (D9).
+/// * `raw_initial_shares` - The initial shares to mint.
 pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, AddToBasket<'info>>,
     raw_amounts: Vec<u64>,

@@ -185,6 +185,14 @@ impl UserPendingBasket {
                             .ok_or(InvalidShareAmountProvided)?;
                     }
                 }
+
+                // Clear the slot if both amounts are 0.
+                // This is an optimization to make sure that the User does not have to empty out the complete user pending basket if tokens in the folio change multiple times.
+                if slot_for_update.amount_for_minting == 0
+                    && slot_for_update.amount_for_redeeming == 0
+                {
+                    slot_for_update.mint = Pubkey::default();
+                }
             } else if needs_to_validate_mint_existence {
                 return Err(error!(InvalidRemovedTokenMints));
             }
@@ -212,8 +220,8 @@ impl UserPendingBasket {
     /// This function pokes the folio to get the latest pending fee shares, and then calculates the user's pending amounts in shares.
     ///
     /// # Arguments
-    /// * `raw_shares` - The shares to convert to assets. (the amount of shares the user wants to redeem or mint) (D9).
-    /// * `raw_folio_token_supply` - The folio token supply of the folio token mint (D9).
+    /// * `raw_shares` - The shares to convert to assets. (the amount of shares the user wants to redeem or mint).
+    /// * `raw_folio_token_supply` - The folio token supply of the folio token mint.
     /// * `folio_key` - The key of the folio.
     /// * `token_program_id` - The token program id.
     /// * `folio_basket` - The basket of the folio.
@@ -301,11 +309,11 @@ impl UserPendingBasket {
     /// of the user and calculate how many shares of the folio mint token they would get.
     ///
     /// # Arguments
-    /// * `raw_user_amount` - The user's pending amount for minting (D9).
+    /// * `raw_user_amount` - The user's pending amount for minting.
     /// * `folio_token_amount` - The folio token amount to update.
     /// * `scaled_total_supply_folio_token` - The total supply of the folio mint token (D9).
     /// * `scaled_folio_token_balance` - The balance of the folio in folio mint token (D9).
-    /// * `raw_shares` - The shares to convert to assets. (the amount of shares the user wants to mint) (D9).
+    /// * `raw_shares` - The shares to convert to assets. (the amount of shares the user wants to mint) D9.
     pub fn to_assets_for_minting(
         raw_user_amount: &mut TokenAmount,
         folio_token_amount: &mut FolioTokenAmount,
@@ -348,11 +356,11 @@ impl UserPendingBasket {
     /// in multiple steps if needed.
     ///
     /// # Arguments
-    /// * `raw_user_amount` - The user's pending amount for redeeming (D9).
+    /// * `raw_user_amount` - The user's pending amount for redeeming.
     /// * `folio_token_amount` - The folio token amount to update.
     /// * `scaled_total_supply_folio_token` - The total supply of the folio mint token (D9).
     /// * `scaled_folio_token_balance` - The balance of the folio in folio mint token (D9).
-    /// * `raw_shares` - The shares to convert to assets. (the amount of shares the user wants to redeem) (D9).
+    /// * `raw_shares` - The shares to convert to assets. (the amount of shares the user wants to redeem).
     /// * `minimum_amount_out` - The minimum amount out for the token, only used when redeeming.
     pub fn to_assets_for_redeeming(
         raw_user_amount: &mut TokenAmount,

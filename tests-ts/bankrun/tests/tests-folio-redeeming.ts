@@ -872,7 +872,7 @@ describe("Bankrun - Folio redeeming", () => {
               for (let i = 0; i < MAX_USER_PENDING_BASKET_TOKEN_AMOUNTS; i++) {
                 assert.equal(
                   userPendingBasket.basket.tokenAmounts[i].mint.toString(),
-                  expectedTokenAmountsForUserPendingBasket[i].mint.toString()
+                  PublicKey.default.toString()
                 );
                 assert.equal(
                   userPendingBasket.basket.tokenAmounts[i].amountForMinting.eq(

@@ -24,6 +24,7 @@ import {
   getTVLFeeRecipientsPDA,
   getRebalancePDAWithBump,
   getAuctionEndsPDAWithBump,
+  getMetadataPDA,
 } from "../../utils/pda-helper";
 import * as crypto from "crypto";
 import { Folio } from "../../target/types/folio";
@@ -43,6 +44,7 @@ import {
   MAX_PADDED_STRING_LENGTH,
   REWARDS_PROGRAM_ID,
   MAX_REBALANCE_DETAILS,
+  TOKEN_METADATA_PROGRAM_ID,
 } from "../../utils/constants";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
@@ -440,6 +442,36 @@ export async function createAndSetRebalanceAccount(
     null,
     buffer
   );
+}
+
+export async function createAndSetMetadataAccount(
+  ctx: ProgramTestContext,
+  folio: PublicKey,
+  mint: PublicKey,
+  metadataProgramId: PublicKey = TOKEN_METADATA_PROGRAM_ID
+) {
+  const metadataAddress = getMetadataPDA(mint);
+  const METADATA_KEY = 4;
+
+  const buffer = Buffer.alloc(607);
+  let offset = 0;
+
+  // Write status
+  buffer.writeUInt8(METADATA_KEY, offset);
+  offset += 1;
+
+  folio.toBuffer().copy(buffer, offset);
+  offset += 32;
+
+  mint.toBuffer().copy(buffer, offset);
+  offset += 32;
+
+  ctx.setAccount(metadataAddress, {
+    lamports: 1_000_000_000,
+    data: buffer,
+    owner: metadataProgramId,
+    executable: false,
+  });
 }
 
 export async function createAndSetAuctionEndsAccount(
@@ -1496,11 +1528,19 @@ export async function buildRemainingAccounts(
   tokens: { mint: PublicKey; amount: BN }[],
   senderAddress: PublicKey = null,
   recipientAddress: PublicKey = null,
-  includeMint: boolean = true
+  includeMint: boolean = true,
+  includeTokenProgram: boolean = false
 ): Promise<AccountMeta[]> {
   const remainingAccounts: AccountMeta[] = [];
 
   for (const token of tokens) {
+    if (includeTokenProgram) {
+      remainingAccounts.push({
+        pubkey: TOKEN_PROGRAM_ID,
+        isSigner: false,
+        isWritable: false,
+      });
+    }
     if (includeMint) {
       remainingAccounts.push({
         pubkey: token.mint,

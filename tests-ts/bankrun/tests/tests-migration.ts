@@ -26,6 +26,7 @@ import {
   createAndSetFeeRecipients,
   createAndSetFeeDistribution,
   FolioTokenAmount,
+  createAndSetMetadataAccount,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
 import {
@@ -335,6 +336,12 @@ describe("Bankrun - Folio migration", () => {
       initialFolioBasket
     );
 
+    await createAndSetMetadataAccount(
+      context,
+      oldFolioPDA,
+      folioTokenMint.publicKey
+    );
+
     if (isBaseCaseForMigrateFolioTokens) {
       // Folio in second program
       await createAndSetFolio(
@@ -359,7 +366,6 @@ describe("Bankrun - Folio migration", () => {
 
       // Change the owner of the second folio if required
       if (secondFolioOwner !== null) {
-        console.log("Fucking javasscript");
         const secondFolioAccount = await banksClient.getAccount(newFolioPDA);
         context.setAccount(newFolioPDA, {
           ...secondFolioAccount,
@@ -465,7 +471,6 @@ describe("Bankrun - Folio migration", () => {
         newFolioPDA,
         programFolioSecond.programId,
         new BN(1),
-        feeRecipient,
         true
       );
 
@@ -609,7 +614,6 @@ describe("Bankrun - Folio migration", () => {
               newFolioPDA,
               newFolioProgram || programFolioSecond.programId,
               maxAllowedPendingFees,
-              feeRecipient,
               true
             );
           });
@@ -635,11 +639,6 @@ describe("Bankrun - Folio migration", () => {
                 mintAuthoritiesBefore.freezeAuthority,
                 oldFolioPDA
               );
-              console.log(
-                "mintAuthoritiesAfter.mintAuthority",
-                mintAuthoritiesAfter.mintAuthority.toBase58()
-              );
-              console.log("newFolioPDA", newFolioPDA.toBase58());
               assert.deepEqual(mintAuthoritiesAfter.mintAuthority, newFolioPDA);
               assert.deepEqual(
                 mintAuthoritiesAfter.freezeAuthority,

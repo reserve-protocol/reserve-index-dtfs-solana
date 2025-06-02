@@ -4,21 +4,21 @@ use crate::utils::structs::{FolioStatus, Role};
 use crate::utils::FolioTokenAmount;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::{get_associated_token_address_with_program_id, AssociatedToken};
-use anchor_spl::token;
+use anchor_spl::token_2022;
 use anchor_spl::token_interface::{self, Mint, TokenAccount, TokenInterface, TransferChecked};
 use shared::check_condition;
 use shared::constants::{ACTOR_SEEDS, FOLIO_BASKET_SEEDS, FOLIO_SEEDS};
 use shared::errors::ErrorCode;
 use shared::utils::account_util::next_account;
-use shared::utils::TokenUtil;
+use shared::utils::{next_token_program, TokenUtil};
 
-const EXPECTED_REMAINING_ACCOUNTS_LENGTH: usize = 3;
+const EXPECTED_REMAINING_ACCOUNTS_LENGTH: usize = 4;
 
 /// Add a token to the folio's basket.
 ///
 /// # Arguments
 /// * `system_program` - The system program.
-/// * `token_program` - The token program.
+/// * `token_program` - The token program, This is the owner for
 /// * `associated_token_program` - The associated token program.
 /// * `folio_owner` - The folio owner account (mut, signer).
 /// * `actor` - The actor account (PDA) of the Folio owner (mut, not signer).
@@ -28,6 +28,7 @@ const EXPECTED_REMAINING_ACCOUNTS_LENGTH: usize = 3;
 /// * `owner_folio_token_account` - The owner's folio token account (mut, not signer).
 ///
 /// * `remaining_accounts` - The remaining accounts will be the token accounts of the tokens to add to the basket.
+///         - token program
 ///         - Token Mint
 ///         - Sender Token Account (needs to be owned by owner) (mut)
 ///         - Recipient Token Account (needs to be owned by folio) (this is expected to be the ATA and already exist, to save on compute) (mut)
@@ -63,11 +64,13 @@ pub struct AddToBasket<'info> {
     #[account(mut,
         associated_token::mint = folio_token_mint,
         associated_token::authority = folio_owner,
+        associated_token::token_program = folio_token_mint.to_account_info().owner,
     )]
     pub owner_folio_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
     /*
     The remaining accounts need to match the order of amounts as parameter
     Remaining accounts will have as many as possible of the following (always in the same order):
+        - Token Program (read)
         - Token Mint (read)
         - Sender Token Account (needs to be owned by owner) (mut)
         - Recipient Token Account (needs to be owned by folio) (this is expected to be the ATA and already exist, to save on compute) (mut)
@@ -80,13 +83,20 @@ impl AddToBasket<'_> {
     /// # Checks
     /// * Folio has the correct status.
     /// * Actor is the owner of the folio.
-    pub fn validate(&self, folio: &Folio) -> Result<()> {
+    pub fn validate(&self, folio: &Folio, raw_initial_shares: Option<u64>) -> Result<()> {
         folio.validate_folio(
             &self.folio.key(),
             Some(&self.actor),
             Some(vec![Role::Owner]),
             Some(vec![FolioStatus::Initializing, FolioStatus::Initialized]),
         )?;
+
+        if raw_initial_shares.is_some() {
+            check_condition!(
+                *self.folio_token_mint.to_account_info().owner == self.token_program.key(),
+                InvalidTokenMintProgram
+            );
+        }
 
         Ok(())
     }
@@ -111,18 +121,16 @@ fn mint_initial_shares<'info>(
             let bump = folio.bump;
             let signer_seeds = &[FOLIO_SEEDS, token_mint_key.as_ref(), &[bump]];
 
-            let cpi_accounts = token::MintTo {
+            let cpi_accounts = token_2022::MintTo {
                 mint: ctx.accounts.folio_token_mint.to_account_info(),
                 to: ctx.accounts.owner_folio_token_account.to_account_info(),
                 authority: ctx.accounts.folio.to_account_info(),
             };
 
-            token::mint_to(
-                CpiContext::new_with_signer(
-                    ctx.accounts.token_program.to_account_info(),
-                    cpi_accounts,
-                    &[signer_seeds],
-                ),
+            let token_program = ctx.accounts.token_program.to_account_info();
+
+            token_interface::mint_to(
+                CpiContext::new_with_signer(token_program, cpi_accounts, &[signer_seeds]),
                 raw_initial_shares.ok_or(ErrorCode::MathOverflow)?,
             )?;
         }
@@ -152,7 +160,7 @@ pub fn handler<'info>(
 ) -> Result<()> {
     {
         let folio = ctx.accounts.folio.load()?;
-        ctx.accounts.validate(&folio)?;
+        ctx.accounts.validate(&folio, raw_initial_shares)?;
     }
 
     let folio_key = ctx.accounts.folio.key();
@@ -160,7 +168,6 @@ pub fn handler<'info>(
     let remaining_accounts = &ctx.remaining_accounts;
     let mut remaining_accounts_iter = remaining_accounts.iter();
 
-    let token_program_id = ctx.accounts.token_program.key();
     let folio_owner = ctx.accounts.folio_owner.to_account_info();
 
     let mut folio_token_amounts: Vec<FolioTokenAmount> = vec![];
@@ -176,16 +183,25 @@ pub fn handler<'info>(
     );
 
     for raw_amount in raw_amounts {
+        let token_program = next_token_program(&mut remaining_accounts_iter)?;
         let token_mint = next_account(
             &mut remaining_accounts_iter,
             false,
             false,
-            &token_program_id,
+            &token_program.key(),
         )?;
-        let sender_token_account =
-            next_account(&mut remaining_accounts_iter, false, true, &token_program_id)?;
-        let recipient_token_account =
-            next_account(&mut remaining_accounts_iter, false, true, &token_program_id)?;
+        let sender_token_account = next_account(
+            &mut remaining_accounts_iter,
+            false,
+            true,
+            &token_program.key(),
+        )?;
+        let recipient_token_account = next_account(
+            &mut remaining_accounts_iter,
+            false,
+            true,
+            &token_program.key(),
+        )?;
 
         // Validate the recipient token account is the ATA of the folio
         check_condition!(
@@ -193,7 +209,7 @@ pub fn handler<'info>(
                 == get_associated_token_address_with_program_id(
                     &folio_key,
                     token_mint.key,
-                    &token_program_id,
+                    &token_program.key(),
                 ),
             InvalidRecipientTokenAccount
         );
@@ -218,10 +234,8 @@ pub fn handler<'info>(
             mint: token_mint.to_account_info(),
         };
 
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-
         token_interface::transfer_checked(
-            CpiContext::new(cpi_program, cpi_accounts),
+            CpiContext::new(token_program.to_account_info(), cpi_accounts),
             raw_amount,
             mint.decimals,
         )?;

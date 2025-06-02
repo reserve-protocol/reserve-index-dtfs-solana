@@ -41,6 +41,21 @@ pub fn next_account<'b>(
     Ok(account)
 }
 
+#[cfg(not(tarpaulin_include))]
+pub fn next_token_program<'b>(
+    iter: &mut std::slice::Iter<'b, AccountInfo<'b>>,
+) -> Result<&'b AccountInfo<'b>> {
+    let account = iter.next().ok_or(ErrorCode::MissingRemainingAccount)?;
+
+    check_condition!(
+        account.key() == anchor_spl::token::ID || account.key() == anchor_spl::token_2022::ID,
+        InvalidTokenProgram
+    );
+    check_condition!(account.executable, AccountNotExecutable);
+
+    Ok(account)
+}
+
 /// Helper function to initialize a PDA account.
 ///
 /// # Arguments

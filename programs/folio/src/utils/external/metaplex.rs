@@ -1,4 +1,7 @@
 use anchor_lang::prelude::*;
+use mpl_token_metadata::types::{
+    CollectionDetailsToggle, CollectionToggle, RuleSetToggle, UsesToggle,
+};
 
 /// Utility struct for the metaplex program.
 pub struct Metaplex {}
@@ -13,6 +16,18 @@ pub struct CreateMetadataAccount<'info> {
     pub system_program: AccountInfo<'info>,
     pub rent: AccountInfo<'info>,
     pub token_metadata_program: AccountInfo<'info>,
+}
+
+pub struct UpdateAuthority<'info> {
+    pub metadata: AccountInfo<'info>,
+    pub mint: AccountInfo<'info>,
+    pub mint_authority: AccountInfo<'info>,
+    pub payer: AccountInfo<'info>,
+    pub update_authority: AccountInfo<'info>,
+    pub system_program: AccountInfo<'info>,
+    pub rent: AccountInfo<'info>,
+    pub token_metadata_program: AccountInfo<'info>,
+    pub sysvar_instructions: AccountInfo<'info>,
 }
 
 impl Metaplex {
@@ -61,6 +76,49 @@ impl Metaplex {
             &ctx.token_metadata_program,
             cpi_accounts,
             metadata_args,
+        );
+
+        cpi.invoke_signed(signers_seeds)?;
+
+        Ok(())
+    }
+
+    pub fn update_metadata_authority(
+        ctx: &UpdateAuthority,
+        new_authority: Pubkey,
+        signers_seeds: &[&[&[u8]]],
+    ) -> Result<()> {
+        let cpi_accounts = mpl_token_metadata::instructions::UpdateAsUpdateAuthorityV2CpiAccounts {
+            metadata: &ctx.metadata,
+            mint: &ctx.mint,
+            payer: &ctx.payer,
+            authority: &ctx.update_authority,
+            delegate_record: None,
+            token: None,
+            edition: None,
+            system_program: &ctx.system_program,
+            sysvar_instructions: &ctx.sysvar_instructions,
+            authorization_rules_program: None,
+            authorization_rules: None,
+        };
+        let update_authority_args =
+            mpl_token_metadata::instructions::UpdateAsUpdateAuthorityV2InstructionArgs {
+                new_update_authority: Some(new_authority),
+                data: None,
+                primary_sale_happened: None,
+                is_mutable: None,
+                collection: CollectionToggle::None,
+                collection_details: CollectionDetailsToggle::None,
+                uses: UsesToggle::None,
+                rule_set: RuleSetToggle::None,
+                token_standard: None,
+                authorization_data: None,
+            };
+
+        let cpi = mpl_token_metadata::instructions::UpdateAsUpdateAuthorityV2Cpi::new(
+            &ctx.token_metadata_program,
+            cpi_accounts,
+            update_authority_args,
         );
 
         cpi.invoke_signed(signers_seeds)?;

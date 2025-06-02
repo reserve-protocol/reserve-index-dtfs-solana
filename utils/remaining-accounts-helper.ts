@@ -6,6 +6,7 @@ import {
   getUserRewardInfoPDA,
 } from "./pda-helper";
 import { getOrCreateAtaAddress } from "./token-helper";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 /**
  * Helper functions for building remaining accounts arrays required for various
@@ -20,11 +21,20 @@ export async function buildRemainingAccounts(
   tokens: { mint: PublicKey; amount: BN }[],
   senderAddress: PublicKey = null,
   recipientAddress: PublicKey = null,
-  includeMint: boolean = true
+  includeMint: boolean = true,
+  includeTokenProgram: boolean = false
 ): Promise<AccountMeta[]> {
   const remainingAccounts: AccountMeta[] = [];
 
   for (const token of tokens) {
+    if (includeTokenProgram) {
+      remainingAccounts.push({
+        pubkey: TOKEN_PROGRAM_ID,
+        isSigner: false,
+        isWritable: false,
+      });
+    }
+
     if (includeMint) {
       remainingAccounts.push({
         pubkey: token.mint,

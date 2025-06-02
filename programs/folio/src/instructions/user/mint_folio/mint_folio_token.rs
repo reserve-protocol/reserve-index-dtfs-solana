@@ -76,6 +76,7 @@ pub struct MintFolioToken<'info> {
     #[account(mut,
         associated_token::mint = folio_token_mint,
         associated_token::authority = user,
+        associated_token::token_program = folio_token_mint.to_account_info().owner,
     )]
     pub user_folio_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
 }

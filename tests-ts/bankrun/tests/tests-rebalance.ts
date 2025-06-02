@@ -904,16 +904,11 @@ describe("Bankrun - Rebalance", () => {
             ...restOfParams,
           };
 
-          let currentTime: BN;
-
           before(async () => {
             await initBaseCase();
 
             await travelFutureSlot(context);
 
-            currentTime = new BN(
-              (await context.banksClient.getClock()).unixTimestamp.toString()
-            );
             await createAndSetRebalanceAccount(
               context,
               programFolio,

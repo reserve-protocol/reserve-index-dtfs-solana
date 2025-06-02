@@ -55,7 +55,11 @@ import {
   mintToken,
 } from "../bankrun-token-helper";
 import { FolioAdmin } from "../../../target/types/folio_admin";
-import { createTransferInstruction, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import {
+  createTransferInstruction,
+  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
 
 /**
  * Tests for auction-related functionality in the Folio program, including:
@@ -87,6 +91,9 @@ describe("Bankrun - Bids and Kill Auction", () => {
 
   const MINTS_IN_FOLIO = [Keypair.generate(), Keypair.generate()];
   const BUY_MINTS = [Keypair.generate(), Keypair.generate()];
+  // These are owned by tokenProgram2022
+  const MINTS_IN_FOLIO_2022 = [Keypair.generate(), Keypair.generate()];
+  const BUY_MINTS_2022 = [Keypair.generate(), Keypair.generate()];
 
   const DEFAULT_BUY_MINT = BUY_MINTS[0];
   const DEFAULT_SELL_MINT = MINTS_IN_FOLIO[0];
@@ -114,9 +121,6 @@ describe("Bankrun - Bids and Kill Auction", () => {
     extraTokenAmountsForFolioBasket: FolioTokenAmount[];
     initialFolioBasket: FolioTokenAmount[];
 
-    buyMints: PublicKey[];
-    sellMints: PublicKey[];
-
     auctionToUse: Auction;
 
     auctionId: BN;
@@ -140,8 +144,6 @@ describe("Bankrun - Bids and Kill Auction", () => {
 
     // Expected changes
     expectedTokenBalanceChanges: BN[];
-    // Index of the new run to use if the auction is reopened
-    indexOfRun: number;
   } = {
     remainingAccounts: () => [],
 
@@ -149,13 +151,12 @@ describe("Bankrun - Bids and Kill Auction", () => {
 
     extraTokenAmountsForFolioBasket: [],
 
-    initialFolioBasket: MINTS_IN_FOLIO.map((mint) => ({
-      mint: mint.publicKey,
-      amount: new BN(100),
-    })),
-
-    buyMints: BUY_MINTS.map((mint) => mint.publicKey),
-    sellMints: MINTS_IN_FOLIO.map((mint) => mint.publicKey),
+    initialFolioBasket: MINTS_IN_FOLIO.concat(MINTS_IN_FOLIO_2022).map(
+      (mint) => ({
+        mint: mint.publicKey,
+        amount: new BN(100),
+      })
+    ),
 
     auctionToUse: VALID_AUCTION,
 
@@ -178,7 +179,6 @@ describe("Bankrun - Bids and Kill Auction", () => {
 
     // Expected changes
     expectedTokenBalanceChanges: Array(MINTS_IN_FOLIO.length).fill(new BN(0)),
-    indexOfRun: 0,
   };
 
   const TEST_CASE_CLOSE_AUCTION = [
@@ -244,13 +244,34 @@ describe("Bankrun - Bids and Kill Auction", () => {
       folioTokenSupply
     );
 
-    for (const mint of MINTS_IN_FOLIO) {
-      initToken(context, adminKeypair.publicKey, mint, DEFAULT_DECIMALS);
+    for (const mint of MINTS_IN_FOLIO.concat(MINTS_IN_FOLIO_2022)) {
+      const isToken2022 = MINTS_IN_FOLIO_2022.map((m) =>
+        m.publicKey.toString()
+      ).includes(mint.publicKey.toString());
+
+      const tokenProgram = isToken2022
+        ? TOKEN_2022_PROGRAM_ID
+        : TOKEN_PROGRAM_ID;
+      initToken(
+        context,
+        adminKeypair.publicKey,
+        mint,
+        DEFAULT_DECIMALS,
+        undefined,
+        tokenProgram
+      );
       const amount =
         initialFolioBasket.find((t) => t.mint.equals(mint.publicKey))?.amount ||
         new BN(1_000);
 
-      mintToken(context, mint.publicKey, amount.toNumber(), folioPDA);
+      mintToken(
+        context,
+        mint.publicKey,
+        amount.toNumber(),
+        folioPDA,
+        undefined,
+        tokenProgram
+      );
 
       // If you need pending amounts for specific tests, use extraTokenAmountsForFolioBasket
       const extraTokenAmount = extraTokenAmountsForFolioBasket.find((t) =>
@@ -261,15 +282,38 @@ describe("Bankrun - Bids and Kill Auction", () => {
           context,
           mint.publicKey,
           amount.add(extraTokenAmount.amount).toNumber(),
-          folioPDA
+          folioPDA,
+          undefined,
+          tokenProgram
         );
       }
     }
 
-    for (const mint of BUY_MINTS) {
-      initToken(context, adminKeypair.publicKey, mint, DEFAULT_DECIMALS);
+    for (const mint of BUY_MINTS.concat(BUY_MINTS_2022)) {
+      const isToken2022 = BUY_MINTS_2022.map((m) =>
+        m.publicKey.toString()
+      ).includes(mint.publicKey.toString());
 
-      mintToken(context, mint.publicKey, 1_000, bidderKeypair.publicKey);
+      const tokenProgram = isToken2022
+        ? TOKEN_2022_PROGRAM_ID
+        : TOKEN_PROGRAM_ID;
+      initToken(
+        context,
+        adminKeypair.publicKey,
+        mint,
+        DEFAULT_DECIMALS,
+        undefined,
+        tokenProgram
+      );
+
+      mintToken(
+        context,
+        mint.publicKey,
+        1_000,
+        bidderKeypair.publicKey,
+        undefined,
+        tokenProgram
+      );
     }
 
     await createAndSetActor(
@@ -790,6 +834,69 @@ describe("Bankrun - Bids and Kill Auction", () => {
         );
       },
     },
+
+    {
+      desc: "(is valid, if the sell mint is token 2022)",
+      expectedError: null,
+      sellAmount: new BN(1000),
+      maxBuyAmount: new BN(10000),
+      folioTokenSupply: new BN(10_000),
+      auctionToUse: {
+        ...VALID_AUCTION,
+        buyLimitSpot: new BN(10000).mul(D18).div(new BN(10_000)),
+        sellLimitSpot: new BN(0),
+        sellMint: MINTS_IN_FOLIO_2022[0].publicKey,
+      },
+      sellMint: MINTS_IN_FOLIO_2022[0],
+      expectedTokenBalanceChanges: [
+        new BN(1000),
+        new BN(1000).neg(),
+        new BN(1000).neg(),
+        new BN(1000),
+      ],
+    },
+    {
+      desc: "(is valid, if the buy mint is token 2022)",
+      expectedError: null,
+      sellAmount: new BN(1000),
+      maxBuyAmount: new BN(10000),
+      folioTokenSupply: new BN(10_000),
+      auctionToUse: {
+        ...VALID_AUCTION,
+        buyLimitSpot: new BN(10000).mul(D18).div(new BN(10_000)),
+        sellLimitSpot: new BN(0),
+        buyMint: BUY_MINTS_2022[0].publicKey,
+      },
+      buyMint: BUY_MINTS_2022[0],
+      expectedTokenBalanceChanges: [
+        new BN(1000),
+        new BN(1000).neg(),
+        new BN(1000).neg(),
+        new BN(1000),
+      ],
+    },
+    {
+      desc: "(is valid, if the buy mint and sell mint are token 2022)",
+      expectedError: null,
+      sellAmount: new BN(1000),
+      maxBuyAmount: new BN(10000),
+      folioTokenSupply: new BN(10_000),
+      auctionToUse: {
+        ...VALID_AUCTION,
+        buyLimitSpot: new BN(10000).mul(D18).div(new BN(10_000)),
+        sellLimitSpot: new BN(0),
+        buyMint: BUY_MINTS_2022[0].publicKey,
+        sellMint: MINTS_IN_FOLIO_2022[0].publicKey,
+      },
+      buyMint: BUY_MINTS_2022[0],
+      sellMint: MINTS_IN_FOLIO_2022[0],
+      expectedTokenBalanceChanges: [
+        new BN(1000),
+        new BN(1000).neg(),
+        new BN(1000).neg(),
+        new BN(1000),
+      ],
+    },
   ];
 
   describe("Specific Cases - Bid", () => {
@@ -823,6 +930,8 @@ describe("Bankrun - Bids and Kill Auction", () => {
           owner: PublicKey;
           balances: bigint[];
         }[];
+        let sellTokenProgram: PublicKey;
+        let buyTokenProgram: PublicKey;
 
         before(async () => {
           const mintToUse = customFolioTokenMint || folioTokenMint;
@@ -835,6 +944,20 @@ describe("Bankrun - Bids and Kill Auction", () => {
             (await context.banksClient.getClock()).unixTimestamp.toString()
           );
 
+          const isSellToken2022 = MINTS_IN_FOLIO_2022.map((m) =>
+            m.publicKey.toString()
+          ).includes(sellMint.publicKey.toString());
+          sellTokenProgram = isSellToken2022
+            ? TOKEN_2022_PROGRAM_ID
+            : TOKEN_PROGRAM_ID;
+
+          const isBuyToken2022 = BUY_MINTS_2022.map((m) =>
+            m.publicKey.toString()
+          ).includes(buyMint.publicKey.toString());
+          buyTokenProgram = isBuyToken2022
+            ? TOKEN_2022_PROGRAM_ID
+            : TOKEN_PROGRAM_ID;
+
           await initBaseCase(
             mintToUse,
             initialFolioBasket,
@@ -846,9 +969,18 @@ describe("Bankrun - Bids and Kill Auction", () => {
             context,
             adminKeypair.publicKey,
             sellMint,
-            DEFAULT_DECIMALS
+            DEFAULT_DECIMALS,
+            undefined,
+            sellTokenProgram
           );
-          initToken(context, adminKeypair.publicKey, buyMint, DEFAULT_DECIMALS);
+          initToken(
+            context,
+            adminKeypair.publicKey,
+            buyMint,
+            DEFAULT_DECIMALS,
+            undefined,
+            buyTokenProgram
+          );
 
           if (beforeCallback) {
             await beforeCallback();
@@ -879,8 +1011,8 @@ describe("Bankrun - Bids and Kill Auction", () => {
           );
           const auction = Auction.default(
             folioPDA,
-            sellMint.publicKey,
-            buyMint.publicKey
+            buyMint.publicKey,
+            sellMint.publicKey
           );
           auction.id = auctionToUse.id;
           auction.nonce = rebalanceNonce;
@@ -899,7 +1031,8 @@ describe("Bankrun - Bids and Kill Auction", () => {
           beforeTokenBalanceChanges = await getTokenBalancesFromMints(
             context,
             [sellMint.publicKey, buyMint.publicKey],
-            [bidderKeypair.publicKey, folioPDA]
+            [bidderKeypair.publicKey, folioPDA],
+            [sellTokenProgram, buyTokenProgram]
           );
           const callbackFields = await callback();
 
@@ -919,7 +1052,9 @@ describe("Bankrun - Bids and Kill Auction", () => {
             buyMint.publicKey,
             callbackFields.data,
             true,
-            callbackFields.remainingAccounts
+            callbackFields.remainingAccounts,
+            buyTokenProgram,
+            sellTokenProgram
           );
         });
 
@@ -936,7 +1071,8 @@ describe("Bankrun - Bids and Kill Auction", () => {
               beforeTokenBalanceChanges,
               [sellMint.publicKey, buyMint.publicKey],
               [bidderKeypair.publicKey, folioPDA],
-              expectedTokenBalanceChanges
+              expectedTokenBalanceChanges,
+              [sellTokenProgram, buyTokenProgram]
             );
 
             const folioBasketAfter =

@@ -26,7 +26,8 @@ use shared::{
 ///
 /// # Arguments
 /// * `system_program` - The system program.
-/// * `token_program` - The token program.
+/// * `buy_token_program` - The buy token program.
+/// * `sell_token_program` - The sell token program.
 /// * `associated_token_program` - The associated token program.
 /// * `bidder` - The bidder account (mut, signer).
 /// * `folio` - The folio account (PDA) (mut, not signer).
@@ -45,7 +46,8 @@ use shared::{
 #[derive(Accounts)]
 pub struct Bid<'info> {
     pub system_program: Program<'info, System>,
-    pub token_program: Interface<'info, TokenInterface>,
+    pub buy_token_program: Interface<'info, TokenInterface>,
+    pub sell_token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
 
     #[account(mut)]
@@ -75,24 +77,28 @@ pub struct Bid<'info> {
     #[account(mut,
     associated_token::mint = auction_sell_token_mint,
     associated_token::authority = folio,
+    associated_token::token_program = sell_token_program,
     )]
     pub folio_sell_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(mut,
     associated_token::mint = auction_buy_token_mint,
     associated_token::authority = folio,
+    associated_token::token_program = buy_token_program,
     )]
     pub folio_buy_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(mut,
     associated_token::mint = auction_sell_token_mint,
     associated_token::authority = bidder,
+    associated_token::token_program = sell_token_program,
     )]
     pub bidder_sell_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(mut,
     associated_token::mint = auction_buy_token_mint,
     associated_token::authority = bidder,
+    associated_token::token_program = buy_token_program,
     )]
     pub bidder_buy_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
@@ -288,7 +294,7 @@ pub fn handler(
 
     token_interface::transfer_checked(
         CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.sell_token_program.to_account_info(),
             TransferChecked {
                 from: ctx.accounts.folio_sell_token_account.to_account_info(),
                 to: ctx.accounts.bidder_sell_token_account.to_account_info(),
@@ -330,7 +336,7 @@ pub fn handler(
     } else {
         token_interface::transfer_checked(
             CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
+                ctx.accounts.buy_token_program.to_account_info(),
                 TransferChecked {
                     from: ctx.accounts.bidder_buy_token_account.to_account_info(),
                     to: ctx.accounts.folio_buy_token_account.to_account_info(),

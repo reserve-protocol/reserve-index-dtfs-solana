@@ -144,7 +144,8 @@ export async function updateFolio(
   auctionLength: BN | null,
   feeRecipientsToAdd: { recipient: PublicKey; portion: BN }[],
   feeRecipientsToRemove: PublicKey[],
-  mandate: string | null
+  mandate: string | null,
+  tokenProgramForAta: PublicKey = TOKEN_PROGRAM_ID
 ) {
   const folioProgram = getFolioProgram(connection, folioOwnerKeypair);
 
@@ -197,7 +198,8 @@ export async function updateFolio(
           connection,
           folioTokenMint,
           folioOwnerKeypair,
-          daoFeeRecipient
+          daoFeeRecipient,
+          tokenProgramForAta
         ),
         isSigner: false,
         isWritable: true,
@@ -276,7 +278,8 @@ export async function addToBasket(
   folio: PublicKey,
   tokens: { mint: PublicKey; amount: BN }[],
   initialShares: BN,
-  folioTokenMint: PublicKey
+  folioTokenMint: PublicKey,
+  tokenProgram: PublicKey = TOKEN_PROGRAM_ID
 ) {
   const folioProgram = getFolioProgram(connection, folioOwnerKeypair);
 
@@ -287,7 +290,7 @@ export async function addToBasket(
     )
     .accountsPartial({
       systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
+      tokenProgram,
       folioOwner: folioOwnerKeypair.publicKey,
       actor: getActorPDA(folioOwnerKeypair.publicKey, folio),
       folio: folio,
@@ -296,7 +299,8 @@ export async function addToBasket(
         connection,
         folioTokenMint,
         folioOwnerKeypair,
-        folioOwnerKeypair.publicKey
+        folioOwnerKeypair.publicKey,
+        tokenProgram
       ),
       folioBasket: getFolioBasketPDA(folio),
     })
@@ -306,7 +310,9 @@ export async function addToBasket(
         folioOwnerKeypair,
         tokens,
         folioOwnerKeypair.publicKey,
-        folio
+        folio,
+        true,
+        true
       )
     )
     .instruction();
@@ -584,7 +590,8 @@ export async function distributeFees(
   folio: PublicKey,
   folioTokenMint: PublicKey,
   daoFeeRecipient: PublicKey,
-  index: BN
+  index: BN,
+  folioMintTokenProgram: PublicKey = TOKEN_PROGRAM_ID
 ) {
   const folioProgram = getFolioProgram(connection, userKeypair);
 
@@ -593,7 +600,7 @@ export async function distributeFees(
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
-      tokenProgram: TOKEN_PROGRAM_ID,
+      tokenProgram: folioMintTokenProgram,
       user: userKeypair.publicKey,
       daoFeeConfig: getDAOFeeConfigPDA(),
       folioFeeConfig: getFolioFeeConfigPDA(folio),
@@ -828,7 +835,9 @@ export async function bid(
     isWritable: boolean;
     isSigner: boolean;
     pubkey: PublicKey;
-  }[] = []
+  }[] = [],
+  buyTokenProgram: PublicKey = TOKEN_PROGRAM_ID,
+  sellTokenProgram: PublicKey = TOKEN_PROGRAM_ID
 ) {
   const folioProgram = getFolioProgram(connection, bidderKeypair);
 
@@ -838,7 +847,8 @@ export async function bid(
     .bid(sellAmount, maxBuyAmount, withCallback, callbackData)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
+      buyTokenProgram,
+      sellTokenProgram,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       bidder: bidderKeypair.publicKey,
       folio,
@@ -898,7 +908,8 @@ export async function startFolioMigration(
   oldFolio: PublicKey,
   newFolio: PublicKey,
   newFolioProgram: PublicKey,
-  maxAllowedPendingFees: BN
+  maxAllowedPendingFees: BN,
+  folioMintTokenProgram: PublicKey = TOKEN_PROGRAM_ID
 ) {
   const folioProgram = getFolioProgram(connection, folioOwnerKeypair);
 
@@ -906,7 +917,7 @@ export async function startFolioMigration(
     .startFolioMigration(maxAllowedPendingFees)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
+      tokenProgram: folioMintTokenProgram,
       folioOwner: folioOwnerKeypair.publicKey,
       programRegistrar: getProgramRegistrarPDA(),
       actor: getActorPDA(folioOwnerKeypair.publicKey, oldFolio),

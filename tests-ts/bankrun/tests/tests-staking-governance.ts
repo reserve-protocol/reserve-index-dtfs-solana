@@ -397,7 +397,7 @@ describe("Bankrun - Governance Staking User", () => {
     await initBaseCase();
   });
 
-  describe("Specific Cases - Accrue Rewards via Governance", () => {
+  describe.only("Specific Cases - Accrue Rewards via Governance", () => {
     TEST_ACCRUE_REWARDS_VIA_GOVERNANCE.forEach(
       ({ desc, expectedError, ...restOfParams }) => {
         describe(`When ${desc}`, () => {

@@ -66,28 +66,6 @@ pub fn process_deposit_governing_tokens(
 
     realm_config_data.assert_can_deposit_governing_token(&realm_data, &governing_token_mint)?;
 
-    if is_spl_token_account(governing_token_source_info) {
-        // If the source is spl-token token account then transfer tokens from it
-        transfer_spl_tokens(
-            governing_token_source_info,
-            governing_token_holding_info,
-            governing_token_source_authority_info,
-            amount,
-            spl_token_info,
-        )?;
-    } else if is_spl_token_mint(governing_token_source_info) {
-        // If it's a mint then mint the tokens
-        mint_spl_tokens_to(
-            governing_token_source_info,
-            governing_token_holding_info,
-            governing_token_source_authority_info,
-            amount,
-            spl_token_info,
-        )?;
-    } else {
-        return Err(GovernanceError::InvalidGoverningTokenSource.into());
-    }
-
     let token_owner_record_address_seeds = get_token_owner_record_address_seeds(
         realm_info.key,
         &governing_token_mint,
@@ -157,6 +135,28 @@ pub fn process_deposit_governing_tokens(
         reward_token_accounts,
     )?;
 
+    if is_spl_token_account(governing_token_source_info) {
+        // If the source is spl-token token account then transfer tokens from it
+        transfer_spl_tokens(
+            governing_token_source_info,
+            governing_token_holding_info,
+            governing_token_source_authority_info,
+            amount,
+            spl_token_info,
+        )?;
+    } else if is_spl_token_mint(governing_token_source_info) {
+        // If it's a mint then mint the tokens
+        mint_spl_tokens_to(
+            governing_token_source_info,
+            governing_token_holding_info,
+            governing_token_source_authority_info,
+            amount,
+            spl_token_info,
+        )?;
+    } else {
+        return Err(GovernanceError::InvalidGoverningTokenSource.into());
+    }
+
     // Then add the amount to the account
     let mut token_owner_record_data = get_token_owner_record_data_for_seeds(
         program_id,
@@ -173,3 +173,4 @@ pub fn process_deposit_governing_tokens(
 
     Ok(())
 }
+

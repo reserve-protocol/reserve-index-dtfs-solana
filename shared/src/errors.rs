@@ -46,6 +46,9 @@ pub enum ErrorCode {
     #[msg("Invalid Fee Recipient Count")]
     InvalidFeeRecipientCount,
 
+    #[msg("Invalid Fee Recipient, contains duplicates")]
+    InvalidFeeRecipientContainsDuplicates,
+
     #[msg("Invalid Fee Recipient")]
     InvalidFeeRecipient,
 

@@ -159,7 +159,7 @@ mod tests {
             portion: HALF,
         };
 
-        let result = folio.validate_fee_recipient_total_portions();
+        let result = folio.validate_fee_recipient_total_portions_and_check_for_duplicates();
         assert!(result.is_ok());
     }
 
@@ -175,11 +175,36 @@ mod tests {
             portion: SCALAR.checked_div(4u128).unwrap(),
         };
 
-        let result = folio.validate_fee_recipient_total_portions();
+        let result = folio.validate_fee_recipient_total_portions_and_check_for_duplicates();
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
             ErrorCode::InvalidFeeRecipientPortion.into()
+        );
+    }
+
+    #[test]
+    fn test_validate_fee_recipient_total_portions_failure_duplicates() {
+        let mut folio = FeeRecipients::default();
+        folio.fee_recipients[0] = FeeRecipient {
+            recipient: Pubkey::new_unique(),
+            portion: HALF,
+        };
+        let recipient2 = Pubkey::new_unique();
+        folio.fee_recipients[1] = FeeRecipient {
+            recipient: recipient2,
+            portion: HALF / 2,
+        };
+        folio.fee_recipients[2] = FeeRecipient {
+            recipient: recipient2,
+            portion: HALF / 2,
+        };
+
+        let result = folio.validate_fee_recipient_total_portions_and_check_for_duplicates();
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            ErrorCode::InvalidFeeRecipientContainsDuplicates.into()
         );
     }
 }

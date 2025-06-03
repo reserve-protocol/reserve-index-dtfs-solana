@@ -6,6 +6,7 @@ set dotenv-load := true
 set export
 
 export PROGRAMS_DIR := "tests-ts/programs"
+export RUSTUP_TOOLCHAIN := "nightly-2025-03-05"
 
 # Install Rust, Solana CLI, and Anchor with version checks
 install-tools:
@@ -53,54 +54,49 @@ install-tools:
     @echo "Anchor: $(anchor --version 2>/dev/null || echo 'not found')"
 
 build-local:
-    @just install-tools
+	@just install-tools
 
-    # Exit on error
-    @set -e
+	# Exit on error
+	@set -e
 
-    # Return to workspace root
-    @cd "$(git rev-parse --show-toplevel)" || exit 1
+	# Return to workspace root
+	@cd "$(git rev-parse --show-toplevel)" || exit 1
 
-    # Build SPL Governance program
-    @echo "Building SPL Governance program..."
-    @cd governance/program
-    @cargo build-sbf
-    @cd ..
+	# Build SPL Governance program
+	cd governance/program && \
+	ls && \
+	cargo build-sbf && \
+	cd .. && \
+	echo "Copy the built governance program" && \
+	pwd && \
+	ls target/deploy && \
+	cp target/deploy/spl_governance.so ../tests-ts/programs/governance.so
 
-    # Copy the built governance program
-    @if [ -f "target/deploy/spl_governance.so" ]; then \
-        cp target/deploy/spl_governance.so ../tests-ts/programs/governance.so; \
-    elif [ -f "target/sbf-solana-solana/release/spl_governance.so" ]; then \
-        cp target/sbf-solana-solana/release/spl_governance.so ../tests-ts/programs/governance.so; \
-    fi
 
-    # Return to workspace root
-    @cd ..
+	# Install node modules
+	@yarn install
 
-    # Install node modules
-    @yarn install
+	# Build second Folio instance with feature flag
+	@echo "Building second instance of the program..."
+	@cp utils/keys/folio-2-keypair-local.json target/deploy/folio-keypair.json
 
-    # Build second Folio instance with feature flag
-    @echo "Building second instance of the program..."
-    @cp utils/keys/folio-2-keypair-local.json target/deploy/folio-keypair.json
+	# Anchor build with dev feature flag
+	@anchor build -- --features dev 
 
-    # Anchor build with dev feature flag
-    @anchor build -- --features dev 
+	# Update program ID in IDL and type files (Mac compatible)
+	@sed -i '' 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt/g' target/idl/folio.json
+	@sed -i '' 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt/g' target/types/folio.ts
 
-    # Update program ID in IDL and type files (Mac compatible)
-    @sed -i '' 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt/g' target/idl/folio.json
-    @sed -i '' 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt/g' target/types/folio.ts
+	# Rename second instance files
+	@mv target/idl/folio.json target/idl/second_folio.json
+	@mv target/types/folio.ts target/types/second_folio.ts
+	@mv target/deploy/folio.so target/deploy/second_folio.so
+	@mv target/deploy/folio-keypair.json target/deploy/second_folio-keypair.json
 
-    # Rename second instance files
-    @mv target/idl/folio.json target/idl/second_folio.json
-    @mv target/types/folio.ts target/types/second_folio.ts
-    @mv target/deploy/folio.so target/deploy/second_folio.so
-    @mv target/deploy/folio-keypair.json target/deploy/second_folio-keypair.json
-
-    # Build first Folio instance
-    @echo "Building first instance of the program..."
-    @cp utils/keys/folio-keypair-local.json target/deploy/folio-keypair.json
-    @anchor build
+	# Build first Folio instance
+	@echo "Building first instance of the program..."
+	@cp utils/keys/folio-keypair-local.json target/deploy/folio-keypair.json
+	@anchor build
 
 download-programs:
     # Exit on error
@@ -136,7 +132,7 @@ test-amman skip_build="":
     # Kill existing processes
     @killall solana-test-validator || true
     @pkill -f "node.*amman start" || true
-
+    @mkdir -p .anchor
     # Start amman in background
     @npx amman start --reset &> .anchor/logs &
 

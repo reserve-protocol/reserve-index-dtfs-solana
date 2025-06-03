@@ -99,12 +99,7 @@ jobs:
           cd ..
 
           # Copy the built program to the correct location (using absolute paths)
-          WORKSPACE="/home/runner/work/reserve-index-dtfs-solana/reserve-index-dtfs-solana"
-          if [ -f "target/deploy/spl_governance.so" ]; then
-              cp target/deploy/spl_governance.so "$WORKSPACE/tests-ts/programs/governance.so"
-          elif [ -f "target/sbf-solana-solana/release/spl_governance.so" ]; then
-              cp target/sbf-solana-solana/release/spl_governance.so "$WORKSPACE/tests-ts/programs/governance.so"
-          fi
+          cp target/deploy/spl_governance.so "$WORKSPACE/tests-ts/programs/governance.so"
 
           cd "$WORKSPACE"
 

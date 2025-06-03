@@ -99,6 +99,7 @@ jobs:
           cd ..
 
           # Copy the built program to the correct location (using absolute paths)
+          WORKSPACE="/home/runner/work/reserve-index-dtfs-solana/reserve-index-dtfs-solana"
           cp target/deploy/spl_governance.so "$WORKSPACE/tests-ts/programs/governance.so"
 
           cd "$WORKSPACE"

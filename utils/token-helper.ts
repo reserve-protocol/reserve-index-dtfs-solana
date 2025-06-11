@@ -39,13 +39,32 @@ export async function initToken(
   );
 }
 
+export async function initToken2022(
+  connection: Connection,
+  mintAuthority: Keypair,
+  mint: Keypair = Keypair.generate(),
+  decimals: number = DEFAULT_DECIMALS
+) {
+  await createMint(
+    connection,
+    mintAuthority,
+    mintAuthority.publicKey,
+    null,
+    decimals,
+    mint,
+    undefined,
+    TOKEN_2022_PROGRAM_ID
+  );
+}
+
 export async function mintToken(
   connection: Connection,
   mintAuthority: Keypair,
   mint: PublicKey,
   amount: number,
   recipient: PublicKey,
-  decimals: number = DEFAULT_DECIMALS
+  decimals: number = DEFAULT_DECIMALS,
+  program: PublicKey = TOKEN_PROGRAM_ID
 ) {
   const ata = (
     await getOrCreateAssociatedTokenAccount(
@@ -53,7 +72,10 @@ export async function mintToken(
       mintAuthority,
       mint,
       recipient,
-      true
+      true,
+      undefined,
+      undefined,
+      program
     )
   ).address;
 
@@ -63,7 +85,10 @@ export async function mintToken(
     mint,
     ata,
     mintAuthority,
-    amount * 10 ** decimals
+    amount * 10 ** decimals,
+    undefined,
+    undefined,
+    program
   );
 }
 

@@ -2,9 +2,9 @@ use crate::state::{Folio, FolioBasket, UserPendingBasket};
 use crate::utils::structs::FolioStatus;
 use crate::utils::MinimumOutForTokenAmount;
 use anchor_lang::prelude::*;
+use anchor_spl::token_interface;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token,
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
 use folio_admin::state::DAOFeeConfig;
@@ -152,10 +152,10 @@ pub fn handler<'info>(
     }
 
     // Burn folio token from user's folio token account
-    token::burn(
+    token_interface::burn(
         CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
-            token::Burn {
+            token_interface::Burn {
                 mint: ctx.accounts.folio_token_mint.to_account_info(),
                 from: ctx.accounts.user_folio_token_account.to_account_info(),
                 authority: ctx.accounts.user.to_account_info(),

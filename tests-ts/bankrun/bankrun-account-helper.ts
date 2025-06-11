@@ -1529,14 +1529,15 @@ export async function buildRemainingAccounts(
   senderAddress: PublicKey = null,
   recipientAddress: PublicKey = null,
   includeMint: boolean = true,
-  includeTokenProgram: boolean = false
+  includeTokenProgram: boolean = false,
+  tokenProgram: PublicKey = TOKEN_PROGRAM_ID
 ): Promise<AccountMeta[]> {
   const remainingAccounts: AccountMeta[] = [];
 
   for (const token of tokens) {
     if (includeTokenProgram) {
       remainingAccounts.push({
-        pubkey: TOKEN_PROGRAM_ID,
+        pubkey: tokenProgram,
         isSigner: false,
         isWritable: false,
       });
@@ -1550,7 +1551,12 @@ export async function buildRemainingAccounts(
     }
     if (senderAddress) {
       remainingAccounts.push({
-        pubkey: await getOrCreateAtaAddress(context, token.mint, senderAddress),
+        pubkey: await getOrCreateAtaAddress(
+          context,
+          token.mint,
+          senderAddress,
+          tokenProgram
+        ),
         isSigner: false,
         isWritable: true,
       });
@@ -1560,7 +1566,8 @@ export async function buildRemainingAccounts(
         pubkey: await getOrCreateAtaAddress(
           context,
           token.mint,
-          recipientAddress
+          recipientAddress,
+          tokenProgram
         ),
         isSigner: false,
         isWritable: true,

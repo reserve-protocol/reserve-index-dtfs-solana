@@ -1,9 +1,9 @@
 use crate::state::{Folio, FolioBasket, UserPendingBasket};
 use crate::utils::structs::FolioStatus;
 use anchor_lang::prelude::*;
+use anchor_spl::token_interface;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token,
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
 use folio_admin::state::DAOFeeConfig;
@@ -184,10 +184,10 @@ pub fn handler<'info>(
         );
     }
 
-    token::mint_to(
+    token_interface::mint_to(
         CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
-            token::MintTo {
+            token_interface::MintTo {
                 mint: ctx.accounts.folio_token_mint.to_account_info(),
                 to: ctx.accounts.user_folio_token_account.to_account_info(),
                 authority: ctx.accounts.folio.to_account_info(),

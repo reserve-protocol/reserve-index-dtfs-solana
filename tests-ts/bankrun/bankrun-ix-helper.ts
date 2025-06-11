@@ -415,7 +415,10 @@ export async function addToBasket<T extends boolean = true>(
   folioTokenMint: PublicKey,
 
   executeTxn: T = true as T,
-  remainingAccounts: AccountMeta[] = []
+  remainingAccounts: AccountMeta[] = [],
+
+  tokenProgram: PublicKey = TOKEN_PROGRAM_ID,
+  folioMintTokenProgram: PublicKey = TOKEN_PROGRAM_ID
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
@@ -428,7 +431,7 @@ export async function addToBasket<T extends boolean = true>(
     )
     .accountsPartial({
       systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
+      tokenProgram,
       folioOwner: !executeTxn
         ? OTHER_ADMIN_KEY.publicKey
         : folioOwnerKeypair.publicKey,
@@ -438,7 +441,8 @@ export async function addToBasket<T extends boolean = true>(
       ownerFolioTokenAccount: await getOrCreateAtaAddress(
         context,
         folioTokenMint,
-        folioOwnerKeypair.publicKey
+        folioOwnerKeypair.publicKey,
+        folioMintTokenProgram
       ),
       folioBasket: getFolioBasketPDA(folio),
     })
@@ -451,7 +455,8 @@ export async function addToBasket<T extends boolean = true>(
             folioOwnerKeypair.publicKey,
             folio,
             true,
-            true
+            true,
+            tokenProgram
           )
     )
     .instruction();
@@ -1126,10 +1131,6 @@ export async function bid<T extends boolean = true>(
 > {
   const auctionFetched = await programFolio.account.auction.fetch(auction);
 
-  console.log("sellMint", sellMint);
-  console.log("buyMint", buyMint);
-  console.log("auctionFetched.sellMint", auctionFetched.sellMint);
-  console.log("auctionFetched.buyMint", auctionFetched.buyMint);
   const sellMintToUse = sellMint ?? auctionFetched.sellMint;
   const buyMintToUse = buyMint ?? auctionFetched.buyMint;
 
@@ -1407,8 +1408,6 @@ export async function removeRewardToken<T extends boolean = true>(
       ),
     })
     .instruction();
-
-  console.log("instruction accouunts", removeRewardToken.keys);
 
   if (executeTxn) {
     return createAndProcessTransaction(client, executor, [

@@ -328,15 +328,25 @@ pub fn distribute_fees<'info>(
     {
         let folio = &mut folio.load_mut()?;
 
-        folio.dao_pending_fee_shares = folio
-            .dao_pending_fee_shares
-            .checked_sub(
+        if has_fee_recipients {
+            folio.dao_pending_fee_shares = folio
+                .dao_pending_fee_shares
+                .checked_sub(
+                    (raw_dao_pending_fee_shares as u128)
+                        // Got to multiply back in D9 since we track with extra precision
+                        .checked_mul(D9_U128)
+                        .ok_or(ErrorCode::MathOverflow)?,
+                )
+                .ok_or(ErrorCode::MathOverflow)?;
+        } else {
+            // In case of no fee recipients, it is possible that `raw_dao_pending_fee_shares` is higher than the `dao_pending_fee_shares`
+            folio.dao_pending_fee_shares = folio.dao_pending_fee_shares.saturating_sub(
                 (raw_dao_pending_fee_shares as u128)
                     // Got to multiply back in D9 since we track with extra precision
                     .checked_mul(D9_U128)
                     .ok_or(ErrorCode::MathOverflow)?,
-            )
-            .ok_or(ErrorCode::MathOverflow)?;
+            );
+        }
 
         // Still remove from the fee recipient pending shares even if there are no fee recipients
         // as it's given to the DAO

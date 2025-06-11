@@ -41,6 +41,14 @@ import {
 } from "../bankrun-token-helper";
 import { FolioAdmin } from "../../../target/types/folio_admin";
 import { TestHelper } from "../../../utils/test-helper";
+import {
+  ACCOUNT_SIZE,
+  AccountType,
+  ExtensionType,
+  getMintLen,
+  getTypeLen,
+  TOKEN_2022_PROGRAM_ID,
+} from "@solana/spl-token";
 
 /**
  * Tests for starting rebalances
@@ -69,6 +77,7 @@ describe("Bankrun - Rebalance", () => {
 
   const MINTS_IN_FOLIO = [Keypair.generate(), Keypair.generate()];
   const BUY_MINTS = [Keypair.generate(), Keypair.generate()];
+  const BUY_MINTS_2022 = [Keypair.generate()];
 
   const DEFAULT_BUY_MINT = BUY_MINTS[0];
   const DEFAULT_SELL_MINT = MINTS_IN_FOLIO[0];
@@ -92,6 +101,10 @@ describe("Bankrun - Rebalance", () => {
       restrictedUntil: BN;
       availableUntil: BN;
     } | null;
+    addMintExtension: (
+      ctx: ProgramTestContext,
+      buyMint: PublicKey
+    ) => Promise<void>;
   } = {
     auctionLauncherWindow: 0,
     ttl: 0,
@@ -99,6 +112,9 @@ describe("Bankrun - Rebalance", () => {
     mints: [],
     allRebalanceDetailsAdded: false,
     existingRebalanceParams: null,
+    addMintExtension: async (ctx: ProgramTestContext, buyMint: PublicKey) => {
+      return;
+    },
   };
 
   async function initBaseCase(
@@ -169,6 +185,26 @@ describe("Bankrun - Rebalance", () => {
       initToken(context, adminKeypair.publicKey, mint, DEFAULT_DECIMALS);
 
       mintToken(context, mint.publicKey, 1_000, bidderKeypair.publicKey);
+    }
+
+    for (const mint of BUY_MINTS_2022) {
+      initToken(
+        context,
+        adminKeypair.publicKey,
+        mint,
+        DEFAULT_DECIMALS,
+        undefined,
+        TOKEN_2022_PROGRAM_ID
+      );
+
+      mintToken(
+        context,
+        mint.publicKey,
+        1_000,
+        bidderKeypair.publicKey,
+        DEFAULT_DECIMALS,
+        TOKEN_2022_PROGRAM_ID
+      );
     }
 
     await createAndSetActor(
@@ -555,6 +591,166 @@ describe("Bankrun - Rebalance", () => {
       ],
       mints: [DEFAULT_BUY_MINT.publicKey, DEFAULT_SELL_MINT.publicKey],
     },
+
+    ...[
+      ExtensionType.TransferFeeConfig,
+      ExtensionType.MintCloseAuthority,
+      ExtensionType.ConfidentialTransferMint,
+      ExtensionType.DefaultAccountState,
+      ExtensionType.NonTransferable,
+      ExtensionType.PermanentDelegate,
+      ExtensionType.TransferHook,
+    ].map((extension) => {
+      return {
+        desc: `Should fail if ${ExtensionType[extension]} is present on mint`,
+        expectedError: "UnsupportedSPLToken",
+        allRebalanceDetailsAdded: true,
+        addMintExtension: async (
+          ctx: ProgramTestContext,
+          buyMint: PublicKey
+        ) => {
+          const accountLen = getMintLen([extension]);
+          const existingAccount = await ctx.banksClient.getAccount(buyMint);
+          const existingData = Buffer.from(existingAccount.data);
+          const lengthRequired = accountLen - existingData.length;
+          const additionalData = Buffer.alloc(lengthRequired);
+          const startForExtensions = ACCOUNT_SIZE - existingData.length;
+          additionalData.writeUInt8(AccountType.Mint, startForExtensions);
+          let offset = startForExtensions + 1;
+          additionalData.writeUInt16LE(extension, offset);
+          offset += 2;
+          additionalData.writeUInt16LE(getTypeLen(extension), offset);
+          offset += 2;
+
+          const finalData = Buffer.concat([existingData, additionalData]);
+          ctx.setAccount(buyMint, {
+            ...existingAccount,
+            data: finalData,
+          });
+        },
+        existingRebalanceParams: {
+          nonce: new BN(10),
+          currentAuctionId: new BN(1),
+          allRebalanceDetailsAdded: false,
+          auctionLauncherWindow: 100,
+          ttl: 100,
+          startedAt: new BN(100),
+          restrictedUntil: new BN(100),
+          availableUntil: new BN(100),
+        },
+        pricesAndLimits: [
+          {
+            prices: {
+              low: new BN(1),
+              high: new BN(2),
+            },
+            limits: {
+              spot: new BN(1),
+              low: new BN(1),
+              high: new BN(2),
+            },
+          },
+          {
+            prices: {
+              low: new BN(1),
+              high: new BN(2),
+            },
+            limits: {
+              spot: new BN(2),
+              low: new BN(1),
+              high: new BN(2),
+            },
+          },
+        ],
+        mints: [BUY_MINTS_2022[0].publicKey, DEFAULT_SELL_MINT.publicKey],
+      };
+    }),
+
+    ...[
+      ExtensionType.Uninitialized,
+      ExtensionType.InterestBearingConfig,
+      ExtensionType.MetadataPointer,
+      ExtensionType.TokenMetadata,
+      ExtensionType.TokenGroup,
+      ExtensionType.TokenGroupMember,
+      ExtensionType.GroupPointer,
+    ].map((extension) => {
+      return {
+        desc: `Should add rebalance details with ${ExtensionType[extension]}`,
+        expectedError: null,
+        allRebalanceDetailsAdded: true,
+        addMintExtension: async (
+          ctx: ProgramTestContext,
+          buyMint: PublicKey
+        ) => {
+          const accountLen = getMintLen(
+            extension !== ExtensionType.TokenMetadata ? [extension] : [],
+            extension === ExtensionType.TokenMetadata
+              ? {
+                  [ExtensionType.TokenMetadata]: 10,
+                }
+              : {}
+          );
+          const existingAccount = await ctx.banksClient.getAccount(buyMint);
+          const existingData = Buffer.from(existingAccount.data);
+          const lengthRequired = accountLen - existingData.length;
+          const additionalData = Buffer.alloc(lengthRequired);
+          const startForExtensions = ACCOUNT_SIZE - existingData.length;
+          additionalData.writeUInt8(AccountType.Mint, startForExtensions);
+          let offset = startForExtensions + 1;
+          additionalData.writeUInt16LE(extension, offset);
+          offset += 2;
+          additionalData.writeUInt16LE(
+            extension === ExtensionType.TokenMetadata
+              ? 10
+              : getTypeLen(extension),
+            offset
+          );
+          offset += 2;
+
+          const finalData = Buffer.concat([existingData, additionalData]);
+          ctx.setAccount(buyMint, {
+            ...existingAccount,
+            data: finalData,
+          });
+        },
+        existingRebalanceParams: {
+          nonce: new BN(10),
+          currentAuctionId: new BN(1),
+          allRebalanceDetailsAdded: false,
+          auctionLauncherWindow: 100,
+          ttl: 100,
+          startedAt: new BN(100),
+          restrictedUntil: new BN(100),
+          availableUntil: new BN(100),
+        },
+        pricesAndLimits: [
+          {
+            prices: {
+              low: new BN(1),
+              high: new BN(2),
+            },
+            limits: {
+              spot: new BN(1),
+              low: new BN(1),
+              high: new BN(2),
+            },
+          },
+          {
+            prices: {
+              low: new BN(1),
+              high: new BN(2),
+            },
+            limits: {
+              spot: new BN(2),
+              low: new BN(1),
+              high: new BN(2),
+            },
+          },
+        ],
+        mints: [BUY_MINTS_2022[0].publicKey, DEFAULT_SELL_MINT.publicKey],
+      };
+    }),
   ];
 
   describe("Specific Cases - Start Rebalance", () => {
@@ -570,6 +766,7 @@ describe("Bankrun - Rebalance", () => {
             mints,
             allRebalanceDetailsAdded,
             existingRebalanceParams,
+            addMintExtension,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
@@ -598,6 +795,7 @@ describe("Bankrun - Rebalance", () => {
                 existingRebalanceParams.availableUntil
               );
             }
+            await addMintExtension(context, mints[0]);
             txnResult = await startRebalance<true>(
               banksClient,
               programFolio,
@@ -885,6 +1083,166 @@ describe("Bankrun - Rebalance", () => {
       ],
       mints: [DEFAULT_BUY_MINT.publicKey, DEFAULT_SELL_MINT.publicKey],
     },
+
+    ...[
+      ExtensionType.TransferFeeConfig,
+      ExtensionType.MintCloseAuthority,
+      ExtensionType.ConfidentialTransferMint,
+      ExtensionType.DefaultAccountState,
+      ExtensionType.NonTransferable,
+      ExtensionType.PermanentDelegate,
+      ExtensionType.TransferHook,
+    ].map((extension) => {
+      return {
+        desc: `Should fail if ${ExtensionType[extension]} is present on mint`,
+        expectedError: "UnsupportedSPLToken",
+        allRebalanceDetailsAdded: true,
+        addMintExtension: async (
+          ctx: ProgramTestContext,
+          buyMint: PublicKey
+        ) => {
+          const accountLen = getMintLen([extension]);
+          const existingAccount = await ctx.banksClient.getAccount(buyMint);
+          const existingData = Buffer.from(existingAccount.data);
+          const lengthRequired = accountLen - existingData.length;
+          const additionalData = Buffer.alloc(lengthRequired);
+          const startForExtensions = ACCOUNT_SIZE - existingData.length;
+          additionalData.writeUInt8(AccountType.Mint, startForExtensions);
+          let offset = startForExtensions + 1;
+          additionalData.writeUInt16LE(extension, offset);
+          offset += 2;
+          additionalData.writeUInt16LE(getTypeLen(extension), offset);
+          offset += 2;
+
+          const finalData = Buffer.concat([existingData, additionalData]);
+          ctx.setAccount(buyMint, {
+            ...existingAccount,
+            data: finalData,
+          });
+        },
+        existingRebalanceParams: {
+          nonce: new BN(10),
+          currentAuctionId: new BN(1),
+          allRebalanceDetailsAdded: false,
+          auctionLauncherWindow: 100,
+          ttl: 100,
+          startedAt: new BN(100),
+          restrictedUntil: new BN(100),
+          availableUntil: new BN(100),
+        },
+        pricesAndLimits: [
+          {
+            prices: {
+              low: new BN(1),
+              high: new BN(2),
+            },
+            limits: {
+              spot: new BN(1),
+              low: new BN(1),
+              high: new BN(2),
+            },
+          },
+          {
+            prices: {
+              low: new BN(1),
+              high: new BN(2),
+            },
+            limits: {
+              spot: new BN(2),
+              low: new BN(1),
+              high: new BN(2),
+            },
+          },
+        ],
+        mints: [BUY_MINTS_2022[0].publicKey, DEFAULT_SELL_MINT.publicKey],
+      };
+    }),
+
+    ...[
+      ExtensionType.Uninitialized,
+      ExtensionType.InterestBearingConfig,
+      ExtensionType.MetadataPointer,
+      ExtensionType.TokenMetadata,
+      ExtensionType.TokenGroup,
+      ExtensionType.TokenGroupMember,
+      ExtensionType.GroupPointer,
+    ].map((extension) => {
+      return {
+        desc: `Should add rebalance details with ${ExtensionType[extension]}`,
+        expectedError: null,
+        allRebalanceDetailsAdded: true,
+        addMintExtension: async (
+          ctx: ProgramTestContext,
+          buyMint: PublicKey
+        ) => {
+          const accountLen = getMintLen(
+            extension !== ExtensionType.TokenMetadata ? [extension] : [],
+            extension === ExtensionType.TokenMetadata
+              ? {
+                  [ExtensionType.TokenMetadata]: 10,
+                }
+              : {}
+          );
+          const existingAccount = await ctx.banksClient.getAccount(buyMint);
+          const existingData = Buffer.from(existingAccount.data);
+          const lengthRequired = accountLen - existingData.length;
+          const additionalData = Buffer.alloc(lengthRequired);
+          const startForExtensions = ACCOUNT_SIZE - existingData.length;
+          additionalData.writeUInt8(AccountType.Mint, startForExtensions);
+          let offset = startForExtensions + 1;
+          additionalData.writeUInt16LE(extension, offset);
+          offset += 2;
+          additionalData.writeUInt16LE(
+            extension === ExtensionType.TokenMetadata
+              ? 10
+              : getTypeLen(extension),
+            offset
+          );
+          offset += 2;
+
+          const finalData = Buffer.concat([existingData, additionalData]);
+          ctx.setAccount(buyMint, {
+            ...existingAccount,
+            data: finalData,
+          });
+        },
+        existingRebalanceParams: {
+          nonce: new BN(10),
+          currentAuctionId: new BN(1),
+          allRebalanceDetailsAdded: false,
+          auctionLauncherWindow: 100,
+          ttl: 100,
+          startedAt: new BN(100),
+          restrictedUntil: new BN(100),
+          availableUntil: new BN(100),
+        },
+        pricesAndLimits: [
+          {
+            prices: {
+              low: new BN(1),
+              high: new BN(2),
+            },
+            limits: {
+              spot: new BN(1),
+              low: new BN(1),
+              high: new BN(2),
+            },
+          },
+          {
+            prices: {
+              low: new BN(1),
+              high: new BN(2),
+            },
+            limits: {
+              spot: new BN(2),
+              low: new BN(1),
+              high: new BN(2),
+            },
+          },
+        ],
+        mints: [BUY_MINTS_2022[0].publicKey, DEFAULT_SELL_MINT.publicKey],
+      };
+    }),
   ];
 
   describe("Specific Cases - Add Rebalance Details", () => {
@@ -899,6 +1257,7 @@ describe("Bankrun - Rebalance", () => {
             mints,
             allRebalanceDetailsAdded,
             existingRebalanceParams,
+            addMintExtension,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
@@ -924,6 +1283,7 @@ describe("Bankrun - Rebalance", () => {
             rebalanceBefore = await programFolio.account.rebalance.fetch(
               getRebalancePDA(folioPDA)
             );
+            await addMintExtension(context, mints[0]);
             txnResult = await addRebalanceDetails<true>(
               banksClient,
               programFolio,

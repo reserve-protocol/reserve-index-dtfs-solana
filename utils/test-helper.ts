@@ -8,6 +8,7 @@ import { BN, Program } from "@coral-xyz/anchor";
 import { Connection } from "@solana/web3.js";
 import { getOrCreateAtaAddress, getTokenBalance } from "./token-helper";
 import * as assert from "assert";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 /**
  * Testing utilities for the Folio protocol. Provides methods for tracking and
@@ -16,6 +17,7 @@ import * as assert from "assert";
  */
 
 export class TestHelper {
+  private folioTokenMintProgramId: PublicKey;
   constructor(
     private connection: Connection,
     private payer: Keypair,
@@ -23,7 +25,11 @@ export class TestHelper {
     private folioPDA: PublicKey,
     private folioTokenMint: PublicKey,
     private userPubkey: PublicKey,
-    private tokenMints: { mint: PublicKey; decimals: number }[]
+    private tokenMints: {
+      mint: PublicKey;
+      decimals: number;
+      programId: PublicKey;
+    }[]
   ) {
     this.connection = connection;
     this.payer = payer;
@@ -32,6 +38,7 @@ export class TestHelper {
     this.folioTokenMint = folioTokenMint;
     this.userPubkey = userPubkey;
     this.tokenMints = tokenMints;
+    this.folioTokenMintProgramId = TOKEN_PROGRAM_ID;
   }
 
   /**
@@ -42,6 +49,15 @@ export class TestHelper {
   floor(value: number) {
     return Math.floor(value / 100) * 100;
   }
+
+  /**
+   * Sets the folio token mint program id for the test helper to know which balances to pull.
+   * @param folioTokenMintProgramId - The program id of the folio token mint.
+   */
+  setFolioTokenMintProgramId(folioTokenMintProgramId: PublicKey) {
+    this.folioTokenMintProgramId = folioTokenMintProgramId;
+  }
+
   /**
    * Sets the user public key for the test helper to know which balances to pull.
    * @param userPubkey - The public key of the user to set.
@@ -54,8 +70,14 @@ export class TestHelper {
    * Sets the token mints for the test helper to know which balances to pull.
    * @param tokenMints - The token mints to set.
    */
-  setTokenMints(tokenMints: { mint: PublicKey; decimals: number }[]) {
-    this.tokenMints = tokenMints;
+  setTokenMints(
+    tokenMints: { mint: PublicKey; decimals: number; programId?: PublicKey }[]
+  ) {
+    this.tokenMints = tokenMints.map((tokenMint) => ({
+      mint: tokenMint.mint,
+      decimals: tokenMint.decimals,
+      programId: tokenMint.programId || TOKEN_PROGRAM_ID,
+    }));
   }
 
   /**
@@ -104,7 +126,8 @@ export class TestHelper {
         this.connection,
         this.folioTokenMint,
         this.payer,
-        this.userPubkey
+        this.userPubkey,
+        this.folioTokenMintProgramId
       );
       userTokenBalance = await getTokenBalance(this.connection, userAta);
 
@@ -112,7 +135,8 @@ export class TestHelper {
         this.connection,
         this.folioTokenMint,
         this.payer,
-        this.folioPDA
+        this.folioPDA,
+        this.folioTokenMintProgramId
       );
       folioTokenBalance = await getTokenBalance(this.connection, folioAta);
     }
@@ -123,7 +147,8 @@ export class TestHelper {
           this.connection,
           token.mint,
           this.payer,
-          this.userPubkey
+          this.userPubkey,
+          token.programId
         );
         userTokenBalances.push(
           await getTokenBalance(this.connection, userTokenAta)
@@ -133,7 +158,8 @@ export class TestHelper {
           this.connection,
           token.mint,
           this.payer,
-          this.folioPDA
+          this.folioPDA,
+          token.programId
         );
         folioTokenBalances.push(
           await getTokenBalance(this.connection, folioTokenAta)

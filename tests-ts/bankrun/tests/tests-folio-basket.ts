@@ -46,6 +46,15 @@ import {
   mintToken,
 } from "../bankrun-token-helper";
 import { assert } from "chai";
+import {
+  ACCOUNT_SIZE,
+  AccountType,
+  ExtensionType,
+  getMintLen,
+  getTypeLen,
+  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
 
 /**
  * Tests for folio basket functionality, including:
@@ -75,7 +84,7 @@ describe("Bankrun - Folio basket", () => {
   let folioPDA: PublicKey;
 
   const MINTS = [Keypair.generate(), Keypair.generate(), Keypair.generate()];
-
+  const MINTS_2022 = [Keypair.generate()];
   const notIncludedInFolioButInitalizedMint = Keypair.generate();
 
   const DEFAULT_PARAMS: {
@@ -93,6 +102,7 @@ describe("Bankrun - Folio basket", () => {
     expectedTokenBalanceChanges: BN[];
     folioStatus: FolioStatus;
     folioTokenMintSupply: BN | undefined;
+    addMintExtension: null;
   } = {
     initialShares: new BN(0),
     tokens: [],
@@ -105,6 +115,8 @@ describe("Bankrun - Folio basket", () => {
     expectedInitialBalanceSharesChange: new BN(0),
     expectedTokenBalanceChanges: Array(MINTS.length).fill(new BN(0)),
     folioStatus: FolioStatus.Initialized,
+
+    addMintExtension: null,
   };
 
   const TEST_CASES_ADD_TO_BASKET = [
@@ -205,6 +217,45 @@ describe("Bankrun - Folio basket", () => {
       expectedError: null,
       expectedInitialBalanceSharesChange: new BN(0),
     },
+
+    ...[
+      ExtensionType.TransferFeeConfig,
+      ExtensionType.MintCloseAuthority,
+      ExtensionType.ConfidentialTransferMint,
+      ExtensionType.DefaultAccountState,
+      ExtensionType.NonTransferable,
+      ExtensionType.PermanentDelegate,
+      ExtensionType.TransferHook,
+    ].map((extension) => {
+      return {
+        desc: `Should fail if ${ExtensionType[extension]} is present on mint`,
+        expectedError: "UnsupportedSPLToken",
+        initialShares: null,
+        tokens: [
+          { mint: MINTS_2022[0].publicKey, amount: new BN(1_000_000_000) },
+        ],
+        addMintExtension: async (ctx: ProgramTestContext, mint: PublicKey) => {
+          const accountLen = getMintLen([extension]);
+          const existingAccount = await ctx.banksClient.getAccount(mint);
+          const existingData = Buffer.from(existingAccount.data);
+          const lengthRequired = accountLen - existingData.length;
+          const additionalData = Buffer.alloc(lengthRequired);
+          const startForExtensions = ACCOUNT_SIZE - existingData.length;
+          additionalData.writeUInt8(AccountType.Mint, startForExtensions);
+          let offset = startForExtensions + 1;
+          additionalData.writeUInt16LE(extension, offset);
+          offset += 2;
+          additionalData.writeUInt16LE(getTypeLen(extension), offset);
+          offset += 2;
+
+          const finalData = Buffer.concat([existingData, additionalData]);
+          ctx.setAccount(mint, {
+            ...existingAccount,
+            data: finalData,
+          });
+        },
+      };
+    }),
   ];
 
   const TEST_CASES_REMOVE_FROM_BASKET = [
@@ -273,6 +324,25 @@ describe("Bankrun - Folio basket", () => {
       initToken(context, adminKeypair.publicKey, mint, DEFAULT_DECIMALS);
 
       mintToken(context, mint.publicKey, 1_000, folioOwnerKeypair.publicKey);
+    }
+
+    for (const mint of MINTS_2022) {
+      initToken(
+        context,
+        adminKeypair.publicKey,
+        mint,
+        DEFAULT_DECIMALS,
+        undefined,
+        TOKEN_2022_PROGRAM_ID
+      );
+      mintToken(
+        context,
+        mint.publicKey,
+        1_000,
+        folioOwnerKeypair.publicKey,
+        undefined,
+        TOKEN_2022_PROGRAM_ID
+      );
     }
 
     initToken(
@@ -423,6 +493,7 @@ describe("Bankrun - Folio basket", () => {
             expectedInitialBalanceSharesChange,
             expectedTokenBalanceChanges,
             folioStatus,
+            addMintExtension,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
@@ -455,6 +526,10 @@ describe("Bankrun - Folio basket", () => {
               [folioOwnerKeypair.publicKey]
             );
 
+            if (addMintExtension) {
+              await addMintExtension(context, tokens[0].mint);
+            }
+
             txnResult = await addToBasket<true>(
               context,
               banksClient,
@@ -466,7 +541,11 @@ describe("Bankrun - Folio basket", () => {
               folioTokenMint.publicKey,
 
               true,
-              await remainingAccounts()
+              await remainingAccounts(),
+              tokens.length > 0 &&
+                tokens[0].mint.equals(MINTS_2022[0].publicKey)
+                ? TOKEN_2022_PROGRAM_ID
+                : TOKEN_PROGRAM_ID
             );
           });
 

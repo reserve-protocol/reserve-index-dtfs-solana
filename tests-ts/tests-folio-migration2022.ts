@@ -35,6 +35,7 @@ import {
   getMint,
   getTokenMetadata,
   TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import {
   initProgramRegistrar,
@@ -166,8 +167,20 @@ describe("Folio Migration Tests 2022", () => {
           amount: new BN(200 * 10 ** tokenMints[1].decimals),
         },
       ],
+      null,
+      folioTokenMint.publicKey,
+      TOKEN_PROGRAM_ID, // Token program for the tokenMints[0] and tokenMints[1]
+      TOKEN_2022_PROGRAM_ID
+    );
+
+    await addToBasket(
+      connection,
+      folioOwnerKeypair,
+      folioPDA,
+      [],
       new BN(1000),
       folioTokenMint.publicKey,
+      TOKEN_2022_PROGRAM_ID, // Token program for the tokenMints[0] and tokenMints[1]
       TOKEN_2022_PROGRAM_ID
     );
 

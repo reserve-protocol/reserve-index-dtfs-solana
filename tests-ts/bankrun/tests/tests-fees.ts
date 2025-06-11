@@ -242,29 +242,29 @@ describe("Bankrun - Fees", () => {
   ];
 
   const TEST_CASES_DISTRIBUTE_FEES = [
-    // {
-    //   desc: "(index is not valid)",
-    //   expectedError: "InvalidDistributionIndex",
-    //   feeDistributionIndex: new BN(2),
-    // },
-    // {
-    //   desc: "(folio token mint is not valid)",
-    //   expectedError: "InvalidFolioTokenMint",
-    //   customFolioTokenMint: Keypair.generate(),
-    // },
-    // {
-    //   desc: "(dao fee recipient is not valid, errors out)",
-    //   expectedError: "InvalidDaoFeeRecipient",
-    //   daoFeeRecipient: Keypair.generate(),
-    // },
-    // {
-    //   desc: "(is valid, succeeds)",
-    //   expectedError: null,
-    //   initialDaoPendingFeeShares: new BN(1000).mul(D18),
-    //   // D9 as this is token amounts
-    //   expectedDaoFeeShares: new BN(1000).mul(D9),
-    //   customFolioFeeConfig: true,
-    // },
+    {
+      desc: "(index is not valid)",
+      expectedError: "InvalidDistributionIndex",
+      feeDistributionIndex: new BN(2),
+    },
+    {
+      desc: "(folio token mint is not valid)",
+      expectedError: "InvalidFolioTokenMint",
+      customFolioTokenMint: Keypair.generate(),
+    },
+    {
+      desc: "(dao fee recipient is not valid, errors out)",
+      expectedError: "InvalidDaoFeeRecipient",
+      daoFeeRecipient: Keypair.generate(),
+    },
+    {
+      desc: "(is valid, succeeds)",
+      expectedError: null,
+      initialDaoPendingFeeShares: new BN(1000).mul(D18),
+      // D9 as this is token amounts
+      expectedDaoFeeShares: new BN(1000).mul(D9),
+      customFolioFeeConfig: true,
+    },
     {
       desc: "(is valid, succeeds)",
       expectedError: null,
@@ -272,6 +272,16 @@ describe("Bankrun - Fees", () => {
       // D9 as this is token amounts
       expectedDaoFeeShares: new BN(1000).mul(D9),
       useToken2022ForFolioTokenMint: true,
+    },
+    {
+      desc: "(is valid, if no fee recipients are present and folio still has raw_fee_recipients_pending_fee_shares, succeeds)",
+      expectedError: null,
+      initialDaoPendingFeeShares: new BN(1000).mul(D18),
+      initialFeeRecipientPendingFeeShares: new BN(1000).mul(D18),
+      // D9 as this is token amounts
+      expectedDaoFeeShares: new BN(2000).mul(D9),
+      expectedFeeRecipientShares: new BN(0),
+      useToken2022ForFolioTokenMint: false,
     },
   ];
 
@@ -1168,11 +1178,7 @@ describe("Bankrun - Fees", () => {
               const folioAfter = await programFolio.account.folio.fetch(
                 folioPDA
               );
-              console.log(
-                folioBefore.feeRecipientsPendingFeeSharesToBeMinted.toString(),
-                totalFeeDistributed.toString(),
-                folioAfter.feeRecipientsPendingFeeSharesToBeMinted.toString()
-              );
+
               assert.equal(
                 folioBefore.feeRecipientsPendingFeeSharesToBeMinted
                   .sub(totalFeeDistributed.mul(D9))

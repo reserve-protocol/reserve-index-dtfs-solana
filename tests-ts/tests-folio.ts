@@ -247,6 +247,7 @@ describe("Folio Tests", () => {
       tokenMints.map((tokenMint) => ({
         mint: tokenMint.mint.publicKey,
         decimals: tokenMint.decimals,
+        programId: TOKEN_PROGRAM_ID,
       }))
     );
   });

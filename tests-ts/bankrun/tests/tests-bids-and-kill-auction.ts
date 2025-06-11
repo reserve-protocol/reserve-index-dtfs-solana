@@ -56,7 +56,11 @@ import {
 } from "../bankrun-token-helper";
 import { FolioAdmin } from "../../../target/types/folio_admin";
 import {
+  AccountType,
   createTransferInstruction,
+  ExtensionType,
+  getAccountLen,
+  getTypeLen,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
@@ -144,6 +148,12 @@ describe("Bankrun - Bids and Kill Auction", () => {
 
     // Expected changes
     expectedTokenBalanceChanges: BN[];
+
+    addMintOrTokenExtension: (
+      ctx: ProgramTestContext,
+      bidderBuyTokenAccount: PublicKey | null,
+      buyMint: PublicKey
+    ) => Promise<void>;
   } = {
     remainingAccounts: () => [],
 
@@ -179,6 +189,8 @@ describe("Bankrun - Bids and Kill Auction", () => {
 
     // Expected changes
     expectedTokenBalanceChanges: Array(MINTS_IN_FOLIO.length).fill(new BN(0)),
+
+    addMintOrTokenExtension: async () => {},
   };
 
   const TEST_CASE_CLOSE_AUCTION = [
@@ -1123,5 +1135,369 @@ describe("Bankrun - Bids and Kill Auction", () => {
         }
       });
     });
+  });
+
+  describe("Specific Cases - Bid with Token2022", () => {
+    const DEFAULTS_FOR_AUCTION_SETUP = {
+      sellAmount: new BN(100000),
+      maxBuyAmount: new BN(100000),
+      folioTokenSupply: new BN(10_000),
+      auctionToUse: {
+        ...VALID_AUCTION,
+        prices: {
+          start: new BN(1).mul(D18),
+          end: new BN(1).mul(D18),
+        },
+        buyLimitSpot: new BN(10000000).mul(D18).div(new BN(10_000)),
+        sellLimitSpot: new BN(0),
+        sellMint: MINTS_IN_FOLIO_2022[0].publicKey,
+        buyMint: BUY_MINTS_2022[0].publicKey,
+      },
+      expectedTokenBalanceChanges: [
+        new BN(1000),
+        new BN(1000).neg(),
+        new BN(1000).neg(),
+        new BN(1000),
+      ],
+      sellMint: MINTS_IN_FOLIO_2022[0],
+      buyMint: BUY_MINTS_2022[0],
+    };
+
+    const TOKEN_2022_SPECIAL_CASES = [
+      {
+        desc: "Should fail if MemoTransfer is present on `bidderBuyTokenAccount`",
+        expectedError: "UnsupportedSPLToken",
+        addMintOrTokenExtension: async (
+          ctx: ProgramTestContext,
+          bidderBuyTokenAccount: PublicKey | null,
+          buyMint: PublicKey
+        ) => {
+          if (bidderBuyTokenAccount) {
+            const accountLen = getAccountLen([ExtensionType.MemoTransfer]);
+            const existingAccount = await ctx.banksClient.getAccount(
+              bidderBuyTokenAccount
+            );
+            const existingData = Buffer.from(existingAccount.data);
+            const lengthRequired = accountLen - existingData.length;
+            const additionalData = Buffer.alloc(lengthRequired);
+            // DATA IN SPL_2022:
+            // ACCOUNT_DATA(eg. MINT/TOKENACCOUNT),
+            // ACCOUNTYPE(eg. AccountType.Mint,
+            // AccountType.Account),
+            // EXTENSION_HEADER(eg. ExtensionType.MemoTransfer),
+            // LENGTH_OF_EXTENSION_DATA(to get this use: getTypeLen(ExtensionType.MemoTransfer)),
+            // DATA of extension, set according to the extension.
+            // ..NEXT_EXTENSION_HEADER..repeat.
+
+            // 1 bytes for account type, account type is `Account=2`
+            additionalData.writeUInt8(AccountType.Account, 0);
+            // 2 bytes for extension type extension type is `MemoTransfer` will be written at offset 2
+            additionalData.writeUInt16LE(ExtensionType.MemoTransfer, 1);
+            // 2 bytes for the size of data in MemoTransferExtension
+            // Size of data for memo transfer is 1 byte
+            additionalData.writeUInt16LE(0, 3);
+            // Set MemoTransfer.requireIncomingTransferMemos to true.
+            // additionalData.writeUInt8(1, 5);
+            const finalData = Buffer.concat([existingData, additionalData]);
+            ctx.setAccount(bidderBuyTokenAccount, {
+              ...existingAccount,
+              data: finalData,
+            });
+          }
+        },
+      },
+
+      ...[
+        ExtensionType.TransferFeeAmount,
+        ExtensionType.ConfidentialTransferAccount,
+        ExtensionType.CpiGuard,
+        ExtensionType.TransferHookAccount,
+        ExtensionType.NonTransferableAccount,
+        ExtensionType.MemoTransfer,
+      ].map((extension) => {
+        return {
+          desc: `Should fail if ${ExtensionType[extension]} is present on bidderBuyTokenAccount`,
+          expectedError: "UnsupportedSPLToken",
+          addMintOrTokenExtension: async (
+            ctx: ProgramTestContext,
+            bidderBuyTokenAccount: PublicKey | null,
+            buyMint: PublicKey
+          ) => {
+            if (bidderBuyTokenAccount) {
+              const accountLen = getAccountLen([extension]);
+              const existingAccount = await ctx.banksClient.getAccount(
+                bidderBuyTokenAccount
+              );
+              const existingData = Buffer.from(existingAccount.data);
+              const lengthRequired = accountLen - existingData.length;
+              const additionalData = Buffer.alloc(lengthRequired);
+              // DATA IN SPL_2022:
+              // ACCOUNT_DATA(eg. MINT/TOKENACCOUNT),
+              // ACCOUNTYPE(eg. AccountType.Mint,
+              // AccountType.Account),
+              // EXTENSION_HEADER(eg. ExtensionType.MemoTransfer),
+              // LENGTH_OF_EXTENSION_DATA(to get this use: getTypeLen(ExtensionType.MemoTransfer)),
+              // DATA of extension, set according to the extension.
+              // ..NEXT_EXTENSION_HEADER..repeat.
+
+              // 1 bytes for account type, account type is `Account = 2`
+              additionalData.writeUInt8(AccountType.Account, 0);
+              // 2 bytes for extension type extension type is `MemoTransfer` will be written at offset 2
+              additionalData.writeUInt16LE(extension, 1);
+              // 2 bytes for the size of data in MemoTransferExtension
+              // Size of data for memo transfer is 1 byte
+              additionalData.writeUInt16LE(getTypeLen(extension), 3);
+              // We don't set anything for the additional data of extension, as that is not checked in smart contract.
+              const finalData = Buffer.concat([existingData, additionalData]);
+              ctx.setAccount(bidderBuyTokenAccount, {
+                ...existingAccount,
+                data: finalData,
+              });
+            }
+          },
+        };
+      }),
+
+      {
+        desc: "Should pass if only allowed extensions are present on `bidderBuyTokenAccount`",
+        expectedError: null,
+        addMintOrTokenExtension: async (
+          ctx: ProgramTestContext,
+          bidderBuyTokenAccount: PublicKey | null,
+          buyMint: PublicKey
+        ) => {
+          if (bidderBuyTokenAccount) {
+            const extenstionsToAdd = [
+              ExtensionType.Uninitialized,
+              ExtensionType.ImmutableOwner,
+            ];
+            const dataToEachForEachExtension = {
+              [ExtensionType.Uninitialized]: (
+                inputBuffer: Buffer,
+                offset: number
+              ) => {
+                return offset;
+              },
+
+              [ExtensionType.ImmutableOwner]: (
+                _inputBuffer: Buffer,
+                offset: number
+              ) => {
+                return offset;
+              },
+              [ExtensionType.CpiGuard]: (
+                inputBuffer: Buffer,
+                offset: number
+              ) => {
+                inputBuffer.writeUInt8(1, offset); // Set CpiGuard.lockCpi to true.
+                return offset + 1;
+              },
+              [ExtensionType.NonTransferableAccount]: (
+                inputBuffer: Buffer,
+                offset: number
+              ) => {
+                return offset + 1;
+              },
+            };
+
+            const accountLen = getAccountLen(extenstionsToAdd);
+            const existingAccount = await ctx.banksClient.getAccount(
+              bidderBuyTokenAccount
+            );
+            const existingData = Buffer.from(existingAccount.data);
+            const lengthRequired = accountLen - existingData.length;
+            const additionalData = Buffer.alloc(lengthRequired);
+            additionalData.writeUInt8(AccountType.Account, 0);
+            let offset = 1;
+            for (const extension of extenstionsToAdd) {
+              additionalData.writeUInt16LE(extension, offset);
+              offset += 2;
+              additionalData.writeUInt16LE(getTypeLen(extension), offset);
+              offset += 2;
+
+              offset = dataToEachForEachExtension[extension](
+                additionalData,
+                offset
+              );
+            }
+            const finalData = Buffer.concat([existingData, additionalData]);
+            ctx.setAccount(bidderBuyTokenAccount, {
+              ...existingAccount,
+              data: finalData,
+            });
+          }
+        },
+      },
+    ];
+
+    TOKEN_2022_SPECIAL_CASES.forEach(
+      ({ desc, expectedError, ...restOfParams }) => {
+        describe(`When ${desc} `, () => {
+          const rebalanceNonce = new BN(1);
+          let txnResult: BanksTransactionResultWithMeta;
+
+          const {
+            customFolioTokenMint,
+            auctionToUse,
+            initialFolioBasket,
+            sellAmount,
+            maxBuyAmount,
+            sellMint,
+            buyMint,
+            folioTokenSupply,
+            addMintOrTokenExtension,
+          } = {
+            ...DEFAULT_PARAMS,
+            ...DEFAULTS_FOR_AUCTION_SETUP,
+            ...restOfParams,
+          };
+
+          let currentTime: BN;
+          let sellTokenProgram: PublicKey;
+          let buyTokenProgram: PublicKey;
+
+          before(async () => {
+            const mintToUse = customFolioTokenMint || folioTokenMint;
+            initialFolioBasket.forEach((token) => {
+              if (token.mint.equals(sellMint.publicKey)) {
+                token.amount = new BN(sellAmount);
+              }
+            });
+            currentTime = new BN(
+              (await context.banksClient.getClock()).unixTimestamp.toString()
+            );
+
+            const isSellToken2022 = MINTS_IN_FOLIO_2022.map((m) =>
+              m.publicKey.toString()
+            ).includes(sellMint.publicKey.toString());
+            sellTokenProgram = isSellToken2022
+              ? TOKEN_2022_PROGRAM_ID
+              : TOKEN_PROGRAM_ID;
+
+            const isBuyToken2022 = BUY_MINTS_2022.map((m) =>
+              m.publicKey.toString()
+            ).includes(buyMint.publicKey.toString());
+            buyTokenProgram = isBuyToken2022
+              ? TOKEN_2022_PROGRAM_ID
+              : TOKEN_PROGRAM_ID;
+
+            await initBaseCase(mintToUse, initialFolioBasket, folioTokenSupply);
+
+            initToken(
+              context,
+              adminKeypair.publicKey,
+              sellMint,
+              DEFAULT_DECIMALS,
+              undefined,
+              sellTokenProgram
+            );
+            initToken(
+              context,
+              adminKeypair.publicKey,
+              buyMint,
+              DEFAULT_DECIMALS,
+              undefined,
+              buyTokenProgram
+            );
+            await createAndSetDaoFeeConfig(
+              context,
+              programFolioAdmin,
+              adminKeypair.publicKey,
+              new BN(0)
+            );
+
+            await createAndSetRebalanceAccount(
+              context,
+              programFolio,
+              folioPDA,
+              undefined,
+              undefined,
+              rebalanceNonce
+            );
+            await createAndSetAuctionEndsAccount(
+              context,
+              programFolio,
+              folioPDA,
+              rebalanceNonce,
+              sellMint.publicKey,
+              buyMint.publicKey,
+              new BN(1)
+            );
+            const auction = Auction.default(
+              folioPDA,
+              buyMint.publicKey,
+              sellMint.publicKey
+            );
+            auction.id = auctionToUse.id;
+            auction.nonce = rebalanceNonce;
+            auction.start = currentTime;
+            auction.end = currentTime.add(new BN(1000000000));
+            auction.sellLimitSpot = auctionToUse.sellLimitSpot;
+            auction.buyLimitSpot = auctionToUse.buyLimitSpot;
+            auction.prices.start = auctionToUse.prices.start;
+            auction.prices.end = auctionToUse.prices.end;
+            auction.buyMint = auctionToUse.buyMint;
+            auction.sellMint = auctionToUse.sellMint;
+            await createAndSetAuction(context, programFolio, auction, folioPDA);
+
+            await travelFutureSlot(context);
+
+            const bidderBuyTokenAccount = await getOrCreateAtaAddress(
+              context,
+              buyMint.publicKey,
+              bidderKeypair.publicKey,
+              buyTokenProgram
+            );
+            await addMintOrTokenExtension(
+              context,
+              bidderBuyTokenAccount,
+              buyMint.publicKey
+            );
+
+            txnResult = await bid<true>(
+              context,
+              banksClient,
+              programFolio,
+              bidderKeypair, // Not permissioned
+              folioPDA,
+              mintToUse.publicKey,
+              getAuctionPDA(folioPDA, rebalanceNonce, auctionToUse.id),
+              rebalanceNonce,
+              sellAmount,
+              maxBuyAmount,
+              false,
+              sellMint.publicKey,
+              buyMint.publicKey,
+              Buffer.from([]),
+              true,
+              [],
+              buyTokenProgram,
+              sellTokenProgram
+            );
+          });
+
+          if (expectedError) {
+            it("should fail with expected error", () => {
+              assertError(txnResult, expectedError);
+            });
+          } else {
+            it("should succeed", async () => {
+              await travelFutureSlot(context);
+              const folioBasketAfter =
+                await programFolio.account.folioBasket.fetch(
+                  getFolioBasketPDA(folioPDA)
+                );
+
+              const folioBasketBuyMint =
+                folioBasketAfter.basket.tokenAmounts.find((token) =>
+                  token.mint.equals(buyMint.publicKey)
+                );
+
+              assert.notEqual(folioBasketBuyMint, null);
+            });
+          }
+        });
+      }
+    );
   });
 });

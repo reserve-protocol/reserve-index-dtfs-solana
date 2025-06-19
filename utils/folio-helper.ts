@@ -29,6 +29,7 @@ import {
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import { TOKEN_METADATA_PROGRAM_ID } from "./constants";
@@ -132,6 +133,46 @@ export async function initFolio(
   return folioPDA;
 }
 
+export async function initFolio2022(
+  connection: Connection,
+  folioOwner: Keypair,
+  folioTokenMint: Keypair,
+  tvlFee: BN,
+  mintFee: BN,
+  auctionLength: BN,
+  name: string,
+  symbol: string,
+  uri: string,
+  mandate: string,
+  useSecondFolioProgram: boolean = false
+): Promise<PublicKey> {
+  const folioProgram = useSecondFolioProgram
+    ? getSecondFolioProgram(connection, folioOwner)
+    : getFolioProgram(connection, folioOwner);
+
+  const folioPDA = getFolioPDA(folioTokenMint.publicKey, useSecondFolioProgram);
+
+  const initFolio = await folioProgram.methods
+    .initFolio2022(tvlFee, mintFee, auctionLength, name, symbol, uri, mandate)
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      rent: SYSVAR_RENT_PUBKEY,
+      tokenProgram: TOKEN_2022_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      folioOwner: folioOwner.publicKey,
+      folio: folioPDA,
+      folioTokenMint: folioTokenMint.publicKey,
+      actor: getActorPDA(folioOwner.publicKey, folioPDA, useSecondFolioProgram),
+    })
+    .instruction();
+
+  await pSendAndConfirmTxn(folioProgram, [initFolio], [folioTokenMint], {
+    skipPreflight: SKIP_PREFLIGHT,
+  });
+
+  return folioPDA;
+}
+
 export async function updateFolio(
   connection: Connection,
   folioOwnerKeypair: Keypair,
@@ -169,7 +210,7 @@ export async function updateFolio(
     })
     .remainingAccounts([
       {
-        pubkey: TOKEN_PROGRAM_ID,
+        pubkey: tokenProgramForAta,
         isSigner: false,
         isWritable: false,
       },
@@ -279,7 +320,8 @@ export async function addToBasket(
   tokens: { mint: PublicKey; amount: BN }[],
   initialShares: BN,
   folioTokenMint: PublicKey,
-  tokenProgram: PublicKey = TOKEN_PROGRAM_ID
+  tokenProgram: PublicKey = TOKEN_PROGRAM_ID,
+  folioMintTokenProgram: PublicKey = TOKEN_PROGRAM_ID
 ) {
   const folioProgram = getFolioProgram(connection, folioOwnerKeypair);
 
@@ -300,7 +342,7 @@ export async function addToBasket(
         folioTokenMint,
         folioOwnerKeypair,
         folioOwnerKeypair.publicKey,
-        tokenProgram
+        folioMintTokenProgram
       ),
       folioBasket: getFolioBasketPDA(folio),
     })
@@ -312,7 +354,8 @@ export async function addToBasket(
         folioOwnerKeypair.publicKey,
         folio,
         true,
-        true
+        true,
+        tokenProgram
       )
     )
     .instruction();
@@ -373,7 +416,8 @@ export async function addToPendingBasket(
   connection: Connection,
   userKeypair: Keypair,
   folio: PublicKey,
-  tokens: { mint: PublicKey; amount: BN }[]
+  tokens: { mint: PublicKey; amount: BN }[],
+  tokenProgram: PublicKey = TOKEN_PROGRAM_ID
 ) {
   const folioProgram = getFolioProgram(connection, userKeypair);
 
@@ -382,7 +426,7 @@ export async function addToPendingBasket(
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
-      tokenProgram: TOKEN_PROGRAM_ID,
+      tokenProgram,
       user: userKeypair.publicKey,
 
       folio,
@@ -395,7 +439,10 @@ export async function addToPendingBasket(
         userKeypair,
         tokens,
         userKeypair.publicKey,
-        folio
+        folio,
+        true,
+        false,
+        tokenProgram
       )
     )
     .instruction();
@@ -447,14 +494,15 @@ export async function mintFolioToken(
   folio: PublicKey,
   folioTokenMint: PublicKey,
   shares: BN,
-  minRawShares: BN | null = null
+  minRawShares: BN | null = null,
+  tokenProgram: PublicKey = TOKEN_PROGRAM_ID
 ) {
   const folioProgram = getFolioProgram(connection, userKeypair);
   const mintFolioToken = await folioProgram.methods
     .mintFolioToken(shares, minRawShares)
     .accountsPartial({
       systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
+      tokenProgram,
       user: userKeypair.publicKey,
       daoFeeConfig: getDAOFeeConfigPDA(),
       folioFeeConfig: getFolioFeeConfigPDA(folio),
@@ -466,7 +514,8 @@ export async function mintFolioToken(
         connection,
         folioTokenMint,
         userKeypair,
-        userKeypair.publicKey
+        userKeypair.publicKey,
+        tokenProgram
       ),
     })
     .instruction();
@@ -488,14 +537,15 @@ export async function burnFolioToken(
   folio: PublicKey,
   folioTokenMint: PublicKey,
   amountToBurn: BN,
-  minimumOutForTokenAmounts: { mint: PublicKey; minimumOut: BN }[] = []
+  minimumOutForTokenAmounts: { mint: PublicKey; minimumOut: BN }[] = [],
+  tokenProgram: PublicKey = TOKEN_PROGRAM_ID
 ) {
   const folioProgram = getFolioProgram(connection, userKeypair);
 
   const burnFolioTokenIx = await folioProgram.methods
     .burnFolioToken(amountToBurn, minimumOutForTokenAmounts)
     .accountsPartial({
-      tokenProgram: TOKEN_PROGRAM_ID,
+      tokenProgram,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       user: userKeypair.publicKey,
       daoFeeConfig: getDAOFeeConfigPDA(),
@@ -508,7 +558,8 @@ export async function burnFolioToken(
         connection,
         folioTokenMint,
         userKeypair,
-        userKeypair.publicKey
+        userKeypair.publicKey,
+        tokenProgram
       ),
     })
     .instruction();
@@ -527,7 +578,8 @@ export async function redeemFromPendingBasket(
   connection: Connection,
   userKeypair: Keypair,
   folio: PublicKey,
-  tokens: { mint: PublicKey; amount: BN }[]
+  tokens: { mint: PublicKey; amount: BN }[],
+  tokenProgram: PublicKey = TOKEN_PROGRAM_ID
 ) {
   const folioProgram = getFolioProgram(connection, userKeypair);
 
@@ -536,9 +588,8 @@ export async function redeemFromPendingBasket(
     .accountsPartial({
       systemProgram: SystemProgram.programId,
       rent: SYSVAR_RENT_PUBKEY,
-      tokenProgram: TOKEN_PROGRAM_ID,
+      tokenProgram,
       user: userKeypair.publicKey,
-
       folio,
       folioBasket: getFolioBasketPDA(folio),
       userPendingBasket: getUserPendingBasketPDA(folio, userKeypair.publicKey),
@@ -549,7 +600,10 @@ export async function redeemFromPendingBasket(
         userKeypair,
         tokens,
         folio,
-        userKeypair.publicKey
+        userKeypair.publicKey,
+        true,
+        false,
+        tokenProgram
       )
     )
     .instruction();
@@ -625,7 +679,8 @@ export async function crankFeeDistribution(
   cranker: PublicKey,
   feeDistributionIndex: BN,
   indices: BN[],
-  feeRecipients: PublicKey[]
+  feeRecipients: PublicKey[],
+  tokenProgram = TOKEN_PROGRAM_ID
 ) {
   const folioProgram = getFolioProgram(connection, userKeypair);
 
@@ -642,7 +697,7 @@ export async function crankFeeDistribution(
     .accountsPartial({
       rent: SYSVAR_RENT_PUBKEY,
       systemProgram: SystemProgram.programId,
-      tokenProgram: TOKEN_PROGRAM_ID,
+      tokenProgram,
       user: userKeypair.publicKey,
       folio: folio,
       folioTokenMint,
@@ -867,25 +922,29 @@ export async function bid(
         connection,
         auctionFetched.sellMint,
         bidderKeypair,
-        folio
+        folio,
+        sellTokenProgram
       ),
       folioBuyTokenAccount: await getOrCreateAtaAddress(
         connection,
         auctionFetched.buyMint,
         bidderKeypair,
-        folio
+        folio,
+        buyTokenProgram
       ),
       bidderSellTokenAccount: await getOrCreateAtaAddress(
         connection,
         auctionFetched.sellMint,
         bidderKeypair,
-        bidderKeypair.publicKey
+        bidderKeypair.publicKey,
+        sellTokenProgram
       ),
       bidderBuyTokenAccount: await getOrCreateAtaAddress(
         connection,
         auctionFetched.buyMint,
         bidderKeypair,
-        bidderKeypair.publicKey
+        bidderKeypair.publicKey,
+        buyTokenProgram
       ),
     })
     .remainingAccounts(remainingAccountsForCallback)

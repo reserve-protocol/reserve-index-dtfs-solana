@@ -100,7 +100,7 @@ impl Rebalance {
         let is_price_deferred = if self.details.tokens[0].mint != Pubkey::default() {
             self.details.tokens[0].prices.low == 0
         } else {
-            prices_and_limits[0].prices.low == 0
+            !prices_and_limits.is_empty() && prices_and_limits[0].prices.low == 0
         };
 
         let mut mint_to_process_index = 0;

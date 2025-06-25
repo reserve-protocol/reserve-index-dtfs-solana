@@ -751,6 +751,24 @@ describe("Bankrun - Rebalance", () => {
         mints: [BUY_MINTS_2022[0].publicKey, DEFAULT_SELL_MINT.publicKey],
       };
     }),
+
+    {
+      desc: "Should add rebalance details with no mints",
+      expectedError: null,
+      existingRebalanceParams: {
+        nonce: new BN(10),
+        currentAuctionId: new BN(1),
+        allRebalanceDetailsAdded: true,
+        auctionLauncherWindow: 100,
+        ttl: 100,
+        startedAt: new BN(100),
+        restrictedUntil: new BN(100),
+        availableUntil: new BN(100),
+      },
+      allRebalanceDetailsAdded: false,
+      pricesAndLimits: [],
+      mints: [],
+    },
   ];
 
   describe("Specific Cases - Start Rebalance", () => {
@@ -843,26 +861,28 @@ describe("Bankrun - Rebalance", () => {
                 allRebalanceDetailsAdded ? 1 : 0
               );
 
-              assert.equal(
-                rebalanceAfter.details.tokens[0].mint.equals(mints[0]),
-                true
-              );
-              assert.equal(
-                rebalanceAfter.details.tokens[1].mint.equals(mints[1]),
-                true
-              );
-              assert.equal(
-                rebalanceAfter.details.tokens[0].prices.low.eq(
-                  pricesAndLimits[0].prices.low
-                ),
-                true
-              );
-              assert.equal(
-                rebalanceAfter.details.tokens[0].prices.high.eq(
-                  pricesAndLimits[0].prices.high
-                ),
-                true
-              );
+              if (mints.length > 0) {
+                assert.equal(
+                  rebalanceAfter.details.tokens[0].mint.equals(mints[0]),
+                  true
+                );
+                assert.equal(
+                  rebalanceAfter.details.tokens[1].mint.equals(mints[1]),
+                  true
+                );
+                assert.equal(
+                  rebalanceAfter.details.tokens[0].prices.low.eq(
+                    pricesAndLimits[0].prices.low
+                  ),
+                  true
+                );
+                assert.equal(
+                  rebalanceAfter.details.tokens[0].prices.high.eq(
+                    pricesAndLimits[0].prices.high
+                  ),
+                  true
+                );
+              }
             });
           }
         });

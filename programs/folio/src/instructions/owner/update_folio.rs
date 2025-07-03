@@ -280,7 +280,11 @@ pub fn handler<'info>(
         }
 
         {
-            let mut fee_recipients = ctx.accounts.fee_recipients.load_mut()?;
+            let fee_recipients_res = &mut ctx.accounts.fee_recipients.load_mut();
+            let fee_recipients = match fee_recipients_res {
+                Ok(fee_recipients) => fee_recipients,
+                Err(_) => &mut ctx.accounts.fee_recipients.load_init()?,
+            };
 
             fee_recipients
                 .update_fee_recipients(fee_recipients_to_add, fee_recipients_to_remove)?;

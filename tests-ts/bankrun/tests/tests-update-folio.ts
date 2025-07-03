@@ -89,6 +89,7 @@ describe("Bankrun - Update Folio", () => {
     preAddedRecipients: FeeRecipient[];
     feeRecipientsToAdd: FeeRecipient[];
     feeRecipientsToRemove: PublicKey[];
+    feeRecipientAccountAlreadyExists: boolean;
   } = {
     tvlFee: MAX_TVL_FEE,
     mintFee: MAX_MINT_FEE,
@@ -97,6 +98,7 @@ describe("Bankrun - Update Folio", () => {
     preAddedRecipients: [],
     feeRecipientsToAdd: [],
     feeRecipientsToRemove: [],
+    feeRecipientAccountAlreadyExists: true,
   };
 
   const TEST_CASES = [
@@ -162,6 +164,16 @@ describe("Bankrun - Update Folio", () => {
       ],
       feeRecipientsToRemove: [FEE_RECIPIENT_KEYPAIR.publicKey],
       expectedError: null,
+    },
+    {
+      desc: "(should update fee recipients, remove and add same one) and create fee recipient in updateFolio",
+      preAddedRecipients: [],
+      feeRecipientsToAdd: [
+        new FeeRecipient(FEE_RECIPIENT_KEYPAIR.publicKey, FEE_PORTION_SUM),
+      ],
+      feeRecipientsToRemove: [],
+      expectedError: null,
+      feeRecipientAccountAlreadyExists: false,
     },
     {
       desc: "(should update fee recipients, remove and add same one)",
@@ -319,6 +331,7 @@ describe("Bankrun - Update Folio", () => {
           feeRecipientsToRemove,
           preAddedRecipients,
           mandate,
+          feeRecipientAccountAlreadyExists,
         } = { ...DEFAULT_PARAMS, ...restOfParams };
 
         let folioTvlFeeBefore: BN;
@@ -326,12 +339,17 @@ describe("Bankrun - Update Folio", () => {
         before(async () => {
           await initBaseCase();
 
-          await createAndSetFeeRecipients(
-            context,
-            programFolio,
-            folioPDA,
-            preAddedRecipients
-          );
+          if (feeRecipientAccountAlreadyExists) {
+            await createAndSetFeeRecipients(
+              context,
+              programFolio,
+              folioPDA,
+              preAddedRecipients
+            );
+          } else {
+            // We delete account so, one test is not affected by the other.
+            closeAccount(context, getTVLFeeRecipientsPDA(folioPDA));
+          }
 
           await travelFutureSlot(context);
 

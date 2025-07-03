@@ -82,7 +82,7 @@ pub const MAX_TOKEN_PRICE_RANGE: u128 = 100;
 /// MAX_TOKEN_PRICE is the maximum price for a token, 1e36.
 pub const MAX_TOKEN_PRICE: u128 = D18_U128 * D18_U128;
 
-pub const RESTRICTED_AUCTION_BUFFER: u64 = 120;
+pub const RESTRICTED_AUCTION_BUFFER: u64 = 0;
 
 /// MAX_FEE_RECIPIENTS is the maximum number of fee recipients, 64.
 pub const MAX_FEE_RECIPIENTS: usize = 64;

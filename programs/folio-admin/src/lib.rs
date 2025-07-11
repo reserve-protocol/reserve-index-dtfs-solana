@@ -23,6 +23,9 @@ pub mod instructions;
 pub mod state;
 pub mod utils;
 
+#[cfg(feature = "dev")]
+declare_id!("RsHWkAsrWvntjhWgMT1uBLJJea9TSjDhsx8j3DHVDEv");
+#[cfg(not(feature = "dev"))]
 declare_id!("7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn");
 
 #[program]

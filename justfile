@@ -78,25 +78,61 @@ build-local:
 
 	# Build second Folio instance with feature flag
 	@echo "Building second instance of the program..."
-	@cp utils/keys/folio-2-keypair-local.json target/deploy/folio-keypair.json
 
-	# Anchor build with dev feature flag
-	@anchor build -- --features dev 
+	# Anchor build folio program, which is used for folio migration related tests.
+	@anchor build --program-name folio -- --features test  
 
 	# Update program ID in IDL and type files (Mac compatible)
-	@sed -i '' 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt/g' target/idl/folio.json
-	@sed -i '' 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt/g' target/types/folio.ts
+	@sed -i '' 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/g' target/idl/folio.json
+	@sed -i '' 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/g' target/types/folio.ts
 
 	# Rename second instance files
 	@mv target/idl/folio.json target/idl/second_folio.json
 	@mv target/types/folio.ts target/types/second_folio.ts
 	@mv target/deploy/folio.so target/deploy/second_folio.so
-	@mv target/deploy/folio-keypair.json target/deploy/second_folio-keypair.json
 
 	# Build first Folio instance
 	@echo "Building first instance of the program..."
-	@cp utils/keys/folio-keypair-local.json target/deploy/folio-keypair.json
 	@anchor build
+
+build-prod:
+	@just install-tools
+
+	# Exit on error
+	@set -e
+
+	# Return to workspace root
+	@cd "$(git rev-parse --show-toplevel)" || exit 1
+
+	# Build second Folio instance with feature flag
+	@echo "Building all anchor programs for production without feature flag..."
+
+	# Anchor build with dev feature flag
+	@anchor build
+	@echo "Done | Governance program is not built"
+
+# We don't build the governance program, as there are no plans for deploying it on dev environment.
+build-dev:
+	@just install-tools
+
+	# Exit on error
+	@set -e
+
+	# Return to workspace root
+	@cd "$(git rev-parse --show-toplevel)" || exit 1
+
+	# Build second Folio instance with feature flag
+	@echo "Building all anchor programs with feature flag 'dev'..."
+
+	# Anchor build with dev feature flag
+	@anchor build -- --features dev 
+
+	# Replaces keys in folio with dev keys.
+	@sed -i '' 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/g' target/idl/folio.json
+	@sed -i '' 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/g' target/types/folio.ts
+
+	@echo "Done| Governance program is not built"
+
 
 download-programs:
     # Exit on error

@@ -103,7 +103,7 @@ pub fn handler<'info>(
     ctx: Context<'_, '_, 'info, 'info, UpdateBasketInNewFolioProgram<'info>>,
 ) -> Result<()> {
     // If by mistake it's included in the program, if we don't see dev flag, we return ok
-    #[cfg(not(feature = "dev"))]
+    #[cfg(not(feature = "test"))]
     return Ok(());
 
     #[allow(unreachable_code)]

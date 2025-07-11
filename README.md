@@ -269,12 +269,26 @@ just install-tools
 
 2. Key Management:
    > Note: Local Development keys are included in `/utils/keys/`
-   - `folio_admin-keypair-local.json`: Folio Admin program ID
-   - `rewards-keypair-local.json`: Rewards program ID
-   - `folio-keypair-local.json`: Folio Primary program ID
-   - `folio-2-keypair-local.json`: Folio Secondary program ID
-   - `spl-governance-keypair.json`: Custom Governance program ID
    - `keys.json`: Test configuration keys
+
+### Feature Flags
+
+Folio can be compiled with 3 main feature flags:
+
+1. **`dev`** - Development Environment
+   - Uses `shared/dev` and `folio-admin/dev` features
+   - For mainnet deployed dev environment development and testing.
+
+2. **`test`** - Local Testing Environment  
+   - Uses `shared/test` feature
+   - Program address same as `dev` for folio program
+   - Does NOT use `folio-admin/dev` (enables migration testing)
+   - Both default and test folio programs share the same folio admin
+
+3. **`default`** - Production Environment
+   - Uses `shared/default` and `folio-admin/default` features
+   - For production deployments
+   - For Localnet testing, with solana-local-validator.
 
 ### Build Configuration
 

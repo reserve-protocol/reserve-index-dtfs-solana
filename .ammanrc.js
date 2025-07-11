@@ -36,7 +36,7 @@ const programs = [
   },
   {
     label: "Folio 2",
-    programId: "7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt",
+    programId: "DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev",
     deployPath: path.join(localProgram, `second_folio.so`),
   },
   {

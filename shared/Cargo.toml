@@ -21,8 +21,6 @@ dotenv = "0.15"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }
 
 [features]
-default = ["localnet"]
-localnet = []
-devnet = []
-mainnet = []
-
+default = []
+dev = []
+test = []

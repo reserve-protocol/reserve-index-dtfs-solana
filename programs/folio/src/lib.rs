@@ -54,11 +54,11 @@ pub mod instructions;
 pub mod state;
 pub mod utils;
 
-// This is a second instance to test migration, only deployed with specific flag
-#[cfg(feature = "dev")]
-declare_id!("7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt");
+// This is also in local tests used as second instance of folio program to test migration.
+#[cfg(any(feature = "dev", feature = "test"))]
+declare_id!("DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev");
 
-#[cfg(not(feature = "dev"))]
+#[cfg(not(any(feature = "dev", feature = "test")))]
 declare_id!("n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG");
 
 #[program]
@@ -338,11 +338,11 @@ pub mod folio {
     pub fn update_basket_in_new_folio_program<'info>(
         ctx: Context<'_, '_, 'info, 'info, UpdateBasketInNewFolioProgram<'info>>,
     ) -> Result<()> {
-        #[cfg(feature = "dev")]
+        #[cfg(feature = "test")]
         {
             update_basket_in_new_folio_program::handler(ctx)
         }
-        #[cfg(not(feature = "dev"))]
+        #[cfg(not(feature = "test"))]
         {
             Ok(())
         }
@@ -355,11 +355,11 @@ pub mod folio {
     pub fn create_folio_from_old_program<'info>(
         ctx: Context<'_, '_, 'info, 'info, CreateFolioFromOldProgram<'info>>,
     ) -> Result<()> {
-        #[cfg(feature = "dev")]
+        #[cfg(feature = "test")]
         {
             create_folio_from_old_program::handler(ctx)
         }
-        #[cfg(not(feature = "dev"))]
+        #[cfg(not(feature = "test"))]
         {
             Ok(())
         }

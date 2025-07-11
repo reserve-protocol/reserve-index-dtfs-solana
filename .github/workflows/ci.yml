@@ -111,21 +111,18 @@ jobs:
           export RUSTUP_TOOLCHAIN=nightly-2025-03-05
 
           mkdir -p target/deploy target/idl target/types
-          cp utils/keys/folio-2-keypair-local.json target/deploy/folio-keypair.json
-          anchor build -- --features dev
+          anchor build --program-name folio -- --features test
 
           # Update program IDs
-          sed -i 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt/g' target/idl/folio.json
-          sed -i 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/7ApLyZSzV9jHseZnSLmyHJjsbNWzd85DYx2qe8cSCLWt/g' target/types/folio.ts
+          sed -i 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/g' target/idl/folio.json
+          sed -i 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/g' target/types/folio.ts
 
           # Rename files for second instance
           mv target/idl/folio.json target/idl/second_folio.json
           mv target/types/folio.ts target/types/second_folio.ts
           mv target/deploy/folio.so target/deploy/second_folio.so
-          mv target/deploy/folio-keypair.json target/deploy/second_folio-keypair.json
 
           # Build first instance
-          cp utils/keys/folio-keypair-local.json target/deploy/folio-keypair.json
           anchor build
 
       - name: Upload built programs

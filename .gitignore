@@ -23,7 +23,6 @@ build_rs_cov.profraw
 !jest.config.js
 !.eslintrc.js
 !*.config.js
-!scripts/*.js
 
 # Ignore build/dist directories
 dist/

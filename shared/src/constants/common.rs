@@ -3,38 +3,28 @@
 use anchor_lang::prelude::*;
 use spl_math::uint::U256;
 
-#[cfg(feature = "localnet")]
-mod localnet {
+/// Local testing setup will use non-dev constants.
+/// Solana Mainnet's dev env uses dev constants.
+/// Solana Mainnet's prod env uses prod(non-dev) constants.
+#[cfg(not(feature = "dev"))]
+// When adding non-dev(i.e production) constants we can make use of the "test" feature flag
+mod keys {
     use super::*;
     pub const ADMIN: Pubkey = pubkey!("AXF3tTrMUD5BLzv5Fmyj63KXwvkuGdxMQemSJHtTag4j");
     pub const SPL_GOVERNANCE_PROGRAM_ID: Pubkey =
         pubkey!("HwXcHGabc19PxzYFVSfKvuaDSNpbLGL8fhVtkcTyEymj");
 }
-
-#[cfg(feature = "devnet")]
-mod devnet {
-    todo!("Set devnet constants");
+#[cfg(feature = "dev")]
+mod keys {
     use super::*;
-    pub const ADMIN: Pubkey = pubkey!("AXF3tTrMUD5BLzv5Fmyj63KXwvkuGdxMQemSJHtTag4j");
-    pub const SPL_GOVERNANCE_PROGRAM_ID: Pubkey =
-        pubkey!("HwXcHGabc19PxzYFVSfKvuaDSNpbLGL8fhVtkcTyEymj");
+    pub const ADMIN: Pubkey = pubkey!("BesRAQsmAL45fGMJHNqP8xNT51Nr9ewvpzUzTRiU8A1M");
+    // TODO: Change key and update program if we want to have daos.
+    // We don't plan to deploy the SPL governance program on mainnet.
+    // Setting key to default key.
+    pub const SPL_GOVERNANCE_PROGRAM_ID: Pubkey = pubkey!("11111111111111111111111111111111");
 }
 
-#[cfg(feature = "mainnet")]
-mod mainnet {
-    todo!("Set mainnet constants");
-    use super::*;
-    pub const ADMIN: Pubkey = pubkey!("AXF3tTrMUD5BLzv5Fmyj63KXwvkuGdxMQemSJHtTag4j");
-    pub const SPL_GOVERNANCE_PROGRAM_ID: Pubkey =
-        pubkey!("HwXcHGabc19PxzYFVSfKvuaDSNpbLGL8fhVtkcTyEymj");
-}
-
-#[cfg(feature = "devnet")]
-use devnet::*;
-#[cfg(feature = "localnet")]
-pub use localnet::*;
-#[cfg(feature = "mainnet")]
-pub use mainnet::*;
+pub use keys::*;
 
 // Constants for scaling
 pub const ONE_U256: U256 = U256([1, 0, 0, 0]); // 1

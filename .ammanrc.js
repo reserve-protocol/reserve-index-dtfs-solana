@@ -26,17 +26,17 @@ const programs = [
   // Our programs
   {
     label: "Folio Admin",
-    programId: "7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn",
+    programId: "RsHWkAsrWvntjhWgMT1uBLJJea9TSjDhsx8j3DHVDEv",
     deployPath: path.join(localProgram, `folio_admin.so`),
   },
   {
     label: "Folio",
-    programId: "n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG",
+    programId: "DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev",
     deployPath: path.join(localProgram, `folio.so`),
   },
   {
     label: "Folio 2",
-    programId: "DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev",
+    programId: "n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG",
     deployPath: path.join(localProgram, `second_folio.so`),
   },
   {

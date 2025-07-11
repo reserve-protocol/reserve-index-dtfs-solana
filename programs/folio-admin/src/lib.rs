@@ -23,10 +23,11 @@ pub mod instructions;
 pub mod state;
 pub mod utils;
 
-#[cfg(feature = "dev")]
-declare_id!("RsHWkAsrWvntjhWgMT1uBLJJea9TSjDhsx8j3DHVDEv");
-#[cfg(not(feature = "dev"))]
+#[cfg(all(feature = "dev", not(feature = "test")))]
 declare_id!("7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn");
+#[cfg(any(not(feature = "dev"), feature = "test"))]
+// In case of test, we use common ID for this program.
+declare_id!("RsHWkAsrWvntjhWgMT1uBLJJea9TSjDhsx8j3DHVDEv");
 
 #[program]
 pub mod folio_admin {

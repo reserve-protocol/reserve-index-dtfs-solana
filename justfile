@@ -80,11 +80,11 @@ build-local:
 	@echo "Building second instance of the program..."
 
 	# Anchor build folio program, which is used for folio migration related tests.
-	@anchor build --program-name folio -- --features test  
+	@anchor build --program-name folio -- --features test,dev  
 
 	# Update program ID in IDL and type files (Mac compatible)
-	@sed -i '' 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/g' target/idl/folio.json
-	@sed -i '' 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/g' target/types/folio.ts
+	@sed -i '' 's/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/g' target/idl/folio.json
+	@sed -i '' 's/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/g' target/types/folio.ts
 
 	# Rename second instance files
 	@mv target/idl/folio.json target/idl/second_folio.json
@@ -93,7 +93,7 @@ build-local:
 
 	# Build first Folio instance
 	@echo "Building first instance of the program..."
-	@anchor build
+	@anchor build -- --features test 
 
 build-prod:
 	@just install-tools
@@ -107,7 +107,6 @@ build-prod:
 	# Build second Folio instance with feature flag
 	@echo "Building all anchor programs for production without feature flag..."
 
-	# Anchor build with dev feature flag
 	@anchor build
 	@echo "Done | Governance program is not built"
 
@@ -128,8 +127,8 @@ build-dev:
 	@anchor build -- --features dev 
 
 	# Replaces keys in folio with dev keys.
-	@sed -i '' 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/g' target/idl/folio.json
-	@sed -i '' 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/g' target/types/folio.ts
+	@sed -i '' 's/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/g' target/idl/folio.json
+	@sed -i '' 's/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/g' target/types/folio.ts
 
 	@echo "Done| Governance program is not built"
 

@@ -5,18 +5,18 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-folio = "n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG"
-folio_admin = "7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn"
+folio = "DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev"
+folio_admin = "RsHWkAsrWvntjhWgMT1uBLJJea9TSjDhsx8j3DHVDEv"
 rewards = "7GiMvNDHVY8PXWQLHjSf1REGKpiDsVzRr4p7Y3xGbSuf"
 
 [programs.devnet]
-folio = "n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG"
-folio_admin = "7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn"
+folio = "DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev"
+folio_admin = "RsHWkAsrWvntjhWgMT1uBLJJea9TSjDhsx8j3DHVDEv"
 rewards = "7GiMvNDHVY8PXWQLHjSf1REGKpiDsVzRr4p7Y3xGbSuf"
 
 [programs.mainnet]
-folio = "n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG"
-folio_admin = "7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn"
+folio = "DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev"
+folio_admin = "RsHWkAsrWvntjhWgMT1uBLJJea9TSjDhsx8j3DHVDEv"
 rewards = "7GiMvNDHVY8PXWQLHjSf1REGKpiDsVzRr4p7Y3xGbSuf"
 
 [registry]

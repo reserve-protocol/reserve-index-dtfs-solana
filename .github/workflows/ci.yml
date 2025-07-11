@@ -111,11 +111,11 @@ jobs:
           export RUSTUP_TOOLCHAIN=nightly-2025-03-05
 
           mkdir -p target/deploy target/idl target/types
-          anchor build --program-name folio -- --features test
+          anchor build --program-name folio -- --features test,dev
 
           # Update program IDs
-          sed -i 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/g' target/idl/folio.json
-          sed -i 's/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/g' target/types/folio.ts
+          sed -i 's/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/g' target/idl/folio.json
+          sed -i 's/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/g' target/types/folio.ts
 
           # Rename files for second instance
           mv target/idl/folio.json target/idl/second_folio.json
@@ -123,7 +123,7 @@ jobs:
           mv target/deploy/folio.so target/deploy/second_folio.so
 
           # Build first instance
-          anchor build
+          anchor build -- --features test
 
       - name: Upload built programs
         uses: actions/upload-artifact@v4

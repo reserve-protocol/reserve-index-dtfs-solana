@@ -55,11 +55,11 @@ pub mod state;
 pub mod utils;
 
 // This is also in local tests used as second instance of folio program to test migration.
-#[cfg(any(feature = "dev", feature = "test"))]
-declare_id!("DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev");
-
-#[cfg(not(any(feature = "dev", feature = "test")))]
+#[cfg(feature = "dev")]
 declare_id!("n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG");
+
+#[cfg(not(feature = "dev"))]
+declare_id!("DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev");
 
 #[program]
 pub mod folio {

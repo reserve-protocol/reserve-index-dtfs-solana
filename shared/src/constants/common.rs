@@ -3,18 +3,21 @@
 use anchor_lang::prelude::*;
 use spl_math::uint::U256;
 
-/// Local testing setup will use non-dev constants.
-/// Solana Mainnet's dev env uses dev constants.
-/// Solana Mainnet's prod env uses prod(non-dev) constants.
-#[cfg(not(feature = "dev"))]
-// When adding non-dev(i.e production) constants we can make use of the "test" feature flag
+#[cfg(feature = "test")]
 mod keys {
     use super::*;
     pub const ADMIN: Pubkey = pubkey!("AXF3tTrMUD5BLzv5Fmyj63KXwvkuGdxMQemSJHtTag4j");
     pub const SPL_GOVERNANCE_PROGRAM_ID: Pubkey =
         pubkey!("HwXcHGabc19PxzYFVSfKvuaDSNpbLGL8fhVtkcTyEymj");
 }
-#[cfg(feature = "dev")]
+#[cfg(all(feature = "dev", not(feature = "test")))]
+mod keys {
+    use super::*;
+    pub const ADMIN: Pubkey = pubkey!("AXF3tTrMUD5BLzv5Fmyj63KXwvkuGdxMQemSJHtTag4j");
+    pub const SPL_GOVERNANCE_PROGRAM_ID: Pubkey =
+        pubkey!("HwXcHGabc19PxzYFVSfKvuaDSNpbLGL8fhVtkcTyEymj");
+}
+#[cfg(all(not(feature = "dev"), not(feature = "test")))]
 mod keys {
     use super::*;
     pub const ADMIN: Pubkey = pubkey!("BesRAQsmAL45fGMJHNqP8xNT51Nr9ewvpzUzTRiU8A1M");
@@ -101,7 +104,7 @@ pub const MIN_REWARD_HALF_LIFE: u64 = 86400;
 pub const LN_2: u128 = 693_147_180_559_945_309;
 
 /// FOLIO_PROGRAM_ID is the program id of the folio program, used to validate the folio program seeds on the set folio fee config
-pub const FOLIO_PROGRAM_ID: Pubkey = pubkey!("n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG");
+pub const FOLIO_PROGRAM_ID: Pubkey = pubkey!("DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev");
 
 /// REWARDS_PROGRAM_ID is the program id of the rewards program, used to validate the rewards program seeds on the set folio fee config
 pub const REWARDS_PROGRAM_ID: Pubkey = pubkey!("7GiMvNDHVY8PXWQLHjSf1REGKpiDsVzRr4p7Y3xGbSuf");

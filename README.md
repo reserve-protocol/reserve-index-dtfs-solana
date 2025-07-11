@@ -277,18 +277,14 @@ Folio can be compiled with 3 main feature flags:
 
 1. **`dev`** - Development Environment
    - Uses `shared/dev` and `folio-admin/dev` features
-   - For mainnet deployed dev environment development and testing.
+   - For staging deployment.
 
-2. **`test`** - Local Testing Environment  
-   - Uses `shared/test` feature
-   - Program address same as `dev` for folio program
-   - Does NOT use `folio-admin/dev` (enables migration testing)
-   - Both default and test folio programs share the same folio admin
-
-3. **`default`** - Production Environment
-   - Uses `shared/default` and `folio-admin/default` features
-   - For production deployments
-   - For Localnet testing, with solana-local-validator.
+2. **`test`** - Local Testing Environment
+   - Makes sure the admin Key for test is used.
+   - Makes sure that the folio-admin is compiled with non-dev pubkey for testing migrations.
+   
+3. Default:
+   - Use for production deployment.
 
 ### Build Configuration
 

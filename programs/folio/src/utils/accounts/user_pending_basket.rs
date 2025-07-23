@@ -264,12 +264,35 @@ impl UserPendingBasket {
                 continue;
             }
 
-            let raw_user_amount = &mut self
+            let raw_user_amount = match self
                 .basket
                 .token_amounts
                 .iter_mut()
                 .find(|ta| ta.mint == folio_token_account.mint)
-                .ok_or(ErrorCode::MintMismatch)?;
+            {
+                Some(token_amount) => token_amount,
+                None if pending_basket_type == PendingBasketType::RedeemProcess => {
+                    // Try to find an empty slot
+                    match self
+                        .basket
+                        .token_amounts
+                        .iter_mut()
+                        .find(|ta| ta.mint == Pubkey::default())
+                    {
+                        Some(empty_slot) => {
+                            // Found an empty slot (mint == Pubkey::default()), we can use it
+                            empty_slot.mint = folio_token_account.mint;
+                            empty_slot
+                        }
+                        None => {
+                            return err!(ErrorCode::MintMismatch);
+                        }
+                    }
+                }
+                _ => {
+                    return err!(ErrorCode::MintMismatch);
+                }
+            };
 
             let scaled_folio_token_balance =
                 Decimal::from_token_amount(folio_token_account.amount)?;

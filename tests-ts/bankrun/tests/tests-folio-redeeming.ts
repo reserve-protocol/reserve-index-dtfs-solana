@@ -49,13 +49,22 @@ import {
   getFolioPDA,
   getUserPendingBasketPDA,
 } from "../../../utils/pda-helper";
-import { burnFolioToken, redeemFromPendingBasket } from "../bankrun-ix-helper";
+import {
+  burnFolioToken,
+  redeemFromPendingBasket,
+  transferFromUserPendingBasketAta,
+} from "../bankrun-ix-helper";
 import {
   assertInvalidFolioStatusTestCase,
   GeneralTestCases,
 } from "../bankrun-general-tests-helper";
 import * as assert from "assert";
 import { FolioAdmin } from "../../../target/types/folio_admin";
+import {
+  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+} from "@solana/spl-token";
 
 /**
  * Tests for folio token redeeming functionality, including:
@@ -234,6 +243,27 @@ describe("Bankrun - Folio redeeming", () => {
       ],
       // Folio fee config should be set
       customFolioFeeConfig: true,
+    },
+
+    {
+      desc: "(users burns max amount of shares, even when his alreadyIncludedTokens is empty)",
+      expectedError: null,
+      folioBasketTokens: [
+        new FolioTokenAmount(MINTS[0].publicKey, new BN(1_000).mul(D9)),
+        new FolioTokenAmount(MINTS[1].publicKey, new BN(1_000).mul(D9)),
+      ],
+      alreadyIncludedTokens: [],
+      tokens: [
+        { mint: MINTS[0].publicKey, amount: new BN(0) },
+        { mint: MINTS[1].publicKey, amount: new BN(0) },
+      ],
+      initialUserShares: new BN(1_000_000_000),
+      shares: new BN(1_000_000_000),
+      expectedFolioTokenBalanceChange: new BN(1_000_000_000),
+      expectedTokenBalanceChanges: [
+        new BN(1_000_000_000),
+        new BN(1_000_000_000),
+      ],
     },
   ];
 
@@ -917,6 +947,184 @@ describe("Bankrun - Folio redeeming", () => {
                   ...expectedTokenBalanceChanges.map((change) => change.neg()),
                 ]
               );
+            });
+          }
+        });
+      }
+    );
+  });
+
+  const TEST_CASES_WITHDRAW_FROM_USER_BASKET_ATAS = [
+    {
+      desc: "Should fail if the user basket ata does not exist",
+      mint: MINTS[0].publicKey,
+      expectedError: "AccountNotInitialized",
+      setupUserPendingBasketAta: false,
+      setupUserTokenAccount: true,
+    },
+    {
+      desc: "Should fail if the user token account does not exist",
+      mint: MINTS[0].publicKey,
+      expectedError: "AccountNotInitialized",
+      setupUserTokenAccount: false,
+      setupUserPendingBasketAta: true,
+    },
+    {
+      desc: "Should succeed and transfer all tokens from user pending basket ata",
+      mint: MINTS[0].publicKey,
+      expectedError: null,
+      setupUserPendingBasketAta: true,
+      setupUserTokenAccount: true,
+      userPendingBasketAtaBalance: new BN(10),
+      expectedUserTokenAccountBalanceChange: new BN(
+        10 * 10 ** DEFAULT_DECIMALS
+      ),
+    },
+    {
+      desc: "Should succeed with 2022 token program",
+      mint: PublicKey.unique(),
+      expectedError: null,
+      setupUserPendingBasketAta: true,
+      setupUserTokenAccount: true,
+      userPendingBasketAtaBalance: new BN(10),
+      expectedUserTokenAccountBalanceChange: new BN(
+        10 * 10 ** DEFAULT_DECIMALS
+      ),
+      tokenProgram: TOKEN_2022_PROGRAM_ID,
+    },
+  ];
+
+  describe("Specific Cases - Transfer from User Pending Basket ATA", () => {
+    TEST_CASES_WITHDRAW_FROM_USER_BASKET_ATAS.forEach(
+      ({ desc, expectedError, ...restOfParams }) => {
+        describe(`When ${desc}`, () => {
+          let txnResult: BanksTransactionResultWithMeta;
+          const {
+            mint,
+            setupUserPendingBasketAta = true,
+            setupUserTokenAccount = true,
+            userPendingBasketAtaBalance = new BN(0),
+            expectedUserTokenAccountBalanceChange = new BN(0),
+            tokenProgram = TOKEN_PROGRAM_ID,
+          } = {
+            ...restOfParams,
+          };
+
+          let beforeUserBalances: { owner: PublicKey; balances: bigint[] }[] =
+            [];
+          let preTxnError: any;
+
+          before(async () => {
+            preTxnError = null;
+
+            await initBaseCase();
+
+            // Create user pending basket
+            await createAndSetUserPendingBasket(
+              context,
+              programFolio,
+              folioPDA,
+              userKeypair.publicKey,
+              []
+            );
+
+            initToken(
+              context,
+              userKeypair.publicKey,
+              mint,
+              DEFAULT_DECIMALS,
+              undefined,
+              tokenProgram
+            );
+            // Setup user token account if needed
+            if (setupUserTokenAccount) {
+              mintToken(
+                context,
+                mint,
+                0,
+                userKeypair.publicKey,
+                DEFAULT_DECIMALS,
+                tokenProgram
+              );
+            }
+
+            // Setup user pending basket token account if needed
+            if (setupUserPendingBasketAta) {
+              const userPendingBasketPDA = getUserPendingBasketPDA(
+                folioPDA,
+                userKeypair.publicKey
+              );
+              if (userPendingBasketAtaBalance.gt(new BN(0))) {
+                mintToken(
+                  context,
+                  mint,
+                  userPendingBasketAtaBalance.toNumber(),
+                  userPendingBasketPDA,
+                  DEFAULT_DECIMALS,
+                  tokenProgram
+                );
+              }
+            }
+
+            await travelFutureSlot(context);
+
+            beforeUserBalances = await getTokenBalancesFromMints(
+              context,
+              [mint],
+              [userKeypair.publicKey]
+            );
+
+            try {
+              txnResult = await transferFromUserPendingBasketAta<true>(
+                banksClient,
+                programFolio,
+                userKeypair,
+                folioPDA,
+                mint,
+                tokenProgram,
+                true
+              );
+            } catch (e) {
+              preTxnError = e;
+            }
+          });
+
+          if (expectedError) {
+            it("should fail with expected error", () => {
+              assertError(txnResult, expectedError);
+            });
+          } else {
+            it("should succeed", async () => {
+              await travelFutureSlot(context);
+
+              // Assert token balance changes
+              await assertExpectedBalancesChanges(
+                context,
+                beforeUserBalances,
+                [mint],
+                [userKeypair.publicKey],
+                [expectedUserTokenAccountBalanceChange],
+                [tokenProgram]
+              );
+
+              // Verify that the user pending basket token account is closed
+              const userPendingBasketPDA = getUserPendingBasketPDA(
+                folioPDA,
+                userKeypair.publicKey
+              );
+              const userPendingBasketAta = getAssociatedTokenAddressSync(
+                mint,
+                userPendingBasketPDA,
+                true,
+                tokenProgram
+              );
+
+              try {
+                await banksClient.getAccount(userPendingBasketAta);
+                assert.fail(
+                  "User pending basket token account should be closed"
+                );
+              } catch (error) {}
             });
           }
         });

@@ -111,6 +111,7 @@ pub fn handler<'info>(
         folio.last_poke = old_folio.last_poke;
         folio.auction_length = old_folio.auction_length;
         folio.mandate = old_folio.mandate;
+        folio.initialized_at = old_folio.initialized_at;
 
         // We can set these to 0, as the old_program, before calling this function confirms us that the
         // values are less then D9, or max the folio owner is willing to loss as fees.

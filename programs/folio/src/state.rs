@@ -47,7 +47,9 @@ pub struct Folio {
     pub status: u8,
 
     /// Padding for zero copy alignment
-    pub _padding: [u8; 14],
+    pub _padding: [u8; 6],
+
+    pub initialized_at: u64,
 
     /// The mint of the folio token
     pub folio_token_mint: Pubkey,

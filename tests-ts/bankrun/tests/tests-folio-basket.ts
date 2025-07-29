@@ -55,6 +55,7 @@ import {
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
+import { TestHelper } from "../../../utils/test-helper";
 
 /**
  * Tests for folio basket functionality, including:
@@ -501,6 +502,7 @@ describe("Bankrun - Folio basket", () => {
 
           let beforeUserBalances: { owner: PublicKey; balances: bigint[] }[] =
             [];
+          let currentTime: BN;
 
           before(async () => {
             await initBaseCase(folioStatus);
@@ -529,6 +531,9 @@ describe("Bankrun - Folio basket", () => {
             if (addMintExtension) {
               await addMintExtension(context, tokens[0].mint);
             }
+            const currentTimeOnSolana = (await context.banksClient.getClock())
+              .unixTimestamp;
+            currentTime = new BN(currentTimeOnSolana.toString());
 
             txnResult = await addToBasket<true>(
               context,
@@ -561,6 +566,15 @@ describe("Bankrun - Folio basket", () => {
               if (expectedInitialBalanceSharesChange.gt(new BN(0))) {
                 const folio = await programFolio.account.folio.fetch(folioPDA);
                 assert.equal(folio.status, FolioStatus.Initialized);
+                console.log(
+                  "folio.initializedAt",
+                  folio.initializedAt.toString()
+                );
+                console.log("currentTime", currentTime.toString());
+                TestHelper.assertTime(
+                  folio.initializedAt,
+                  new BN(currentTime.toString())
+                );
               }
 
               // Else we validate basket changes

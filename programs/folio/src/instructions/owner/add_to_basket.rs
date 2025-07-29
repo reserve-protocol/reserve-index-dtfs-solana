@@ -140,6 +140,7 @@ fn mint_initial_shares<'info>(
         let mut folio = ctx.accounts.folio.load_mut()?;
 
         folio.status = FolioStatus::Initialized as u8;
+        folio.initialized_at = Clock::get()?.unix_timestamp as u64;
     }
 
     Ok(())

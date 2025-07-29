@@ -38,13 +38,7 @@ jobs:
       - name: Install Anchor
         if: steps.cache-check.outputs.cache-hit != 'true'
         run: |
-          # Clean up any existing anchor installations
-          rm -f ~/.cargo/bin/anchor
-          rm -f ~/.cargo/bin/avm
-          rm -rf ~/.avm
-          cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
-          avm install ${{ env.ANCHOR_VERSION }} -- --force
-          avm use ${{ env.ANCHOR_VERSION }}
+          cargo install --git https://github.com/coral-xyz/anchor --tag ${{ env.ANCHOR_VERSION }} anchor-cli
 
   lint:
     runs-on: ubuntu-latest

@@ -38,7 +38,7 @@ jobs:
       - name: Install Anchor
         if: steps.cache-check.outputs.cache-hit != 'true'
         run: |
-          cargo install --git https://github.com/coral-xyz/anchor --tag ${{ env.ANCHOR_VERSION }} anchor-cli
+          cargo install --git https://github.com/coral-xyz/anchor --tag v${{ env.ANCHOR_VERSION }} anchor-cli
 
   lint:
     runs-on: ubuntu-latest

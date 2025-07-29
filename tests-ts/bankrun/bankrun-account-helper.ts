@@ -572,8 +572,12 @@ export async function createAndSetFolio(
   offset += 1;
 
   // Write padding
-  buffer.fill(0, offset, offset + 14);
-  offset += 14;
+  buffer.fill(0, offset, offset + 6);
+  offset += 6;
+
+  const currentTime = (await ctx.banksClient.getClock()).unixTimestamp;
+  buffer.writeBigUInt64LE(currentTime, offset);
+  offset += 8;
 
   folioTokenMint.toBuffer().copy(buffer, offset);
   offset += 32;

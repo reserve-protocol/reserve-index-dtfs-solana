@@ -787,6 +787,11 @@ describe("Bankrun - Folio migration", () => {
               );
               // The status will stay Migrating forever.
               assert.equal(oldFolio.status, FolioStatus.Migrating);
+              assert.equal(
+                newFolio.initializedAt.toString(),
+                oldFolio.initializedAt.toString()
+              );
+              assert.equal(newFolio.initializedAt.gt(new BN(0)), true);
             });
           }
         });

@@ -180,6 +180,7 @@ test-amman skip_build="":
     @pkill -f "node.*amman start" || true
     @killall solana-test-validator || true
     @pkill -f "npm exec amman" || true
+    @find tests-ts utils -type f \( -name "*.js" -o -name "*.js.map" \) -delete
 
 test-bankrun skip_build="":
     # Go to git workspace root
@@ -194,6 +195,7 @@ test-bankrun skip_build="":
       just build-local; \
     fi
     @anchor run test-bankrun
+    @find tests-ts utils -type f \( -name "*.js" -o -name "*.js.map" \) -delete
 
 test-coverage:
     @just install-tools

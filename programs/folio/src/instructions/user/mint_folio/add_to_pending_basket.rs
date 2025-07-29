@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::get_associated_token_address_with_program_id,
-    token_interface::{self, Mint, TokenInterface, TransferChecked},
+    token_interface::{self, CloseAccount, Mint, TokenAccount, TokenInterface, TransferChecked},
 };
 use shared::errors::ErrorCode;
 use shared::{
@@ -144,27 +144,96 @@ pub fn handler<'info>(
         // Get decimals from token mint
         let data = token_mint.try_borrow_data()?;
         let mint = Mint::try_deserialize(&mut &data[..])?;
+        let is_sender_ata_of_user_pending_basket = get_associated_token_address_with_program_id(
+            &ctx.accounts.user_pending_basket.key(),
+            token_mint.key,
+            &token_program_id,
+        ) == sender_token_account.key();
+        if is_sender_ata_of_user_pending_basket {
+            // Jupiter and other DEX aggregators don't support exactOut (or have limited liquidity when they do).
+            // We use an ExactIn flow to handle dust (small token residue) properly:
+            //
+            // Flow:
+            // 1. User gets Jupiter quotes with slightly increased amounts for slippage tolerance.
+            //    Jupiter transfers tokens to user_pending_basket ATA.
+            // 2. Second transaction calls this instruction to transfer all amounts to folio basket,
+            //    updating user_pending_basket state.
+            // 3. The sender_token_account can be closed since it's now empty.
+            // 4. Users can later claim dust and optionally convert it back to original tokens.
+            //
+            // This ensures all dust ends up in user_pending_basket, making
+            // transfer_from_user_pending_basket_ata rarely needed (though it exists as fallback).
+            let cpi_accounts = TransferChecked {
+                from: sender_token_account.to_account_info(),
+                to: recipient_token_account.to_account_info(),
+                authority: ctx.accounts.user_pending_basket.to_account_info(),
+                mint: token_mint.to_account_info(),
+            };
 
-        let cpi_accounts = TransferChecked {
-            from: sender_token_account.to_account_info(),
-            to: recipient_token_account.to_account_info(),
-            authority: user.clone(),
-            mint: token_mint.to_account_info(),
-        };
+            let sender_account = TokenAccount::try_deserialize_unchecked(
+                &mut &sender_token_account.data.borrow()[..],
+            )?;
 
-        let cpi_program = ctx.accounts.token_program.to_account_info();
+            let raw_amount = sender_account.amount.max(raw_amount);
+            let cpi_program = ctx.accounts.token_program.to_account_info();
 
-        token_interface::transfer_checked(
-            CpiContext::new(cpi_program, cpi_accounts),
-            raw_amount,
-            mint.decimals,
-        )?;
+            token_interface::transfer_checked(
+                CpiContext::new_with_signer(
+                    cpi_program,
+                    cpi_accounts,
+                    &[&[
+                        USER_PENDING_BASKET_SEEDS,
+                        ctx.accounts.folio.key().as_ref(),
+                        ctx.accounts.user.key().as_ref(),
+                        &[ctx.bumps.user_pending_basket],
+                    ]],
+                ),
+                raw_amount,
+                mint.decimals,
+            )?;
 
-        added_mints.push(TokenAmount {
-            mint: token_mint.key(),
-            amount_for_minting: raw_amount,
-            amount_for_redeeming: 0,
-        });
+            // Closes the sender_token_account and transfers rent sol to user.
+            token_interface::close_account(CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                CloseAccount {
+                    account: sender_token_account.to_account_info(),
+                    destination: ctx.accounts.user.to_account_info(),
+                    authority: ctx.accounts.user_pending_basket.to_account_info(),
+                },
+                &[&[
+                    USER_PENDING_BASKET_SEEDS,
+                    ctx.accounts.folio.key().as_ref(),
+                    ctx.accounts.user.key().as_ref(),
+                    &[ctx.bumps.user_pending_basket],
+                ]],
+            ))?;
+
+            added_mints.push(TokenAmount {
+                mint: token_mint.key(),
+                amount_for_minting: raw_amount,
+                amount_for_redeeming: 0,
+            });
+        } else {
+            let cpi_accounts = TransferChecked {
+                from: sender_token_account.to_account_info(),
+                to: recipient_token_account.to_account_info(),
+                authority: user.clone(),
+                mint: token_mint.to_account_info(),
+            };
+
+            let cpi_program = ctx.accounts.token_program.to_account_info();
+
+            token_interface::transfer_checked(
+                CpiContext::new(cpi_program, cpi_accounts),
+                raw_amount,
+                mint.decimals,
+            )?;
+            added_mints.push(TokenAmount {
+                mint: token_mint.key(),
+                amount_for_minting: raw_amount,
+                amount_for_redeeming: 0,
+            });
+        }
     }
 
     UserPendingBasket::process_init_if_needed(

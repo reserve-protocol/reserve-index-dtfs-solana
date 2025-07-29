@@ -233,6 +233,12 @@ pub mod folio {
         close_user_pending_token_amount::handler(ctx)
     }
 
+    pub fn transfer_from_user_pending_basket_ata<'info>(
+        ctx: Context<'_, '_, 'info, 'info, TransferFromUserPendingBasketAta<'info>>,
+    ) -> Result<()> {
+        transfer_from_user_pending_basket_ata::handler(ctx)
+    }
+
     /*
     Crank functions
     */

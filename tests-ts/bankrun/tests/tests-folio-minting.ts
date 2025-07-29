@@ -126,6 +126,7 @@ describe("Bankrun - Folio Minting", () => {
     expectedDaoFeeShares: BN;
     expectedFeeRecipientShares: BN;
     expectedTokenBalanceChanges: BN[];
+    useUserPendingBasketAtas: boolean;
   } = {
     alreadyIncludedTokens: [],
     tokens: [],
@@ -147,6 +148,7 @@ describe("Bankrun - Folio Minting", () => {
     expectedDaoFeeShares: new BN(0),
     expectedFeeRecipientShares: new BN(0),
     expectedTokenBalanceChanges: Array(MINTS.length).fill(new BN(0)),
+    useUserPendingBasketAtas: false,
   };
 
   const TEST_CASES_ADD_TO_PENDING_BASKET = [
@@ -229,6 +231,20 @@ describe("Bankrun - Folio Minting", () => {
       })),
       expectedTokenBalanceChanges: Array(5).fill(new BN(1_000_000_000).neg()),
       expectedFolioTokenBalanceChange: new BN(0),
+    },
+    {
+      desc: "(User has send amount to user pending basket ata, succeeds)",
+      expectedError: null,
+      folioBasketTokens: MINTS.slice(0, 5).map(
+        (mint) => new FolioTokenAmount(mint.publicKey, new BN(1_000_000))
+      ),
+      tokens: MINTS.slice(0, 5).map((mint) => ({
+        mint: mint.publicKey,
+        amount: new BN(1_000_000_000),
+      })),
+      expectedTokenBalanceChanges: Array(5).fill(new BN(1_000_000_000).neg()),
+      expectedFolioTokenBalanceChange: new BN(0),
+      useUserPendingBasketAtas: true,
     },
   ];
 
@@ -732,6 +748,7 @@ describe("Bankrun - Folio Minting", () => {
             isPreTransactionValidated,
             expectedFolioTokenBalanceChange,
             expectedTokenBalanceChanges,
+            useUserPendingBasketAtas,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
@@ -756,6 +773,19 @@ describe("Bankrun - Folio Minting", () => {
               alreadyIncludedTokens
             );
 
+            if (useUserPendingBasketAtas) {
+              for (const token of tokens) {
+                // This will overwrite the existing userTokenAccount and set it to zero
+                mintToken(context, token.mint, 0, userKeypair.publicKey);
+                mintToken(
+                  context,
+                  token.mint,
+                  token.amount.toNumber() / 10 ** DEFAULT_DECIMALS,
+                  getUserPendingBasketPDA(folioPDA, userKeypair.publicKey)
+                );
+              }
+            }
+
             await travelFutureSlot(context);
 
             beforeUserBalances = await getTokenBalancesFromMints(
@@ -764,7 +794,9 @@ describe("Bankrun - Folio Minting", () => {
                 folioTokenMint.publicKey,
                 ...folioBasketTokens.map((ta) => ta.mint),
               ],
-              [userKeypair.publicKey, folioPDA]
+              useUserPendingBasketAtas
+                ? [folioPDA]
+                : [userKeypair.publicKey, folioPDA]
             );
 
             basketBefore = (
@@ -783,7 +815,8 @@ describe("Bankrun - Folio Minting", () => {
                 tokens,
 
                 true,
-                await remainingAccounts()
+                await remainingAccounts(),
+                useUserPendingBasketAtas
               );
             } catch (e) {
               // Transaction limit is caught before sending the transaction
@@ -896,15 +929,27 @@ describe("Bankrun - Folio Minting", () => {
                   folioTokenMint.publicKey,
                   ...folioBasketTokens.map((ta) => ta.mint),
                 ],
-                [userKeypair.publicKey, folioPDA],
-                [
-                  // Amounts for user
-                  expectedFolioTokenBalanceChange,
-                  ...expectedTokenBalanceChanges,
-                  // Amounts for folio (inverse of user)
-                  expectedFolioTokenBalanceChange.neg(),
-                  ...expectedTokenBalanceChanges.map((change) => change.neg()),
-                ]
+                useUserPendingBasketAtas
+                  ? [folioPDA]
+                  : [userKeypair.publicKey, folioPDA],
+                useUserPendingBasketAtas
+                  ? [
+                      // Amounts for folio (inverse of user)
+                      expectedFolioTokenBalanceChange.neg(),
+                      ...expectedTokenBalanceChanges.map((change) =>
+                        change.neg()
+                      ),
+                    ]
+                  : [
+                      // Amounts for user
+                      expectedFolioTokenBalanceChange,
+                      ...expectedTokenBalanceChanges,
+                      // Amounts for folio (inverse of user)
+                      expectedFolioTokenBalanceChange.neg(),
+                      ...expectedTokenBalanceChanges.map((change) =>
+                        change.neg()
+                      ),
+                    ]
               );
             });
           }

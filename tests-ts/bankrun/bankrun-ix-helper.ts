@@ -517,12 +517,16 @@ export async function addToPendingBasket<T extends boolean = true>(
   folio: PublicKey,
   tokens: { mint: PublicKey; amount: BN }[],
   executeTxn: T = true as T,
-  remainingAccounts: AccountMeta[] = []
+  remainingAccounts: AccountMeta[] = [],
+  useUserPendingBasketAtas: boolean = false
 ): Promise<
   T extends true
     ? BanksTransactionResultWithMeta
     : { ix: TransactionInstruction; extraSigners: any[] }
 > {
+  const senderUser = useUserPendingBasketAtas
+    ? getUserPendingBasketPDA(folio, userKeypair.publicKey)
+    : userKeypair.publicKey;
   const addToPendingBasket = await programFolio.methods
     .addToPendingBasket(tokens.map((token) => token.amount))
     .accountsPartial({
@@ -538,12 +542,7 @@ export async function addToPendingBasket<T extends boolean = true>(
     .remainingAccounts(
       remainingAccounts.length > 0
         ? remainingAccounts
-        : await buildRemainingAccounts(
-            context,
-            tokens,
-            userKeypair.publicKey,
-            folio
-          )
+        : await buildRemainingAccounts(context, tokens, senderUser, folio)
     )
     .instruction();
 
@@ -728,6 +727,39 @@ export async function redeemFromPendingBasket<T extends boolean = true>(
   }
 
   return { ix: redeemFromPendingBasket, extraSigners: [] } as any;
+}
+
+export async function transferFromUserPendingBasketAta<
+  T extends boolean = true
+>(
+  client: BanksClient,
+  programFolio: Program<Folio>,
+  userKeypair: Keypair,
+  folio: PublicKey,
+  tokenMint: PublicKey,
+  tokenProgram: PublicKey = TOKEN_PROGRAM_ID,
+  executeTxn: T = true as T
+) {
+  const transferFromUserPendingBasketAta = await programFolio.methods
+    .transferFromUserPendingBasketAta()
+    .accountsPartial({
+      systemProgram: SystemProgram.programId,
+      rent: SYSVAR_RENT_PUBKEY,
+      tokenProgram,
+      user: userKeypair.publicKey,
+      folio,
+      tokenMint,
+      userPendingBasket: getUserPendingBasketPDA(folio, userKeypair.publicKey),
+    })
+    .instruction();
+
+  if (executeTxn) {
+    return createAndProcessTransaction(client, userKeypair, [
+      transferFromUserPendingBasketAta,
+    ]) as any;
+  }
+
+  return { ix: transferFromUserPendingBasketAta, extraSigners: [] } as any;
 }
 
 export async function pokeFolio<T extends boolean = true>(

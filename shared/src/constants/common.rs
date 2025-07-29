@@ -109,6 +109,7 @@ pub const FOLIO_PROGRAM_ID: Pubkey = pubkey!("DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs
 /// REWARDS_PROGRAM_ID is the program id of the rewards program, used to validate the rewards program seeds on the set folio fee config
 pub const REWARDS_PROGRAM_ID: Pubkey = pubkey!("7GiMvNDHVY8PXWQLHjSf1REGKpiDsVzRr4p7Y3xGbSuf");
 
+#[derive(PartialEq, Eq)]
 pub enum PendingBasketType {
     MintProcess,
     RedeemProcess,

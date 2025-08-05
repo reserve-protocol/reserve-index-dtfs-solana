@@ -723,17 +723,18 @@ describe("Bankrun - Auction", () => {
               const auction = await programFolio.account.auction.fetch(
                 getAuctionPDA(folioPDA, rebalanceNonce, auctionId)
               );
+              assert.equal(auction.folio.equals(folioPDA), true);
 
               assert.equal(auctionEnds.endTime.eq(auction.end), true);
               assert.equal(
                 auctionEnds.tokenMint1.equals(sellMint.publicKey) ||
-                  auctionEnds.tokenMint2.equals(sellMint.publicKey),
+                auctionEnds.tokenMint2.equals(sellMint.publicKey),
                 true
               );
 
               assert.equal(
                 auctionEnds.tokenMint1.equals(buyMint.publicKey) ||
-                  auctionEnds.tokenMint2.equals(buyMint.publicKey),
+                auctionEnds.tokenMint2.equals(buyMint.publicKey),
                 true
               );
 
@@ -945,17 +946,18 @@ describe("Bankrun - Auction", () => {
               const auction = await programFolio.account.auction.fetch(
                 getAuctionPDA(folioPDA, rebalanceNonce, auctionId)
               );
+              assert.equal(auction.folio.equals(folioPDA), true);
 
               assert.equal(auctionEnds.endTime.eq(auction.end), true);
               assert.equal(
                 auctionEnds.tokenMint1.equals(sellMint.publicKey) ||
-                  auctionEnds.tokenMint2.equals(sellMint.publicKey),
+                auctionEnds.tokenMint2.equals(sellMint.publicKey),
                 true
               );
 
               assert.equal(
                 auctionEnds.tokenMint1.equals(buyMint.publicKey) ||
-                  auctionEnds.tokenMint2.equals(buyMint.publicKey),
+                auctionEnds.tokenMint2.equals(buyMint.publicKey),
                 true
               );
 

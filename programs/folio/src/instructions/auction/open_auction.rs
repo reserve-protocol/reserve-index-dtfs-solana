@@ -218,6 +218,7 @@ pub fn handler(
     // Input is also validate in open_auction.
     auction.open_auction(
         folio,
+        &ctx.accounts.folio.key(),
         folio_basket,
         auction_ends,
         raw_folio_token_supply,

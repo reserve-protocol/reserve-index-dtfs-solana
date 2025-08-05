@@ -1,24 +1,17 @@
 import { LAMPORTS_PER_SOL, PublicKey, Transaction } from "@solana/web3.js";
 import * as anchor from "@coral-xyz/anchor";
-import {
-  BanksTransactionResultWithMeta,
-  ProgramTestContext,
-  startAnchor,
-} from "solana-bankrun";
 import fs from "fs/promises";
 import path from "path";
 
 import { TransactionInstruction } from "@solana/web3.js";
 
 import { Keypair } from "@solana/web3.js";
-import { BanksClient } from "solana-bankrun";
 import { SYSTEM_PROGRAM_ID } from "@coral-xyz/anchor/dist/cjs/native/system";
 import { Folio } from "../../target/types/folio";
 import idlFolio from "../../target/idl/folio.json";
 import idlSecondFolio from "../../target/idl/second_folio.json";
 import idlFolioAdmin from "../../target/idl/folio_admin.json";
 import idlRewards from "../../target/idl/rewards.json";
-import { BankrunProvider } from "anchor-bankrun";
 import * as assert from "assert";
 import { AnchorError } from "@coral-xyz/anchor";
 import {
@@ -28,12 +21,23 @@ import {
 import { FolioAdmin } from "../../target/types/folio_admin";
 import { Rewards } from "../../target/types/rewards";
 import { Folio as FolioSecond } from "../../target/types/second_folio";
+import {
+  FailedTransactionMetadata,
+  LiteSVM,
+  TransactionMetadata,
+} from "litesvm";
+import { LiteSVMProvider } from "anchor-litesvm";
+import { getLogs } from "./bankrun-general-tests-helper";
 
 /**
  * Utility functions for bankrun environment interaction and transaction management.
  * Includes helpers for connection setup, transaction sending/confirmation,
  * and common Solana operations like airdrops and compute budget management.
  */
+
+export type BanksTransactionResultWithMeta =
+  | TransactionMetadata
+  | FailedTransactionMetadata;
 
 export async function getConnectors() {
   const keysFileName = "keys-local.json";
@@ -54,24 +58,36 @@ export async function getConnectors() {
     path.join(__dirname, "../../target/deploy/governance.so")
   );
 
-  const context = await startAnchor(
-    path.join(__dirname, "../.."),
-    [
-      { name: "folio_admin", programId: new PublicKey(idlFolioAdmin.address) },
-      { name: "rewards", programId: new PublicKey(idlRewards.address) },
-      { name: "folio", programId: new PublicKey(idlFolio.address) },
-      {
-        name: "second_folio",
-        programId: new PublicKey(idlSecondFolio.address),
-      },
-      { name: "metadata", programId: TOKEN_METADATA_PROGRAM_ID },
-      { name: "governance", programId: SPL_GOVERNANCE_PROGRAM_ID },
-    ],
-    []
+  // const context = fromWorkspace(path.join(__dirname, "../../"));
+  const context = new LiteSVM();
+  context.addProgramFromFile(
+    new PublicKey(idlFolioAdmin.address),
+    path.join(__dirname, "../../target/deploy/folio_admin.so")
+  );
+  context.addProgramFromFile(
+    new PublicKey(idlRewards.address),
+    path.join(__dirname, "../../target/deploy/rewards.so")
+  );
+  context.addProgramFromFile(
+    new PublicKey(idlFolio.address),
+    path.join(__dirname, "../../target/deploy/folio.so")
+  );
+  context.addProgramFromFile(
+    new PublicKey(idlSecondFolio.address),
+    path.join(__dirname, "../../target/deploy/second_folio.so")
+  );
+  context.addProgramFromFile(
+    new PublicKey(TOKEN_METADATA_PROGRAM_ID),
+    path.join(__dirname, "../../target/deploy/metadata.so")
+  );
+  context.addProgramFromFile(
+    new PublicKey(SPL_GOVERNANCE_PROGRAM_ID),
+    path.join(__dirname, "../../target/deploy/governance.so")
   );
 
-  const provider = new BankrunProvider(context);
+  const provider = new LiteSVMProvider(context);
   anchor.setProvider(provider);
+  setClockToCurrentTime(context);
 
   return {
     context,
@@ -84,21 +100,28 @@ export async function getConnectors() {
       idlSecondFolio as FolioSecond
     ),
     programRewards: new anchor.Program<Rewards>(idlRewards as Rewards),
-    provider,
+    provider: anchor.getProvider(),
   };
 }
 
-export async function createAndProcessTransaction(
-  client: BanksClient,
+export function setClock(context: LiteSVM, unixTimestamp: number) {
+  const clock = context.getClock();
+  clock.unixTimestamp = BigInt(unixTimestamp.toFixed(0));
+  context.setClock(clock);
+}
+function setClockToCurrentTime(context: LiteSVM) {
+  setClock(context, Date.now() / 1000);
+}
+
+export function createAndProcessTransaction(
+  client: LiteSVM,
   payer: Keypair,
   instruction: TransactionInstruction[],
   extraSigners: Keypair[] = []
-): Promise<BanksTransactionResultWithMeta> {
+): BanksTransactionResultWithMeta {
   const tx = new Transaction();
 
-  const [latestBlockhash] = await client.getLatestBlockhash();
-
-  tx.recentBlockhash = latestBlockhash;
+  tx.recentBlockhash = client.latestBlockhash();
 
   tx.add(...instruction);
 
@@ -106,11 +129,23 @@ export async function createAndProcessTransaction(
 
   tx.sign(payer, ...extraSigners);
 
-  return await client.tryProcessTransaction(tx);
+  const txnResult = client.sendTransaction(tx);
+  client.expireBlockhash();
+  const logs = getLogs(txnResult);
+
+  if (logs.length > 0) {
+    console.log("Transaction Logs: ", logs);
+  } else {
+    assert.fail(
+      "LiteSVM Error: " + (txnResult as FailedTransactionMetadata).err()
+    );
+  }
+
+  return txnResult;
 }
 
 export async function airdrop(
-  context: ProgramTestContext,
+  context: LiteSVM,
   account: PublicKey,
   amount: number
 ) {
@@ -124,41 +159,46 @@ export async function airdrop(
   context.setAccount(account, airdropAccountInfo);
 }
 
-export async function travelFutureSlot(context: ProgramTestContext) {
-  context.warpToSlot((await context.banksClient.getSlot()) + BigInt(1));
+export function travelFutureSlot(context: LiteSVM) {
+  context.warpToSlot(context.getClock().slot + BigInt(1));
 }
 
 export function assertError(
   txnResult: BanksTransactionResultWithMeta,
   expectedError: string
 ) {
-  const anchorParsedError = AnchorError.parse(txnResult.meta.logMessages);
+  if (txnResult instanceof FailedTransactionMetadata) {
+    const anchorParsedError = AnchorError.parse(txnResult.meta().logs());
 
-  if (anchorParsedError) {
-    assert.equal(
-      AnchorError.parse(txnResult.meta.logMessages).error.errorCode.code,
-      expectedError
-    );
-    return;
-  }
+    if (anchorParsedError) {
+      assert.equal(
+        AnchorError.parse(txnResult.meta().logs()).error.errorCode.code,
+        expectedError
+      );
+      return;
+    }
 
-  const regex = /Program log: Error: (.+)/;
+    const regex = /Program log: Error: (.+)/;
 
-  const errorLogLine = txnResult.meta.logMessages.find((log) =>
-    log.match(regex)
-  );
+    const errorLogLine = txnResult
+      .meta()
+      .logs()
+      .find((log) => log.match(regex));
 
-  const matchedLog = errorLogLine?.match(regex);
-  if (matchedLog && matchedLog[1]) {
-    const errorMessage = matchedLog[1];
+    const matchedLog = errorLogLine?.match(regex);
+    if (matchedLog && matchedLog[1]) {
+      const errorMessage = matchedLog[1];
 
-    const formattedMessage = errorMessage
-      .split(" ")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join("");
+      const formattedMessage = errorMessage
+        .split(" ")
+        .map(
+          (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        )
+        .join("");
 
-    assert.equal(formattedMessage, expectedError);
-    return;
+      assert.equal(formattedMessage, expectedError);
+      return;
+    }
   }
 
   assert.fail("Error not found");

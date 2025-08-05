@@ -1,6 +1,5 @@
 import { AccountMeta, Keypair, SystemProgram } from "@solana/web3.js";
 import { PublicKey } from "@solana/web3.js";
-import { ProgramTestContext } from "solana-bankrun";
 import {
   getActorPDAWithBump,
   getDaoFeeConfigPDAWithBump,
@@ -48,6 +47,7 @@ import {
 } from "../../utils/constants";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { LiteSVM } from "litesvm";
 
 /**
  * Helper functions for creating and setting accounts in the Bankrun environment.
@@ -155,13 +155,10 @@ export class RewardInfo {
     this.isDisallowed = isDisallowed;
   }
 
-  public static async default(
-    context: ProgramTestContext,
-    rewardToken: PublicKey
-  ) {
+  public static async default(context: LiteSVM, rewardToken: PublicKey) {
     return new RewardInfo(
       rewardToken,
-      new BN((await context.banksClient.getClock()).unixTimestamp.toString()),
+      new BN((await context.getClock()).unixTimestamp.toString()),
       new BN(0),
       new BN(0),
       new BN(0),
@@ -294,10 +291,7 @@ function getAccountDiscriminator(accountName: string): Buffer {
 }
 
 // Used to "reset" an account to a state where it looks like it isn't initialized
-export async function closeAccount(
-  ctx: ProgramTestContext,
-  accountAddress: PublicKey
-) {
+export async function closeAccount(ctx: LiteSVM, accountAddress: PublicKey) {
   ctx.setAccount(accountAddress, {
     lamports: 0,
     data: Buffer.alloc(0),
@@ -310,7 +304,7 @@ export async function closeAccount(
 Folio Accounts
 */
 export async function setFolioAccountInfo(
-  ctx: ProgramTestContext,
+  ctx: LiteSVM,
   program: Program<Folio> | Program<FolioSecond>,
   accountAddress: PublicKey,
   accountName: string,
@@ -333,7 +327,7 @@ export async function setFolioAccountInfo(
 }
 
 export async function createAndSetRebalanceAccount(
-  ctx: ProgramTestContext,
+  ctx: LiteSVM,
   program: Program<Folio> | Program<FolioSecond>,
   folio: PublicKey,
   all_rebalance_details_added: boolean = false,
@@ -445,7 +439,7 @@ export async function createAndSetRebalanceAccount(
 }
 
 export async function createAndSetMetadataAccount(
-  ctx: ProgramTestContext,
+  ctx: LiteSVM,
   folio: PublicKey,
   mint: PublicKey,
   metadataProgramId: PublicKey = TOKEN_METADATA_PROGRAM_ID
@@ -475,7 +469,7 @@ export async function createAndSetMetadataAccount(
 }
 
 export async function createAndSetAuctionEndsAccount(
-  ctx: ProgramTestContext,
+  ctx: LiteSVM,
   program: Program<Folio> | Program<FolioSecond>,
   folio: PublicKey,
   rebalanceNonce: BN,
@@ -531,7 +525,7 @@ export async function createAndSetAuctionEndsAccount(
 }
 
 export async function createAndSetFolio(
-  ctx: ProgramTestContext,
+  ctx: LiteSVM,
   program: Program<Folio> | Program<FolioSecond>,
   folioTokenMint: PublicKey,
   status: FolioStatus = FolioStatus.Initialized,
@@ -545,9 +539,7 @@ export async function createAndSetFolio(
 ) {
   // Set last poke as current time stamp, else 0 would make the elapsed time huge
   if (lastPoke.isZero()) {
-    lastPoke = new BN(
-      (await ctx.banksClient.getClock()).unixTimestamp.toString()
-    );
+    lastPoke = new BN((await ctx.getClock()).unixTimestamp.toString());
   }
 
   const folioPDAWithBump = getFolioPDAWithBump(
@@ -575,7 +567,7 @@ export async function createAndSetFolio(
   buffer.fill(0, offset, offset + 6);
   offset += 6;
 
-  const currentTime = (await ctx.banksClient.getClock()).unixTimestamp;
+  const currentTime = (await ctx.getClock()).unixTimestamp;
   buffer.writeBigUInt64LE(currentTime, offset);
   offset += 8;
 
@@ -626,7 +618,7 @@ export async function createAndSetFolio(
 }
 
 export async function createAndSetActor(
-  ctx: ProgramTestContext,
+  ctx: LiteSVM,
   program: Program<Folio>,
   actorKeypair: Keypair | PublicKey,
   folio: PublicKey,
@@ -648,7 +640,7 @@ export async function createAndSetActor(
 }
 
 export async function createAndSetFeeRecipients(
-  ctx: ProgramTestContext,
+  ctx: LiteSVM,
   program: Program<Folio>,
   folio: PublicKey,
   feeRecipientsInitial: FeeRecipient[],
@@ -716,7 +708,7 @@ export async function createAndSetFeeRecipients(
 }
 
 export async function createAndSetFeeDistribution(
-  ctx: ProgramTestContext,
+  ctx: LiteSVM,
   program: Program<Folio>,
   folio: PublicKey,
   cranker: PublicKey,
@@ -801,7 +793,7 @@ export async function createAndSetFeeDistribution(
 }
 
 export async function createAndSetFolioBasket(
-  ctx: ProgramTestContext,
+  ctx: LiteSVM,
   program: Program<Folio> | Program<FolioSecond>,
   folio: PublicKey,
   foliotokenAmounts: FolioTokenAmount[]
@@ -864,7 +856,7 @@ export async function createAndSetFolioBasket(
 }
 
 export async function createAndSetUserPendingBasket(
-  ctx: ProgramTestContext,
+  ctx: LiteSVM,
   program: Program<Folio>,
   folio: PublicKey,
   owner: PublicKey,
@@ -940,7 +932,7 @@ export async function createAndSetUserPendingBasket(
 }
 
 export async function createAndSetAuction(
-  ctx: ProgramTestContext,
+  ctx: LiteSVM,
   program: Program<Folio>,
   auction: Auction,
   folio: PublicKey
@@ -1028,7 +1020,7 @@ export async function createAndSetAuction(
 Folio Admin Accounts
 */
 export async function setFolioAdminAccountInfo(
-  ctx: ProgramTestContext,
+  ctx: LiteSVM,
   program: Program<FolioAdmin>,
   accountAddress: PublicKey,
   accountName: string,
@@ -1048,7 +1040,7 @@ export async function setFolioAdminAccountInfo(
 }
 
 export async function createAndSetDaoFeeConfig(
-  ctx: ProgramTestContext,
+  ctx: LiteSVM,
   program: Program<FolioAdmin>,
   feeRecipient: PublicKey,
   feeNumerator: BN,
@@ -1105,7 +1097,7 @@ export async function createAndSetDaoFeeConfig(
 }
 
 export async function createAndSetFolioFeeConfig(
-  ctx: ProgramTestContext,
+  ctx: LiteSVM,
   program: Program<FolioAdmin>,
   folio: PublicKey,
   feeNumerator: BN,
@@ -1158,7 +1150,7 @@ export async function createAndSetFolioFeeConfig(
 }
 
 export async function createAndSetProgramRegistrar(
-  ctx: ProgramTestContext,
+  ctx: LiteSVM,
   program: Program<FolioAdmin>,
   acceptedPrograms: PublicKey[]
 ) {
@@ -1184,7 +1176,7 @@ export async function createAndSetProgramRegistrar(
 Folio Admin Accounts
 */
 export async function setRewardsAccountInfo(
-  ctx: ProgramTestContext,
+  ctx: LiteSVM,
   program: Program<Rewards>,
   accountAddress: PublicKey,
   accountName: string,
@@ -1204,7 +1196,7 @@ export async function setRewardsAccountInfo(
 }
 
 export async function createAndSetRewardTokens(
-  ctx: ProgramTestContext,
+  ctx: LiteSVM,
   program: Program<Rewards>,
   realm: PublicKey,
   rewardsAdmin: PublicKey,
@@ -1277,7 +1269,7 @@ export async function createAndSetRewardTokens(
 }
 
 export async function createAndSetRewardInfo(
-  ctx: ProgramTestContext,
+  ctx: LiteSVM,
   program: Program<Rewards>,
   realm: PublicKey,
   providedRewardInfo: RewardInfo
@@ -1359,7 +1351,7 @@ export async function createAndSetRewardInfo(
 }
 
 export async function createAndSetUserRewardInfo(
-  ctx: ProgramTestContext,
+  ctx: LiteSVM,
   program: Program<Rewards>,
   realm: PublicKey,
   userRewardInfoProvided: UserRewardInfo
@@ -1436,7 +1428,7 @@ export function getInvalidRemainingAccounts(size: number): AccountMeta[] {
 }
 
 export async function buildRemainingAccountsForUpdateFolio(
-  context: ProgramTestContext,
+  context: LiteSVM,
   folio: PublicKey,
   folioTokenMint: PublicKey,
   daoFeeRecipient: PublicKey
@@ -1482,7 +1474,7 @@ export async function buildRemainingAccountsForUpdateFolio(
 }
 
 export async function buildRemainingAccountsForStartFolioMigration(
-  context: ProgramTestContext,
+  context: LiteSVM,
   oldFolio: PublicKey,
   folioTokenMint: PublicKey,
   daoFeeRecipient: PublicKey
@@ -1528,7 +1520,7 @@ export async function buildRemainingAccountsForStartFolioMigration(
 }
 
 export async function buildRemainingAccounts(
-  context: ProgramTestContext,
+  context: LiteSVM,
   tokens: { mint: PublicKey; amount: BN }[],
   senderAddress: PublicKey = null,
   recipientAddress: PublicKey = null,
@@ -1583,7 +1575,7 @@ export async function buildRemainingAccounts(
 }
 
 export async function buildRemainingAccountsForAccruesRewards(
-  context: ProgramTestContext,
+  context: LiteSVM,
   callerKeypair: Keypair,
   realm: PublicKey,
   rewardTokens: PublicKey[],
@@ -1631,7 +1623,7 @@ export async function buildRemainingAccountsForAccruesRewards(
 }
 
 export async function buildRemainingAccountsForClaimRewards(
-  context: ProgramTestContext,
+  context: LiteSVM,
   callerKeypair: Keypair,
   realm: PublicKey,
   rewardTokens: PublicKey[]
@@ -1680,7 +1672,7 @@ export async function buildRemainingAccountsForClaimRewards(
 }
 
 export async function buildRemainingAccountsForMigrateFolioTokens(
-  context: ProgramTestContext,
+  context: LiteSVM,
   userKeypair: Keypair,
   oldFolio: PublicKey,
   newFolio: PublicKey,

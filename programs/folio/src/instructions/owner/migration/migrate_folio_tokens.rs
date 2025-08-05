@@ -141,7 +141,7 @@ impl MigrateFolioTokens<'_> {
         // Make sure the discriminator of the new folio is correct
         let data = self.new_folio.try_borrow_data()?;
         check_condition!(
-            data.len() >= 8 && data[0..8] == Folio::discriminator(),
+            data.len() >= 8 && data[0..8] == Folio::DISCRIMINATOR[..],
             InvalidNewFolio
         );
 

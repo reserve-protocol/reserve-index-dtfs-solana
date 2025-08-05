@@ -1,12 +1,5 @@
-import { BN, Program } from "@coral-xyz/anchor";
-import { BankrunProvider } from "anchor-bankrun";
+import { BN, Program, Provider } from "@coral-xyz/anchor";
 import { AccountMeta, Keypair, PublicKey } from "@solana/web3.js";
-import {
-  BanksClient,
-  BanksTransactionResultWithMeta,
-  Clock,
-  ProgramTestContext,
-} from "solana-bankrun";
 
 import {
   createAndSetActor,
@@ -41,6 +34,7 @@ import {
   airdrop,
   assertError,
   assertPreTransactionError,
+  BanksTransactionResultWithMeta,
   getConnectors,
   travelFutureSlot,
 } from "../bankrun-program-helper";
@@ -61,6 +55,8 @@ import {
 } from "../bankrun-general-tests-helper";
 import * as assert from "assert";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { Clock, LiteSVM } from "litesvm";
+import { TestHelper } from "../../../utils/test-helper";
 
 /**
  * Tests for fee-related functionality in the Folio program, including:
@@ -72,9 +68,9 @@ import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
  */
 
 describe("Bankrun - Fees", () => {
-  let context: ProgramTestContext;
-  let provider: BankrunProvider;
-  let banksClient: BanksClient;
+  let context: LiteSVM;
+  let provider: Provider;
+  let banksClient: LiteSVM;
 
   let programFolioAdmin: Program<FolioAdmin>;
   let programFolio: Program<Folio>;
@@ -561,11 +557,11 @@ describe("Bankrun - Fees", () => {
     }
   }
 
-  before(async () => {
+  beforeEach(async () => {
     ({ keys, programFolioAdmin, programFolio, provider, context } =
       await getConnectors());
 
-    banksClient = context.banksClient;
+    banksClient = context;
 
     payerKeypair = provider.wallet.payer;
 
@@ -723,14 +719,14 @@ describe("Bankrun - Fees", () => {
           let currentClock: Clock;
           let unixTimestamp: bigint;
 
-          before(async () => {
+          beforeEach(async () => {
             await initBaseCase(
               customFolioTokenMint,
               new BN(1000_000_000_000),
               customFolioFeeConfig
             );
 
-            currentClock = await context.banksClient.getClock();
+            currentClock = await context.getClock();
             let currentUnixTimestamp = currentClock.unixTimestamp;
             if (startUnixTimestamp) {
               currentUnixTimestamp = BigInt(startUnixTimestamp.toString());
@@ -846,7 +842,7 @@ describe("Bankrun - Fees", () => {
           let daoFeeRecipientBalanceBefore: bigint;
           let currentClock: Clock;
 
-          before(async () => {
+          beforeEach(async () => {
             await initBaseCase(
               customFolioTokenMint,
               new BN(1000_000_000_000),
@@ -855,7 +851,7 @@ describe("Bankrun - Fees", () => {
               useToken2022ForFolioTokenMint
             );
 
-            currentClock = await context.banksClient.getClock();
+            currentClock = await context.getClock();
 
             await createAndSetFolio(
               context,
@@ -1006,7 +1002,7 @@ describe("Bankrun - Fees", () => {
 
           let folioBefore: any;
 
-          before(async () => {
+          beforeEach(async () => {
             await initBaseCase(
               customFolioTokenMint,
               new BN(1000_000_000_000),
@@ -1015,7 +1011,7 @@ describe("Bankrun - Fees", () => {
               useToken2022ForFolioTokenMint
             );
 
-            currentClock = await context.banksClient.getClock();
+            currentClock = await context.getClock();
 
             // Get the ATAs for the fee recipients we want to send to the instruction
             for (const feeRecipient of feeRecipientsToDistributeTo) {
@@ -1123,11 +1119,10 @@ describe("Bankrun - Fees", () => {
 
               // If all the claiming is done, the account should be closed, so returns null
               if (shouldCloseAccount) {
-                assert.equal(
-                  await banksClient.getAccount(
+                TestHelper.assertAccountIsClosed(
+                  banksClient.getAccount(
                     getFeeDistributionPDA(folioPDA, feeDistributionIndex)
-                  ),
-                  null
+                  )
                 );
               } else {
                 // Else Fee Distribution should have been updated

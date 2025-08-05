@@ -29,6 +29,8 @@ declare_id!("7ZqvG9KKhzA3ykto2WMYuw3waWuaydKwYKHYSf7SiFbn");
 // In case of test, we use common ID for this program.
 declare_id!("RsHWkAsrWvntjhWgMT1uBLJJea9TSjDhsx8j3DHVDEv");
 
+// This deprecation is in anchor-lang code and there is PR for this
+// https://github.com/solana-foundation/anchor/pull/3803
 #[program]
 pub mod folio_admin {
 

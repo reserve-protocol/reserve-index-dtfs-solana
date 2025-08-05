@@ -1,14 +1,10 @@
-import { BN, Program } from "@coral-xyz/anchor";
-import { BankrunProvider } from "anchor-bankrun";
+import { BN, Program, Provider } from "@coral-xyz/anchor";
 import { AccountMeta, Keypair, PublicKey } from "@solana/web3.js";
-import {
-  BanksClient,
-  BanksTransactionResultWithMeta,
-  ProgramTestContext,
-} from "solana-bankrun";
+
 import {
   airdrop,
   assertError,
+  BanksTransactionResultWithMeta,
   buildExpectedArray,
   getConnectors,
   travelFutureSlot,
@@ -60,6 +56,7 @@ import {
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import { TestHelper } from "../../../utils/test-helper";
+import { LiteSVM } from "litesvm";
 
 /**
  * Tests for folio basket functionality, including:
@@ -71,9 +68,9 @@ import { TestHelper } from "../../../utils/test-helper";
  */
 
 describe("Bankrun - Folio basket", () => {
-  let context: ProgramTestContext;
-  let provider: BankrunProvider;
-  let banksClient: BanksClient;
+  let context: LiteSVM;
+  let provider: Provider;
+  let banksClient: LiteSVM;
 
   let programFolio: Program<Folio>;
 
@@ -256,9 +253,9 @@ describe("Bankrun - Folio basket", () => {
         tokens: [
           { mint: MINTS_2022[0].publicKey, amount: new BN(1_000_000_000) },
         ],
-        addMintExtension: async (ctx: ProgramTestContext, mint: PublicKey) => {
+        addMintExtension: async (ctx: LiteSVM, mint: PublicKey) => {
           const accountLen = getMintLen([extension]);
-          const existingAccount = await ctx.banksClient.getAccount(mint);
+          const existingAccount = await ctx.getAccount(mint);
           const existingData = Buffer.from(existingAccount.data);
           const lengthRequired = accountLen - existingData.length;
           const additionalData = Buffer.alloc(lengthRequired);
@@ -397,10 +394,10 @@ describe("Bankrun - Folio basket", () => {
     await closeAccount(context, getFolioBasketPDA(folioPDA));
   }
 
-  before(async () => {
+  beforeEach(async () => {
     ({ keys, programFolio, provider, context } = await getConnectors());
 
-    banksClient = context.banksClient;
+    banksClient = context;
 
     payerKeypair = provider.wallet.payer;
 
@@ -537,7 +534,7 @@ describe("Bankrun - Folio basket", () => {
             [];
           let currentTime: BN;
 
-          before(async () => {
+          beforeEach(async () => {
             await initBaseCase(
               folioStatus,
               undefined,
@@ -575,7 +572,7 @@ describe("Bankrun - Folio basket", () => {
             if (addMintExtension) {
               await addMintExtension(context, tokens[0].mint);
             }
-            const currentTimeOnSolana = (await context.banksClient.getClock())
+            const currentTimeOnSolana = (await context.getClock())
               .unixTimestamp;
             currentTime = new BN(currentTimeOnSolana.toString());
 
@@ -703,7 +700,7 @@ describe("Bankrun - Folio basket", () => {
             ...restOfParams,
           };
 
-          before(async () => {
+          beforeEach(async () => {
             await initBaseCase(undefined, folioTokenMintSupply);
 
             if (alreadyIncludedTokens.length > 0) {

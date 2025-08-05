@@ -1,8 +1,9 @@
 use crate::{check_condition, errors::ErrorCode};
 use anchor_lang::{
     prelude::*,
-    solana_program::{program::invoke, program::invoke_signed, system_instruction},
+    solana_program::{program::invoke, program::invoke_signed},
 };
+use solana_system_interface::instruction::*;
 
 /// Helper function to validate the next account in an iterator.
 ///
@@ -87,7 +88,7 @@ pub fn init_pda_account_rent<'info>(
 
     if current_lamports_balance == 0 {
         invoke_signed(
-            &system_instruction::create_account(
+            &create_account(
                 payer.key,
                 account_to_init.key,
                 rent_lamports,
@@ -109,20 +110,21 @@ pub fn init_pda_account_rent<'info>(
 
         if lamports_needed > 0 {
             // Transfer the required amount of lamports to the account
+
             invoke(
-                &system_instruction::transfer(payer.key, account_to_init.key, lamports_needed),
+                &transfer(payer.key, account_to_init.key, lamports_needed),
                 &[payer.clone(), account_to_init.clone()],
             )?;
         }
 
         invoke_signed(
-            &system_instruction::allocate(account_to_init.key, space as u64),
+            &allocate(account_to_init.key, space as u64),
             &[account_to_init.clone(), system_program.clone()],
             pda_signers_seeds,
         )?;
 
         invoke_signed(
-            &system_instruction::assign(account_to_init.key, owner_program_id),
+            &assign(account_to_init.key, owner_program_id),
             &[account_to_init.clone(), system_program.clone()],
             pda_signers_seeds,
         )?;

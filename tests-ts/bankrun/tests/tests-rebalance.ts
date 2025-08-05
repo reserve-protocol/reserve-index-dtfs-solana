@@ -38,6 +38,7 @@ import { FolioAdmin } from "../../../target/types/folio_admin";
 import { TestHelper } from "../../../utils/test-helper";
 import {
   ACCOUNT_SIZE,
+  AccountState,
   AccountType,
   ExtensionType,
   getMintLen,
@@ -588,11 +589,7 @@ describe("Bankrun - Rebalance", () => {
     ...[
       ExtensionType.TransferFeeConfig,
       ExtensionType.MintCloseAuthority,
-      ExtensionType.ConfidentialTransferMint,
-      ExtensionType.DefaultAccountState,
       ExtensionType.NonTransferable,
-      ExtensionType.PermanentDelegate,
-      ExtensionType.TransferHook,
     ].map((extension) => {
       return {
         desc: `Should fail if ${ExtensionType[extension]} is present on mint`,
@@ -664,6 +661,10 @@ describe("Bankrun - Rebalance", () => {
       ExtensionType.TokenGroup,
       ExtensionType.TokenGroupMember,
       ExtensionType.GroupPointer,
+      ExtensionType.ConfidentialTransferMint,
+      ExtensionType.DefaultAccountState,
+      ExtensionType.PermanentDelegate,
+      ExtensionType.TransferHook,
     ].map((extension) => {
       return {
         desc: `Should add rebalance details with ${ExtensionType[extension]}`,
@@ -694,6 +695,10 @@ describe("Bankrun - Rebalance", () => {
             offset
           );
           offset += 2;
+          if (extension === ExtensionType.DefaultAccountState) {
+            additionalData.writeUInt8(AccountState.Initialized, offset);
+            offset += 1;
+          }
 
           const finalData = Buffer.concat([existingData, additionalData]);
           ctx.setAccount(buyMint, {
@@ -1094,11 +1099,7 @@ describe("Bankrun - Rebalance", () => {
     ...[
       ExtensionType.TransferFeeConfig,
       ExtensionType.MintCloseAuthority,
-      ExtensionType.ConfidentialTransferMint,
-      ExtensionType.DefaultAccountState,
       ExtensionType.NonTransferable,
-      ExtensionType.PermanentDelegate,
-      ExtensionType.TransferHook,
     ].map((extension) => {
       return {
         desc: `Should fail if ${ExtensionType[extension]} is present on mint`,
@@ -1170,6 +1171,10 @@ describe("Bankrun - Rebalance", () => {
       ExtensionType.TokenGroup,
       ExtensionType.TokenGroupMember,
       ExtensionType.GroupPointer,
+      ExtensionType.ConfidentialTransferMint,
+      ExtensionType.DefaultAccountState,
+      ExtensionType.PermanentDelegate,
+      ExtensionType.TransferHook,
     ].map((extension) => {
       return {
         desc: `Should add rebalance details with ${ExtensionType[extension]}`,
@@ -1200,6 +1205,10 @@ describe("Bankrun - Rebalance", () => {
             offset
           );
           offset += 2;
+          if (extension === ExtensionType.DefaultAccountState) {
+            additionalData.writeUInt8(AccountState.Initialized, offset);
+            offset += 1;
+          }
 
           const finalData = Buffer.concat([existingData, additionalData]);
           ctx.setAccount(buyMint, {

@@ -240,11 +240,7 @@ describe("Bankrun - Folio basket", () => {
     ...[
       ExtensionType.TransferFeeConfig,
       ExtensionType.MintCloseAuthority,
-      ExtensionType.ConfidentialTransferMint,
-      ExtensionType.DefaultAccountState,
       ExtensionType.NonTransferable,
-      ExtensionType.PermanentDelegate,
-      ExtensionType.TransferHook,
     ].map((extension) => {
       return {
         desc: `Should fail if ${ExtensionType[extension]} is present on mint`,

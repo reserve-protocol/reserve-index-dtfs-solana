@@ -85,14 +85,9 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
 
   const TEST_ADD_REWARD_TOKEN = [
     {
-      desc: "(try with transfer hook extension, errors out)",
+      desc: "(try with non transferable extension, errors out)",
       expectedError: "UnsupportedSPLToken",
-      mintExtension: ExtensionType.TransferHook,
-    },
-    {
-      desc: "(try with permanent delegate extension, errors out)",
-      expectedError: "UnsupportedSPLToken",
-      mintExtension: ExtensionType.PermanentDelegate,
+      mintExtension: ExtensionType.NonTransferable,
     },
     {
       desc: "(try without any extensions, succeeds)",

@@ -1203,9 +1203,7 @@ describe("Bankrun - Bids and Kill Auction", () => {
 
       ...[
         ExtensionType.TransferFeeAmount,
-        ExtensionType.ConfidentialTransferAccount,
         ExtensionType.CpiGuard,
-        ExtensionType.TransferHookAccount,
         ExtensionType.NonTransferableAccount,
         ExtensionType.MemoTransfer,
       ].map((extension) => {
@@ -1264,6 +1262,8 @@ describe("Bankrun - Bids and Kill Auction", () => {
             const extenstionsToAdd = [
               ExtensionType.Uninitialized,
               ExtensionType.ImmutableOwner,
+              ExtensionType.ConfidentialTransferAccount,
+              ExtensionType.TransferHookAccount,
             ];
             const dataToEachForEachExtension = {
               [ExtensionType.Uninitialized]: (
@@ -1291,6 +1291,18 @@ describe("Bankrun - Bids and Kill Auction", () => {
                 offset: number
               ) => {
                 return offset + 1;
+              },
+              [ExtensionType.ConfidentialTransferAccount]: (
+                _inputBuffer: Buffer,
+                offset: number
+              ) => {
+                return offset;
+              },
+              [ExtensionType.TransferHookAccount]: (
+                _inputBuffer: Buffer,
+                offset: number
+              ) => {
+                return offset;
               },
             };
 

@@ -15,6 +15,7 @@ import {
   createInitializePermanentDelegateInstruction,
   createMintToInstruction,
   createAssociatedTokenAccountInstruction,
+  createInitializeNonTransferableMintInstruction,
 } from "@solana/spl-token";
 import * as assert from "assert";
 import { BN } from "@coral-xyz/anchor";
@@ -323,6 +324,13 @@ export async function initToken2022Tx(
       createInitializePermanentDelegateInstruction(
         mint.publicKey,
         mintAuthority.publicKey,
+        TOKEN_2022_PROGRAM_ID
+      )
+    );
+  } else if (extension === ExtensionType.NonTransferable) {
+    instructions.push(
+      createInitializeNonTransferableMintInstruction(
+        mint.publicKey,
         TOKEN_2022_PROGRAM_ID
       )
     );

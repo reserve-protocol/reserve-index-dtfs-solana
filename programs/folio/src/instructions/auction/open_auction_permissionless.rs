@@ -189,6 +189,7 @@ pub fn handler(
 
     auction.open_auction(
         folio,
+        &ctx.accounts.folio.key(),
         folio_basket,
         auction_ends,
         raw_folio_token_supply,

@@ -77,6 +77,7 @@ impl Auction {
     pub fn open_auction(
         &mut self,
         folio: &mut RefMut<'_, Folio>,
+        folio_pubkey: &Pubkey,
         folio_basket: &FolioBasket,
         auction_ends: &mut AuctionEnds,
         raw_folio_token_supply: u64,
@@ -247,6 +248,7 @@ impl Auction {
         self.prices = auction_price;
         self.sell_limit = auction_spot_sell_limit;
         self.buy_limit = auction_spot_buy_limit;
+        self.folio = *folio_pubkey;
         rebalance.current_auction_id = auction_index;
         auction_ends.end_time = current_time + self.auction_length()?;
 

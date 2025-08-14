@@ -728,13 +728,13 @@ describe("Bankrun - Auction", () => {
               assert.equal(auctionEnds.endTime.eq(auction.end), true);
               assert.equal(
                 auctionEnds.tokenMint1.equals(sellMint.publicKey) ||
-                auctionEnds.tokenMint2.equals(sellMint.publicKey),
+                  auctionEnds.tokenMint2.equals(sellMint.publicKey),
                 true
               );
 
               assert.equal(
                 auctionEnds.tokenMint1.equals(buyMint.publicKey) ||
-                auctionEnds.tokenMint2.equals(buyMint.publicKey),
+                  auctionEnds.tokenMint2.equals(buyMint.publicKey),
                 true
               );
 
@@ -951,13 +951,13 @@ describe("Bankrun - Auction", () => {
               assert.equal(auctionEnds.endTime.eq(auction.end), true);
               assert.equal(
                 auctionEnds.tokenMint1.equals(sellMint.publicKey) ||
-                auctionEnds.tokenMint2.equals(sellMint.publicKey),
+                  auctionEnds.tokenMint2.equals(sellMint.publicKey),
                 true
               );
 
               assert.equal(
                 auctionEnds.tokenMint1.equals(buyMint.publicKey) ||
-                auctionEnds.tokenMint2.equals(buyMint.publicKey),
+                  auctionEnds.tokenMint2.equals(buyMint.publicKey),
                 true
               );
 

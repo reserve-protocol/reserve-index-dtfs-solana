@@ -415,6 +415,7 @@ export async function addToBasket<T extends boolean = true>(
   folioTokenMint: PublicKey,
 
   executeTxn: T = true as T,
+  useUserPendingBasketAtas: boolean = false,
   remainingAccounts: AccountMeta[] = [],
 
   tokenProgram: PublicKey = TOKEN_PROGRAM_ID,
@@ -452,7 +453,9 @@ export async function addToBasket<T extends boolean = true>(
         : await buildRemainingAccounts(
             context,
             tokens,
-            folioOwnerKeypair.publicKey,
+            useUserPendingBasketAtas
+              ? getUserPendingBasketPDA(folio, folioOwnerKeypair.publicKey)
+              : folioOwnerKeypair.publicKey,
             folio,
             true,
             true,

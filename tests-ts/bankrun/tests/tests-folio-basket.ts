@@ -14,7 +14,11 @@ import {
   travelFutureSlot,
 } from "../bankrun-program-helper";
 
-import { getFolioBasketPDA, getFolioPDA } from "../../../utils/pda-helper";
+import {
+  getFolioBasketPDA,
+  getFolioPDA,
+  getUserPendingBasketPDA,
+} from "../../../utils/pda-helper";
 import { addToBasket, removeFromBasket } from "../bankrun-ix-helper";
 import {
   createAndSetFolio,
@@ -90,6 +94,7 @@ describe("Bankrun - Folio basket", () => {
 
   const DEFAULT_PARAMS: {
     initialShares: BN;
+    withAmountsInUserPendingBasketATA: boolean;
     tokens: {
       mint: PublicKey;
       amount: BN;
@@ -111,6 +116,7 @@ describe("Bankrun - Folio basket", () => {
     removedMint: MINTS[0].publicKey,
     remainingAccounts: () => [],
     folioTokenMintSupply: undefined,
+    withAmountsInUserPendingBasketATA: false,
 
     // Expected changes
     expectedInitialBalanceSharesChange: new BN(0),
@@ -180,6 +186,21 @@ describe("Bankrun - Folio basket", () => {
         { mint: MINTS[0].publicKey, amount: new BN(1_000_000_000) },
         { mint: MINTS[1].publicKey, amount: new BN(1_000_000_000) },
       ],
+      expectedTokenBalanceChanges: [
+        new BN(-1_000_000_000),
+        new BN(-1_000_000_000),
+        new BN(0),
+      ],
+    },
+    {
+      desc: "(basket is created successfully, With amounts in user pending basket ATA)",
+      initialShares: new BN(0),
+      expectedError: null,
+      tokens: [
+        { mint: MINTS[0].publicKey, amount: new BN(1_000_000_000) },
+        { mint: MINTS[1].publicKey, amount: new BN(1_000_000_000) },
+      ],
+      withAmountsInUserPendingBasketATA: true,
       expectedTokenBalanceChanges: [
         new BN(-1_000_000_000),
         new BN(-1_000_000_000),
@@ -303,7 +324,8 @@ describe("Bankrun - Folio basket", () => {
 
   async function initBaseCase(
     folioStatus?: FolioStatus,
-    folioTokenMintSupply?: BN
+    folioTokenMintSupply?: BN,
+    withAmountsInUserPendingBasketATA?: boolean
   ) {
     await createAndSetFolio(
       context,
@@ -324,7 +346,14 @@ describe("Bankrun - Folio basket", () => {
     for (const mint of MINTS) {
       initToken(context, adminKeypair.publicKey, mint, DEFAULT_DECIMALS);
 
-      mintToken(context, mint.publicKey, 1_000, folioOwnerKeypair.publicKey);
+      mintToken(
+        context,
+        mint.publicKey,
+        1_000,
+        withAmountsInUserPendingBasketATA
+          ? getUserPendingBasketPDA(folioPDA, folioOwnerKeypair.publicKey)
+          : folioOwnerKeypair.publicKey
+      );
     }
 
     for (const mint of MINTS_2022) {
@@ -340,7 +369,10 @@ describe("Bankrun - Folio basket", () => {
         context,
         mint.publicKey,
         1_000,
-        folioOwnerKeypair.publicKey,
+        // Mint to only the user pending basket ATA if the flag is set
+        withAmountsInUserPendingBasketATA
+          ? getUserPendingBasketPDA(folioPDA, folioOwnerKeypair.publicKey)
+          : folioOwnerKeypair.publicKey,
         undefined,
         TOKEN_2022_PROGRAM_ID
       );
@@ -493,6 +525,7 @@ describe("Bankrun - Folio basket", () => {
             remainingAccounts,
             expectedInitialBalanceSharesChange,
             expectedTokenBalanceChanges,
+            withAmountsInUserPendingBasketATA,
             folioStatus,
             addMintExtension,
           } = {
@@ -505,7 +538,11 @@ describe("Bankrun - Folio basket", () => {
           let currentTime: BN;
 
           before(async () => {
-            await initBaseCase(folioStatus);
+            await initBaseCase(
+              folioStatus,
+              undefined,
+              withAmountsInUserPendingBasketATA
+            );
 
             if (alreadyIncludedTokens.length > 0) {
               await createAndSetFolioBasket(
@@ -525,7 +562,14 @@ describe("Bankrun - Folio basket", () => {
                 folioTokenMint.publicKey,
                 ...MINTS.map((mint) => mint.publicKey),
               ],
-              [folioOwnerKeypair.publicKey]
+              withAmountsInUserPendingBasketATA
+                ? [
+                    getUserPendingBasketPDA(
+                      folioPDA,
+                      folioOwnerKeypair.publicKey
+                    ),
+                  ]
+                : [folioOwnerKeypair.publicKey]
             );
 
             if (addMintExtension) {
@@ -546,6 +590,7 @@ describe("Bankrun - Folio basket", () => {
               folioTokenMint.publicKey,
 
               true,
+              withAmountsInUserPendingBasketATA,
               await remainingAccounts(),
               tokens.length > 0 &&
                 tokens[0].mint.equals(MINTS_2022[0].publicKey)
@@ -566,11 +611,6 @@ describe("Bankrun - Folio basket", () => {
               if (expectedInitialBalanceSharesChange.gt(new BN(0))) {
                 const folio = await programFolio.account.folio.fetch(folioPDA);
                 assert.equal(folio.status, FolioStatus.Initialized);
-                console.log(
-                  "folio.initializedAt",
-                  folio.initializedAt.toString()
-                );
-                console.log("currentTime", currentTime.toString());
                 TestHelper.assertTime(
                   folio.initializedAt,
                   new BN(currentTime.toString())
@@ -633,7 +673,14 @@ describe("Bankrun - Folio basket", () => {
                   folioTokenMint.publicKey,
                   ...MINTS.map((mint) => mint.publicKey),
                 ],
-                [folioOwnerKeypair.publicKey],
+                withAmountsInUserPendingBasketATA
+                  ? [
+                      getUserPendingBasketPDA(
+                        folioPDA,
+                        folioOwnerKeypair.publicKey
+                      ),
+                    ]
+                  : [folioOwnerKeypair.publicKey],
                 [
                   expectedInitialBalanceSharesChange,
                   ...expectedTokenBalanceChanges,

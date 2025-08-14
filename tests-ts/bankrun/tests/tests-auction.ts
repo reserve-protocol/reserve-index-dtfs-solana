@@ -723,6 +723,7 @@ describe("Bankrun - Auction", () => {
               const auction = await programFolio.account.auction.fetch(
                 getAuctionPDA(folioPDA, rebalanceNonce, auctionId)
               );
+              assert.equal(auction.folio.equals(folioPDA), true);
 
               assert.equal(auctionEnds.endTime.eq(auction.end), true);
               assert.equal(
@@ -945,6 +946,7 @@ describe("Bankrun - Auction", () => {
               const auction = await programFolio.account.auction.fetch(
                 getAuctionPDA(folioPDA, rebalanceNonce, auctionId)
               );
+              assert.equal(auction.folio.equals(folioPDA), true);
 
               assert.equal(auctionEnds.endTime.eq(auction.end), true);
               assert.equal(

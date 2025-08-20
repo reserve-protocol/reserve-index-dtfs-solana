@@ -15,7 +15,8 @@ env:
 
 jobs:
   setup-tools:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    container: ubuntu:24.04
     steps:
       - name: Cache Solana and Anchor
         id: cache-check
@@ -27,6 +28,11 @@ jobs:
             ~/.cargo/bin/avm
             ~/.avm
           key: ${{ runner.os }}-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y build-essential libssl-dev pkg-config libudev-dev
 
       - name: Install Solana
         if: steps.cache-check.outputs.cache-hit != 'true'
@@ -41,7 +47,8 @@ jobs:
           cargo install --git https://github.com/coral-xyz/anchor --tag v${{ env.ANCHOR_VERSION }} anchor-cli
 
   lint:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    container: ubuntu:24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -62,7 +69,8 @@ jobs:
 
   build-dependencies:
     needs: setup-tools
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    container: ubuntu:24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -133,7 +141,8 @@ jobs:
 
   unit-tests:
     needs: [build-dependencies, setup-tools]
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    container: ubuntu:24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -193,7 +202,8 @@ jobs:
 
   integration-tests:
     needs: [build-dependencies, setup-tools]
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    container: ubuntu:24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4

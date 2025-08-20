@@ -13,6 +13,10 @@
 //! * `accrue_rewards` - Accrue rewards to a token, meaning updating accrued rewards.
 #![allow(unexpected_cfgs)]
 #![allow(clippy::doc_overindented_list_items)]
+#![allow(
+    deprecated,
+    reason = "Anchor internally calls AccountInfo::realloc (see PR #3803)"
+)]
 use anchor_lang::prelude::*;
 
 use instructions::*;
@@ -25,8 +29,6 @@ pub mod utils;
 
 declare_id!("7GiMvNDHVY8PXWQLHjSf1REGKpiDsVzRr4p7Y3xGbSuf");
 
-// This deprecation is in anchor-lang code and there is PR for this
-// https://github.com/solana-foundation/anchor/pull/3803
 #[program]
 pub mod rewards {
 

@@ -15,6 +15,10 @@
 //!
 #![allow(unexpected_cfgs)]
 #![allow(clippy::doc_overindented_list_items)]
+#![allow(
+    deprecated,
+    reason = "Anchor internally calls AccountInfo::realloc (see PR #3803)"
+)]
 use anchor_lang::prelude::*;
 
 use instructions::*;
@@ -31,6 +35,7 @@ declare_id!("RsHWkAsrWvntjhWgMT1uBLJJea9TSjDhsx8j3DHVDEv");
 
 // This deprecation is in anchor-lang code and there is PR for this
 // https://github.com/solana-foundation/anchor/pull/3803
+#[allow(deprecated)]
 #[program]
 pub mod folio_admin {
 

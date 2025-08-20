@@ -15,8 +15,7 @@ env:
 
 jobs:
   setup-tools:
-    runs-on: self-hosted
-    container: ubuntu:24.04
+    runs-on: ubuntu-latest
     steps:
       - name: Cache Solana and Anchor
         id: cache-check
@@ -31,8 +30,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          apt-get update
-          apt-get install -y build-essential libssl-dev pkg-config libudev-dev
+          sudo apt-get update
+          sudo apt-get install -y build-essential libssl-dev pkg-config libudev-dev
 
       - name: Install Solana
         if: steps.cache-check.outputs.cache-hit != 'true'
@@ -47,8 +46,7 @@ jobs:
           cargo install --git https://github.com/coral-xyz/anchor --tag v${{ env.ANCHOR_VERSION }} anchor-cli
 
   lint:
-    runs-on: self-hosted
-    container: ubuntu:24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -69,8 +67,7 @@ jobs:
 
   build-dependencies:
     needs: setup-tools
-    runs-on: self-hosted
-    container: ubuntu:24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -141,8 +138,7 @@ jobs:
 
   unit-tests:
     needs: [build-dependencies, setup-tools]
-    runs-on: self-hosted
-    container: ubuntu:24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -202,8 +198,7 @@ jobs:
 
   integration-tests:
     needs: [build-dependencies, setup-tools]
-    runs-on: self-hosted
-    container: ubuntu:24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -216,9 +211,6 @@ jobs:
       - name: Install npm dependencies
         run: |
           npm install
-          npm install @metaplex-foundation/amman 
-          npm install -g @metaplex-foundation/amman
-          npx amman --version  # Verify installation
 
       - name: Restore cached tools
         uses: actions/cache@v4

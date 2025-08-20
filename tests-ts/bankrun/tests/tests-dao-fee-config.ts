@@ -1,14 +1,9 @@
-import { BN, Program } from "@coral-xyz/anchor";
-import { BankrunProvider } from "anchor-bankrun";
+import { BN, Program, Provider } from "@coral-xyz/anchor";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import {
-  BanksClient,
-  BanksTransactionResultWithMeta,
-  ProgramTestContext,
-} from "solana-bankrun";
 import {
   airdrop,
   assertError,
+  BanksTransactionResultWithMeta,
   getConnectors,
   travelFutureSlot,
 } from "../bankrun-program-helper";
@@ -34,6 +29,7 @@ import { FolioAdmin } from "../../../target/types/folio_admin";
 import { MAX_DAO_FEE, MAX_FEE_FLOOR } from "../../../utils/constants";
 import { getOrCreateAtaAddress, initToken } from "../bankrun-token-helper";
 import { Folio } from "../../../target/types/folio";
+import { LiteSVM } from "litesvm";
 
 /**
  * Tests for DAO fee configuration functionality, including:
@@ -45,9 +41,9 @@ import { Folio } from "../../../target/types/folio";
  */
 
 describe("Bankrun - Dao / Folio Fee Config", () => {
-  let context: ProgramTestContext;
-  let provider: BankrunProvider;
-  let banksClient: BanksClient;
+  let context: LiteSVM;
+  let provider: Provider;
+  let banksClient: LiteSVM;
 
   let programFolioAdmin: Program<FolioAdmin>;
   let programFolio: Program<Folio>;
@@ -135,7 +131,7 @@ describe("Bankrun - Dao / Folio Fee Config", () => {
     ({ keys, programFolioAdmin, programFolio, provider, context } =
       await getConnectors());
 
-    banksClient = context.banksClient;
+    banksClient = context;
 
     payerKeypair = provider.wallet.payer;
 

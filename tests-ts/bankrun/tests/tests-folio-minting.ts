@@ -1,11 +1,5 @@
-import { BN, Program } from "@coral-xyz/anchor";
-import { BankrunProvider } from "anchor-bankrun";
+import { BN, Program, Provider } from "@coral-xyz/anchor";
 import { AccountMeta, Keypair, PublicKey } from "@solana/web3.js";
-import {
-  BanksClient,
-  BanksTransactionResultWithMeta,
-  ProgramTestContext,
-} from "solana-bankrun";
 
 import {
   TokenAmount,
@@ -40,6 +34,7 @@ import {
   airdrop,
   assertError,
   assertPreTransactionError,
+  BanksTransactionResultWithMeta,
   buildExpectedArray,
   getConnectors,
   travelFutureSlot,
@@ -61,6 +56,7 @@ import {
 } from "../bankrun-general-tests-helper";
 import * as assert from "assert";
 import { FolioAdmin } from "../../../target/types/folio_admin";
+import { LiteSVM } from "litesvm";
 
 /**
  * Tests for folio token minting functionality, including:
@@ -72,9 +68,9 @@ import { FolioAdmin } from "../../../target/types/folio_admin";
  */
 
 describe("Bankrun - Folio Minting", () => {
-  let context: ProgramTestContext;
-  let provider: BankrunProvider;
-  let banksClient: BanksClient;
+  let context: LiteSVM;
+  let provider: Provider;
+  let banksClient: LiteSVM;
 
   let programFolioAdmin: Program<FolioAdmin>;
   let programFolio: Program<Folio>;
@@ -127,6 +123,7 @@ describe("Bankrun - Folio Minting", () => {
     expectedFeeRecipientShares: BN;
     expectedTokenBalanceChanges: BN[];
     useUserPendingBasketAtas: boolean;
+    folioMintedTokensButNotInBasket: FolioTokenAmount[];
   } = {
     alreadyIncludedTokens: [],
     tokens: [],
@@ -149,6 +146,7 @@ describe("Bankrun - Folio Minting", () => {
     expectedFeeRecipientShares: new BN(0),
     expectedTokenBalanceChanges: Array(MINTS.length).fill(new BN(0)),
     useUserPendingBasketAtas: false,
+    folioMintedTokensButNotInBasket: [],
   };
 
   const TEST_CASES_ADD_TO_PENDING_BASKET = [
@@ -292,6 +290,9 @@ describe("Bankrun - Folio Minting", () => {
       expectedError: null,
       folioBasketTokens: [
         new FolioTokenAmount(MINTS[0].publicKey, new BN(1_000_000)),
+      ],
+      folioMintedTokensButNotInBasket: [
+        new FolioTokenAmount(MINTS[1].publicKey, new BN(1_000_000)),
       ],
       alreadyIncludedTokens: [
         new TokenAmount(MINTS[1].publicKey, new BN(1_000_000), new BN(0)),
@@ -607,11 +608,11 @@ describe("Bankrun - Folio Minting", () => {
     );
   }
 
-  before(async () => {
+  beforeEach(async () => {
     ({ keys, programFolioAdmin, programFolio, provider, context } =
       await getConnectors());
 
-    banksClient = context.banksClient;
+    banksClient = context;
 
     payerKeypair = provider.wallet.payer;
 
@@ -760,7 +761,7 @@ describe("Bankrun - Folio Minting", () => {
           let basketBefore: FolioTokenAmount[] = [];
           let preTxnError: any;
 
-          before(async () => {
+          beforeEach(async () => {
             preTxnError = null;
 
             await initBaseCase(folioBasketTokens);
@@ -971,6 +972,7 @@ describe("Bankrun - Folio Minting", () => {
             isPreTransactionValidated,
             expectedFolioTokenBalanceChange,
             expectedTokenBalanceChanges,
+            folioMintedTokensButNotInBasket,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
@@ -982,7 +984,7 @@ describe("Bankrun - Folio Minting", () => {
           let preTxnError: any;
           let basketBefore: FolioTokenAmount[] = [];
 
-          before(async () => {
+          beforeEach(async () => {
             preTxnError = null;
 
             await initBaseCase(folioBasketTokens);
@@ -1011,6 +1013,9 @@ describe("Bankrun - Folio Minting", () => {
               ],
               [userKeypair.publicKey, folioPDA]
             );
+            for (const token of folioMintedTokensButNotInBasket) {
+              mintToken(context, token.mint, token.amount.toNumber(), folioPDA);
+            }
 
             try {
               txnResult = await removeFromPendingBasket<true>(
@@ -1175,7 +1180,7 @@ describe("Bankrun - Folio Minting", () => {
 
           let preTxnError: any;
 
-          before(async () => {
+          beforeEach(async () => {
             preTxnError = null;
 
             await initBaseCase(

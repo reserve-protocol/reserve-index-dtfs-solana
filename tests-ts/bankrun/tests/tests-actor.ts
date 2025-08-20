@@ -1,18 +1,13 @@
-import { Program } from "@coral-xyz/anchor";
+import { Program, Provider } from "@coral-xyz/anchor";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { Folio } from "../../../target/types/folio";
-import { BankrunProvider } from "anchor-bankrun";
-import {
-  BanksClient,
-  BanksTransactionResultWithMeta,
-  ProgramTestContext,
-} from "solana-bankrun";
 
 import { getActorPDA, getFolioPDA } from "../../../utils/pda-helper";
 
 import {
   airdrop,
   assertError,
+  BanksTransactionResultWithMeta,
   getConnectors,
   travelFutureSlot,
 } from "../bankrun-program-helper";
@@ -27,6 +22,8 @@ import {
 } from "../bankrun-general-tests-helper";
 import { addOrUpdateActor, removeActor } from "../bankrun-ix-helper";
 import * as assert from "assert";
+import { LiteSVM } from "litesvm";
+import { TestHelper } from "../../../utils/test-helper";
 
 /**
  * Tests for actor-related functionality in the Folio program, including:
@@ -37,9 +34,8 @@ import * as assert from "assert";
  */
 
 describe("Bankrun - Actor", () => {
-  let context: ProgramTestContext;
-  let provider: BankrunProvider;
-  let banksClient: BanksClient;
+  let context: LiteSVM;
+  let provider: Provider;
 
   let programFolio: Program<Folio>;
 
@@ -118,18 +114,15 @@ describe("Bankrun - Actor", () => {
     );
   }
 
-  before(async () => {
-    ({ keys, programFolio, provider, context } = await getConnectors());
-
-    banksClient = context.banksClient;
-
-    payerKeypair = provider.wallet.payer;
+  beforeEach(async () => {
+    ({ keys, programFolio, context, provider } = await getConnectors());
 
     adminKeypair = Keypair.fromSecretKey(Uint8Array.from(keys.admin));
 
     folioOwnerKeypair = Keypair.generate();
     folioTokenMint = Keypair.generate();
     newActorKeypair = Keypair.generate();
+    payerKeypair = provider.wallet.payer;
 
     await airdrop(context, payerKeypair.publicKey, 1000);
     await airdrop(context, adminKeypair.publicKey, 1000);
@@ -137,16 +130,14 @@ describe("Bankrun - Actor", () => {
     await airdrop(context, newActorKeypair.publicKey, 1000);
 
     folioPDA = getFolioPDA(folioTokenMint.publicKey);
-  });
 
-  beforeEach(async () => {
     await initBaseCase();
   });
 
   describe("General Tests", () => {
     const generalIxInitOrUpdateActor = () =>
       addOrUpdateActor<true>(
-        banksClient,
+        context,
         programFolio,
         folioOwnerKeypair,
         folioPDA,
@@ -156,7 +147,7 @@ describe("Bankrun - Actor", () => {
 
     const generalIxRemoveActor = () =>
       removeActor<true>(
-        banksClient,
+        context,
         programFolio,
         folioOwnerKeypair,
         folioPDA,
@@ -207,7 +198,7 @@ describe("Bankrun - Actor", () => {
           let txnResult: BanksTransactionResultWithMeta;
           const { currentRole, newRole } = { ...restOfParams };
 
-          before(async () => {
+          beforeEach(async () => {
             await initBaseCase();
 
             if (currentRole) {
@@ -223,7 +214,7 @@ describe("Bankrun - Actor", () => {
             await travelFutureSlot(context);
 
             txnResult = await addOrUpdateActor<true>(
-              banksClient,
+              context,
               programFolio,
               folioOwnerKeypair,
               folioPDA,
@@ -238,7 +229,7 @@ describe("Bankrun - Actor", () => {
             });
           } else {
             it("should succeed", async () => {
-              await travelFutureSlot(context);
+              travelFutureSlot(context);
 
               const newActor = await programFolio.account.actor.fetch(
                 getActorPDA(newActorKeypair.publicKey, folioPDA)
@@ -266,7 +257,7 @@ describe("Bankrun - Actor", () => {
             ...restOfParams,
           };
 
-          before(async () => {
+          beforeEach(async () => {
             await initBaseCase();
 
             if (currentRole) {
@@ -278,11 +269,9 @@ describe("Bankrun - Actor", () => {
                 currentRole
               );
             }
-
-            await travelFutureSlot(context);
-
+            travelFutureSlot(context);
             txnResult = await removeActor<true>(
-              banksClient,
+              context,
               programFolio,
               folioOwnerKeypair,
               folioPDA,
@@ -298,13 +287,13 @@ describe("Bankrun - Actor", () => {
             });
           } else {
             it("should succeed", async () => {
-              await travelFutureSlot(context);
+              travelFutureSlot(context);
 
               if (accountIsClosed) {
-                const actorAccount = await context.banksClient.getAccount(
+                const actorAccount = context.getAccount(
                   getActorPDA(newActorKeypair.publicKey, folioPDA)
                 );
-                assert.equal(actorAccount, null);
+                TestHelper.assertAccountIsClosed(actorAccount);
                 return;
               }
 

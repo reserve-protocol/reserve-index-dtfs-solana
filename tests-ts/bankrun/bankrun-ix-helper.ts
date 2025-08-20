@@ -1,4 +1,7 @@
-import { createAndProcessTransaction } from "./bankrun-program-helper";
+import {
+  BanksTransactionResultWithMeta,
+  createAndProcessTransaction,
+} from "./bankrun-program-helper";
 import {
   getActorPDA,
   getDAOFeeConfigPDA,
@@ -24,11 +27,7 @@ import {
 import { SystemProgram } from "@solana/web3.js";
 import { BN, Program } from "@coral-xyz/anchor";
 import { Keypair } from "@solana/web3.js";
-import {
-  BanksClient,
-  BanksTransactionResultWithMeta,
-  ProgramTestContext,
-} from "solana-bankrun";
+import { LiteSVM } from "litesvm";
 import { ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { Folio } from "../../target/types/folio";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
@@ -51,8 +50,9 @@ import {
 } from "./bankrun-account-helper";
 import { getOrCreateAtaAddress } from "./bankrun-token-helper";
 import { FolioAdmin } from "../../target/types/folio_admin";
-import { SplGovernance } from "governance-idl-sdk";
+// import { SplGovernance } from "governance-idl-sdk";
 import { Rewards } from "../../target/types/rewards";
+import { SplGovernance } from "governance-idl-sdk";
 
 /**
 Helper functions to create the instructions for calling the different programs.
@@ -70,7 +70,7 @@ to the transaction.
 Folio Admin
 */
 export async function setDaoFeeConfig<T extends boolean = true>(
-  client: BanksClient,
+  client: LiteSVM,
   programFolioAdmin: Program<FolioAdmin>,
   adminKeypair: Keypair,
   feeRecipient: PublicKey,
@@ -100,7 +100,7 @@ export async function setDaoFeeConfig<T extends boolean = true>(
 }
 
 export async function setFolioFeeConfig<T extends boolean = true>(
-  client: BanksClient,
+  client: LiteSVM,
   programFolioAdmin: Program<FolioAdmin>,
   adminKeypair: Keypair,
   folio: PublicKey,
@@ -143,7 +143,7 @@ export async function setFolioFeeConfig<T extends boolean = true>(
 }
 
 export async function initProgramRegistrar<T extends boolean = true>(
-  client: BanksClient,
+  client: LiteSVM,
   programFolioAdmin: Program<FolioAdmin>,
   adminKeypair: Keypair,
   folioAcceptedProgramId: PublicKey,
@@ -173,7 +173,7 @@ export async function initProgramRegistrar<T extends boolean = true>(
 }
 
 export async function updateProgramRegistrar<T extends boolean = true>(
-  client: BanksClient,
+  client: LiteSVM,
   programFolioAdmin: Program<FolioAdmin>,
   adminKeypair: Keypair,
   folioProgramIds: PublicKey[],
@@ -205,7 +205,7 @@ export async function updateProgramRegistrar<T extends boolean = true>(
 Folio
 */
 export async function initFolio<T extends boolean = true>(
-  client: BanksClient,
+  client: LiteSVM,
   programFolio: Program<Folio>,
   folioOwner: Keypair,
   folioTokenMint: Keypair,
@@ -265,8 +265,8 @@ export async function initFolio<T extends boolean = true>(
 }
 
 export async function updateFolio<T extends boolean = true>(
-  context: ProgramTestContext,
-  client: BanksClient,
+  context: LiteSVM,
+  client: LiteSVM,
   programFolio: Program<Folio>,
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
@@ -326,7 +326,7 @@ export async function updateFolio<T extends boolean = true>(
 }
 
 export async function addOrUpdateActor<T extends boolean = true>(
-  client: BanksClient,
+  client: LiteSVM,
   programFolio: Program<Folio>,
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
@@ -365,7 +365,7 @@ export async function addOrUpdateActor<T extends boolean = true>(
 }
 
 export async function removeActor<T extends boolean = true>(
-  client: BanksClient,
+  client: LiteSVM,
   programFolio: Program<Folio>,
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
@@ -405,8 +405,8 @@ export async function removeActor<T extends boolean = true>(
 }
 
 export async function addToBasket<T extends boolean = true>(
-  context: ProgramTestContext,
-  client: BanksClient,
+  context: LiteSVM,
+  client: LiteSVM,
   programFolio: Program<Folio>,
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
@@ -475,7 +475,7 @@ export async function addToBasket<T extends boolean = true>(
 }
 
 export async function removeFromBasket<T extends boolean = true>(
-  client: BanksClient,
+  client: LiteSVM,
   programFolio: Program<Folio>,
   folioOwnerKeypair: Keypair,
   folio: PublicKey,
@@ -513,8 +513,8 @@ export async function removeFromBasket<T extends boolean = true>(
 }
 
 export async function addToPendingBasket<T extends boolean = true>(
-  context: ProgramTestContext,
-  client: BanksClient,
+  context: LiteSVM,
+  client: LiteSVM,
   programFolio: Program<Folio>,
   userKeypair: Keypair,
   folio: PublicKey,
@@ -560,8 +560,8 @@ export async function addToPendingBasket<T extends boolean = true>(
 }
 
 export async function removeFromPendingBasket<T extends boolean = true>(
-  context: ProgramTestContext,
-  client: BanksClient,
+  context: LiteSVM,
+  client: LiteSVM,
   programFolio: Program<Folio>,
   userKeypair: Keypair,
   folio: PublicKey,
@@ -606,8 +606,8 @@ export async function removeFromPendingBasket<T extends boolean = true>(
 }
 
 export async function mintFolioToken<T extends boolean = true>(
-  context: ProgramTestContext,
-  client: BanksClient,
+  context: LiteSVM,
+  client: LiteSVM,
   programFolio: Program<Folio>,
   userKeypair: Keypair,
   folio: PublicKey,
@@ -648,8 +648,8 @@ export async function mintFolioToken<T extends boolean = true>(
 }
 
 export async function burnFolioToken<T extends boolean = true>(
-  context: ProgramTestContext,
-  client: BanksClient,
+  context: LiteSVM,
+  client: LiteSVM,
   programFolio: Program<Folio>,
   userKeypair: Keypair,
   folio: PublicKey,
@@ -689,8 +689,8 @@ export async function burnFolioToken<T extends boolean = true>(
 }
 
 export async function redeemFromPendingBasket<T extends boolean = true>(
-  context: ProgramTestContext,
-  client: BanksClient,
+  context: LiteSVM,
+  client: LiteSVM,
   programFolio: Program<Folio>,
   userKeypair: Keypair,
   folio: PublicKey,
@@ -735,7 +735,7 @@ export async function redeemFromPendingBasket<T extends boolean = true>(
 export async function transferFromUserPendingBasketAta<
   T extends boolean = true
 >(
-  client: BanksClient,
+  client: LiteSVM,
   programFolio: Program<Folio>,
   userKeypair: Keypair,
   folio: PublicKey,
@@ -766,7 +766,7 @@ export async function transferFromUserPendingBasketAta<
 }
 
 export async function pokeFolio<T extends boolean = true>(
-  client: BanksClient,
+  client: LiteSVM,
   programFolio: Program<Folio>,
   userKeypair: Keypair,
   folioPDA: PublicKey,
@@ -797,7 +797,7 @@ export async function pokeFolio<T extends boolean = true>(
 }
 
 export async function distributeFees<T extends boolean = true>(
-  client: BanksClient,
+  client: LiteSVM,
   programFolio: Program<Folio>,
   userKeypair: Keypair,
   folio: PublicKey,
@@ -838,7 +838,7 @@ export async function distributeFees<T extends boolean = true>(
 }
 
 export async function crankFeeDistribution<T extends boolean = true>(
-  client: BanksClient,
+  client: LiteSVM,
   programFolio: Program<Folio>,
   userKeypair: Keypair,
   folio: PublicKey,
@@ -891,7 +891,7 @@ export async function crankFeeDistribution<T extends boolean = true>(
 }
 
 export async function startRebalance<T extends boolean = true>(
-  client: BanksClient,
+  client: LiteSVM,
   programFolio: Program<Folio>,
   rebalanceManagerKeypair: Keypair,
   folio: PublicKey,
@@ -944,7 +944,7 @@ export async function startRebalance<T extends boolean = true>(
 }
 
 export async function addRebalanceDetails<T extends boolean = true>(
-  client: BanksClient,
+  client: LiteSVM,
   programFolio: Program<Folio>,
   rebalanceManagerKeypair: Keypair,
   folio: PublicKey,
@@ -988,7 +988,7 @@ export async function addRebalanceDetails<T extends boolean = true>(
 }
 
 export async function openAuction<T extends boolean = true>(
-  client: BanksClient,
+  client: LiteSVM,
   programFolio: Program<Folio>,
   auctionLauncherKeypair: Keypair,
   folio: PublicKey,
@@ -1055,7 +1055,7 @@ export async function openAuction<T extends boolean = true>(
 }
 
 export async function openAuctionPermissionless<T extends boolean = true>(
-  client: BanksClient,
+  client: LiteSVM,
   programFolio: Program<Folio>,
   userKeypair: Keypair,
   folio: PublicKey,
@@ -1105,7 +1105,7 @@ export async function openAuctionPermissionless<T extends boolean = true>(
 }
 
 export async function killAuction<T extends boolean = true>(
-  client: BanksClient,
+  client: LiteSVM,
   programFolio: Program<Folio>,
   auctionActorKeypair: Keypair,
   folio: PublicKey,
@@ -1141,8 +1141,8 @@ export async function killAuction<T extends boolean = true>(
 }
 
 export async function bid<T extends boolean = true>(
-  context: ProgramTestContext,
-  client: BanksClient,
+  context: LiteSVM,
+  client: LiteSVM,
   programFolio: Program<Folio>,
   bidderKeypair: Keypair,
   folio: PublicKey,
@@ -1228,8 +1228,8 @@ export async function bid<T extends boolean = true>(
 }
 
 export async function startFolioMigration<T extends boolean = true>(
-  context: ProgramTestContext,
-  client: BanksClient,
+  context: LiteSVM,
+  client: LiteSVM,
   programFolio: Program<Folio>,
   folioOwnerKeypair: Keypair,
   folioTokenMint: PublicKey,
@@ -1271,8 +1271,8 @@ export async function startFolioMigration<T extends boolean = true>(
 }
 
 export async function migrateFolioTokens<T extends boolean = true>(
-  context: ProgramTestContext,
-  client: BanksClient,
+  context: LiteSVM,
+  client: LiteSVM,
   programFolio: Program<Folio>,
   userKeypair: Keypair,
   oldFolio: PublicKey,
@@ -1330,7 +1330,7 @@ Rewards instructions
 Expected to be called via the spl governance program
 */
 export async function setRewardsAdmin<T extends boolean = true>(
-  client: BanksClient,
+  client: LiteSVM,
   programRewards: Program<Rewards>,
   executor: Keypair,
   // Is a governance account
@@ -1363,8 +1363,8 @@ export async function setRewardsAdmin<T extends boolean = true>(
 }
 
 export async function addRewardToken<T extends boolean = true>(
-  context: ProgramTestContext,
-  client: BanksClient,
+  context: LiteSVM,
+  client: LiteSVM,
   programRewards: Program<Rewards>,
   executor: Keypair,
   // Is a governance account
@@ -1412,7 +1412,7 @@ export async function addRewardToken<T extends boolean = true>(
 Expected to be called via the spl governance program
 */
 export async function removeRewardToken<T extends boolean = true>(
-  client: BanksClient,
+  client: LiteSVM,
   programRewards: Program<Rewards>,
   executor: Keypair,
   // Is a governance account
@@ -1457,7 +1457,7 @@ export async function removeRewardToken<T extends boolean = true>(
 Expected to be called via the spl governance program
 */
 export async function initOrSetRewardRatio<T extends boolean = true>(
-  client: BanksClient,
+  client: LiteSVM,
   programRewards: Program<Rewards>,
   executor: Keypair,
   // Is a governance account
@@ -1498,7 +1498,7 @@ export async function initOrSetRewardRatio<T extends boolean = true>(
 }
 
 export async function accrueRewards<T extends boolean = true>(
-  client: BanksClient,
+  client: LiteSVM,
   programRewards: Program<Rewards>,
   callerKeypair: Keypair,
   realm: PublicKey,
@@ -1517,7 +1517,6 @@ export async function accrueRewards<T extends boolean = true>(
   const accrueRewards = await programRewards.methods
     .accrueRewards()
     .accountsPartial({
-      systemProgram: SystemProgram.programId,
       tokenProgram: TOKEN_PROGRAM_ID,
       caller: callerKeypair.publicKey,
       realm,
@@ -1542,8 +1541,8 @@ export async function accrueRewards<T extends boolean = true>(
 }
 
 export async function claimRewards<T extends boolean = true>(
-  context: ProgramTestContext,
-  client: BanksClient,
+  context: LiteSVM,
+  client: LiteSVM,
   programRewards: Program<Rewards>,
   userKeypair: Keypair,
   realm: PublicKey,
@@ -1595,7 +1594,6 @@ export async function claimRewards<T extends boolean = true>(
 /*
 Governance instructions
 */
-
 function getGovernanceClient(programRewards: Program<Rewards>) {
   return new SplGovernance(
     programRewards.provider.connection as any,
@@ -1604,7 +1602,7 @@ function getGovernanceClient(programRewards: Program<Rewards>) {
 }
 
 async function buildGovernanceAccrueRewardsRemainingAccounts(
-  context: ProgramTestContext,
+  context: LiteSVM,
   userKeypair: Keypair,
   realm: PublicKey,
   governanceTokenMint: PublicKey,
@@ -1661,7 +1659,7 @@ async function buildGovernanceAccrueRewardsRemainingAccounts(
 }
 
 export async function depositLiquidityToGovernance(
-  context: ProgramTestContext,
+  context: LiteSVM,
   programRewards: Program<Rewards>,
   userKeypair: Keypair,
   realm: PublicKey,
@@ -1693,14 +1691,14 @@ export async function depositLiquidityToGovernance(
     ))
   );
 
-  return createAndProcessTransaction(context.banksClient, userKeypair, [
+  return createAndProcessTransaction(context, userKeypair, [
     ...getComputeLimitInstruction(700_000),
     depositIx,
   ]);
 }
 
 export async function withdrawLiquidityFromGovernance(
-  context: ProgramTestContext,
+  context: LiteSVM,
   programRewards: Program<Rewards>,
   userKeypair: Keypair,
   realm: PublicKey,
@@ -1728,7 +1726,7 @@ export async function withdrawLiquidityFromGovernance(
     ))
   );
 
-  return createAndProcessTransaction(context.banksClient, userKeypair, [
+  return createAndProcessTransaction(context, userKeypair, [
     ...getComputeLimitInstruction(800_000),
     withdrawIx,
   ]);

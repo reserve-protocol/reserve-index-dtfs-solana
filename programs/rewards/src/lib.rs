@@ -25,6 +25,8 @@ pub mod utils;
 
 declare_id!("7GiMvNDHVY8PXWQLHjSf1REGKpiDsVzRr4p7Y3xGbSuf");
 
+// This deprecation is in anchor-lang code and there is PR for this
+// https://github.com/solana-foundation/anchor/pull/3803
 #[program]
 pub mod rewards {
 

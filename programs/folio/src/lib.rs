@@ -61,6 +61,8 @@ declare_id!("n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG");
 #[cfg(not(feature = "dev"))]
 declare_id!("DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev");
 
+// This deprecation is in anchor-lang code and there is PR for this
+// https://github.com/solana-foundation/anchor/pull/3803
 #[program]
 pub mod folio {
 

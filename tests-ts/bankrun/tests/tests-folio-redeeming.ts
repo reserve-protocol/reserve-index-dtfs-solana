@@ -1,11 +1,5 @@
-import { BN, Program } from "@coral-xyz/anchor";
-import { BankrunProvider } from "anchor-bankrun";
+import { BN, Program, Provider } from "@coral-xyz/anchor";
 import { AccountMeta, Keypair, PublicKey } from "@solana/web3.js";
-import {
-  BanksClient,
-  BanksTransactionResultWithMeta,
-  ProgramTestContext,
-} from "solana-bankrun";
 
 import {
   TokenAmount,
@@ -39,6 +33,7 @@ import {
   airdrop,
   assertError,
   assertPreTransactionError,
+  BanksTransactionResultWithMeta,
   buildExpectedArray,
   getConnectors,
   travelFutureSlot,
@@ -65,6 +60,7 @@ import {
   TOKEN_PROGRAM_ID,
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
+import { LiteSVM } from "litesvm";
 
 /**
  * Tests for folio token redeeming functionality, including:
@@ -76,9 +72,9 @@ import {
  */
 
 describe("Bankrun - Folio redeeming", () => {
-  let context: ProgramTestContext;
-  let provider: BankrunProvider;
-  let banksClient: BanksClient;
+  let context: LiteSVM;
+  let provider: Provider;
+  let banksClient: LiteSVM;
 
   let programFolioAdmin: Program<FolioAdmin>;
   let programFolio: Program<Folio>;
@@ -474,11 +470,11 @@ describe("Bankrun - Folio redeeming", () => {
     );
   }
 
-  before(async () => {
+  beforeEach(async () => {
     ({ keys, programFolioAdmin, programFolio, provider, context } =
       await getConnectors());
 
-    banksClient = context.banksClient;
+    banksClient = context;
 
     payerKeypair = provider.wallet.payer;
 
@@ -568,7 +564,7 @@ describe("Bankrun - Folio redeeming", () => {
 
           let preTxnError: any;
 
-          before(async () => {
+          beforeEach(async () => {
             preTxnError = null;
 
             await initBaseCase(
@@ -778,7 +774,7 @@ describe("Bankrun - Folio redeeming", () => {
 
           let preTxnError: any;
 
-          before(async () => {
+          beforeEach(async () => {
             preTxnError = null;
 
             await initBaseCase(folioBasketTokens);
@@ -1014,7 +1010,7 @@ describe("Bankrun - Folio redeeming", () => {
             [];
           let preTxnError: any;
 
-          before(async () => {
+          beforeEach(async () => {
             preTxnError = null;
 
             await initBaseCase();

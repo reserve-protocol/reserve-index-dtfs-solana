@@ -6,6 +6,7 @@ use crate::{
 };
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::sysvar::instructions;
+use anchor_spl::metadata::mpl_token_metadata;
 use anchor_spl::token::Token;
 use anchor_spl::token_2022_extensions::token_metadata::token_metadata_update_authority;
 use anchor_spl::token_interface::spl_pod::optional_keys::OptionalNonZeroPubkey;
@@ -238,7 +239,7 @@ pub fn handler<'info>(
             CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
                 TokenMetadataUpdateAuthority {
-                    token_program_id: ctx.accounts.token_program.to_account_info(),
+                    program_id: ctx.accounts.token_program.to_account_info(),
                     metadata: ctx.accounts.folio_token_mint.to_account_info(),
                     current_authority: ctx.accounts.old_folio.to_account_info(),
                     new_authority: ctx.accounts.new_folio.to_account_info(),

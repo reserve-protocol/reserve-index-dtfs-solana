@@ -1,15 +1,11 @@
-import { BN, Program } from "@coral-xyz/anchor";
-import { BankrunProvider } from "anchor-bankrun";
+import { BN, Program, Provider } from "@coral-xyz/anchor";
 import { Keypair } from "@solana/web3.js";
 import { Folio } from "../../../target/types/folio";
-import {
-  BanksClient,
-  BanksTransactionResultWithMeta,
-  ProgramTestContext,
-} from "solana-bankrun";
+
 import {
   airdrop,
   assertError,
+  BanksTransactionResultWithMeta,
   getConnectors,
   travelFutureSlot,
 } from "../bankrun-program-helper";
@@ -24,6 +20,7 @@ import {
   MAX_PADDED_STRING_LENGTH,
 } from "../../../utils/constants";
 import { MAX_AUCTION_LENGTH } from "../../../utils/constants";
+import { LiteSVM } from "litesvm";
 
 /**
  * Tests for folio initialization functionality, including:
@@ -35,9 +32,9 @@ import { MAX_AUCTION_LENGTH } from "../../../utils/constants";
  */
 
 describe("Bankrun - Init Folio", () => {
-  let context: ProgramTestContext;
-  let provider: BankrunProvider;
-  let banksClient: BanksClient;
+  let context: LiteSVM;
+  let provider: Provider;
+  let banksClient: LiteSVM;
 
   let programFolio: Program<Folio>;
 
@@ -99,10 +96,10 @@ describe("Bankrun - Init Folio", () => {
     },
   ];
 
-  before(async () => {
+  beforeEach(async () => {
     ({ keys, programFolio, provider, context } = await getConnectors());
 
-    banksClient = context.banksClient;
+    banksClient = context;
 
     payerKeypair = provider.wallet.payer;
 
@@ -123,7 +120,7 @@ describe("Bankrun - Init Folio", () => {
         let txnResult: BanksTransactionResultWithMeta;
         let folioTokenMint: Keypair;
 
-        before(async () => {
+        beforeEach(async () => {
           folioTokenMint = Keypair.generate();
 
           txnResult = await initFolio<true>(

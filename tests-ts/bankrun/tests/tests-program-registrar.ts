@@ -1,14 +1,9 @@
-import { Program } from "@coral-xyz/anchor";
-import { BankrunProvider } from "anchor-bankrun";
+import { Program, Provider } from "@coral-xyz/anchor";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import {
-  BanksClient,
-  BanksTransactionResultWithMeta,
-  ProgramTestContext,
-} from "solana-bankrun";
 import {
   airdrop,
   assertError,
+  BanksTransactionResultWithMeta,
   buildExpectedArray,
   getConnectors,
   travelFutureSlot,
@@ -30,6 +25,7 @@ import {
 } from "../bankrun-general-tests-helper";
 import { FOLIO_PROGRAM_ID } from "../../../utils/constants";
 import { FolioAdmin } from "../../../target/types/folio_admin";
+import { LiteSVM } from "litesvm";
 
 /**
  * Tests for program registrar functionality, including:
@@ -40,9 +36,9 @@ import { FolioAdmin } from "../../../target/types/folio_admin";
  */
 
 describe("Bankrun - Program Registrar", () => {
-  let context: ProgramTestContext;
-  let provider: BankrunProvider;
-  let banksClient: BanksClient;
+  let context: LiteSVM;
+  let provider: Provider;
+  let banksClient: LiteSVM;
 
   let programFolioAdmin: Program<FolioAdmin>;
 
@@ -135,10 +131,10 @@ describe("Bankrun - Program Registrar", () => {
     },
   ];
 
-  before(async () => {
+  beforeEach(async () => {
     ({ keys, programFolioAdmin, provider, context } = await getConnectors());
 
-    banksClient = context.banksClient;
+    banksClient = context;
 
     payerKeypair = provider.wallet.payer;
 
@@ -194,7 +190,7 @@ describe("Bankrun - Program Registrar", () => {
           getKeypair,
         } = { ...DEFAULT_PARAMS, ...restOfParams };
 
-        before(async () => {
+        beforeEach(async () => {
           // Close the account so we can re-init as if it was new
           await closeAccount(context, getProgramRegistrarPDA());
 
@@ -240,7 +236,7 @@ describe("Bankrun - Program Registrar", () => {
           getKeypair,
         } = { ...DEFAULT_PARAMS, ...restOfParams };
 
-        before(async () => {
+        beforeEach(async () => {
           await createAndSetProgramRegistrar(
             context,
             programFolioAdmin,

@@ -1,12 +1,5 @@
-import { BN, Program } from "@coral-xyz/anchor";
-import { BankrunProvider } from "anchor-bankrun";
+import { BN, Program, Provider } from "@coral-xyz/anchor";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import {
-  BanksClient,
-  BanksTransactionResultWithMeta,
-  Clock,
-  ProgramTestContext,
-} from "solana-bankrun";
 
 import {
   createAndSetActor,
@@ -35,7 +28,12 @@ import {
   mintToken,
   resetTokenBalance,
 } from "../bankrun-token-helper";
-import { airdrop, assertError, getConnectors } from "../bankrun-program-helper";
+import {
+  airdrop,
+  assertError,
+  BanksTransactionResultWithMeta,
+  getConnectors,
+} from "../bankrun-program-helper";
 import { travelFutureSlot } from "../bankrun-program-helper";
 import {
   getFolioPDA,
@@ -56,6 +54,7 @@ import {
   setupGovernanceAccounts,
 } from "../bankrun-governance-helper";
 import { Rewards } from "../../../target/types/rewards";
+import { Clock, LiteSVM } from "litesvm";
 
 /**
  * This  file is specifically for the case where the governance program will call
@@ -65,9 +64,9 @@ import { Rewards } from "../../../target/types/rewards";
  * and the REWARDS program is called directly to accrue rewards.
  */
 describe("Bankrun - Governance Staking User", () => {
-  let context: ProgramTestContext;
-  let provider: BankrunProvider;
-  let banksClient: BanksClient;
+  let context: LiteSVM;
+  let provider: Provider;
+  let banksClient: LiteSVM;
 
   let programFolioAdmin: Program<FolioAdmin>;
   let programFolio: Program<Folio>;
@@ -199,7 +198,11 @@ describe("Bankrun - Governance Staking User", () => {
           userToClaimFor
         );
 
-        if (!(await banksClient.getAccount(userRewardInfoPDA))) {
+        const account = banksClient.getAccount(userRewardInfoPDA);
+        if (
+          account.owner.equals(PublicKey.default) &&
+          account.data.length == 0
+        ) {
           continue;
         }
 
@@ -371,7 +374,7 @@ describe("Bankrun - Governance Staking User", () => {
     );
   }
 
-  before(async () => {
+  beforeEach(async () => {
     ({
       keys,
       programFolioAdmin,
@@ -381,7 +384,7 @@ describe("Bankrun - Governance Staking User", () => {
       context,
     } = await getConnectors());
 
-    banksClient = context.banksClient;
+    banksClient = context;
 
     payerKeypair = provider.wallet.payer;
 
@@ -422,7 +425,7 @@ describe("Bankrun - Governance Staking User", () => {
           let rewardInfosBefore: RewardInfo[];
           let userRewardInfosBefore: UserRewardInfo[];
 
-          before(async () => {
+          beforeEach(async () => {
             const rewardInfosAlreadyThereToUse =
               await rewardInfosAlreadyThere();
 
@@ -432,7 +435,7 @@ describe("Bankrun - Governance Staking User", () => {
               userRewardInfosAlreadyThere
             );
 
-            currentClock = await context.banksClient.getClock();
+            currentClock = await context.getClock();
 
             await createAndSetFolio(
               context,

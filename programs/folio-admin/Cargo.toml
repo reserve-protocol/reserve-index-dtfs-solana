@@ -20,10 +20,10 @@ test = ["shared/test"]
 dev = ["shared/dev"]
 
 [dependencies]
-anchor-lang = { version = "=0.30.1", features = ["init-if-needed"] }
-anchor-spl = "=0.30.1"
-bytemuck = "=1.20.0"
-shared = { path = "../../shared" }
+anchor-lang = { workspace = true }
+anchor-spl = { workspace = true }
+bytemuck = { workspace = true }
+shared = { workspace = true }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }

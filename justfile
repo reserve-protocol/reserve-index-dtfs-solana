@@ -6,7 +6,6 @@ set dotenv-load := true
 set export
 
 export PROGRAMS_DIR := "tests-ts/programs"
-export RUSTUP_TOOLCHAIN := "nightly-2025-03-05"
 
 # Install Rust, Solana CLI, and Anchor with version checks
 install-tools:
@@ -15,8 +14,8 @@ install-tools:
     @if command -v cargo >/dev/null 2>&1; then \
         echo "Rust is already installed. Version: $(rustc --version)"; \
     else \
-        echo "Installing Rust nightly-2025-03-05"; \
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2025-03-05; \
+        echo "Installing Rust 1.86.0"; \
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.86.0; \
         source "$HOME/.cargo/env"; \
     fi
 
@@ -25,12 +24,12 @@ install-tools:
     @if command -v solana >/dev/null 2>&1; then \
         echo "Solana CLI is already installed. Version: $(solana --version)"; \
     else \
-        echo "Installing Solana v2.1.0"; \
+        echo "Installing Solana v2.3.0"; \
         sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"; \
         echo 'export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"' >> ~/.zshrc; \
     fi
-    @echo "Use Solana v2.1.0"
-    @agave-install init 2.1.0
+    @echo "Use Solana v2.3.0"
+    @agave-install init 2.3.0
 
     # Install Anchor
     @echo "Checking for Anchor..."
@@ -39,12 +38,12 @@ install-tools:
     else \
         echo "Installing Anchor..."; \
         cargo install --git https://github.com/coral-xyz/anchor avm --force; \
-        avm install 0.30.1; \
+        avm install 0.31.1; \
     fi
 
     # Setup Anchor version
-    @echo "Setting up Anchor version 0.30.1"
-    @avm use 0.30.1
+    @echo "Setting up Anchor version 0.31.1"
+    @avm use 0.31.1
 
     # Verification
     @echo "Installation complete! Please restart your terminal or run 'source ~/.bashrc' (or ~/.zshrc if you use zsh)"
@@ -166,10 +165,9 @@ test-amman skip_build="":
     
     # Kill existing processes
     @killall solana-test-validator || true
-    @pkill -f "node.*amman start" || true
     @mkdir -p .anchor
     # Start amman in background
-    @npx amman start --reset &> .anchor/logs &
+    sh ./start-validator.sh &> .anchor/logs &
 
     # Wait for validator to start
     @npx wait-on http://localhost:8899/health && echo "Validator is ready"
@@ -177,9 +175,7 @@ test-amman skip_build="":
     @anchor test --skip-local-validator --skip-deploy --skip-build
 
     # Kill existing processes
-    @pkill -f "node.*amman start" || true
     @killall solana-test-validator || true
-    @pkill -f "npm exec amman" || true
     @find tests-ts utils -type f \( -name "*.js" -o -name "*.js.map" \) -delete
 
 test-bankrun skip_build="":

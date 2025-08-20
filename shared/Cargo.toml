@@ -8,14 +8,16 @@ name = "shared"
 crate-type = ["lib"]
 
 [dependencies]
-anchor-lang = "=0.30.1"
-anchor-spl = "=0.30.1"
-bytemuck = "=1.20.0"
-spl-math = { version = "=0.2.0", features = ["no-entrypoint"] }
-solana-program = "=1.18.26"
+anchor-lang = { workspace = true }
+anchor-spl  = { workspace = true }
+bytemuck  = { workspace = true }
+spl-math  = { workspace = true }
+solana-program  = { workspace = true }
+spl-token-2022 = { workspace =  true }
+solana-system-interface = { workspace = true }
 
 [build-dependencies]
-dotenv = "0.15"
+dotenv = { workspace = true }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }

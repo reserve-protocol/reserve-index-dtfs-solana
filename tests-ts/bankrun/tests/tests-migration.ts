@@ -1,14 +1,10 @@
-import { BN, Program } from "@coral-xyz/anchor";
-import { BankrunProvider } from "anchor-bankrun";
+import { BN, Program, Provider } from "@coral-xyz/anchor";
 import { AccountMeta, Keypair, PublicKey } from "@solana/web3.js";
-import {
-  BanksClient,
-  BanksTransactionResultWithMeta,
-  ProgramTestContext,
-} from "solana-bankrun";
+
 import {
   airdrop,
   assertError,
+  BanksTransactionResultWithMeta,
   getConnectors,
   travelFutureSlot,
 } from "../bankrun-program-helper";
@@ -55,6 +51,9 @@ import {
 } from "../bankrun-token-helper";
 import { FolioAdmin } from "../../../target/types/folio_admin";
 import { Folio as FolioSecond } from "../../../target/types/second_folio";
+import { LiteSVM } from "litesvm";
+import path from "path";
+import { readFile } from "fs/promises";
 
 /**
  * Tests for folio migration functionality, including:
@@ -66,9 +65,9 @@ import { Folio as FolioSecond } from "../../../target/types/second_folio";
  */
 
 describe("Bankrun - Folio migration", () => {
-  let context: ProgramTestContext;
-  let provider: BankrunProvider;
-  let banksClient: BanksClient;
+  let context: LiteSVM;
+  let provider: Provider;
+  let banksClient: LiteSVM;
 
   let programFolio: Program<Folio>;
   let programFolioSecond: Program<FolioSecond>;
@@ -428,7 +427,7 @@ describe("Bankrun - Folio migration", () => {
     );
   }
 
-  before(async () => {
+  beforeEach(async () => {
     ({
       keys,
       programFolio,
@@ -438,7 +437,7 @@ describe("Bankrun - Folio migration", () => {
       context,
     } = await getConnectors());
 
-    banksClient = context.banksClient;
+    banksClient = context;
 
     payerKeypair = provider.wallet.payer;
 
@@ -573,11 +572,11 @@ describe("Bankrun - Folio migration", () => {
 
           let mintAuthoritiesBefore: any;
 
-          before(async () => {
+          beforeEach(async () => {
             let folioConfigToUse = folioConfig;
             if (folioConfig?.lastPoke == null) {
               const currentTime = BigInt(
-                (await context.banksClient.getClock()).unixTimestamp.toString()
+                (await context.getClock()).unixTimestamp.toString()
               );
               const endOfDay =
                 (currentTime / BigInt(DAY_IN_SECONDS)) * BigInt(DAY_IN_SECONDS);
@@ -588,10 +587,20 @@ describe("Bankrun - Folio migration", () => {
             }
 
             await initBaseCase(false, folioConfigToUse, customFolioTokenMint);
-            if (newFolioProgram) {
+            if (
+              newFolioProgram &&
+              !newFolioProgram.equals(programFolioSecond.programId) &&
+              !newFolioProgram.equals(programFolio.programId)
+            ) {
+              // We are randomly using reward program, it is possible to use any program.
+              const rewardProgramPath = path.join(
+                __dirname,
+                "../../../target/deploy/rewards.so"
+              );
+              const accountData = await readFile(rewardProgramPath);
               context.setAccount(newFolioProgram, {
                 lamports: 1_000_000_000,
-                data: Buffer.alloc(100),
+                data: accountData,
                 owner: BPF_PROGRAM_USED_BY_BANKRUN,
                 executable: true,
               });
@@ -674,7 +683,7 @@ describe("Bankrun - Folio migration", () => {
             balances: bigint[];
           }[] = [];
 
-          before(async () => {
+          beforeEach(async () => {
             await initBaseCase(
               true,
               null,
@@ -684,10 +693,21 @@ describe("Bankrun - Folio migration", () => {
               true
             );
 
-            if (newFolioProgram) {
+            // Only need to set it to a dummy program if it is not the same as the old or new program.
+            if (
+              newFolioProgram &&
+              !newFolioProgram.equals(programFolioSecond.programId) &&
+              !newFolioProgram.equals(programFolio.programId)
+            ) {
+              // We are randomly using reward program, it is possible to use any program.
+              const rewardProgramPath = path.join(
+                __dirname,
+                "../../../target/deploy/rewards.so"
+              );
+              const accountData = await readFile(rewardProgramPath);
               context.setAccount(newFolioProgram, {
                 lamports: 1_000_000_000,
-                data: Buffer.alloc(100),
+                data: accountData,
                 owner: BPF_PROGRAM_USED_BY_BANKRUN,
                 executable: true,
               });

@@ -1,7 +1,5 @@
-import { Keypair, PublicKey } from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
 import * as borsh from "borsh";
-import { Amman, PersistedAccountInfo } from "@metaplex-foundation/amman-client";
-import { SPL_GOVERNANCE_PROGRAM_ID } from "./constants";
 
 /**
  * Helper functions for creating and managing token owner record data structures
@@ -99,33 +97,33 @@ export function createFakeTokenOwnerRecordV2(
 
   return Buffer.from(borsh.serialize(COMBINED_SCHEMA, tokenOwnerRecordV2));
 }
-export async function createGovernanceAccounts(
-  userTokenRecordPda: PublicKey,
-  depositAmount: number
-) {
-  const amman = Amman.instance({
-    ammanClientOpts: { autoUnref: false, ack: true },
-    connectClient: true,
-  });
+// export async function createGovernanceAccounts(
+//   userTokenRecordPda: PublicKey,
+//   depositAmount: number
+// ) {
+//   const amman = Amman.instance({
+//     ammanClientOpts: { autoUnref: false, ack: true },
+//     connectClient: true,
+//   });
 
-  const fakeTokenOwnerRecordV2 = createFakeTokenOwnerRecordV2(
-    depositAmount,
-    Keypair.generate().publicKey,
-    Keypair.generate().publicKey,
-    Keypair.generate().publicKey,
-    Keypair.generate().publicKey
-  );
+//   const fakeTokenOwnerRecordV2 = createFakeTokenOwnerRecordV2(
+//     depositAmount,
+//     Keypair.generate().publicKey,
+//     Keypair.generate().publicKey,
+//     Keypair.generate().publicKey,
+//     Keypair.generate().publicKey
+//   );
 
-  const persistedAccountInfoRealm: PersistedAccountInfo = {
-    pubkey: userTokenRecordPda.toString(),
-    account: {
-      lamports: 1000000000,
-      data: [fakeTokenOwnerRecordV2.toString("base64"), "base64"],
-      owner: SPL_GOVERNANCE_PROGRAM_ID.toString(),
-      executable: false,
-      rentEpoch: 0,
-    },
-  };
+//   const persistedAccountInfoRealm: PersistedAccountInfo = {
+//     pubkey: userTokenRecordPda.toString(),
+//     account: {
+//       lamports: 1000000000,
+//       data: [fakeTokenOwnerRecordV2.toString("base64"), "base64"],
+//       owner: SPL_GOVERNANCE_PROGRAM_ID.toString(),
+//       executable: false,
+//       rentEpoch: 0,
+//     },
+//   };
 
-  await amman.ammanClient.requestSetAccount(persistedAccountInfoRealm);
-}
+//   await amman.ammanClient.requestSetAccount(persistedAccountInfoRealm);
+// }

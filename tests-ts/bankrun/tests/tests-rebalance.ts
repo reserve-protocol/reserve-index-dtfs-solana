@@ -1,14 +1,9 @@
-import { BN, Program } from "@coral-xyz/anchor";
-import { BankrunProvider } from "anchor-bankrun";
+import { BN, Program, Provider } from "@coral-xyz/anchor";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import {
-  BanksClient,
-  BanksTransactionResultWithMeta,
-  ProgramTestContext,
-} from "solana-bankrun";
 import {
   airdrop,
   assertError,
+  BanksTransactionResultWithMeta,
   getConnectors,
   travelFutureSlot,
 } from "../bankrun-program-helper";
@@ -43,12 +38,14 @@ import { FolioAdmin } from "../../../target/types/folio_admin";
 import { TestHelper } from "../../../utils/test-helper";
 import {
   ACCOUNT_SIZE,
+  AccountState,
   AccountType,
   ExtensionType,
   getMintLen,
   getTypeLen,
   TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
+import { LiteSVM } from "litesvm";
 
 /**
  * Tests for starting rebalances
@@ -56,9 +53,9 @@ import {
  * - Adding rebalance details
  */
 describe("Bankrun - Rebalance", () => {
-  let context: ProgramTestContext;
-  let provider: BankrunProvider;
-  let banksClient: BanksClient;
+  let context: LiteSVM;
+  let provider: Provider;
+  let banksClient: LiteSVM;
 
   let programFolio: Program<Folio>;
   let programFolioAdmin: Program<FolioAdmin>;
@@ -101,10 +98,7 @@ describe("Bankrun - Rebalance", () => {
       restrictedUntil: BN;
       availableUntil: BN;
     } | null;
-    addMintExtension: (
-      ctx: ProgramTestContext,
-      buyMint: PublicKey
-    ) => Promise<void>;
+    addMintExtension: (ctx: LiteSVM, buyMint: PublicKey) => Promise<void>;
   } = {
     auctionLauncherWindow: 0,
     ttl: 0,
@@ -112,7 +106,7 @@ describe("Bankrun - Rebalance", () => {
     mints: [],
     allRebalanceDetailsAdded: false,
     existingRebalanceParams: null,
-    addMintExtension: async (ctx: ProgramTestContext, buyMint: PublicKey) => {
+    addMintExtension: async (ctx: LiteSVM, buyMint: PublicKey) => {
       return;
     },
   };
@@ -231,11 +225,11 @@ describe("Bankrun - Rebalance", () => {
     await getOrCreateAtaAddress(context, DEFAULT_SELL_MINT.publicKey, folioPDA);
   }
 
-  before(async () => {
+  beforeEach(async () => {
     ({ keys, programFolio, programFolioAdmin, provider, context } =
       await getConnectors());
 
-    banksClient = context.banksClient;
+    banksClient = context;
 
     payerKeypair = provider.wallet.payer;
 
@@ -595,22 +589,15 @@ describe("Bankrun - Rebalance", () => {
     ...[
       ExtensionType.TransferFeeConfig,
       ExtensionType.MintCloseAuthority,
-      ExtensionType.ConfidentialTransferMint,
-      ExtensionType.DefaultAccountState,
       ExtensionType.NonTransferable,
-      ExtensionType.PermanentDelegate,
-      ExtensionType.TransferHook,
     ].map((extension) => {
       return {
         desc: `Should fail if ${ExtensionType[extension]} is present on mint`,
         expectedError: "UnsupportedSPLToken",
         allRebalanceDetailsAdded: true,
-        addMintExtension: async (
-          ctx: ProgramTestContext,
-          buyMint: PublicKey
-        ) => {
+        addMintExtension: async (ctx: LiteSVM, buyMint: PublicKey) => {
           const accountLen = getMintLen([extension]);
-          const existingAccount = await ctx.banksClient.getAccount(buyMint);
+          const existingAccount = await ctx.getAccount(buyMint);
           const existingData = Buffer.from(existingAccount.data);
           const lengthRequired = accountLen - existingData.length;
           const additionalData = Buffer.alloc(lengthRequired);
@@ -674,15 +661,16 @@ describe("Bankrun - Rebalance", () => {
       ExtensionType.TokenGroup,
       ExtensionType.TokenGroupMember,
       ExtensionType.GroupPointer,
+      ExtensionType.ConfidentialTransferMint,
+      ExtensionType.DefaultAccountState,
+      ExtensionType.PermanentDelegate,
+      ExtensionType.TransferHook,
     ].map((extension) => {
       return {
         desc: `Should add rebalance details with ${ExtensionType[extension]}`,
         expectedError: null,
         allRebalanceDetailsAdded: true,
-        addMintExtension: async (
-          ctx: ProgramTestContext,
-          buyMint: PublicKey
-        ) => {
+        addMintExtension: async (ctx: LiteSVM, buyMint: PublicKey) => {
           const accountLen = getMintLen(
             extension !== ExtensionType.TokenMetadata ? [extension] : [],
             extension === ExtensionType.TokenMetadata
@@ -691,7 +679,7 @@ describe("Bankrun - Rebalance", () => {
                 }
               : {}
           );
-          const existingAccount = await ctx.banksClient.getAccount(buyMint);
+          const existingAccount = await ctx.getAccount(buyMint);
           const existingData = Buffer.from(existingAccount.data);
           const lengthRequired = accountLen - existingData.length;
           const additionalData = Buffer.alloc(lengthRequired);
@@ -707,6 +695,10 @@ describe("Bankrun - Rebalance", () => {
             offset
           );
           offset += 2;
+          if (extension === ExtensionType.DefaultAccountState) {
+            additionalData.writeUInt8(AccountState.Initialized, offset);
+            offset += 1;
+          }
 
           const finalData = Buffer.concat([existingData, additionalData]);
           ctx.setAccount(buyMint, {
@@ -792,13 +784,13 @@ describe("Bankrun - Rebalance", () => {
 
           let currentTime: BN;
 
-          before(async () => {
+          beforeEach(async () => {
             await initBaseCase();
 
             await travelFutureSlot(context);
 
             currentTime = new BN(
-              (await context.banksClient.getClock()).unixTimestamp.toString()
+              (await context.getClock()).unixTimestamp.toString()
             );
             if (existingRebalanceParams) {
               await createAndSetRebalanceAccount(
@@ -1107,22 +1099,15 @@ describe("Bankrun - Rebalance", () => {
     ...[
       ExtensionType.TransferFeeConfig,
       ExtensionType.MintCloseAuthority,
-      ExtensionType.ConfidentialTransferMint,
-      ExtensionType.DefaultAccountState,
       ExtensionType.NonTransferable,
-      ExtensionType.PermanentDelegate,
-      ExtensionType.TransferHook,
     ].map((extension) => {
       return {
         desc: `Should fail if ${ExtensionType[extension]} is present on mint`,
         expectedError: "UnsupportedSPLToken",
         allRebalanceDetailsAdded: true,
-        addMintExtension: async (
-          ctx: ProgramTestContext,
-          buyMint: PublicKey
-        ) => {
+        addMintExtension: async (ctx: LiteSVM, buyMint: PublicKey) => {
           const accountLen = getMintLen([extension]);
-          const existingAccount = await ctx.banksClient.getAccount(buyMint);
+          const existingAccount = await ctx.getAccount(buyMint);
           const existingData = Buffer.from(existingAccount.data);
           const lengthRequired = accountLen - existingData.length;
           const additionalData = Buffer.alloc(lengthRequired);
@@ -1186,15 +1171,16 @@ describe("Bankrun - Rebalance", () => {
       ExtensionType.TokenGroup,
       ExtensionType.TokenGroupMember,
       ExtensionType.GroupPointer,
+      ExtensionType.ConfidentialTransferMint,
+      ExtensionType.DefaultAccountState,
+      ExtensionType.PermanentDelegate,
+      ExtensionType.TransferHook,
     ].map((extension) => {
       return {
         desc: `Should add rebalance details with ${ExtensionType[extension]}`,
         expectedError: null,
         allRebalanceDetailsAdded: true,
-        addMintExtension: async (
-          ctx: ProgramTestContext,
-          buyMint: PublicKey
-        ) => {
+        addMintExtension: async (ctx: LiteSVM, buyMint: PublicKey) => {
           const accountLen = getMintLen(
             extension !== ExtensionType.TokenMetadata ? [extension] : [],
             extension === ExtensionType.TokenMetadata
@@ -1203,7 +1189,7 @@ describe("Bankrun - Rebalance", () => {
                 }
               : {}
           );
-          const existingAccount = await ctx.banksClient.getAccount(buyMint);
+          const existingAccount = await ctx.getAccount(buyMint);
           const existingData = Buffer.from(existingAccount.data);
           const lengthRequired = accountLen - existingData.length;
           const additionalData = Buffer.alloc(lengthRequired);
@@ -1219,6 +1205,10 @@ describe("Bankrun - Rebalance", () => {
             offset
           );
           offset += 2;
+          if (extension === ExtensionType.DefaultAccountState) {
+            additionalData.writeUInt8(AccountState.Initialized, offset);
+            offset += 1;
+          }
 
           const finalData = Buffer.concat([existingData, additionalData]);
           ctx.setAccount(buyMint, {
@@ -1283,7 +1273,7 @@ describe("Bankrun - Rebalance", () => {
             ...restOfParams,
           };
 
-          before(async () => {
+          beforeEach(async () => {
             await initBaseCase();
 
             await travelFutureSlot(context);

@@ -58,7 +58,7 @@ impl UserRewardInfo {
 
                 let data = &mut **account_user_reward_info.try_borrow_mut_data()?;
 
-                data[..8].copy_from_slice(&UserRewardInfo::DISCRIMINATOR);
+                data[..8].copy_from_slice(UserRewardInfo::DISCRIMINATOR);
 
                 let mut cursor = &mut data[8..];
                 cursor.write_all(&context_bump.to_le_bytes())?;

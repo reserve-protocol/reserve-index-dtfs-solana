@@ -1,14 +1,9 @@
-import { BN, Program } from "@coral-xyz/anchor";
-import { BankrunProvider } from "anchor-bankrun";
+import { BN, Program, Provider } from "@coral-xyz/anchor";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import {
-  BanksClient,
-  BanksTransactionResultWithMeta,
-  ProgramTestContext,
-} from "solana-bankrun";
 import {
   airdrop,
   assertError,
+  BanksTransactionResultWithMeta,
   buildExpectedArray,
   getConnectors,
   travelFutureSlot,
@@ -48,6 +43,7 @@ import { MAX_AUCTION_LENGTH } from "../../../utils/constants";
 import { MAX_TVL_FEE } from "../../../utils/constants";
 import { FolioAdmin } from "../../../target/types/folio_admin";
 import { initToken } from "../bankrun-token-helper";
+import { LiteSVM } from "litesvm";
 
 /**
  * Tests for folio update functionality, including:
@@ -58,9 +54,9 @@ import { initToken } from "../bankrun-token-helper";
  * - Parameter boundary checks
  */
 describe("Bankrun - Update Folio", () => {
-  let context: ProgramTestContext;
-  let provider: BankrunProvider;
-  let banksClient: BanksClient;
+  let context: LiteSVM;
+  let provider: Provider;
+  let banksClient: LiteSVM;
 
   let programFolio: Program<Folio>;
   let programFolioAdmin: Program<FolioAdmin>;
@@ -262,11 +258,11 @@ describe("Bankrun - Update Folio", () => {
     closeAccount(context, getFeeDistributionPDA(folioPDA, new BN(1)));
   }
 
-  before(async () => {
+  beforeEach(async () => {
     ({ keys, programFolio, programFolioAdmin, provider, context } =
       await getConnectors());
 
-    banksClient = context.banksClient;
+    banksClient = context;
 
     payerKeypair = provider.wallet.payer;
 
@@ -336,7 +332,7 @@ describe("Bankrun - Update Folio", () => {
 
         let folioTvlFeeBefore: BN;
 
-        before(async () => {
+        beforeEach(async () => {
           await initBaseCase();
 
           if (feeRecipientAccountAlreadyExists) {

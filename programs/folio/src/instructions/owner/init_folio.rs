@@ -7,6 +7,7 @@ use crate::{
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
+    metadata::mpl_token_metadata,
     token::ID as TOKEN_PROGRAM_ID,
     token_interface::{Mint, TokenInterface},
 };

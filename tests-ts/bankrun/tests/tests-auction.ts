@@ -1,15 +1,9 @@
-import { BN, Program } from "@coral-xyz/anchor";
-import { BankrunProvider } from "anchor-bankrun";
+import { BN, Program, Provider } from "@coral-xyz/anchor";
 import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
-import {
-  BanksClient,
-  BanksTransactionResultWithMeta,
-  Clock,
-  ProgramTestContext,
-} from "solana-bankrun";
 import {
   airdrop,
   assertError,
+  BanksTransactionResultWithMeta,
   getConnectors,
   travelFutureSlot,
 } from "../bankrun-program-helper";
@@ -56,15 +50,15 @@ import {
 } from "../bankrun-token-helper";
 import { FolioAdmin } from "../../../target/types/folio_admin";
 import assert from "assert";
+import { Clock, LiteSVM } from "litesvm";
 
 /**
  * Tests for auction-related functionality in the Folio program, including:
  * - Opening auctions (both permissioned and permissionless)
  */
 describe("Bankrun - Auction", () => {
-  let context: ProgramTestContext;
-  let provider: BankrunProvider;
-  let banksClient: BanksClient;
+  let context: LiteSVM;
+  let provider: Provider;
 
   let programFolio: Program<Folio>;
   let programFolioAdmin: Program<FolioAdmin>;
@@ -449,11 +443,9 @@ describe("Bankrun - Auction", () => {
     );
   }
 
-  before(async () => {
+  beforeEach(async () => {
     ({ keys, programFolio, programFolioAdmin, provider, context } =
       await getConnectors());
-
-    banksClient = context.banksClient;
 
     payerKeypair = provider.wallet.payer;
 
@@ -483,7 +475,7 @@ describe("Bankrun - Auction", () => {
     const auctionId = new BN(1);
     const generalIxOpenAuction = () =>
       openAuction<true>(
-        banksClient,
+        context,
         programFolio,
         auctionLauncherKeypair,
         folioPDA,
@@ -502,7 +494,7 @@ describe("Bankrun - Auction", () => {
 
     const generalIxOpenAuctionPermissionless = () =>
       openAuctionPermissionless<true>(
-        banksClient,
+        context,
         programFolio,
         bidderKeypair,
         folioPDA,
@@ -538,7 +530,7 @@ describe("Bankrun - Auction", () => {
         );
       });
 
-      it(`should run ${GeneralTestCases.InvalidFolioStatus} for MIGRATING & KILLED & INITIALIZING`, async () => {
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for MIGRATING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
@@ -546,7 +538,9 @@ describe("Bankrun - Auction", () => {
           generalIxOpenAuction,
           FolioStatus.Migrating
         );
+      });
 
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for KILLED`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
@@ -554,7 +548,9 @@ describe("Bankrun - Auction", () => {
           generalIxOpenAuction,
           FolioStatus.Killed
         );
+      });
 
+      it(`should run ${GeneralTestCases.InvalidFolioStatus} for INITIALIZING`, async () => {
         await assertInvalidFolioStatusTestCase(
           context,
           programFolio,
@@ -617,12 +613,10 @@ describe("Bankrun - Auction", () => {
           let currentTime: BN;
           let rebalanceBefore;
 
-          before(async () => {
+          beforeEach(async () => {
             await initBaseCase(initialFolioBasket);
 
-            currentTime = new BN(
-              (await context.banksClient.getClock()).unixTimestamp.toString()
-            );
+            currentTime = new BN(context.getClock().unixTimestamp.toString());
 
             await createAndSetRebalanceAccount(
               context,
@@ -641,9 +635,7 @@ describe("Bankrun - Auction", () => {
 
             await travelFutureSlot(context);
 
-            currentTime = new BN(
-              (await context.banksClient.getClock()).unixTimestamp.toString()
-            );
+            currentTime = new BN(context.getClock().unixTimestamp.toString());
             rebalanceBefore = await programFolio.account.rebalance.fetch(
               getRebalancePDA(folioPDA)
             );
@@ -676,7 +668,7 @@ describe("Bankrun - Auction", () => {
             }
 
             txnResult = await openAuction<true>(
-              banksClient,
+              context,
               programFolio,
               auctionLauncherKeypair,
               folioPDA,
@@ -825,12 +817,12 @@ describe("Bankrun - Auction", () => {
           let currentTime: BN;
           let rebalanceBefore;
 
-          before(async () => {
+          beforeEach(async () => {
             await initBaseCase(initialFolioBasket);
 
             await travelFutureSlot(context);
             currentTime = new BN(
-              (await context.banksClient.getClock()).unixTimestamp.toString()
+              (await context.getClock()).unixTimestamp.toString()
             );
 
             await createAndSetRebalanceAccount(
@@ -851,7 +843,7 @@ describe("Bankrun - Auction", () => {
             );
             await travelFutureSlot(context);
 
-            const currentClock = await context.banksClient.getClock();
+            const currentClock = await context.getClock();
 
             const unixTimestamp =
               currentClock.unixTimestamp +
@@ -869,7 +861,7 @@ describe("Bankrun - Auction", () => {
             );
 
             currentTime = new BN(
-              (await context.banksClient.getClock()).unixTimestamp.toString()
+              (await context.getClock()).unixTimestamp.toString()
             );
 
             if (auctionEndsInitializedWithEndsAfterCurrentTime != null) {
@@ -891,8 +883,8 @@ describe("Bankrun - Auction", () => {
                   buyMint.publicKey
                 ),
                 {
-                  executable: true,
-                  owner: programFolio.programId,
+                  executable: false,
+                  owner: SystemProgram.programId,
                   lamports: 0,
                   data: Buffer.alloc(0),
                 }
@@ -900,7 +892,7 @@ describe("Bankrun - Auction", () => {
             }
 
             txnResult = await openAuctionPermissionless<true>(
-              banksClient,
+              context,
               programFolio,
               bidderKeypair, // Not permissioned
               folioPDA,

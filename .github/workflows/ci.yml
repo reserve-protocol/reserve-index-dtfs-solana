@@ -237,7 +237,7 @@ jobs:
           solana-keygen new --no-bip39-passphrase -o /home/runner/.config/solana/id.json
 
       - name: Bankrun Test
-        run: anchor run test-bankrun
+        run: NODE_OPTIONS="--experimental-wasm-memory64 --max-old-space-size=8192" anchor run test-bankrun
 
       - name: Run Amman Tests
         run: |

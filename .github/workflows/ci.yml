@@ -15,7 +15,7 @@ env:
 
 jobs:
   setup-tools:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
       - name: Cache Solana and Anchor
         id: cache-check
@@ -26,7 +26,7 @@ jobs:
             ~/.cargo/bin/anchor
             ~/.cargo/bin/avm
             ~/.avm
-          key: ${{ runner.os }}-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
+          key: ${{ runner.os }}-arm-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
 
       - name: Install dependencies
         run: |
@@ -46,7 +46,7 @@ jobs:
           cargo install --git https://github.com/coral-xyz/anchor --tag v${{ env.ANCHOR_VERSION }} anchor-cli
 
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
 
@@ -67,7 +67,7 @@ jobs:
 
   build-dependencies:
     needs: setup-tools
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
 
@@ -84,7 +84,7 @@ jobs:
             ~/.cargo/bin/anchor
             ~/.cargo/bin/avm
             ~/.avm
-          key: ${{ runner.os }}-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
+          key: ${{ runner.os }}-arm-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
 
       - name: Add Solana to PATH
         run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
@@ -138,7 +138,7 @@ jobs:
 
   unit-tests:
     needs: [build-dependencies, setup-tools]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
 
@@ -155,7 +155,7 @@ jobs:
             ~/.cargo/bin/anchor
             ~/.cargo/bin/avm
             ~/.avm
-          key: ${{ runner.os }}-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
+          key: ${{ runner.os }}-arm-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
 
       - name: Add Solana to PATH
         run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
@@ -198,7 +198,7 @@ jobs:
 
   integration-tests:
     needs: [build-dependencies, setup-tools]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -220,7 +220,7 @@ jobs:
             ~/.cargo/bin/anchor
             ~/.cargo/bin/avm
             ~/.avm
-          key: ${{ runner.os }}-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
+          key: ${{ runner.os }}-arm-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
 
       - name: Add Solana to PATH
         run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
@@ -237,7 +237,7 @@ jobs:
           solana-keygen new --no-bip39-passphrase -o /home/runner/.config/solana/id.json
 
       - name: Bankrun Test
-        run: NODE_OPTIONS="--experimental-wasm-memory64 --max-old-space-size=8192" anchor run test-bankrun
+        run: anchor run test-bankrun
 
       - name: Run Amman Tests
         run: |

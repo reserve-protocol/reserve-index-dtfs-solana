@@ -9,11 +9,6 @@
   dependencies:
     regenerator-runtime "^0.14.0"
 
-"@coral-xyz/anchor-errors@^0.30.1":
-  version "0.30.1"
-  resolved "https://registry.npmjs.org/@coral-xyz/anchor-errors/-/anchor-errors-0.30.1.tgz"
-  integrity sha512-9Mkradf5yS5xiLWrl9WrpjqOrAV+/W2RQHDlbnAZBivoGpOs1ECjoDCkVk4aRG8ZdiFiB8zQEVlxf+8fKkmSfQ==
-
 "@coral-xyz/anchor-errors@^0.31.1":
   version "0.31.1"
   resolved "https://registry.npmjs.org/@coral-xyz/anchor-errors/-/anchor-errors-0.31.1.tgz"
@@ -58,39 +53,10 @@
     superstruct "^0.15.4"
     toml "^3.0.0"
 
-"@coral-xyz/anchor@^0.30.0":
-  version "0.30.1"
-  resolved "https://registry.npmjs.org/@coral-xyz/anchor/-/anchor-0.30.1.tgz"
-  integrity sha512-gDXFoF5oHgpriXAaLpxyWBHdCs8Awgf/gLHIo6crv7Aqm937CNdY+x+6hoj7QR5vaJV7MxWSQ0NGFzL3kPbWEQ==
-  dependencies:
-    "@coral-xyz/anchor-errors" "^0.30.1"
-    "@coral-xyz/borsh" "^0.30.1"
-    "@noble/hashes" "^1.3.1"
-    "@solana/web3.js" "^1.68.0"
-    bn.js "^5.1.2"
-    bs58 "^4.0.1"
-    buffer-layout "^1.2.2"
-    camelcase "^6.3.0"
-    cross-fetch "^3.1.5"
-    crypto-hash "^1.3.0"
-    eventemitter3 "^4.0.7"
-    pako "^2.0.3"
-    snake-case "^3.0.4"
-    superstruct "^0.15.4"
-    toml "^3.0.0"
-
 "@coral-xyz/borsh@^0.29.0":
   version "0.29.0"
   resolved "https://registry.npmjs.org/@coral-xyz/borsh/-/borsh-0.29.0.tgz"
   integrity sha512-s7VFVa3a0oqpkuRloWVPdCK7hMbAMY270geZOGfCnaqexrP5dTIpbEHL33req6IYPPJ0hYa71cdvJ1h6V55/oQ==
-  dependencies:
-    bn.js "^5.1.2"
-    buffer-layout "^1.2.0"
-
-"@coral-xyz/borsh@^0.30.1":
-  version "0.30.1"
-  resolved "https://registry.npmjs.org/@coral-xyz/borsh/-/borsh-0.30.1.tgz"
-  integrity sha512-aaxswpPrCFKl8vZTbxLssA2RvwX2zmKLlRCIktJOwW+VpVwYtXRtlWiIP+c2pPRKneiTiWCN2GEMSH9j1zTlWQ==
   dependencies:
     bn.js "^5.1.2"
     buffer-layout "^1.2.0"
@@ -387,7 +353,7 @@
     "@solana/spl-token-metadata" "^0.1.6"
     buffer "^6.0.3"
 
-"@solana/web3.js@1.98.4", "@solana/web3.js@>1.92.0, <2.0", "@solana/web3.js@^1.32.0", "@solana/web3.js@^1.68.0", "@solana/web3.js@^1.69.0", "@solana/web3.js@^1.89.1":
+"@solana/web3.js@1.98.4", "@solana/web3.js@^1.32.0", "@solana/web3.js@^1.68.0", "@solana/web3.js@^1.69.0", "@solana/web3.js@^1.89.1":
   version "1.98.4"
   resolved "https://registry.npmjs.org/@solana/web3.js/-/web3.js-1.98.4.tgz"
   integrity sha512-vv9lfnvjUsRiq//+j5pBdXig0IQdtzA0BRZ3bXEP4KaIyF1CcaydWqgyzQgfZMNIsWNWmG+AUHwPy4AHOD6gpw==
@@ -655,15 +621,12 @@ ajv@^6.12.4:
     json-schema-traverse "^0.4.1"
     uri-js "^4.2.2"
 
-anchor-litesvm@^0.1.2:
-  version "0.1.2"
-  resolved "https://registry.npmjs.org/anchor-litesvm/-/anchor-litesvm-0.1.2.tgz"
-  integrity sha512-WW8PlPgbHhXdg4Blprw5leOm6hBRZv3fJDtbVs24s4iXSlMOYPy1ZWV8yfeumjyL6xHEHrAjogG89ogoTxseSQ==
+anchor-litesvm@=0.1.0:
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/anchor-litesvm/-/anchor-litesvm-0.1.0.tgz#4ff90aa95f770e1af37eb134553f1049c43b6a3b"
+  integrity sha512-KOKNe6EjeErV367eU2w6eI/6wwZry0EbtnsmDs3gis98A5uH6CRYBMmLzOPDP75QNIztXKt3jeDNF42K3B6nhg==
   dependencies:
-    "@coral-xyz/anchor" "^0.30.0"
     "@iarna/toml" "^2.2.5"
-    "@solana/web3.js" ">1.92.0, <2.0"
-    litesvm ">=0.1.0, <0.4.0"
 
 ansi-colors@4.1.1:
   version "4.1.1"
@@ -1493,44 +1456,44 @@ levn@^0.4.1:
     prelude-ls "^1.2.1"
     type-check "~0.4.0"
 
-litesvm-darwin-arm64@0.2.0:
-  version "0.2.0"
-  resolved "https://registry.npmjs.org/litesvm-darwin-arm64/-/litesvm-darwin-arm64-0.2.0.tgz"
-  integrity sha512-fqGE7Z6iT+5Xob9o1xs0N7Tf3c1meJxDERf7Z6T7Loqm0seyUsfjM0gTOvMJHiWvvnOx+qIo/Cjhtp84Kb9v8w==
+litesvm-darwin-arm64@0.1.0:
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/litesvm-darwin-arm64/-/litesvm-darwin-arm64-0.1.0.tgz#8e0dc55ba2e0a8a4db2cbb418de5160105c31fb2"
+  integrity sha512-GwBph2fNaR9UP1nhFmQYk7UMcI9+ogrzpbDl2en70FUnPc+FDlchOts2X8IL5XFCU+m4ZGoQl/N9b+FywJN5lQ==
 
-litesvm-darwin-universal@0.2.0:
-  version "0.2.0"
-  resolved "https://registry.npmjs.org/litesvm-darwin-universal/-/litesvm-darwin-universal-0.2.0.tgz"
-  integrity sha512-CNgVrQ9tknv8JbtpmOO0SNXuOQj769A3ufWHrMFEBuFhCr9CJ6RQI9a/HxPWjMHTC7EzlcF8klMupPYpqM8KGA==
+litesvm-darwin-universal@0.1.0:
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/litesvm-darwin-universal/-/litesvm-darwin-universal-0.1.0.tgz#176d6d083d526ea0681cf8505581b06896dccfbe"
+  integrity sha512-GjGpz77ei+RfWiMtHiES0X8GP+TafFHWu5fAQXgXEoGia7RG32Z12iJBhwfvk0T4EKbm8bqlyqhe5Me/nARm/w==
 
-litesvm-darwin-x64@0.2.0:
-  version "0.2.0"
-  resolved "https://registry.yarnpkg.com/litesvm-darwin-x64/-/litesvm-darwin-x64-0.2.0.tgz#fa12b30d363adad294906990eda6a23eecd6ca3b"
-  integrity sha512-blRxD4y0FIx3E27Iv7oX0uz9x3v9KPD+++HLatBx5K5bh57qrAStUINsgT6MchYrxxOE0T2xktJaiSQSEMxWSA==
+litesvm-darwin-x64@0.1.0:
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/litesvm-darwin-x64/-/litesvm-darwin-x64-0.1.0.tgz#3d2e45dc168460a16cb58db560f7e366eb35e88d"
+  integrity sha512-1N/IPfoT+gcpkvG9Wm7+vcaxgl/LB8hbm85cHDQRq4O1wyiRRiR6ByeNRamj+OFEDSfI7a/1NshhMobnnr2MGQ==
 
-litesvm-linux-x64-gnu@0.2.0:
-  version "0.2.0"
-  resolved "https://registry.yarnpkg.com/litesvm-linux-x64-gnu/-/litesvm-linux-x64-gnu-0.2.0.tgz#f559ae0291d28a24b2c66cfb23b678a50d1f8009"
-  integrity sha512-2PQcLvn5c8GLGPp/vLCFaladWe61wbtwwTlIMLEfPeU5f88jBPOaEryO85+0FHZS1awbT97caa55sFDpAO4CWw==
+litesvm-linux-x64-gnu@0.1.0:
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/litesvm-linux-x64-gnu/-/litesvm-linux-x64-gnu-0.1.0.tgz#479a7bbffd105ab30ef52269de0b31f98f64f585"
+  integrity sha512-S6krvRz6BXxVZIkap5XkWwulSG4KsbFrxjyqP1X0zANa8jWMHEd09Zy9pPgfOetni2exg67fBmSlWq4sRfzlCw==
 
-litesvm-linux-x64-musl@0.2.0:
-  version "0.2.0"
-  resolved "https://registry.yarnpkg.com/litesvm-linux-x64-musl/-/litesvm-linux-x64-musl-0.2.0.tgz#0e3bd7ba22595ec505ae7353ea6c0d1b66729244"
-  integrity sha512-9vAYFIicGjZIlwoCBii6yJmfIUVS4cdF0CxoAL+DGexTBLECk+Tr+WEFEXsvsYe4s81jxP04TTiUnasj/EaIcw==
+litesvm-linux-x64-musl@0.1.0:
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/litesvm-linux-x64-musl/-/litesvm-linux-x64-musl-0.1.0.tgz#73e2486c6272025b8c576de25ddbffb5a3155eb7"
+  integrity sha512-3E9gC5HRCEHFsfUNDhAY9JKx6ou6JazlnYMhT89JgbAN/YsJmyEgkTfY6W7TVV90g4EAJ/K4smSmg+vV413mYQ==
 
-"litesvm@>=0.1.0, <0.4.0", litesvm@^0.2.0:
-  version "0.2.0"
-  resolved "https://registry.npmjs.org/litesvm/-/litesvm-0.2.0.tgz"
-  integrity sha512-75+ZMkSFY5ynI3S+vCMnZv1wcILg5iNEj21B+XE/G3/P2dfTPj+rbdNM1q3eLFdlnXdewhiB4BLypKsBnQTSOw==
+litesvm@^0.1.0:
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/litesvm/-/litesvm-0.1.0.tgz#0b0a444bb65d7068a7d09c3b05536d40e93db2aa"
+  integrity sha512-XfpvWgYxFQUZxwFzWJTsuHRc1y34q8WtC60lhvH1xb6YX1/RBLqzIClp2JkxtlqGnDi/WPlThsXGmC3SinuPMQ==
   dependencies:
     "@solana/web3.js" "^1.68.0"
     bs58 "^4.0.1"
   optionalDependencies:
-    litesvm-darwin-arm64 "0.2.0"
-    litesvm-darwin-universal "0.2.0"
-    litesvm-darwin-x64 "0.2.0"
-    litesvm-linux-x64-gnu "0.2.0"
-    litesvm-linux-x64-musl "0.2.0"
+    litesvm-darwin-arm64 "0.1.0"
+    litesvm-darwin-universal "0.1.0"
+    litesvm-darwin-x64 "0.1.0"
+    litesvm-linux-x64-gnu "0.1.0"
+    litesvm-linux-x64-musl "0.1.0"
 
 locate-path@^6.0.0:
   version "6.0.0"

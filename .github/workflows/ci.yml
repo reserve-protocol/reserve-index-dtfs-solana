@@ -10,12 +10,13 @@ env:
   CARGO_TERM_COLOR: always
   SOLANA_VERSION: 2.3.0
   ANCHOR_VERSION: 0.31.1
+  NODE_VERSION: 20.18.0
   ADMIN_PUBKEY: AXF3tTrMUD5BLzv5Fmyj63KXwvkuGdxMQemSJHtTag4j
   SPL_GOVERNANCE_PROGRAM_ID: HwXcHGabc19PxzYFVSfKvuaDSNpbLGL8fhVtkcTyEymj
 
 jobs:
   setup-tools:
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-latest
     steps:
       - name: Cache Solana and Anchor
         id: cache-check
@@ -26,7 +27,7 @@ jobs:
             ~/.cargo/bin/anchor
             ~/.cargo/bin/avm
             ~/.avm
-          key: ${{ runner.os }}-arm-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
+          key: ${{ runner.os }}-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
 
       - name: Install dependencies
         run: |
@@ -46,7 +47,7 @@ jobs:
           cargo install --git https://github.com/coral-xyz/anchor --tag v${{ env.ANCHOR_VERSION }} anchor-cli
 
   lint:
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -67,7 +68,7 @@ jobs:
 
   build-dependencies:
     needs: setup-tools
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -75,6 +76,14 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.86.0"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Yarn
+        run: npm install -g yarn
 
       - name: Restore cached tools
         uses: actions/cache@v4
@@ -84,7 +93,7 @@ jobs:
             ~/.cargo/bin/anchor
             ~/.cargo/bin/avm
             ~/.avm
-          key: ${{ runner.os }}-arm-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
+          key: ${{ runner.os }}-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
 
       - name: Add Solana to PATH
         run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
@@ -108,7 +117,7 @@ jobs:
           cd "$WORKSPACE"
 
           # Build Folio programs
-          npm install
+          yarn install
 
           mkdir -p target/deploy target/idl target/types
           anchor build --program-name folio -- --features test,dev
@@ -138,7 +147,7 @@ jobs:
 
   unit-tests:
     needs: [build-dependencies, setup-tools]
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -155,7 +164,7 @@ jobs:
             ~/.cargo/bin/anchor
             ~/.cargo/bin/avm
             ~/.avm
-          key: ${{ runner.os }}-arm-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
+          key: ${{ runner.os }}-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
 
       - name: Add Solana to PATH
         run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
@@ -198,7 +207,7 @@ jobs:
 
   integration-tests:
     needs: [build-dependencies, setup-tools]
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -206,11 +215,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20.10.0"
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Yarn
+        run: npm install -g yarn
 
       - name: Install npm dependencies
         run: |
-          npm install
+          yarn install
 
       - name: Restore cached tools
         uses: actions/cache@v4
@@ -220,7 +232,7 @@ jobs:
             ~/.cargo/bin/anchor
             ~/.cargo/bin/avm
             ~/.avm
-          key: ${{ runner.os }}-arm-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
+          key: ${{ runner.os }}-tools-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
 
       - name: Add Solana to PATH
         run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH

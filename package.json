@@ -10,10 +10,10 @@
     "@coral-xyz/anchor": "0.31.1",
     "@solana/spl-token": "0.4.9",
     "@solana/web3.js": "1.98.4",
-    "anchor-litesvm": "^0.1.2",
+    "anchor-litesvm": "=0.1.0",
     "governance-idl-sdk": "=0.0.4",
     "decimal.js": "^10.4.3",
-    "litesvm": "^0.2.0"
+    "litesvm": "^0.1.0"
   },
   "devDependencies": {
     "@types/bn.js": "^5.1.0",

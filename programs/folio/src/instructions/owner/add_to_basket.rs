@@ -190,6 +190,7 @@ pub fn handler<'info>(
 
     for raw_amount in raw_amounts {
         let token_program = next_token_program(&mut remaining_accounts_iter)?;
+        msg!("TOken Program {}", token_program.key());
         let token_mint = next_account(
             &mut remaining_accounts_iter,
             false,
@@ -257,11 +258,9 @@ pub fn handler<'info>(
                 mint: token_mint.to_account_info(),
             };
 
-            let cpi_program = ctx.accounts.token_program.to_account_info();
-
             token_interface::transfer_checked(
                 CpiContext::new_with_signer(
-                    cpi_program,
+                    token_program.to_account_info(),
                     cpi_accounts,
                     &[&[
                         USER_PENDING_BASKET_SEEDS,
@@ -281,10 +280,8 @@ pub fn handler<'info>(
                 mint: token_mint.to_account_info(),
             };
 
-            let cpi_program = ctx.accounts.token_program.to_account_info();
-
             token_interface::transfer_checked(
-                CpiContext::new(cpi_program, cpi_accounts),
+                CpiContext::new(token_program.to_account_info(), cpi_accounts),
                 raw_amount,
                 mint.decimals,
             )?;

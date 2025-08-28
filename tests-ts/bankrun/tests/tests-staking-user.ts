@@ -1,12 +1,5 @@
-import { BN, Program } from "@coral-xyz/anchor";
-import { BankrunProvider } from "anchor-bankrun";
+import { BN, Program, Provider } from "@coral-xyz/anchor";
 import { AccountMeta, Keypair, PublicKey } from "@solana/web3.js";
-import {
-  BanksClient,
-  BanksTransactionResultWithMeta,
-  Clock,
-  ProgramTestContext,
-} from "solana-bankrun";
 
 import {
   createAndSetActor,
@@ -38,7 +31,12 @@ import {
   resetTokenBalance,
 } from "../bankrun-token-helper";
 import { Role } from "../bankrun-account-helper";
-import { airdrop, assertError, getConnectors } from "../bankrun-program-helper";
+import {
+  airdrop,
+  assertError,
+  BanksTransactionResultWithMeta,
+  getConnectors,
+} from "../bankrun-program-helper";
 import { travelFutureSlot } from "../bankrun-program-helper";
 import {
   getFolioPDA,
@@ -58,6 +56,7 @@ import {
   setupGovernanceAccounts,
 } from "../bankrun-governance-helper";
 import { Rewards } from "../../../target/types/rewards";
+import { Clock, LiteSVM } from "litesvm";
 
 /**
  * Tests for user staking functionality, including:
@@ -69,9 +68,9 @@ import { Rewards } from "../../../target/types/rewards";
  */
 
 describe("Bankrun - Staking User", () => {
-  let context: ProgramTestContext;
-  let provider: BankrunProvider;
-  let banksClient: BanksClient;
+  let context: LiteSVM;
+  let provider: Provider;
+  let banksClient: LiteSVM;
 
   let programFolioAdmin: Program<FolioAdmin>;
   let programRewards: Program<Rewards>;
@@ -268,6 +267,9 @@ describe("Bankrun - Staking User", () => {
         await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
       ],
       rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
+      userStakedBalances: {
+        [rewardedUser1.publicKey.toBase58()]: new BN(100).mul(D9),
+      },
       indexAccountToInvalidate:
         INDEX_FOR_REMAINING_ACCOUNTS.EXTRA_USER_REWARD_INFO,
       extraUserToClaimFor: rewardedUser2.publicKey,
@@ -279,6 +281,9 @@ describe("Bankrun - Staking User", () => {
         await RewardInfo.default(context, REWARD_TOKEN_MINTS[0].publicKey),
       ],
       rewardsTokenToClaim: [REWARD_TOKEN_MINTS[0].publicKey],
+      userStakedBalances: {
+        [rewardedUser1.publicKey.toBase58()]: new BN(100).mul(D9),
+      },
       userGovernanceTokenAccount: () => getInvalidGovernanceAccount(),
       extraUserToClaimFor: rewardedUser2.publicKey,
     },
@@ -743,7 +748,11 @@ describe("Bankrun - Staking User", () => {
           userToClaimFor
         );
 
-        if (!(await banksClient.getAccount(userRewardInfoPDA))) {
+        const rawAccount = await context.getAccount(userRewardInfoPDA);
+        if (
+          rawAccount.owner.equals(PublicKey.default) &&
+          rawAccount.data.length === 0
+        ) {
           continue;
         }
 
@@ -935,7 +944,7 @@ describe("Bankrun - Staking User", () => {
     );
   }
 
-  before(async () => {
+  beforeEach(async () => {
     ({
       keys,
       programFolioAdmin,
@@ -945,7 +954,7 @@ describe("Bankrun - Staking User", () => {
       context,
     } = await getConnectors());
 
-    banksClient = context.banksClient;
+    banksClient = context;
 
     payerKeypair = provider.wallet.payer;
 
@@ -1004,7 +1013,7 @@ describe("Bankrun - Staking User", () => {
         let rewardInfosBefore: RewardInfo[];
         let userRewardInfosBefore: UserRewardInfo[];
 
-        before(async () => {
+        beforeEach(async () => {
           folioMintToUse = customFolioTokenMint || folioTokenMint;
           extraUser = extraUserToClaimFor || rewardedUser1.publicKey;
 
@@ -1021,7 +1030,7 @@ describe("Bankrun - Staking User", () => {
             rewardRatio
           );
 
-          currentClock = await context.banksClient.getClock();
+          currentClock = await context.getClock();
 
           await createAndSetFolio(
             context,
@@ -1107,16 +1116,9 @@ describe("Bankrun - Staking User", () => {
           if (runTwice) {
             await travelFutureSlot(context);
 
-            context.setClock(
-              new Clock(
-                currentClock.slot,
-                currentClock.epochStartTimestamp,
-                currentClock.epoch,
-                currentClock.leaderScheduleEpoch,
-                currentClock.unixTimestamp +
-                  BigInt(timeToAddToClock.toNumber() * 2)
-              )
-            );
+            const currentClock = context.getClock();
+            currentClock.unixTimestamp += BigInt(timeToAddToClock.toNumber());
+            context.setClock(currentClock);
 
             txnResult = await accrueRewards<true>(
               banksClient,
@@ -1298,7 +1300,7 @@ describe("Bankrun - Staking User", () => {
 
         let rewardTokenBalancesBefore: any;
 
-        before(async () => {
+        beforeEach(async () => {
           const rewardInfosAlreadyThereToUse = await rewardInfosAlreadyThere();
 
           await initBaseCase(
@@ -1353,7 +1355,7 @@ describe("Bankrun - Staking User", () => {
               [rewardedUser1.publicKey]
             );
           }
-          const currentClock = await context.banksClient.getClock();
+          const currentClock = await context.getClock();
 
           context.setClock(
             new Clock(

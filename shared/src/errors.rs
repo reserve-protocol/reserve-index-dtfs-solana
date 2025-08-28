@@ -339,6 +339,9 @@ pub enum ErrorCode {
 
     #[msg("Invalid Token Program")]
     InvalidTokenProgram,
+
+    #[msg("Invalid Update Authority")]
+    InvalidUpdateAuthority,
 }
 
 /// Check a condition and return an error if it is not met.

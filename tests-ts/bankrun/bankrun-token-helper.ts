@@ -1,6 +1,5 @@
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { DEFAULT_DECIMALS } from "../../utils/constants";
-import { BanksClient, ProgramTestContext } from "solana-bankrun";
 import {
   getAssociatedTokenAddressSync,
   MintLayout,
@@ -16,11 +15,13 @@ import {
   createInitializePermanentDelegateInstruction,
   createMintToInstruction,
   createAssociatedTokenAccountInstruction,
+  createInitializeNonTransferableMintInstruction,
 } from "@solana/spl-token";
 import * as assert from "assert";
 import { BN } from "@coral-xyz/anchor";
 import { SystemProgram } from "@solana/web3.js";
 import { createAndProcessTransaction } from "./bankrun-program-helper";
+import { LiteSVM } from "litesvm";
 
 /**
  * Helper functions for token operations in the Bankrun environment.
@@ -28,7 +29,7 @@ import { createAndProcessTransaction } from "./bankrun-program-helper";
  */
 
 export function initToken(
-  context: ProgramTestContext,
+  context: LiteSVM,
   mintAuthority: PublicKey,
   mint: Keypair | PublicKey = Keypair.generate(),
   decimals: number = DEFAULT_DECIMALS,
@@ -58,7 +59,7 @@ export function initToken(
 }
 
 export function mintToken(
-  context: ProgramTestContext,
+  context: LiteSVM,
   mint: PublicKey,
   amount: number,
   recipient: PublicKey,
@@ -100,14 +101,14 @@ export function mintToken(
 }
 
 export async function getOrCreateAtaAddress(
-  context: ProgramTestContext,
+  context: LiteSVM,
   mint: PublicKey,
   owner: PublicKey,
   tokenProgram: PublicKey = TOKEN_PROGRAM_ID
 ): Promise<PublicKey> {
   const ata = getAssociatedTokenAddressSync(mint, owner, true, tokenProgram);
 
-  const fetchedAtaAccountInfo = await context.banksClient.getAccount(ata);
+  const fetchedAtaAccountInfo = await context.getAccount(ata);
 
   if (
     fetchedAtaAccountInfo &&
@@ -148,7 +149,7 @@ export async function getOrCreateAtaAddress(
 }
 
 export async function resetTokenBalance(
-  context: ProgramTestContext,
+  context: LiteSVM,
   mint: PublicKey,
   owner: PublicKey
 ) {
@@ -191,7 +192,7 @@ export function getAtaAddress(
 }
 
 export async function getTokenBalance(
-  client: BanksClient,
+  client: LiteSVM,
   account: PublicKey,
   isNative: boolean = false
 ): Promise<bigint> {
@@ -207,7 +208,7 @@ export async function getTokenBalance(
 }
 
 export async function getMintAuthorities(
-  client: BanksClient,
+  client: LiteSVM,
   mint: PublicKey
 ): Promise<{ mintAuthority: PublicKey; freezeAuthority: PublicKey }> {
   const mintInfo = await client.getAccount(mint);
@@ -221,7 +222,7 @@ export async function getMintAuthorities(
 
 // Used to get the token balances from a list of mints and owners (for assertions)
 export async function getTokenBalancesFromMints(
-  context: ProgramTestContext,
+  context: LiteSVM,
   mints: PublicKey[],
   owners: PublicKey[],
   mintsTokenProgram: PublicKey[] = []
@@ -232,7 +233,7 @@ export async function getTokenBalancesFromMints(
     for (const [indexOfMint, mint] of mints.entries()) {
       ownerBalances.push(
         await getTokenBalance(
-          context.banksClient,
+          context,
           await getOrCreateAtaAddress(
             context,
             mint,
@@ -250,7 +251,7 @@ export async function getTokenBalancesFromMints(
 
 // Used to assert the expected token balance changes after an operation for a list of mints and owners
 export async function assertExpectedBalancesChanges(
-  context: ProgramTestContext,
+  context: LiteSVM,
   beforeBalances: { owner: PublicKey; balances: bigint[] }[],
   mints: PublicKey[],
   owners: PublicKey[],
@@ -288,13 +289,13 @@ export async function assertExpectedBalancesChanges(
 SPL 2022 related functions
 */
 export async function initToken2022Tx(
-  context: ProgramTestContext,
+  context: LiteSVM,
   mintAuthority: Keypair,
   mint: Keypair = Keypair.generate(),
   extension: ExtensionType,
   decimals: number = DEFAULT_DECIMALS
 ) {
-  const rent = await context.banksClient.getRent();
+  const rent = await context.getRent();
 
   const mintLen = getMintLen(extension ? [extension] : []);
 
@@ -326,6 +327,13 @@ export async function initToken2022Tx(
         TOKEN_2022_PROGRAM_ID
       )
     );
+  } else if (extension === ExtensionType.NonTransferable) {
+    instructions.push(
+      createInitializeNonTransferableMintInstruction(
+        mint.publicKey,
+        TOKEN_2022_PROGRAM_ID
+      )
+    );
   }
 
   instructions.push(
@@ -339,7 +347,7 @@ export async function initToken2022Tx(
   );
 
   const tx = await createAndProcessTransaction(
-    context.banksClient,
+    context,
     mintAuthority,
     instructions,
     [mintAuthority, mint]
@@ -349,7 +357,7 @@ export async function initToken2022Tx(
 }
 
 export async function mintToken2022Tx(
-  context: ProgramTestContext,
+  context: LiteSVM,
   mintAuthority: Keypair,
   mint: PublicKey,
   recipient: PublicKey,
@@ -364,7 +372,7 @@ export async function mintToken2022Tx(
     TOKEN_2022_PROGRAM_ID
   );
 
-  const account = await context.banksClient.getAccount(ata);
+  const account = await context.getAccount(ata);
   if (!account) {
     instructions.push(
       createAssociatedTokenAccountInstruction(
@@ -389,7 +397,7 @@ export async function mintToken2022Tx(
   );
 
   const tx = await createAndProcessTransaction(
-    context.banksClient,
+    context,
     mintAuthority,
     instructions,
     [mintAuthority]

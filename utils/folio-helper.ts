@@ -522,7 +522,7 @@ export async function mintFolioToken(
 
   await pSendAndConfirmTxn(
     folioProgram,
-    [...getComputeLimitInstruction(1_200_000), mintFolioToken],
+    [...getComputeLimitInstruction(1_400_000), mintFolioToken],
     [],
     {
       skipPreflight: SKIP_PREFLIGHT,
@@ -566,7 +566,7 @@ export async function burnFolioToken(
 
   await pSendAndConfirmTxn(
     folioProgram,
-    [...getComputeLimitInstruction(600_000), burnFolioTokenIx],
+    [...getComputeLimitInstruction(1_400_000), burnFolioTokenIx],
     [],
     {
       skipPreflight: SKIP_PREFLIGHT,

@@ -1,12 +1,9 @@
 import { Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
 
 import {
-  BanksTransactionResultWithMeta,
-  ProgramTestContext,
-} from "solana-bankrun";
-import {
   airdrop,
   assertError,
+  BanksTransactionResultWithMeta,
   createAndProcessTransaction,
   travelFutureSlot,
 } from "./bankrun-program-helper";
@@ -15,6 +12,7 @@ import { createAndSetActor } from "./bankrun-account-helper";
 import { Program } from "@coral-xyz/anchor";
 import { Folio } from "../../target/types/folio";
 import { OTHER_ADMIN_KEY } from "../../utils/constants";
+import { LiteSVM, TransactionMetadata } from "litesvm";
 /**
  * General Test Helper functions for running tests for functionalities that
  * are common to multiple instructions. These include admin key checks, role checks,
@@ -27,7 +25,7 @@ export enum GeneralTestCases {
 }
 
 export async function assertNonAdminTestCase(
-  context: ProgramTestContext,
+  context: LiteSVM,
   executeTxn: () => Promise<{
     ix: TransactionInstruction;
     extraSigners: Keypair[];
@@ -38,7 +36,7 @@ export async function assertNonAdminTestCase(
   const { ix, extraSigners } = await executeTxn();
 
   const txnResult = await createAndProcessTransaction(
-    context.banksClient,
+    context,
     OTHER_ADMIN_KEY,
     [ix],
     extraSigners
@@ -48,7 +46,7 @@ export async function assertNonAdminTestCase(
 }
 
 export async function assertNotValidRoleTestCase(
-  context: ProgramTestContext,
+  context: LiteSVM,
   programFolio: Program<Folio>,
   actorKeypair: Keypair | PublicKey,
   folioPDA: PublicKey,
@@ -65,8 +63,16 @@ export async function assertNotValidRoleTestCase(
   assertError(txnResult, "InvalidRole");
 }
 
+export function getLogs(tx: BanksTransactionResultWithMeta) {
+  if (tx instanceof TransactionMetadata) {
+    return tx.logs();
+  } else {
+    return tx.meta().logs();
+  }
+}
+
 export async function assertInvalidFolioStatusTestCase(
-  context: ProgramTestContext,
+  context: LiteSVM,
   programFolio: Program<Folio>,
   folioTokenMint: PublicKey,
   executeTxn: () => Promise<BanksTransactionResultWithMeta>,

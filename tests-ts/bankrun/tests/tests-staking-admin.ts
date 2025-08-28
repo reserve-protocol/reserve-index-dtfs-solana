@@ -1,11 +1,5 @@
-import { BN, Program } from "@coral-xyz/anchor";
-import { BankrunProvider } from "anchor-bankrun";
+import { BN, Program, Provider } from "@coral-xyz/anchor";
 import { Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
-import {
-  BanksClient,
-  BanksTransactionResultWithMeta,
-  ProgramTestContext,
-} from "solana-bankrun";
 
 import {
   createAndSetActor,
@@ -32,6 +26,7 @@ import { Role } from "../bankrun-account-helper";
 import {
   airdrop,
   assertError,
+  BanksTransactionResultWithMeta,
   buildExpectedArray,
   getConnectors,
   travelFutureSlot,
@@ -61,6 +56,7 @@ import {
 } from "../bankrun-governance-helper";
 import { Rewards } from "../../../target/types/rewards";
 import { TestHelper } from "../../../utils/test-helper";
+import { LiteSVM } from "litesvm";
 
 /**
  * Tests for staking admin functionality, including:
@@ -72,9 +68,9 @@ import { TestHelper } from "../../../utils/test-helper";
  */
 
 describe("Bankrun - Staking Admin", () => {
-  let context: ProgramTestContext;
-  let provider: BankrunProvider;
-  let banksClient: BanksClient;
+  let context: LiteSVM;
+  let provider: Provider;
+  let banksClient: LiteSVM;
 
   let programFolioAdmin: Program<FolioAdmin>;
   let programFolio: Program<Folio>;
@@ -344,7 +340,7 @@ describe("Bankrun - Staking Admin", () => {
     );
   }
 
-  before(async () => {
+  beforeEach(async () => {
     ({
       keys,
       programFolioAdmin,
@@ -354,7 +350,7 @@ describe("Bankrun - Staking Admin", () => {
       context,
     } = await getConnectors());
 
-    banksClient = context.banksClient;
+    banksClient = context;
 
     payerKeypair = provider.wallet.payer;
 
@@ -401,7 +397,7 @@ describe("Bankrun - Staking Admin", () => {
             ...restOfParams,
           };
 
-          before(async () => {
+          beforeEach(async () => {
             await initBaseCase(folioTokenMint, new BN(1000_000_000_000));
 
             await travelFutureSlot(context);
@@ -460,7 +456,7 @@ describe("Bankrun - Staking Admin", () => {
 
           let folioMintToUse: Keypair;
 
-          before(async () => {
+          beforeEach(async () => {
             folioMintToUse = customFolioTokenMint || folioTokenMint;
 
             await initBaseCase(folioMintToUse, new BN(1000_000_000_000));
@@ -577,7 +573,7 @@ describe("Bankrun - Staking Admin", () => {
 
           let folioMintToUse: Keypair;
 
-          before(async () => {
+          beforeEach(async () => {
             folioMintToUse = customFolioTokenMint || folioTokenMint;
 
             await initBaseCase(folioMintToUse, new BN(1000_000_000_000));
@@ -673,7 +669,7 @@ describe("Bankrun - Staking Admin", () => {
                 getRewardInfoPDA(realmPDA, rewardToken)
               );
               const currentTime = new BN(
-                (await context.banksClient.getClock()).unixTimestamp.toString()
+                (await context.getClock()).unixTimestamp.toString()
               );
               TestHelper.assertTime(rewardInfo.payoutLastPaid, currentTime);
             });
@@ -701,7 +697,7 @@ describe("Bankrun - Staking Admin", () => {
 
           let folioMintToUse: Keypair;
 
-          before(async () => {
+          beforeEach(async () => {
             folioMintToUse = customFolioTokenMint || folioTokenMint;
 
             await initBaseCase(folioMintToUse, new BN(1000_000_000_000));

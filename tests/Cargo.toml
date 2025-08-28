@@ -4,20 +4,20 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anchor-lang = "0.30.1"
-anyhow = "^1.0.97"
-dotenv = "^0.15.0"
-folio = { path = "../programs/folio", features = ["no-entrypoint"] }
-folio_admin = { path = "../programs/folio-admin", features = ["no-entrypoint"] }
-log = "^0.4.26"
-rewards = { path = "../programs/rewards", features = ["no-entrypoint"] }
-shared = { path = "../shared" }
-simplelog = "^0.12.2"
-spl-math = { version = "=0.2.0", features = ["no-entrypoint"] }
-time = "0.3.37"
+anchor-lang = { workspace = true }
+anyhow = { workspace = true }
+dotenv = { workspace = true }
+folio = { workspace = true }
+folio_admin = { workspace = true }
+log = { workspace = true }
+rewards = { workspace = true }
+shared = { workspace = true }
+simplelog = { workspace = true }
+spl-math = { workspace = true }
+time = { workspace = true }
 
 [dev-dependencies]
-lazy_static = "1.4.0"
+lazy_static = { workspace = true }
 
 [[test]]
 name = "integration"

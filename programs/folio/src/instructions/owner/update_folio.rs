@@ -6,7 +6,6 @@ use crate::utils::structs::{FeeRecipient, Role};
 use crate::utils::{FixedSizeString, FolioStatus, MAX_PADDED_STRING_LENGTH};
 use crate::ID;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::system_program;
 use anchor_spl::token_interface::Mint;
 use shared::constants::{
     FEE_DISTRIBUTION_SEEDS, FEE_RECIPIENTS_SEEDS, MAX_AUCTION_LENGTH, MAX_MINT_FEE, MAX_TVL_FEE,
@@ -15,6 +14,7 @@ use shared::constants::{
 use shared::errors::ErrorCode;
 use shared::utils::init_pda_account_rent;
 use shared::{check_condition, constants::ACTOR_SEEDS};
+use solana_system_interface::program::ID as SYSTEM_PROGRAM_ID;
 
 /// Index of the accounts in the remaining accounts.
 enum IndexPerAccount {
@@ -178,7 +178,7 @@ impl<'info> UpdateFolio<'info> {
 
             let fee_distribution: AccountLoader<FeeDistribution> =
                 AccountLoader::try_from_unchecked(
-                    &system_program::ID,
+                    &SYSTEM_PROGRAM_ID,
                     &remaining_accounts[IndexPerAccount::FeeDistribution as usize],
                 )?;
 

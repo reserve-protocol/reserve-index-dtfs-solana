@@ -9,6 +9,7 @@ import { Connection } from "@solana/web3.js";
 import { getOrCreateAtaAddress, getTokenBalance } from "./token-helper";
 import * as assert from "assert";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { AccountInfoBytes } from "litesvm";
 
 /**
  * Testing utilities for the Folio protocol. Provides methods for tracking and
@@ -316,5 +317,11 @@ export class TestHelper {
   static assertTime(time: BN, expectedTime: BN) {
     assert.equal(time.gte(expectedTime), true);
     assert.equal(time.lt(expectedTime.add(new BN(100))), true);
+  }
+
+  static assertAccountIsClosed(account: AccountInfoBytes) {
+    assert.equal(account.owner.toString(), "11111111111111111111111111111111");
+    assert.equal(account.lamports, 0);
+    assert.equal(account.data.length, 0);
   }
 }

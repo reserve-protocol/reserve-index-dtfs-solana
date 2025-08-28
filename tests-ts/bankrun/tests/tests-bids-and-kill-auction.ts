@@ -1,14 +1,9 @@
-import { BN, Program } from "@coral-xyz/anchor";
-import { BankrunProvider } from "anchor-bankrun";
+import { BN, Program, Provider } from "@coral-xyz/anchor";
 import { AccountMeta, Keypair, PublicKey } from "@solana/web3.js";
-import {
-  BanksClient,
-  BanksTransactionResultWithMeta,
-  ProgramTestContext,
-} from "solana-bankrun";
 import {
   airdrop,
   assertError,
+  BanksTransactionResultWithMeta,
   getConnectors,
   travelFutureSlot,
 } from "../bankrun-program-helper";
@@ -64,6 +59,7 @@ import {
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
+import { LiteSVM } from "litesvm";
 
 /**
  * Tests for auction-related functionality in the Folio program, including:
@@ -73,9 +69,9 @@ import {
  * - Token transfers during auctions
  */
 describe("Bankrun - Bids and Kill Auction", () => {
-  let context: ProgramTestContext;
-  let provider: BankrunProvider;
-  let banksClient: BanksClient;
+  let context: LiteSVM;
+  let provider: Provider;
+  let banksClient: LiteSVM;
 
   let programFolio: Program<Folio>;
   let programFolioAdmin: Program<FolioAdmin>;
@@ -150,7 +146,7 @@ describe("Bankrun - Bids and Kill Auction", () => {
     expectedTokenBalanceChanges: BN[];
 
     addMintOrTokenExtension: (
-      ctx: ProgramTestContext,
+      ctx: LiteSVM,
       bidderBuyTokenAccount: PublicKey | null,
       buyMint: PublicKey
     ) => Promise<void>;
@@ -222,7 +218,7 @@ describe("Bankrun - Bids and Kill Auction", () => {
   }
 
   async function initBaseCase(
-    customFolioTokenMint: Keypair = null,
+    customFolioTokenMint: Keypair | null = null,
     initialFolioBasket: FolioTokenAmount[] = [],
     folioTokenSupply: BN = new BN(10_000),
     extraTokenAmountsForFolioBasket: FolioTokenAmount[] = []
@@ -378,11 +374,11 @@ describe("Bankrun - Bids and Kill Auction", () => {
     await closeAccount(context, getAuctionPDA(folioPDA, new BN(1), new BN(1)));
   }
 
-  before(async () => {
+  beforeEach(async () => {
     ({ keys, programFolio, programFolioAdmin, provider, context } =
       await getConnectors());
 
-    banksClient = context.banksClient;
+    banksClient = context;
 
     payerKeypair = provider.wallet.payer;
 
@@ -584,7 +580,7 @@ describe("Bankrun - Bids and Kill Auction", () => {
             ...restOfParams,
           };
 
-          before(async () => {
+          beforeEach(async () => {
             await initBaseCase(customFolioTokenMint, initialFolioBasket);
             await createAndSetRebalanceAccount(
               context,
@@ -626,7 +622,7 @@ describe("Bankrun - Bids and Kill Auction", () => {
               true
             );
             currentTime = new BN(
-              (await context.banksClient.getClock()).unixTimestamp.toString()
+              (await context.getClock()).unixTimestamp.toString()
             );
           });
 
@@ -945,7 +941,7 @@ describe("Bankrun - Bids and Kill Auction", () => {
         let sellTokenProgram: PublicKey;
         let buyTokenProgram: PublicKey;
 
-        before(async () => {
+        beforeEach(async () => {
           const mintToUse = customFolioTokenMint || folioTokenMint;
           initialFolioBasket.forEach((token) => {
             if (token.mint.equals(sellMint.publicKey)) {
@@ -953,7 +949,7 @@ describe("Bankrun - Bids and Kill Auction", () => {
             }
           });
           currentTime = new BN(
-            (await context.banksClient.getClock()).unixTimestamp.toString()
+            (await context.getClock()).unixTimestamp.toString()
           );
 
           const isSellToken2022 = MINTS_IN_FOLIO_2022.map((m) =>
@@ -1104,7 +1100,7 @@ describe("Bankrun - Bids and Kill Auction", () => {
                 );
 
               const currentTimeAfter = new BN(
-                (await context.banksClient.getClock()).unixTimestamp.toString()
+                (await context.getClock()).unixTimestamp.toString()
               );
               assert.equal(folioBasketSellMint, null);
               assert.equal(auctionAfter.end.lte(currentTimeAfter), true);
@@ -1168,15 +1164,13 @@ describe("Bankrun - Bids and Kill Auction", () => {
         desc: "Should fail if MemoTransfer is present on `bidderBuyTokenAccount`",
         expectedError: "UnsupportedSPLToken",
         addMintOrTokenExtension: async (
-          ctx: ProgramTestContext,
+          ctx: LiteSVM,
           bidderBuyTokenAccount: PublicKey | null,
-          buyMint: PublicKey
+          _buyMint: PublicKey
         ) => {
           if (bidderBuyTokenAccount) {
             const accountLen = getAccountLen([ExtensionType.MemoTransfer]);
-            const existingAccount = await ctx.banksClient.getAccount(
-              bidderBuyTokenAccount
-            );
+            const existingAccount = await ctx.getAccount(bidderBuyTokenAccount);
             const existingData = Buffer.from(existingAccount.data);
             const lengthRequired = accountLen - existingData.length;
             const additionalData = Buffer.alloc(lengthRequired);
@@ -1209,9 +1203,7 @@ describe("Bankrun - Bids and Kill Auction", () => {
 
       ...[
         ExtensionType.TransferFeeAmount,
-        ExtensionType.ConfidentialTransferAccount,
         ExtensionType.CpiGuard,
-        ExtensionType.TransferHookAccount,
         ExtensionType.NonTransferableAccount,
         ExtensionType.MemoTransfer,
       ].map((extension) => {
@@ -1219,13 +1211,13 @@ describe("Bankrun - Bids and Kill Auction", () => {
           desc: `Should fail if ${ExtensionType[extension]} is present on bidderBuyTokenAccount`,
           expectedError: "UnsupportedSPLToken",
           addMintOrTokenExtension: async (
-            ctx: ProgramTestContext,
+            ctx: LiteSVM,
             bidderBuyTokenAccount: PublicKey | null,
-            buyMint: PublicKey
+            _buyMint: PublicKey
           ) => {
             if (bidderBuyTokenAccount) {
               const accountLen = getAccountLen([extension]);
-              const existingAccount = await ctx.banksClient.getAccount(
+              const existingAccount = await ctx.getAccount(
                 bidderBuyTokenAccount
               );
               const existingData = Buffer.from(existingAccount.data);
@@ -1262,14 +1254,16 @@ describe("Bankrun - Bids and Kill Auction", () => {
         desc: "Should pass if only allowed extensions are present on `bidderBuyTokenAccount`",
         expectedError: null,
         addMintOrTokenExtension: async (
-          ctx: ProgramTestContext,
+          ctx: LiteSVM,
           bidderBuyTokenAccount: PublicKey | null,
-          buyMint: PublicKey
+          _buyMint: PublicKey
         ) => {
           if (bidderBuyTokenAccount) {
             const extenstionsToAdd = [
               ExtensionType.Uninitialized,
               ExtensionType.ImmutableOwner,
+              ExtensionType.ConfidentialTransferAccount,
+              ExtensionType.TransferHookAccount,
             ];
             const dataToEachForEachExtension = {
               [ExtensionType.Uninitialized]: (
@@ -1298,12 +1292,22 @@ describe("Bankrun - Bids and Kill Auction", () => {
               ) => {
                 return offset + 1;
               },
+              [ExtensionType.ConfidentialTransferAccount]: (
+                _inputBuffer: Buffer,
+                offset: number
+              ) => {
+                return offset;
+              },
+              [ExtensionType.TransferHookAccount]: (
+                _inputBuffer: Buffer,
+                offset: number
+              ) => {
+                return offset;
+              },
             };
 
             const accountLen = getAccountLen(extenstionsToAdd);
-            const existingAccount = await ctx.banksClient.getAccount(
-              bidderBuyTokenAccount
-            );
+            const existingAccount = await ctx.getAccount(bidderBuyTokenAccount);
             const existingData = Buffer.from(existingAccount.data);
             const lengthRequired = accountLen - existingData.length;
             const additionalData = Buffer.alloc(lengthRequired);
@@ -1356,7 +1360,7 @@ describe("Bankrun - Bids and Kill Auction", () => {
           let sellTokenProgram: PublicKey;
           let buyTokenProgram: PublicKey;
 
-          before(async () => {
+          beforeEach(async () => {
             const mintToUse = customFolioTokenMint || folioTokenMint;
             initialFolioBasket.forEach((token) => {
               if (token.mint.equals(sellMint.publicKey)) {
@@ -1364,7 +1368,7 @@ describe("Bankrun - Bids and Kill Auction", () => {
               }
             });
             currentTime = new BN(
-              (await context.banksClient.getClock()).unixTimestamp.toString()
+              (await context.getClock()).unixTimestamp.toString()
             );
 
             const isSellToken2022 = MINTS_IN_FOLIO_2022.map((m) =>

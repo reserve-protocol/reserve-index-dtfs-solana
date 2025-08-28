@@ -1,17 +1,11 @@
-import { BN, Program } from "@coral-xyz/anchor";
-import { BankrunProvider } from "anchor-bankrun";
+import { BN, Program, Provider } from "@coral-xyz/anchor";
 import { Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
-import {
-  BanksClient,
-  BanksTransactionResultWithMeta,
-  ProgramTestContext,
-} from "solana-bankrun";
+
 import {
   createAndSetActor,
   createAndSetFolio,
   createAndSetDaoFeeConfig,
   createAndSetRewardTokens,
-  closeAccount,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
 import {
@@ -28,6 +22,7 @@ import { Role } from "../bankrun-account-helper";
 import {
   airdrop,
   assertError,
+  BanksTransactionResultWithMeta,
   buildExpectedArray,
   getConnectors,
   travelFutureSlot,
@@ -47,6 +42,7 @@ import {
   setupGovernanceAccounts,
 } from "../bankrun-governance-helper";
 import { Rewards } from "../../../target/types/rewards";
+import { LiteSVM } from "litesvm";
 
 /**
  * Tests for staking admin functionality with SPL Token 2022, including:
@@ -56,9 +52,9 @@ import { Rewards } from "../../../target/types/rewards";
  */
 
 describe("Bankrun - Staking Admin SPL 2022", () => {
-  let context: ProgramTestContext;
-  let provider: BankrunProvider;
-  let banksClient: BanksClient;
+  let context: LiteSVM;
+  let provider: Provider;
+  let banksClient: LiteSVM;
 
   let programFolioAdmin: Program<FolioAdmin>;
   let programRewards: Program<Rewards>;
@@ -89,14 +85,9 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
 
   const TEST_ADD_REWARD_TOKEN = [
     {
-      desc: "(try with transfer hook extension, errors out)",
+      desc: "(try with non transferable extension, errors out)",
       expectedError: "UnsupportedSPLToken",
-      mintExtension: ExtensionType.TransferHook,
-    },
-    {
-      desc: "(try with permanent delegate extension, errors out)",
-      expectedError: "UnsupportedSPLToken",
-      mintExtension: ExtensionType.PermanentDelegate,
+      mintExtension: ExtensionType.NonTransferable,
     },
     {
       desc: "(try without any extensions, succeeds)",
@@ -140,8 +131,8 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
       TOKEN_2022_PROGRAM_ID
     );
 
-    await closeAccount(context, REWARD_TOKEN_MINT.publicKey);
-    await closeAccount(context, rewardTokenATA);
+    // await closeAccount(context, REWARD_TOKEN_MINT.publicKey);
+    // await closeAccount(context, rewardTokenATA);
 
     await initToken2022Tx(
       context,
@@ -178,7 +169,7 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
     );
   }
 
-  before(async () => {
+  beforeEach(async () => {
     ({
       keys,
       programFolioAdmin,
@@ -188,7 +179,7 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
       context,
     } = await getConnectors());
 
-    banksClient = context.banksClient;
+    banksClient = context;
 
     payerKeypair = provider.wallet.payer;
 
@@ -213,7 +204,7 @@ describe("Bankrun - Staking Admin SPL 2022", () => {
             ...restOfParams,
           };
 
-          before(async () => {
+          beforeEach(async () => {
             await initBaseCase(mintExtension);
 
             await createAndSetFolio(

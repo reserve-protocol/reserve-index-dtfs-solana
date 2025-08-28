@@ -1,9 +1,5 @@
 import { Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
 import {
-  BanksTransactionResultWithMeta,
-  ProgramTestContext,
-} from "solana-bankrun";
-import {
   DEFAULT_DECIMALS,
   SPL_GOVERNANCE_PROGRAM_ID,
 } from "../../utils/constants";
@@ -14,7 +10,10 @@ import {
   AccountLayout,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { createAndProcessTransaction } from "./bankrun-program-helper";
+import {
+  BanksTransactionResultWithMeta,
+  createAndProcessTransaction,
+} from "./bankrun-program-helper";
 import { initToken } from "./bankrun-token-helper";
 import {
   getGovernanceAccountPDA,
@@ -23,6 +22,7 @@ import {
   getRealmPDA,
 } from "../../utils/pda-helper";
 import { getComputeLimitInstruction } from "../../utils/program-helper";
+import { LiteSVM } from "litesvm";
 
 /**
  * Helper functions for creating governance accounts and proposals (data serialization)
@@ -314,7 +314,7 @@ function serializeTransactionData(
 Helpers for creating mocked account related to the SPL governance program.
 */
 export function createProposalWithInstructions(
-  context: ProgramTestContext,
+  context: LiteSVM,
   governanceAccount: PublicKey,
   proposalOwner: PublicKey,
   governingTokenMint: PublicKey,
@@ -408,7 +408,7 @@ export function createProposalWithInstructions(
 // Use to create Governance accounts that would represent Folio Owners, Auction Launchers, etc.
 // Are an authority controlled by the Realm (can have multiple governance account under the Realm)
 export function createGovernanceAccount(
-  context: ProgramTestContext,
+  context: LiteSVM,
   realm: PublicKey,
   governanceAccount: PublicKey,
   governanceSeed: PublicKey
@@ -549,7 +549,7 @@ export function createGovernanceAccount(
 
 // Used to create a "staked" balance for a user in a specific Realm
 export function createGovernanceTokenRecord(
-  context: ProgramTestContext,
+  context: LiteSVM,
   userTokenRecordPda: PublicKey,
   depositAmount: number
 ) {
@@ -570,7 +570,7 @@ export function createGovernanceTokenRecord(
 }
 
 export function createRealm(
-  context: ProgramTestContext,
+  context: LiteSVM,
   realmOwner: PublicKey,
   realm: PublicKey,
   realmName: string,
@@ -687,7 +687,7 @@ export function createRealm(
 // This is a token account that holds all the staked governance tokens for a Realm.
 // It is just a normal token account where the owner is the realm and the mint is the governance token
 export function createGovernanceHoldingAccount(
-  context: ProgramTestContext,
+  context: LiteSVM,
   governanceOwner: PublicKey,
   governanceTokenMint: PublicKey,
   governanceHoldingPda: PublicKey,
@@ -721,7 +721,7 @@ export function createGovernanceHoldingAccount(
 
 // Used to execute a proposal, via a proposal transaction.
 export async function executeGovernanceInstruction(
-  context: ProgramTestContext,
+  context: LiteSVM,
   executor: Keypair,
   governanceAccount: PublicKey,
   governanceMint: PublicKey,
@@ -775,7 +775,7 @@ export async function executeGovernanceInstruction(
   }
 
   return await createAndProcessTransaction(
-    context.banksClient,
+    context,
     executor,
     [...getComputeLimitInstruction(800_000), executeIx],
     []
@@ -784,7 +784,7 @@ export async function executeGovernanceInstruction(
 
 // Setup function to help create all governance accounts needed for testing cases
 export async function setupGovernanceAccounts(
-  context: ProgramTestContext,
+  context: LiteSVM,
   ownerKeypair: Keypair,
   governanceMint: PublicKey
 ): Promise<{

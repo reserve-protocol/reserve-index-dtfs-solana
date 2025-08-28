@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
-use mpl_token_metadata::types::{
-    CollectionDetailsToggle, CollectionToggle, RuleSetToggle, UsesToggle,
+use anchor_spl::metadata::mpl_token_metadata::{
+    self,
+    types::{CollectionDetailsToggle, CollectionToggle, RuleSetToggle, UsesToggle},
 };
 
 /// Utility struct for the metaplex program.

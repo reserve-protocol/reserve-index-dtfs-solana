@@ -13,6 +13,10 @@
 //! * `accrue_rewards` - Accrue rewards to a token, meaning updating accrued rewards.
 #![allow(unexpected_cfgs)]
 #![allow(clippy::doc_overindented_list_items)]
+#![allow(
+    deprecated,
+    reason = "Anchor internally calls AccountInfo::realloc (see PR #3803)"
+)]
 use anchor_lang::prelude::*;
 
 use instructions::*;

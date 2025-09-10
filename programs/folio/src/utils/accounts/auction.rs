@@ -345,7 +345,7 @@ impl Auction {
         }
     }
 
-    /// return (sell_amount, bid_amount, price D18{buyTok/sellTok}, scaled_folio_token_total_supply)
+    /// return (max_sell_amount, bid_amount, price D18{buyTok/sellTok}, scaled_folio_token_total_supply)
     pub fn get_bid(
         &self,
         folio: &Folio,
@@ -389,18 +389,18 @@ impl Auction {
             .to_token_amount(Rounding::Floor)?
             .0;
         let sell_amount_available = sell_amount_available_from_buy.min(raw_sell_available);
+        check_condition!(
+            sell_amount_available >= raw_sell_amount,
+            InsufficientBalance
+        );
 
         // bidAmount
-        let bid_amount = Decimal::from_token_amount(sell_amount_available)?
+        let bid_amount = Decimal::from_token_amount(raw_sell_amount)?
             .mul(&scaled_price)?
             .div(&Decimal::ONE_E18)?
             .to_token_amount(Rounding::Floor)?
             .0;
 
-        check_condition!(
-            sell_amount_available >= raw_sell_amount,
-            InsufficientBalance
-        );
         check_condition!(
             bid_amount != 0 && bid_amount <= raw_max_buy_amount,
             SlippageExceeded

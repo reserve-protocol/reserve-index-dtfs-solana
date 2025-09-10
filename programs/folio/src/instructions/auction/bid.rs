@@ -234,7 +234,7 @@ pub fn handler(
 
     let folio_bump: u8;
 
-    let (raw_sell_amount, raw_bought_amount, _price, scaled_folio_token_total_supply) = {
+    let (_, raw_bought_amount, _price, scaled_folio_token_total_supply) = {
         let folio = &mut ctx.accounts.folio.load_mut()?;
         // checks auction is ongoing
         ctx.accounts

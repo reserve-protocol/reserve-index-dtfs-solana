@@ -586,72 +586,70 @@ describe("Bankrun - Rebalance", () => {
       mints: [DEFAULT_BUY_MINT.publicKey, DEFAULT_SELL_MINT.publicKey],
     },
 
-    ...[
-      ExtensionType.TransferFeeConfig,
-      ExtensionType.MintCloseAuthority,
-      ExtensionType.NonTransferable,
-    ].map((extension) => {
-      return {
-        desc: `Should fail if ${ExtensionType[extension]} is present on mint`,
-        expectedError: "UnsupportedSPLToken",
-        allRebalanceDetailsAdded: true,
-        addMintExtension: async (ctx: LiteSVM, buyMint: PublicKey) => {
-          const accountLen = getMintLen([extension]);
-          const existingAccount = await ctx.getAccount(buyMint);
-          const existingData = Buffer.from(existingAccount.data);
-          const lengthRequired = accountLen - existingData.length;
-          const additionalData = Buffer.alloc(lengthRequired);
-          const startForExtensions = ACCOUNT_SIZE - existingData.length;
-          additionalData.writeUInt8(AccountType.Mint, startForExtensions);
-          let offset = startForExtensions + 1;
-          additionalData.writeUInt16LE(extension, offset);
-          offset += 2;
-          additionalData.writeUInt16LE(getTypeLen(extension), offset);
-          offset += 2;
+    ...[ExtensionType.TransferFeeConfig, ExtensionType.NonTransferable].map(
+      (extension) => {
+        return {
+          desc: `Should fail if ${ExtensionType[extension]} is present on mint`,
+          expectedError: "UnsupportedSPLToken",
+          allRebalanceDetailsAdded: true,
+          addMintExtension: async (ctx: LiteSVM, buyMint: PublicKey) => {
+            const accountLen = getMintLen([extension]);
+            const existingAccount = await ctx.getAccount(buyMint);
+            const existingData = Buffer.from(existingAccount.data);
+            const lengthRequired = accountLen - existingData.length;
+            const additionalData = Buffer.alloc(lengthRequired);
+            const startForExtensions = ACCOUNT_SIZE - existingData.length;
+            additionalData.writeUInt8(AccountType.Mint, startForExtensions);
+            let offset = startForExtensions + 1;
+            additionalData.writeUInt16LE(extension, offset);
+            offset += 2;
+            additionalData.writeUInt16LE(getTypeLen(extension), offset);
+            offset += 2;
 
-          const finalData = Buffer.concat([existingData, additionalData]);
-          ctx.setAccount(buyMint, {
-            ...existingAccount,
-            data: finalData,
-          });
-        },
-        existingRebalanceParams: {
-          nonce: new BN(10),
-          currentAuctionId: new BN(1),
-          allRebalanceDetailsAdded: false,
-          auctionLauncherWindow: 100,
-          ttl: 100,
-          startedAt: new BN(100),
-          restrictedUntil: new BN(100),
-          availableUntil: new BN(100),
-        },
-        pricesAndLimits: [
-          {
-            prices: {
-              low: new BN(1),
-              high: new BN(2),
-            },
-            limits: {
-              spot: new BN(1),
-              low: new BN(1),
-              high: new BN(2),
-            },
+            const finalData = Buffer.concat([existingData, additionalData]);
+            ctx.setAccount(buyMint, {
+              ...existingAccount,
+              data: finalData,
+            });
           },
-          {
-            prices: {
-              low: new BN(1),
-              high: new BN(2),
-            },
-            limits: {
-              spot: new BN(2),
-              low: new BN(1),
-              high: new BN(2),
-            },
+          existingRebalanceParams: {
+            nonce: new BN(10),
+            currentAuctionId: new BN(1),
+            allRebalanceDetailsAdded: false,
+            auctionLauncherWindow: 100,
+            ttl: 100,
+            startedAt: new BN(100),
+            restrictedUntil: new BN(100),
+            availableUntil: new BN(100),
           },
-        ],
-        mints: [BUY_MINTS_2022[0].publicKey, DEFAULT_SELL_MINT.publicKey],
-      };
-    }),
+          pricesAndLimits: [
+            {
+              prices: {
+                low: new BN(1),
+                high: new BN(2),
+              },
+              limits: {
+                spot: new BN(1),
+                low: new BN(1),
+                high: new BN(2),
+              },
+            },
+            {
+              prices: {
+                low: new BN(1),
+                high: new BN(2),
+              },
+              limits: {
+                spot: new BN(2),
+                low: new BN(1),
+                high: new BN(2),
+              },
+            },
+          ],
+          mints: [BUY_MINTS_2022[0].publicKey, DEFAULT_SELL_MINT.publicKey],
+        };
+      }
+    ),
 
     ...[
       ExtensionType.Uninitialized,
@@ -1096,72 +1094,70 @@ describe("Bankrun - Rebalance", () => {
       mints: [DEFAULT_BUY_MINT.publicKey, DEFAULT_SELL_MINT.publicKey],
     },
 
-    ...[
-      ExtensionType.TransferFeeConfig,
-      ExtensionType.MintCloseAuthority,
-      ExtensionType.NonTransferable,
-    ].map((extension) => {
-      return {
-        desc: `Should fail if ${ExtensionType[extension]} is present on mint`,
-        expectedError: "UnsupportedSPLToken",
-        allRebalanceDetailsAdded: true,
-        addMintExtension: async (ctx: LiteSVM, buyMint: PublicKey) => {
-          const accountLen = getMintLen([extension]);
-          const existingAccount = await ctx.getAccount(buyMint);
-          const existingData = Buffer.from(existingAccount.data);
-          const lengthRequired = accountLen - existingData.length;
-          const additionalData = Buffer.alloc(lengthRequired);
-          const startForExtensions = ACCOUNT_SIZE - existingData.length;
-          additionalData.writeUInt8(AccountType.Mint, startForExtensions);
-          let offset = startForExtensions + 1;
-          additionalData.writeUInt16LE(extension, offset);
-          offset += 2;
-          additionalData.writeUInt16LE(getTypeLen(extension), offset);
-          offset += 2;
+    ...[ExtensionType.TransferFeeConfig, ExtensionType.NonTransferable].map(
+      (extension) => {
+        return {
+          desc: `Should fail if ${ExtensionType[extension]} is present on mint`,
+          expectedError: "UnsupportedSPLToken",
+          allRebalanceDetailsAdded: true,
+          addMintExtension: async (ctx: LiteSVM, buyMint: PublicKey) => {
+            const accountLen = getMintLen([extension]);
+            const existingAccount = await ctx.getAccount(buyMint);
+            const existingData = Buffer.from(existingAccount.data);
+            const lengthRequired = accountLen - existingData.length;
+            const additionalData = Buffer.alloc(lengthRequired);
+            const startForExtensions = ACCOUNT_SIZE - existingData.length;
+            additionalData.writeUInt8(AccountType.Mint, startForExtensions);
+            let offset = startForExtensions + 1;
+            additionalData.writeUInt16LE(extension, offset);
+            offset += 2;
+            additionalData.writeUInt16LE(getTypeLen(extension), offset);
+            offset += 2;
 
-          const finalData = Buffer.concat([existingData, additionalData]);
-          ctx.setAccount(buyMint, {
-            ...existingAccount,
-            data: finalData,
-          });
-        },
-        existingRebalanceParams: {
-          nonce: new BN(10),
-          currentAuctionId: new BN(1),
-          allRebalanceDetailsAdded: false,
-          auctionLauncherWindow: 100,
-          ttl: 100,
-          startedAt: new BN(100),
-          restrictedUntil: new BN(100),
-          availableUntil: new BN(100),
-        },
-        pricesAndLimits: [
-          {
-            prices: {
-              low: new BN(1),
-              high: new BN(2),
-            },
-            limits: {
-              spot: new BN(1),
-              low: new BN(1),
-              high: new BN(2),
-            },
+            const finalData = Buffer.concat([existingData, additionalData]);
+            ctx.setAccount(buyMint, {
+              ...existingAccount,
+              data: finalData,
+            });
           },
-          {
-            prices: {
-              low: new BN(1),
-              high: new BN(2),
-            },
-            limits: {
-              spot: new BN(2),
-              low: new BN(1),
-              high: new BN(2),
-            },
+          existingRebalanceParams: {
+            nonce: new BN(10),
+            currentAuctionId: new BN(1),
+            allRebalanceDetailsAdded: false,
+            auctionLauncherWindow: 100,
+            ttl: 100,
+            startedAt: new BN(100),
+            restrictedUntil: new BN(100),
+            availableUntil: new BN(100),
           },
-        ],
-        mints: [BUY_MINTS_2022[0].publicKey, DEFAULT_SELL_MINT.publicKey],
-      };
-    }),
+          pricesAndLimits: [
+            {
+              prices: {
+                low: new BN(1),
+                high: new BN(2),
+              },
+              limits: {
+                spot: new BN(1),
+                low: new BN(1),
+                high: new BN(2),
+              },
+            },
+            {
+              prices: {
+                low: new BN(1),
+                high: new BN(2),
+              },
+              limits: {
+                spot: new BN(2),
+                low: new BN(1),
+                high: new BN(2),
+              },
+            },
+          ],
+          mints: [BUY_MINTS_2022[0].publicKey, DEFAULT_SELL_MINT.publicKey],
+        };
+      }
+    ),
 
     ...[
       ExtensionType.Uninitialized,

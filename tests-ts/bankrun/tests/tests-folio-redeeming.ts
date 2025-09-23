@@ -121,6 +121,7 @@ describe("Bankrun - Folio redeeming", () => {
     expectedFolioTokenBalanceChange: BN;
     expectedTokenBalanceChanges: BN[];
     minimumOutForTokenAmounts: { mint: PublicKey; minimumOut: BN }[];
+    user_pending_basket_not_initalized: boolean;
   } = {
     alreadyIncludedTokens: [],
     tokens: [],
@@ -140,6 +141,7 @@ describe("Bankrun - Folio redeeming", () => {
     expectedFolioTokenBalanceChange: new BN(0),
     expectedTokenBalanceChanges: Array(MINTS.length).fill(new BN(0)),
     minimumOutForTokenAmounts: [],
+    user_pending_basket_not_initalized: false,
   };
 
   const TEST_CASES_BURN_FOLIO_TOKEN = [
@@ -249,6 +251,28 @@ describe("Bankrun - Folio redeeming", () => {
         new FolioTokenAmount(MINTS[1].publicKey, new BN(1_000).mul(D9)),
       ],
       alreadyIncludedTokens: [],
+      tokens: [
+        { mint: MINTS[0].publicKey, amount: new BN(0) },
+        { mint: MINTS[1].publicKey, amount: new BN(0) },
+      ],
+      initialUserShares: new BN(1_000_000_000),
+      shares: new BN(1_000_000_000),
+      expectedFolioTokenBalanceChange: new BN(1_000_000_000),
+      expectedTokenBalanceChanges: [
+        new BN(1_000_000_000),
+        new BN(1_000_000_000),
+      ],
+    },
+
+    {
+      desc: "(users burns max amount of shares, even when his alreadyIncludedTokens is empty)",
+      expectedError: null,
+      folioBasketTokens: [
+        new FolioTokenAmount(MINTS[0].publicKey, new BN(1_000).mul(D9)),
+        new FolioTokenAmount(MINTS[1].publicKey, new BN(1_000).mul(D9)),
+      ],
+      alreadyIncludedTokens: [],
+      user_pending_basket_not_initalized: true,
       tokens: [
         { mint: MINTS[0].publicKey, amount: new BN(0) },
         { mint: MINTS[1].publicKey, amount: new BN(0) },
@@ -551,6 +575,7 @@ describe("Bankrun - Folio redeeming", () => {
             customFolioTokenMint,
             customFolioFeeConfig,
             minimumOutForTokenAmounts,
+            user_pending_basket_not_initalized,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
@@ -575,13 +600,15 @@ describe("Bankrun - Folio redeeming", () => {
               customFolioFeeConfig
             );
 
-            await createAndSetUserPendingBasket(
-              context,
-              programFolio,
-              folioPDA,
-              userKeypair.publicKey,
-              alreadyIncludedTokens
-            );
+            if (!user_pending_basket_not_initalized) {
+              await createAndSetUserPendingBasket(
+                context,
+                programFolio,
+                folioPDA,
+                userKeypair.publicKey,
+                alreadyIncludedTokens
+              );
+            }
 
             await travelFutureSlot(context);
 

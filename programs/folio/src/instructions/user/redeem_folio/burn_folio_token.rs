@@ -30,6 +30,7 @@ use shared::{check_condition, constants::PendingBasketType};
 /// * `user_folio_token_account` - The user folio token account (PDA) (mut, not signer).
 #[derive(Accounts)]
 pub struct BurnFolioToken<'info> {
+    pub system_program: Program<'info, System>,
     pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
 
@@ -63,7 +64,9 @@ pub struct BurnFolioToken<'info> {
     )]
     pub folio_basket: AccountLoader<'info, FolioBasket>,
 
-    #[account(mut,
+    #[account(init_if_needed,
+        payer = user,
+        space = UserPendingBasket::SIZE,
         seeds = [USER_PENDING_BASKET_SEEDS, folio.key().as_ref(), user.key().as_ref()],
         bump
     )]

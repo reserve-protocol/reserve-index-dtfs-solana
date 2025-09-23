@@ -237,40 +237,38 @@ describe("Bankrun - Folio basket", () => {
       expectedInitialBalanceSharesChange: new BN(0),
     },
 
-    ...[
-      ExtensionType.TransferFeeConfig,
-      ExtensionType.MintCloseAuthority,
-      ExtensionType.NonTransferable,
-    ].map((extension) => {
-      return {
-        desc: `Should fail if ${ExtensionType[extension]} is present on mint`,
-        expectedError: "UnsupportedSPLToken",
-        initialShares: null,
-        tokens: [
-          { mint: MINTS_2022[0].publicKey, amount: new BN(1_000_000_000) },
-        ],
-        addMintExtension: async (ctx: LiteSVM, mint: PublicKey) => {
-          const accountLen = getMintLen([extension]);
-          const existingAccount = await ctx.getAccount(mint);
-          const existingData = Buffer.from(existingAccount.data);
-          const lengthRequired = accountLen - existingData.length;
-          const additionalData = Buffer.alloc(lengthRequired);
-          const startForExtensions = ACCOUNT_SIZE - existingData.length;
-          additionalData.writeUInt8(AccountType.Mint, startForExtensions);
-          let offset = startForExtensions + 1;
-          additionalData.writeUInt16LE(extension, offset);
-          offset += 2;
-          additionalData.writeUInt16LE(getTypeLen(extension), offset);
-          offset += 2;
+    ...[ExtensionType.TransferFeeConfig, ExtensionType.NonTransferable].map(
+      (extension) => {
+        return {
+          desc: `Should fail if ${ExtensionType[extension]} is present on mint`,
+          expectedError: "UnsupportedSPLToken",
+          initialShares: null,
+          tokens: [
+            { mint: MINTS_2022[0].publicKey, amount: new BN(1_000_000_000) },
+          ],
+          addMintExtension: async (ctx: LiteSVM, mint: PublicKey) => {
+            const accountLen = getMintLen([extension]);
+            const existingAccount = await ctx.getAccount(mint);
+            const existingData = Buffer.from(existingAccount.data);
+            const lengthRequired = accountLen - existingData.length;
+            const additionalData = Buffer.alloc(lengthRequired);
+            const startForExtensions = ACCOUNT_SIZE - existingData.length;
+            additionalData.writeUInt8(AccountType.Mint, startForExtensions);
+            let offset = startForExtensions + 1;
+            additionalData.writeUInt16LE(extension, offset);
+            offset += 2;
+            additionalData.writeUInt16LE(getTypeLen(extension), offset);
+            offset += 2;
 
-          const finalData = Buffer.concat([existingData, additionalData]);
-          ctx.setAccount(mint, {
-            ...existingAccount,
-            data: finalData,
-          });
-        },
-      };
-    }),
+            const finalData = Buffer.concat([existingData, additionalData]);
+            ctx.setAccount(mint, {
+              ...existingAccount,
+              data: finalData,
+            });
+          },
+        };
+      }
+    ),
   ];
 
   const TEST_CASES_REMOVE_FROM_BASKET = [

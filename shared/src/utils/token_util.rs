@@ -20,7 +20,7 @@ impl TokenUtil {
     /// correct at the moment our smart contract interacts with these tokens.
     ///
     /// If the config change, we the DTF creator/owner must remove the tokens/take necessary actions.
-    pub const ALLOWED_MINT_EXTENSION_TYPES: [ExtensionType; 13] = [
+    pub const ALLOWED_MINT_EXTENSION_TYPES: [ExtensionType; 14] = [
         ExtensionType::Uninitialized,
         ExtensionType::InterestBearingConfig,
         ExtensionType::MetadataPointer,
@@ -36,6 +36,8 @@ impl TokenUtil {
         ExtensionType::ConfidentialTransferMint,
         // Only if the program_id is None.
         ExtensionType::TransferHook,
+        // Supported as it is used by some of the stable coins, like PYUSD, USDG, AUSD
+        ExtensionType::MintCloseAuthority,
     ];
 
     /// The allowed token extension types.

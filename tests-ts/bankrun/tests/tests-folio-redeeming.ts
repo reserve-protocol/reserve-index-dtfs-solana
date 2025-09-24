@@ -265,7 +265,7 @@ describe("Bankrun - Folio redeeming", () => {
     },
 
     {
-      desc: "(users burns max amount of shares, even when his alreadyIncludedTokens is empty)",
+      desc: "(users burns max amount of shares, even when his alreadyIncludedTokens is empty, and user pending basket is not initialized)",
       expectedError: null,
       folioBasketTokens: [
         new FolioTokenAmount(MINTS[0].publicKey, new BN(1_000).mul(D9)),
@@ -608,6 +608,12 @@ describe("Bankrun - Folio redeeming", () => {
                 userKeypair.publicKey,
                 alreadyIncludedTokens
               );
+            } else {
+              const userPendingBasket = getUserPendingBasketPDA(
+                folioPDA,
+                userKeypair.publicKey
+              );
+              await closeAccount(context, userPendingBasket);
             }
 
             await travelFutureSlot(context);
@@ -626,11 +632,19 @@ describe("Bankrun - Folio redeeming", () => {
               )
             ).basket.tokenAmounts;
 
-            userPendingBasketBefore = (
-              await programFolio.account.userPendingBasket.fetch(
-                getUserPendingBasketPDA(folioPDA, userKeypair.publicKey)
-              )
-            ).basket.tokenAmounts;
+            if (!user_pending_basket_not_initalized) {
+              userPendingBasketBefore = (
+                await programFolio.account.userPendingBasket.fetch(
+                  getUserPendingBasketPDA(folioPDA, userKeypair.publicKey)
+                )
+              ).basket.tokenAmounts;
+            } else {
+              userPendingBasketBefore = Array(110).fill({
+                mint: PublicKey.default,
+                amountForMinting: new BN(0),
+                amountForRedeeming: new BN(0),
+              });
+            }
 
             try {
               txnResult = await burnFolioToken<true>(

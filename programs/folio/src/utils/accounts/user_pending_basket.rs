@@ -24,6 +24,9 @@ impl UserPendingBasket {
     /// * `folio` - The folio the UserPendingBasket account belongs to.
     /// * `added_token_amounts` - The token amounts to add to the UserPendingBasket account.
     /// * `can_add_new_mints` - Whether we can add new mints to the UserPendingBasket account.
+    ///
+    /// # Returns
+    /// * True if discriminator is initialized.
     #[cfg(not(tarpaulin_include))]
     pub fn process_init_if_needed(
         account_loader_user_pending_basket: &mut AccountLoader<UserPendingBasket>,
@@ -32,7 +35,7 @@ impl UserPendingBasket {
         folio: &Pubkey,
         added_token_amounts: &Vec<TokenAmount>,
         can_add_new_mints: bool,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         let account_info_user_pending_basket = account_loader_user_pending_basket.to_account_info();
 
         let data = account_info_user_pending_basket.try_borrow_mut_data()?;
@@ -58,6 +61,7 @@ impl UserPendingBasket {
                 can_add_new_mints,
                 PendingBasketType::MintProcess,
             )?;
+            Ok(true)
         } else {
             let user_pending_basket = &mut account_loader_user_pending_basket.load_mut()?;
 
@@ -68,9 +72,8 @@ impl UserPendingBasket {
                 can_add_new_mints,
                 PendingBasketType::MintProcess,
             )?;
+            Ok(false)
         }
-
-        Ok(())
     }
 
     /// Add token amounts to the pending basket of the user. If can add new mints it mean it won't error out if the mint is not in the basket yet.

@@ -120,6 +120,14 @@ pub fn handler<'info>(
     raw_shares: u64,
     minimum_out_for_token_amounts: Vec<MinimumOutForTokenAmount>,
 ) -> Result<()> {
+    let is_user_pending_basket_intialized = UserPendingBasket::process_init_if_needed(
+        &mut ctx.accounts.user_pending_basket,
+        ctx.bumps.user_pending_basket,
+        &ctx.accounts.user.key(),
+        &ctx.accounts.folio.key(),
+        &vec![],
+        false,
+    )?;
     let current_time = Clock::get()?.unix_timestamp;
 
     {
@@ -135,7 +143,11 @@ pub fn handler<'info>(
         .get_fee_details(&ctx.accounts.folio_fee_config)?;
 
     {
-        let token_amounts_user = &mut ctx.accounts.user_pending_basket.load_mut()?;
+        let token_amounts_user = if is_user_pending_basket_intialized {
+            &mut ctx.accounts.user_pending_basket.load_init()?
+        } else {
+            &mut ctx.accounts.user_pending_basket.load_mut()?
+        };
         let folio = &mut ctx.accounts.folio.load_mut()?;
         let folio_basket = &mut ctx.accounts.folio_basket.load_mut()?;
 

@@ -24,6 +24,8 @@ import {
   getRebalancePDAWithBump,
   getAuctionEndsPDAWithBump,
   getMetadataPDA,
+  getFolioFeeClaimedPDA,
+  getFolioFeeClaimedPDAWithBump,
 } from "../../utils/pda-helper";
 import * as crypto from "crypto";
 import { Folio } from "../../target/types/folio";
@@ -519,6 +521,50 @@ export async function createAndSetAuctionEndsAccount(
     program,
     auctionEndsPDAWithBump[0],
     "auctionEnds",
+    null,
+    buffer
+  );
+}
+
+export async function createAndSetFolioFeeClaimedAccount(
+  ctx: LiteSVM,
+  program: Program<Folio> | Program<FolioSecond>,
+  folio: PublicKey,
+  user: PublicKey,
+  lastUpdate: BN,
+  amount: BN
+) {
+  const folioFeeClaimedPDAWithBump = getFolioFeeClaimedPDAWithBump(folio, user);
+
+  const buffer = Buffer.alloc(89);
+  let offset = 0;
+
+  // Encode discriminator
+  const discriminator = getAccountDiscriminator("FolioFeeClaimed");
+  discriminator.copy(buffer, offset);
+  offset += 8;
+
+  // Write bump
+  buffer.writeUInt8(folioFeeClaimedPDAWithBump[1], offset);
+  offset += 1;
+
+  folio.toBuffer().copy(buffer, offset);
+  offset += 32;
+
+  user.toBuffer().copy(buffer, offset);
+  offset += 32;
+
+  lastUpdate.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+  offset += 8;
+
+  amount.toArrayLike(Buffer, "le", 8).copy(buffer, offset);
+  offset += 8;
+
+  await setFolioAccountInfo(
+    ctx,
+    program,
+    folioFeeClaimedPDAWithBump[0],
+    "folioFeeClaimed",
     null,
     buffer
   );
@@ -1465,6 +1511,11 @@ export async function buildRemainingAccountsForUpdateFolio(
         folioTokenMint,
         daoFeeRecipient
       ),
+      isSigner: false,
+      isWritable: true,
+    },
+    {
+      pubkey: getFolioFeeClaimedPDA(folio, daoFeeRecipient),
       isSigner: false,
       isWritable: true,
     },

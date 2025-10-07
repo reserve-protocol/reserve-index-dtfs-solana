@@ -11,6 +11,7 @@ import {
   FeeRecipient,
   createAndSetFolioFeeConfig,
   closeAccount,
+  createAndSetFolioFeeClaimedAccount,
 } from "../bankrun-account-helper";
 import { Folio } from "../../../target/types/folio";
 import { FolioAdmin } from "../../../target/types/folio_admin";
@@ -43,6 +44,7 @@ import {
   getTVLFeeRecipientsPDA,
   getFolioPDA,
   getFolioFeeConfigPDA,
+  getFolioFeeClaimedPDA,
 } from "../../../utils/pda-helper";
 import {
   crankFeeDistribution,
@@ -144,6 +146,7 @@ describe("Bankrun - Fees", () => {
 
     startUnixTimestamp: BN | null;
     useToken2022ForFolioTokenMint: boolean;
+    feeClaimAlreadyExists: boolean;
   } = {
     remainingAccounts: () => [],
     customFolioTokenMint: null,
@@ -186,6 +189,7 @@ describe("Bankrun - Fees", () => {
 
     startUnixTimestamp: null,
     useToken2022ForFolioTokenMint: false,
+    feeClaimAlreadyExists: false,
   };
 
   const TEST_CASES_POKE_FOLIO = [
@@ -270,6 +274,14 @@ describe("Bankrun - Fees", () => {
       useToken2022ForFolioTokenMint: true,
     },
     {
+      desc: "(is valid, when DaoFeeClaimed Account already exists, succeeds)",
+      expectedError: null,
+      initialDaoPendingFeeShares: new BN(1000).mul(D18),
+      // D9 as this is token amounts
+      expectedDaoFeeShares: new BN(1000).mul(D9),
+      feeClaimAlreadyExists: true,
+    },
+    {
       desc: "(is valid, if no fee recipients are present and folio still has raw_fee_recipients_pending_fee_shares, succeeds)",
       expectedError: null,
       initialDaoPendingFeeShares: new BN(1000).mul(D18),
@@ -295,13 +307,13 @@ describe("Bankrun - Fees", () => {
     {
       desc: "(user tries to distribute fees to too many users, transaction size issue, errors out)",
       expectedError: "TransactionTooLarge",
-      feeRecipients: Array.from({ length: 30 }, () => ({
+      feeRecipients: Array.from({ length: 15 }, () => ({
         recipient: Keypair.generate().publicKey,
-        portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(30)),
+        portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(15)),
       })),
-      feeRecipientsToDistributeTo: Array.from({ length: 30 }, () => ({
+      feeRecipientsToDistributeTo: Array.from({ length: 15 }, () => ({
         recipient: Keypair.generate().publicKey,
-        portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(30)),
+        portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(15)),
       })),
       isPreTransactionValidated: true,
     },
@@ -341,7 +353,7 @@ describe("Bankrun - Fees", () => {
     },
     {
       desc: "(user tries to distribute fees to a non fee recipient, errors out)",
-      expectedError: "InvalidFeeRecipient",
+      expectedError: "InvalidFeeClaimedAccount",
       // Stored in D18
       amountToDistribute: new BN(8_000_000_000).mul(D9),
       feeRecipients: [
@@ -397,6 +409,36 @@ describe("Bankrun - Fees", () => {
       desc: "(user distributes fees to all fee recipients, account closes)",
       expectedError: null,
       amountToDistribute: new BN(8_000_000_000).mul(D9),
+      feeRecipients: [
+        {
+          recipient: feeRecipient1.publicKey,
+          portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
+        },
+        {
+          recipient: feeRecipient2.publicKey,
+          portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
+        },
+      ],
+      feeRecipientNotClaiming: [],
+      feeRecipientsToDistributeTo: [
+        {
+          recipient: feeRecipient1.publicKey,
+          portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
+        },
+        {
+          recipient: feeRecipient2.publicKey,
+          portion: TOTAL_PORTION_FEE_RECIPIENT.div(new BN(2)),
+        },
+      ],
+      expectedFeeDistributed: [new BN(4_000_000_000), new BN(4_000_000_000)],
+      shouldCloseAccount: true,
+    },
+
+    {
+      desc: "(when fee claim already exists, user distributes fees to all fee recipients, account closes)",
+      expectedError: null,
+      amountToDistribute: new BN(8_000_000_000).mul(D9),
+      feeClaimAlreadyExists: true,
       feeRecipients: [
         {
           recipient: feeRecipient1.publicKey,
@@ -601,6 +643,7 @@ describe("Bankrun - Fees", () => {
         folioPDA,
         folioTokenMint.publicKey,
         getAtaAddress(folioTokenMint.publicKey, feeRecipient.publicKey),
+        feeRecipient.publicKey,
         new BN(0),
         true
       );
@@ -614,6 +657,7 @@ describe("Bankrun - Fees", () => {
         folioTokenMint.publicKey,
         adminKeypair.publicKey,
         new BN(0),
+        [],
         [],
         [],
         true
@@ -831,6 +875,7 @@ describe("Bankrun - Fees", () => {
             initialFeeDistributionIndex,
             customFolioFeeConfig,
             useToken2022ForFolioTokenMint,
+            feeClaimAlreadyExists,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
@@ -841,6 +886,8 @@ describe("Bankrun - Fees", () => {
           let feeRecipientBefore: any;
           let daoFeeRecipientBalanceBefore: bigint;
           let currentClock: Clock;
+          let daoFeeClaimedAccountPk: PublicKey;
+          let daoFeeClaimedAccountBefore: any;
 
           beforeEach(async () => {
             await initBaseCase(
@@ -893,6 +940,29 @@ describe("Bankrun - Fees", () => {
               )
             );
 
+            daoFeeClaimedAccountPk = getFolioFeeClaimedPDA(
+              folioPDA,
+              daoFeeRecipientToUse.publicKey
+            );
+            if (feeClaimAlreadyExists) {
+              await createAndSetFolioFeeClaimedAccount(
+                context,
+                programFolio,
+                folioPDA,
+                daoFeeRecipientToUse.publicKey,
+                new BN(context.getClock().unixTimestamp.toString()),
+                expectedDaoFeeShares
+              );
+            }
+
+            try {
+              daoFeeClaimedAccountBefore =
+                await programFolio.account.folioFeeClaimed.fetchNullable(
+                  daoFeeClaimedAccountPk
+                );
+            } catch (_) {
+              daoFeeClaimedAccountBefore = null;
+            }
             txnResult = await distributeFees<true>(
               banksClient,
               programFolio,
@@ -907,8 +977,8 @@ describe("Bankrun - Fees", () => {
                   ? TOKEN_2022_PROGRAM_ID
                   : TOKEN_PROGRAM_ID
               ),
+              daoFeeRecipientToUse.publicKey,
               feeDistributionIndex,
-
               true,
               useToken2022ForFolioTokenMint
                 ? TOKEN_2022_PROGRAM_ID
@@ -945,6 +1015,32 @@ describe("Bankrun - Fees", () => {
               );
 
               // Balance for the dao fee recipient should be updated
+              const daoFeeClaimedAccount =
+                await programFolio.account.folioFeeClaimed.fetch(
+                  daoFeeClaimedAccountPk
+                );
+              assert.equal(
+                daoFeeClaimedAccount.amount.eq(
+                  (daoFeeClaimedAccountBefore?.amount ?? new BN(0)).add(
+                    expectedDaoFeeShares
+                  )
+                ),
+                true
+              );
+              {
+                assert.equal(daoFeeClaimedAccount.folio.equals(folioPDA), true);
+                assert.equal(
+                  daoFeeClaimedAccount.user.equals(
+                    daoFeeRecipientToUse.publicKey
+                  ),
+                  true
+                );
+                TestHelper.assertTime(
+                  daoFeeClaimedAccount.lastUpdate,
+                  new BN(context.getClock().unixTimestamp.toString())
+                );
+              }
+
               const daoFeeRecipientBalanceAfter = await getTokenBalance(
                 banksClient,
                 getAtaAddress(
@@ -987,12 +1083,14 @@ describe("Bankrun - Fees", () => {
             feeRecipientsToDistributeTo,
             shouldCloseAccount,
             useToken2022ForFolioTokenMint,
+            feeClaimAlreadyExists,
           } = {
             ...DEFAULT_PARAMS,
             ...restOfParams,
           };
 
           const feeRecipientsATA = [];
+          const feeRecipientsKeys = [];
           const feeRecipientsBalancesBefore = [];
 
           let currentClock: Clock;
@@ -1001,6 +1099,7 @@ describe("Bankrun - Fees", () => {
           const crankerToUse = customCranker || cranker;
 
           let folioBefore: any;
+          const feeClaimedAccountsBefore: any[] = [];
 
           beforeEach(async () => {
             await initBaseCase(
@@ -1024,9 +1123,34 @@ describe("Bankrun - Fees", () => {
                   : TOKEN_PROGRAM_ID
               );
               feeRecipientsATA.push(feeRecipientATA);
+              feeRecipientsKeys.push(feeRecipient.recipient);
               feeRecipientsBalancesBefore.push(
                 await getTokenBalance(banksClient, feeRecipientATA)
               );
+              if (feeClaimAlreadyExists) {
+                await createAndSetFolioFeeClaimedAccount(
+                  context,
+                  programFolio,
+                  folioPDA,
+                  feeRecipient.recipient,
+                  new BN(context.getClock().unixTimestamp.toString()),
+                  amountToDistribute
+                );
+              }
+
+              try {
+                const feeClaimedAccountPk = getFolioFeeClaimedPDA(
+                  folioPDA,
+                  feeRecipient.recipient
+                );
+                const feeClaimedAccountBefore =
+                  await programFolio.account.folioFeeClaimed.fetchNullable(
+                    feeClaimedAccountPk
+                  );
+                feeClaimedAccountsBefore.push(feeClaimedAccountBefore);
+              } catch (_) {
+                feeClaimedAccountsBefore.push(null);
+              }
             }
 
             await createAndSetFolio(
@@ -1090,7 +1214,7 @@ describe("Bankrun - Fees", () => {
                   (_, i) => new BN(i)
                 ),
                 feeRecipientsATA,
-
+                feeRecipientsKeys,
                 true,
                 [],
                 useToken2022ForFolioTokenMint
@@ -1164,6 +1288,36 @@ describe("Bankrun - Fees", () => {
                     feeRecipientsBalancesBefore[i] + expectedFeeDistributed[i],
                   true
                 );
+
+                if (expectedFeeDistributed[i].gt(new BN(0))) {
+                  const feeClaimedAccountPk = getFolioFeeClaimedPDA(
+                    folioPDA,
+                    feeRecipientsKeys[i]
+                  );
+                  const feeClaimedAccountAfter =
+                    await programFolio.account.folioFeeClaimed.fetch(
+                      feeClaimedAccountPk
+                    );
+                  assert.equal(
+                    feeClaimedAccountAfter.amount.eq(
+                      (feeClaimedAccountsBefore[i]?.amount ?? new BN(0)).add(
+                        expectedFeeDistributed[i]
+                      )
+                    ),
+                    true
+                  );
+
+                  {
+                    assert.equal(
+                      feeClaimedAccountAfter.folio.equals(folioPDA),
+                      true
+                    );
+                    assert.equal(
+                      feeClaimedAccountAfter.user.equals(feeRecipientsKeys[i]),
+                      true
+                    );
+                  }
+                }
               }
 
               const totalFeeDistributed = expectedFeeDistributed.reduce(

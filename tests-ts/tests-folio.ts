@@ -882,7 +882,8 @@ describe("Folio Tests", () => {
       folioPDA,
       folioTokenMint.publicKey,
       daoFeeRecipientATA,
-      new BN(1)
+      new BN(1),
+      daoFeeConfig.feeRecipient
     );
 
     const feeDistribution = await programFolio.account.feeDistribution.fetch(
@@ -971,7 +972,8 @@ describe("Folio Tests", () => {
       userKeypair.publicKey,
       new BN(1),
       [new BN(0), new BN(1)],
-      [newRecipient1ATA, newRecipient2ATA]
+      [newRecipient1ATA, newRecipient2ATA],
+      [newFeeRecipient[0].recipient, newFeeRecipient[1].recipient]
     );
 
     const balanceNewRecipient1After = await getTokenBalance(

@@ -1,15 +1,18 @@
 use crate::events::TVLFeePaid;
-use crate::state::{FeeDistribution, Folio};
+use crate::state::{FeeDistribution, Folio, FolioFeeClaimed};
 use crate::utils::structs::FolioStatus;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 use anchor_spl::token_2022;
 use anchor_spl::token_interface::{self, Mint, TokenInterface};
 use shared::check_condition;
-use shared::constants::{FEE_DISTRIBUTION_SEEDS, FOLIO_SEEDS, MAX_FEE_RECIPIENTS_PORTION};
+use shared::constants::{
+    FEE_DISTRIBUTION_SEEDS, FOLIO_FEE_CLAIMED_ACCOUNT_SEEDS, FOLIO_SEEDS,
+    MAX_FEE_RECIPIENTS_PORTION,
+};
 use shared::errors::ErrorCode;
 use shared::utils::account_util::next_account;
-use shared::utils::{Decimal, Rounding};
+use shared::utils::{init_pda_account_rent_if_needed, Decimal, Rounding};
 
 /// Crank Fee Distribution
 ///
@@ -112,12 +115,12 @@ pub fn handler<'info>(
 ) -> Result<()> {
     let folio_bump: u8;
     let scaled_total_amount_to_distribute: u128;
+    let current_time = Clock::get()?.unix_timestamp as u64;
 
     let token_mint_key = ctx.accounts.folio_token_mint.key();
-
+    let folio_key = ctx.accounts.folio.key();
     {
         let folio = &ctx.accounts.folio.load()?;
-
         let fee_distribution = &ctx.accounts.fee_distribution.load()?;
 
         folio_bump = folio.bump;
@@ -141,6 +144,7 @@ pub fn handler<'info>(
                 true,
                 ctx.accounts.token_program.key,
             )?;
+            let fee_claimed = next_account(&mut remaining_accounts_iter, false, true, &crate::ID)?;
 
             let related_fee_distribution =
                 &mut fee_distribution.fee_recipients_state[index as usize];
@@ -149,6 +153,42 @@ pub fn handler<'info>(
             if related_fee_distribution.recipient.key() == Pubkey::default() {
                 continue;
             }
+
+            let recipient_key = related_fee_distribution.recipient.key();
+            let seeds_for_fee_claimed_account = &[
+                FOLIO_FEE_CLAIMED_ACCOUNT_SEEDS,
+                folio_key.as_ref(),
+                recipient_key.as_ref(),
+            ];
+
+            let (fee_claimed_key_derived, fee_claimed_bump) =
+                Pubkey::find_program_address(seeds_for_fee_claimed_account, &crate::id());
+
+            let seeds_with_bump = [
+                FOLIO_FEE_CLAIMED_ACCOUNT_SEEDS,
+                folio_key.as_ref(),
+                recipient_key.as_ref(),
+                &[fee_claimed_bump],
+            ];
+
+            check_condition!(
+                fee_claimed_key_derived == fee_claimed.key(),
+                InvalidFeeClaimedAccount
+            );
+
+            let was_inialized = init_pda_account_rent_if_needed(
+                fee_claimed,
+                FolioFeeClaimed::SIZE,
+                &ctx.accounts.user,
+                &crate::id(),
+                &ctx.accounts.system_program,
+                &[&seeds_with_bump[..]],
+            )?;
+            let mut fee_claimed: Account<'info, FolioFeeClaimed> = if was_inialized {
+                Account::try_from_unchecked(fee_claimed)?
+            } else {
+                Account::try_from(fee_claimed)?
+            };
 
             // Validate proper token account for the recipient
             check_condition!(
@@ -160,9 +200,6 @@ pub fn handler<'info>(
                     ),
                 InvalidFeeRecipient
             );
-
-            // Set as distributed
-            related_fee_distribution.recipient = Pubkey::default();
 
             let raw_amount_to_distribute = Decimal::from_scaled(scaled_total_amount_to_distribute)
                 .mul(&Decimal::from_scaled(related_fee_distribution.portion))?
@@ -193,6 +230,20 @@ pub fn handler<'info>(
                 recipient: related_fee_distribution.recipient.key(),
                 amount: raw_amount_to_distribute,
             });
+
+            fee_claimed.bump = fee_claimed_bump;
+            fee_claimed.folio = folio_key;
+            fee_claimed.last_update = current_time;
+            fee_claimed.user = related_fee_distribution.recipient.key();
+            fee_claimed.amount = fee_claimed
+                .amount
+                .checked_add(raw_amount_to_distribute)
+                .ok_or(ErrorCode::MathOverflow)?;
+            // This save the data in account along with the Discriminator if needed.
+            fee_claimed.exit(&crate::id())?;
+
+            // Set as distributed
+            related_fee_distribution.recipient = Pubkey::default();
         }
     }
 

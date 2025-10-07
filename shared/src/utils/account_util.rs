@@ -132,3 +132,34 @@ pub fn init_pda_account_rent<'info>(
 
     Ok(())
 }
+
+#[cfg(not(tarpaulin_include))]
+pub fn init_pda_account_rent_if_needed<'info>(
+    account_to_init: &AccountInfo<'info>,
+    space: usize,
+    payer: &AccountInfo<'info>,
+    owner_program_id: &Pubkey,
+    system_program: &AccountInfo<'info>,
+    pda_signers_seeds: &[&[&[u8]]],
+) -> Result<bool> {
+    let rent = Rent::get()?;
+    let rent_lamports = rent.minimum_balance(space);
+
+    if account_to_init.owner == owner_program_id
+        && account_to_init.data_len() == space
+        && account_to_init.lamports() >= rent_lamports
+    {
+        // Account already initialized
+        return Ok(false);
+    }
+
+    init_pda_account_rent(
+        account_to_init,
+        space,
+        payer,
+        owner_program_id,
+        system_program,
+        pda_signers_seeds,
+    )?;
+    Ok(true)
+}

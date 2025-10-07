@@ -11,13 +11,13 @@ use folio_admin::ID as FOLIO_ADMIN_PROGRAM_ID;
 use shared::check_condition;
 use shared::constants::{
     D9_U128, DAO_FEE_CONFIG_SEEDS, FEE_DISTRIBUTION_SEEDS, FEE_RECIPIENTS_SEEDS,
-    FOLIO_FEE_CONFIG_SEEDS, FOLIO_SEEDS,
+    FOLIO_FEE_CLAIMED_ACCOUNT_SEEDS, FOLIO_FEE_CONFIG_SEEDS, FOLIO_SEEDS,
 };
 use shared::errors::ErrorCode;
 use shared::utils::{Decimal, Rounding};
 
 use crate::events::ProtocolFeePaid;
-use crate::state::{FeeDistribution, FeeRecipients, Folio};
+use crate::state::{FeeDistribution, FeeRecipients, Folio, FolioFeeClaimed};
 
 /// Distribute Fees
 ///
@@ -73,6 +73,14 @@ pub struct DistributeFees<'info> {
 
     #[account(mut)]
     pub dao_fee_recipient: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    #[account(init_if_needed,
+        payer = user,
+        space = FolioFeeClaimed::SIZE,
+        seeds = [FOLIO_FEE_CLAIMED_ACCOUNT_SEEDS, folio.key().as_ref(), dao_fee_recipient.owner.to_bytes().as_ref()],
+        bump
+    )]
+    pub dao_fee_claimed: Account<'info, FolioFeeClaimed>,
 }
 
 /// Validate the instruction.
@@ -188,8 +196,12 @@ pub fn distribute_fees<'info>(
     fee_recipients: &AccountLoader<'info, FeeRecipients>,
     fee_distribution: &AccountLoader<'info, FeeDistribution>,
     dao_fee_recipient: &AccountInfo<'info>,
+    dao_fee_claimed: &mut Account<'info, FolioFeeClaimed>,
+    dao_fee_claimed_bump: u8,
     index: u64,
 ) -> Result<()> {
+    let current_time = Clock::get()?.unix_timestamp;
+    let dao_fee_recipient_key;
     {
         let fee_recipients_data = fee_recipients.load()?;
 
@@ -220,8 +232,8 @@ pub fn distribute_fees<'info>(
             InvalidDaoFeeRecipient
         );
 
+        dao_fee_recipient_key = fee_details.fee_recipient;
         // Update pending fees by poking to get latest fees
-        let current_time = Clock::get()?.unix_timestamp;
         folio.poke(
             folio_token_mint.supply,
             current_time,
@@ -322,6 +334,14 @@ pub fn distribute_fees<'info>(
             recipient: dao_fee_recipient.key(),
             amount: raw_dao_pending_fee_shares,
         });
+        dao_fee_claimed.bump = dao_fee_claimed_bump;
+        dao_fee_claimed.folio = folio_key;
+        dao_fee_claimed.last_update = current_time as u64;
+        dao_fee_claimed.user = dao_fee_recipient_key;
+        dao_fee_claimed.amount = dao_fee_claimed
+            .amount
+            .checked_add(raw_dao_pending_fee_shares)
+            .ok_or(ErrorCode::MathOverflow)?;
     }
 
     // Update folio pending fees based on what was distributed
@@ -390,6 +410,8 @@ pub fn handler<'info>(
         &ctx.accounts.fee_recipients,
         &ctx.accounts.fee_distribution,
         &ctx.accounts.dao_fee_recipient.to_account_info(),
+        &mut ctx.accounts.dao_fee_claimed,
+        ctx.bumps.dao_fee_claimed,
         index,
     )?;
 

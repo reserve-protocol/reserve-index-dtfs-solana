@@ -579,6 +579,7 @@ describe("Folio Tests | Complete flow with Token2022", () => {
       folioTokenMint.publicKey,
       daoFeeRecipientATA,
       index,
+      daoFeeConfig.feeRecipient,
       TOKEN_2022_PROGRAM_ID
     );
 
@@ -673,6 +674,7 @@ describe("Folio Tests | Complete flow with Token2022", () => {
       previousFeeDistributionindex,
       [new BN(0), new BN(1)],
       [newRecipient1ATA, newRecipient2ATA],
+      [newFeeRecipient[0].recipient, newFeeRecipient[1].recipient],
       TOKEN_2022_PROGRAM_ID
     );
 

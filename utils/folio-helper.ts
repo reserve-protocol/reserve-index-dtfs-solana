@@ -26,6 +26,7 @@ import {
   getFolioFeeConfigPDA,
   getRebalancePDA,
   getAuctionEndsPDA,
+  getFolioFeeClaimedPDA,
 } from "./pda-helper";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -242,6 +243,11 @@ export async function updateFolio(
           daoFeeRecipient,
           tokenProgramForAta
         ),
+        isSigner: false,
+        isWritable: true,
+      },
+      {
+        pubkey: getFolioFeeClaimedPDA(folio, daoFeeRecipient),
         isSigner: false,
         isWritable: true,
       },
@@ -643,8 +649,9 @@ export async function distributeFees(
   userKeypair: Keypair,
   folio: PublicKey,
   folioTokenMint: PublicKey,
-  daoFeeRecipient: PublicKey,
+  daoFeeRecipientAta: PublicKey,
   index: BN,
+  feeRecipient: PublicKey,
   folioMintTokenProgram: PublicKey = TOKEN_PROGRAM_ID
 ) {
   const folioProgram = getFolioProgram(connection, userKeypair);
@@ -662,7 +669,8 @@ export async function distributeFees(
       folioTokenMint,
       feeRecipients: getTVLFeeRecipientsPDA(folio),
       feeDistribution: getFeeDistributionPDA(folio, index),
-      daoFeeRecipient,
+      daoFeeRecipient: daoFeeRecipientAta,
+      daoFeeClaimed: getFolioFeeClaimedPDA(folio, feeRecipient),
     })
     .instruction();
 
@@ -679,18 +687,27 @@ export async function crankFeeDistribution(
   cranker: PublicKey,
   feeDistributionIndex: BN,
   indices: BN[],
+  feeRecipientsAta: PublicKey[],
   feeRecipients: PublicKey[],
   tokenProgram = TOKEN_PROGRAM_ID
 ) {
   const folioProgram = getFolioProgram(connection, userKeypair);
 
-  const remainingAccounts = feeRecipients.map((recipient) => {
-    return {
-      isWritable: true,
-      isSigner: false,
-      pubkey: recipient,
-    };
+  const remainingAccountsArray = feeRecipientsAta.map((recipient, index) => {
+    return [
+      {
+        isWritable: true,
+        isSigner: false,
+        pubkey: recipient,
+      },
+      {
+        isWritable: true,
+        isSigner: false,
+        pubkey: getFolioFeeClaimedPDA(folio, feeRecipients[index]),
+      },
+    ];
   });
+  const remainingAccounts = remainingAccountsArray.flat();
 
   const crankFeeDistribution = await folioProgram.methods
     .crankFeeDistribution(indices)

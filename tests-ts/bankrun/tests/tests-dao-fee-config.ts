@@ -172,6 +172,7 @@ describe("Bankrun - Dao / Folio Fee Config", () => {
         DEFAULT_PARAMS.expectedFeeNumerator,
         DEFAULT_PARAMS.expectedFeeFloor,
         DEFAULT_PARAMS.expectedFeeRecipient,
+        DEFAULT_PARAMS.expectedFeeRecipient,
         false
       );
 
@@ -314,7 +315,8 @@ describe("Bankrun - Dao / Folio Fee Config", () => {
                 context,
                 FOLIO_TOKEN_MINT,
                 expectedFeeRecipient
-              )
+              ),
+              expectedFeeRecipient
             );
           });
 

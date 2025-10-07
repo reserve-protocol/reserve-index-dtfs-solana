@@ -17,6 +17,7 @@ import {
   getRewardTokensPDA,
   getAuctionEndsPDA,
   getGovernanceHoldingPDA,
+  getFolioFeeClaimedPDA,
 } from "../../utils/pda-helper";
 import {
   AccountMeta,
@@ -107,6 +108,7 @@ export async function setFolioFeeConfig<T extends boolean = true>(
   folioTokenMint: PublicKey,
   feeNumerator: BN,
   feeFloor: BN,
+  feeRecipientAta: PublicKey,
   feeRecipient: PublicKey,
   executeTxn: T = true as T
 ): Promise<
@@ -128,7 +130,8 @@ export async function setFolioFeeConfig<T extends boolean = true>(
       folioProgram: FOLIO_PROGRAM_ID,
       feeRecipients: getTVLFeeRecipientsPDA(folio),
       feeDistribution: getFeeDistributionPDA(folio, new BN(1)),
-      daoFeeRecipient: feeRecipient,
+      daoFeeRecipient: feeRecipientAta,
+      daoFeeClaimed: getFolioFeeClaimedPDA(folio, feeRecipient),
     })
     .instruction();
 
@@ -802,6 +805,7 @@ export async function distributeFees<T extends boolean = true>(
   userKeypair: Keypair,
   folio: PublicKey,
   folioTokenMint: PublicKey,
+  daoFeeRecipientAta: PublicKey,
   daoFeeRecipient: PublicKey,
   index: BN,
   executeTxn: T = true as T,
@@ -824,7 +828,8 @@ export async function distributeFees<T extends boolean = true>(
       folioTokenMint,
       feeRecipients: getTVLFeeRecipientsPDA(folio),
       feeDistribution: getFeeDistributionPDA(folio, index),
-      daoFeeRecipient,
+      daoFeeRecipient: daoFeeRecipientAta,
+      daoFeeClaimed: getFolioFeeClaimedPDA(folio, daoFeeRecipient),
     })
     .instruction();
 
@@ -846,6 +851,7 @@ export async function crankFeeDistribution<T extends boolean = true>(
   cranker: PublicKey,
   feeDistributionIndex: BN,
   indices: BN[],
+  feeRecipientsAta: PublicKey[],
   feeRecipients: PublicKey[],
   executeTxn: T = true as T,
   remainingAccounts: AccountMeta[] = [],
@@ -870,13 +876,22 @@ export async function crankFeeDistribution<T extends boolean = true>(
     .remainingAccounts(
       remainingAccounts.length > 0
         ? remainingAccounts
-        : feeRecipients.map((recipient) => {
-            return {
-              isWritable: true,
-              isSigner: false,
-              pubkey: recipient,
-            };
-          })
+        : feeRecipientsAta
+            .map((recipient, index) => {
+              return [
+                {
+                  isWritable: true,
+                  isSigner: false,
+                  pubkey: recipient,
+                },
+                {
+                  isWritable: true,
+                  isSigner: false,
+                  pubkey: getFolioFeeClaimedPDA(folio, feeRecipients[index]),
+                },
+              ];
+            })
+            .flat()
     )
     .instruction();
 

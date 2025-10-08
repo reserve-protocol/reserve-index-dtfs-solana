@@ -81,9 +81,14 @@ build-local:
 	# Anchor build folio program, which is used for folio migration related tests.
 	@anchor build --program-name folio -- --features test,dev  
 
-	# Update program ID in IDL and type files (Mac compatible)
-	@sed -i '' 's/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/g' target/idl/folio.json
-	@sed -i '' 's/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/g' target/types/folio.ts
+	# Update program ID in IDL and type files (cross-platform sed)
+	@if [[ "$OSTYPE" == "darwin"* ]]; then \
+		sed -i '' 's/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/g' target/idl/folio.json; \
+		sed -i '' 's/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/g' target/types/folio.ts; \
+	else \
+		sed -i 's/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/g' target/idl/folio.json; \
+		sed -i 's/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/g' target/types/folio.ts; \
+	fi
 
 	# Rename second instance files
 	@mv target/idl/folio.json target/idl/second_folio.json
@@ -125,9 +130,14 @@ build-dev:
 	# Anchor build with dev feature flag
 	@anchor build -- --features dev 
 
-	# Replaces keys in folio with dev keys.
-	@sed -i '' 's/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/g' target/idl/folio.json
-	@sed -i '' 's/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/g' target/types/folio.ts
+	# Replaces keys in folio with dev keys (cross-platform sed)
+	@if [[ "$OSTYPE" == "darwin"* ]]; then \
+		sed -i '' 's/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/g' target/idl/folio.json; \
+		sed -i '' 's/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/g' target/types/folio.ts; \
+	else \
+		sed -i 's/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/g' target/idl/folio.json; \
+		sed -i 's/DTF4yDGBkXJ25Ech1JVQpfwVb1vqYW4RJs5SuGNWdDev/n6sR7Eg5LMg5SGorxK9q3ZePHs9e8gjoQ7TgUW2YCaG/g' target/types/folio.ts; \
+	fi
 
 	@echo "Done| Governance program is not built"
 
@@ -206,4 +216,3 @@ test-coverage:
                 "programs/*/src/lib.rs" \
                 "programs/*/src/**/errors.rs" \
                 --out Html \
-                --output-dir target/tarpaulin

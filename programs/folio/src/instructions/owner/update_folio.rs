@@ -1,18 +1,19 @@
 use crate::events::{AuctionLengthSet, MintFeeSet};
 
 use crate::instructions::distribute_fees;
-use crate::state::{Actor, FeeDistribution, FeeRecipients, Folio};
+use crate::state::{Actor, FeeDistribution, FeeRecipients, Folio, FolioFeeClaimed};
 use crate::utils::structs::{FeeRecipient, Role};
 use crate::utils::{FixedSizeString, FolioStatus, MAX_PADDED_STRING_LENGTH};
 use crate::ID;
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::Mint;
+use folio_admin::state::DAOFeeConfig;
 use shared::constants::{
-    FEE_DISTRIBUTION_SEEDS, FEE_RECIPIENTS_SEEDS, MAX_AUCTION_LENGTH, MAX_MINT_FEE, MAX_TVL_FEE,
-    MIN_AUCTION_LENGTH,
+    FEE_DISTRIBUTION_SEEDS, FEE_RECIPIENTS_SEEDS, FOLIO_FEE_CLAIMED_ACCOUNT_SEEDS,
+    MAX_AUCTION_LENGTH, MAX_MINT_FEE, MAX_TVL_FEE, MIN_AUCTION_LENGTH,
 };
 use shared::errors::ErrorCode;
-use shared::utils::init_pda_account_rent;
+use shared::utils::{init_pda_account_rent, init_pda_account_rent_if_needed};
 use shared::{check_condition, constants::ACTOR_SEEDS};
 use solana_system_interface::program::ID as SYSTEM_PROGRAM_ID;
 
@@ -24,6 +25,7 @@ enum IndexPerAccount {
     FolioTokenMint,
     FeeDistribution,
     DAOFeeRecipient,
+    DAOFeeClaimed,
 }
 
 /// Update Folio (one or multiple different fields of the folio)
@@ -131,7 +133,7 @@ impl<'info> UpdateFolio<'info> {
                 return Err(error!(ErrorCode::MissingFeeDistributionIndex));
             }
 
-            let dao_fee_config =
+            let dao_fee_config: Account<'info, DAOFeeConfig> =
                 Account::try_from(&remaining_accounts[IndexPerAccount::DAOFeeConfig as usize])?;
 
             let folio_token_mint: Box<InterfaceAccount<Mint>> =
@@ -182,6 +184,48 @@ impl<'info> UpdateFolio<'info> {
                     &remaining_accounts[IndexPerAccount::FeeDistribution as usize],
                 )?;
 
+            let folio_fee_config = &remaining_accounts[IndexPerAccount::FolioFeeConfig as usize];
+            let fee_details = dao_fee_config.get_fee_details(folio_fee_config)?;
+            let dao_fee_recipient_key = fee_details.fee_recipient;
+
+            let seeds_for_fee_claimed_account = &[
+                FOLIO_FEE_CLAIMED_ACCOUNT_SEEDS,
+                folio_key.as_ref(),
+                dao_fee_recipient_key.as_ref(),
+            ];
+
+            let (dao_fee_claimed_key, dao_fee_claimed_bump) =
+                Pubkey::find_program_address(seeds_for_fee_claimed_account, &ID);
+
+            let seeds_with_bump = [
+                FOLIO_FEE_CLAIMED_ACCOUNT_SEEDS,
+                folio_key.as_ref(),
+                dao_fee_recipient_key.as_ref(),
+                &[dao_fee_claimed_bump],
+            ];
+
+            check_condition!(
+                dao_fee_claimed_key
+                    == remaining_accounts[IndexPerAccount::DAOFeeClaimed as usize].key(),
+                InvalidDaoFeeClaimedAccount
+            );
+
+            let was_inialized = init_pda_account_rent_if_needed(
+                &remaining_accounts[IndexPerAccount::DAOFeeClaimed as usize],
+                FolioFeeClaimed::SIZE,
+                &self.folio_owner,
+                &ID,
+                &self.system_program,
+                &[&seeds_with_bump[..]],
+            )?;
+            let mut dao_fee_claimed = if was_inialized {
+                Account::try_from_unchecked(
+                    &remaining_accounts[IndexPerAccount::DAOFeeClaimed as usize],
+                )?
+            } else {
+                Account::try_from(&remaining_accounts[IndexPerAccount::DAOFeeClaimed as usize])?
+            };
+
             distribute_fees(
                 &remaining_accounts[IndexPerAccount::TokenProgram as usize],
                 &self.folio_owner,
@@ -192,8 +236,11 @@ impl<'info> UpdateFolio<'info> {
                 &self.fee_recipients,
                 &fee_distribution,
                 &remaining_accounts[IndexPerAccount::DAOFeeRecipient as usize],
+                &mut dao_fee_claimed,
+                dao_fee_claimed_bump,
                 index_for_fee_distribution.unwrap(),
             )?;
+            dao_fee_claimed.exit(&ID)?;
         }
 
         Ok(())

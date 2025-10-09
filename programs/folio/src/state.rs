@@ -353,3 +353,18 @@ pub struct AuctionEnds {
 impl AuctionEnds {
     pub const SIZE: usize = 8 + AuctionEnds::INIT_SPACE;
 }
+
+// PDA Seeds ["folio_fee_claimed", folio, user]
+#[account()]
+#[derive(Default, InitSpace)]
+pub struct FolioFeeClaimed {
+    pub bump: u8,
+    pub folio: Pubkey,
+    pub user: Pubkey,
+    pub last_update: u64,
+    pub amount: u64,
+}
+
+impl FolioFeeClaimed {
+    pub const SIZE: usize = 8 + FolioFeeClaimed::INIT_SPACE;
+}

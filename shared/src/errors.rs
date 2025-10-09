@@ -121,6 +121,12 @@ pub enum ErrorCode {
     #[msg("Invalid Fee Distribution")]
     InvalidFeeDistribution,
 
+    #[msg("Invalid Dao Fee Claimed Account")]
+    InvalidDaoFeeClaimedAccount,
+
+    #[msg("Invalid Fee Claimed Account")]
+    InvalidFeeClaimedAccount,
+
     #[msg("Missing Fee Distribution Index")]
     MissingFeeDistributionIndex,
 

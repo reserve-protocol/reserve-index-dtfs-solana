@@ -181,7 +181,8 @@ describe("Folio Migration Tests", () => {
       folioPDA,
       folioTokenMint.publicKey,
       daoFeeRecipientATA,
-      new BN(1)
+      new BN(1),
+      daoFeeConfig.feeRecipient
     );
   });
 

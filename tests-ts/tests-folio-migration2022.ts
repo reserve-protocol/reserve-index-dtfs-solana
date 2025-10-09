@@ -231,6 +231,7 @@ describe("Folio Migration Tests 2022", () => {
       folioTokenMint.publicKey,
       daoFeeRecipientATA,
       new BN(1),
+      daoFeeConfig.feeRecipient,
       TOKEN_2022_PROGRAM_ID
     );
   });

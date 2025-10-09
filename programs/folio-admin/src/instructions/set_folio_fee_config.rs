@@ -79,6 +79,10 @@ pub struct SetFolioFeeConfig<'info> {
     /// CHECK: DAO fee recipient account, checks done on the folio program
     #[account(mut)]
     pub dao_fee_recipient: UncheckedAccount<'info>,
+
+    /// CHECK: DAO fee recipient account, checks done on the folio program
+    #[account(mut)]
+    pub dao_fee_claimed: UncheckedAccount<'info>,
 }
 
 impl SetFolioFeeConfig<'_> {
@@ -135,6 +139,7 @@ pub fn handler(
         &ctx.accounts.fee_recipients.to_account_info(),
         &ctx.accounts.fee_distribution.to_account_info(),
         &ctx.accounts.dao_fee_recipient.to_account_info(),
+        &ctx.accounts.dao_fee_claimed.to_account_info(),
     )?;
 
     let folio_fee_config = &mut ctx.accounts.folio_fee_config;

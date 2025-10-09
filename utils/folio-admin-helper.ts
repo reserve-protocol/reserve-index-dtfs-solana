@@ -15,6 +15,7 @@ import {
   getFolioFeeConfigPDA,
   getFeeDistributionPDA,
   getTVLFeeRecipientsPDA,
+  getFolioFeeClaimedPDA,
 } from "./pda-helper";
 import { FolioAdmin } from "../target/types/folio_admin";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
@@ -107,6 +108,7 @@ export async function setFolioFeeConfig(
         adminKeypair,
         daoFeeRecipient
       ),
+      daoFeeClaimed: getFolioFeeClaimedPDA(folio, daoFeeRecipient),
     })
     .instruction();
 

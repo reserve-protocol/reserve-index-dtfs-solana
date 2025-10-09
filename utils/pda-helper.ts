@@ -171,6 +171,13 @@ export function getFeeDistributionPDA(folio: PublicKey, index: BN) {
   return getFeeDistributionPDAWithBump(folio, index)[0];
 }
 
+export function getFolioFeeClaimedPDA(
+  folio: PublicKey,
+  feeRecipient: PublicKey
+) {
+  return getFolioFeeClaimedPDAWithBump(folio, feeRecipient)[0];
+}
+
 export function getRebalancePDA(folio: PublicKey) {
   return getRebalancePDAWithBump(folio)[0];
 }
@@ -187,6 +194,19 @@ export function getFeeDistributionPDAWithBump(folio: PublicKey, index: BN) {
       Buffer.from("fee_distribution"),
       folio.toBuffer(),
       index.toBuffer("le", 8),
+    ],
+    FOLIO_PROGRAM_ID
+  );
+}
+export function getFolioFeeClaimedPDAWithBump(
+  folio: PublicKey,
+  feeRecipient: PublicKey
+) {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("folio_fee_claimed"),
+      folio.toBuffer(),
+      feeRecipient.toBuffer(),
     ],
     FOLIO_PROGRAM_ID
   );

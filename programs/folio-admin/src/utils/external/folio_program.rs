@@ -87,6 +87,7 @@ impl FolioProgram {
         fee_recipients: &AccountInfo<'a>,
         fee_distribution: &AccountInfo<'a>,
         dao_fee_recipient: &AccountInfo<'a>,
+        dao_fee_claimed: &AccountInfo<'a>,
     ) -> Result<()> {
         // Won't distribute the fees if the fee recipients account is not initialized (since it's initialized on update_folio instruction)
         if fee_recipients.data_is_empty() {
@@ -105,6 +106,7 @@ impl FolioProgram {
             fee_recipients.clone(),
             fee_distribution.clone(),
             dao_fee_recipient.clone(),
+            dao_fee_claimed.clone(),
         ];
 
         let account_metas = vec![
@@ -119,6 +121,7 @@ impl FolioProgram {
             AccountMeta::new(fee_recipients.key(), false),
             AccountMeta::new(fee_distribution.key(), false),
             AccountMeta::new(dao_fee_recipient.key(), false),
+            AccountMeta::new(dao_fee_claimed.key(), false),
         ];
 
         let mut data =
